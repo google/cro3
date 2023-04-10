@@ -1,8 +1,0 @@
-#!/bin/sh
-# Copyright 2010 The ChromiumOS Authors
-# Use of this source code is governed by a BSD-style license that can be
-# found in the LICENSE file.
-
-# Compatibility hack to keep things in $PATH for users until we're ready to
-# deprecate this tool entirely.
-exec /mnt/host/source/src/scripts/cros_workon_make "$@"
