@@ -46,12 +46,11 @@ record_and_verify_boot() {
   fi
 
   # Calculate next boot ID.
-  BOOT_ID=$(printf "%02d" "$((LAST_BOOT_ID+1))")
-  MAX_RECORDED_BOOTS=$(printf "%02d" "${MAX_RECORDED_BOOTS}")
+  BOOT_ID=$((LAST_BOOT_ID+1))
   if [ "${BOOT_ID}" -gt "${MAX_RECORDED_BOOTS}" ]; then
-    BOOT_ID="01"
+    BOOT_ID=1
   fi
-  BOOT_NAME="boot_${BOOT_ID}"
+  BOOT_NAME="boot_$(printf "%02d" "${BOOT_ID}")"
   echo -n "${BOOT_ID}" > "${LAST_BOOT_ID_FILE}"
 
   # Initialize new record dir.
