@@ -16,9 +16,10 @@ CROS_TMP_TEST_DIR="${CROS_TMP_DIR}/test"
 CROS_STATUS_READY_FILE="${CROS_TMP_STATUS_DIR}/ready"
 CROS_BOOT_LOG_DIR="/root/cros_boot_log"
 CROS_BOOT_STATE_FILE="${CROS_BOOT_LOG_DIR}/boot_state_log.csv"
+CROS_BOOT_STATE_PREV_FILE="${CROS_BOOT_LOG_DIR}/boot_state_log.prev.csv"
 LAST_BOOT_ID_FILE="${CROS_BOOT_LOG_DIR}/last_boot_id.txt"
 MAX_RECORDED_BOOTS=20
-MAX_BOOT_STATE_ROWS=1000
+MAX_BOOT_STATE_ROWS=500
 
 prepare_tmp_test_dir() {
   if [ -d "${CROS_TMP_DIR}" ]; then
@@ -90,25 +91,28 @@ record_and_verify_boot() {
 
   # Prepare boot state log.
   BOOT_STATE_HEADER="BOOT_NAME,BOOT_CHECK_RESULT,${BOOT_CHECK_RESULT_HEADER}"
+  LAST_CHECK_WAS_FAILURE=0
   if [ ! -f "${CROS_BOOT_STATE_FILE}" ]; then
     # New log.
     echo "${BOOT_STATE_HEADER}" > "${CROS_BOOT_STATE_FILE}"
   else
+    # Existing log, make sure it's not full.
+    LAST_CHECK_WAS_FAILURE=$(tail -1 "${CROS_BOOT_STATE_FILE}" | grep -q "FAILURE")
     BOOT_STATE_DATA_ROWS=$(($(wc -l < "${CROS_BOOT_STATE_FILE}")-1))
     if [ "${BOOT_STATE_DATA_ROWS}" -ge "${MAX_BOOT_STATE_ROWS}" ]; then
-      # Full log, pop off top data row(s), leaving a spot for new row.
-      TMP_FILE="${CROS_BOOT_STATE_FILE}.tmp"
-      echo "${BOOT_STATE_HEADER}" > "${TMP_FILE}"
-      tail "-$((MAX_BOOT_STATE_ROWS-1))" "${CROS_BOOT_STATE_FILE}" >> "${TMP_FILE}"
-      rm "${CROS_BOOT_STATE_FILE}"
-      mv "${TMP_FILE}" "${CROS_BOOT_STATE_FILE}"
+      # Full log, archive log and create a fresh log.
+      if [ -f "${CROS_BOOT_STATE_PREV_FILE}" ]; then
+        # Remove last archive, we only keep one at a time.
+        rm "${CROS_BOOT_STATE_PREV_FILE}"
+      fi
+      mv "${CROS_BOOT_STATE_FILE}" "${CROS_BOOT_STATE_PREV_FILE}"
+      echo "${BOOT_STATE_HEADER}" > "${CROS_BOOT_STATE_FILE}"
     fi
   fi
 
   # Evaluate and record final boot check.
   if [ "${BOOT_CHECK_RESULT}" != "${SUCCESS_RESULT}" ]; then
     # Boot check failed. Reboot if not already rebooted due to a previous failure.
-    LAST_CHECK_WAS_FAILURE=$(tail -1 "${CROS_BOOT_STATE_FILE}" | grep -q "FAILURE")
     echo "${BOOT_NAME},FAILURE,${BOOT_CHECK_RESULT}" >> "${CROS_BOOT_STATE_FILE}"
     if [ "${LAST_CHECK_WAS_FAILURE}" -ne 0 ]; then
       reboot
