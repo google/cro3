@@ -129,6 +129,12 @@ func (td *TastDriver) RunTests(ctx context.Context, resultsDir string, req *api.
 	testResults := reportServer.TestsReports()
 	missingResults := reportServer.MissingTestsReports(MissingTestErrMsg)
 	results := append(testResults, missingResults...)
+	reportWarnings := reportServer.Warnings()
+	if len(reportWarnings) > 0 {
+		for _, w := range reportWarnings {
+			td.logger.Printf("%s\n", w)
+		}
+	}
 	reportErrors := reportServer.Errors()
 	if len(reportErrors) > 0 {
 		for _, e := range reportErrors {

@@ -117,21 +117,27 @@ func TestReportsServer_ReportResult(t *testing.T) {
 	resultDir := "/tmp/tast/results"
 	tests := []string{
 		"PassedTest",
+		"PassedTestWithNoMetadata",
 		"FailedTest",
 		"SkippedTest",
 		"MissingTest", // Used for testing missing test report.
+		"MissingTestWithNoMetadata",
 	}
 	testIDs := []string{
 		"PassedTestId",
+		"PassedTestWithNoMetadataId",
 		"FailedTestId",
 		"SkippedTestId",
 		"MissingTestId", // Used for testing missing test report.
+		"MissingTestWithNoMetadataId",
 	}
 	testNamesToIds := map[string]string{
-		"PassedTest":  "PassedTestId",
-		"FailedTest":  "FailedTestId",
-		"SkippedTest": "SkippedTestId",
-		"MissingTest": "MissingTestId",
+		"PassedTest":                "PassedTestId",
+		"PassedTestWithNoMetadata":  "PassedTestWithNoMetadataId",
+		"FailedTest":                "FailedTestId",
+		"SkippedTest":               "SkippedTestId",
+		"MissingTest":               "MissingTestId",
+		"MissingTestWithNoMetadata": "MissingTestWithNoMetadataId",
 	}
 	testNamesToMetadata := map[string]*api.TestCaseMetadata{
 		"PassedTest": {
@@ -197,7 +203,7 @@ func TestReportsServer_ReportResult(t *testing.T) {
 	}
 	testTimeFailedTest, err := ptypes.TimestampProto(time.Time{}.Add(1))
 	if err != nil {
-		t.Error("Failed to create start time for FailededTest", err)
+		t.Error("Failed to create start time for FailedTest", err)
 	}
 	testTimeSkippedTest, err := ptypes.TimestampProto(time.Time{}.Add(2))
 	if err != nil {
@@ -207,6 +213,11 @@ func TestReportsServer_ReportResult(t *testing.T) {
 	requests := []*protocol.ReportResultRequest{
 		{
 			Test:      "PassedTest",
+			StartTime: testTimePassedTest,
+			Duration:  ptypes.DurationProto(time.Second),
+		},
+		{
+			Test:      "PassedTestWithNoMetadata",
 			StartTime: testTimePassedTest,
 			Duration:  ptypes.DurationProto(time.Second),
 		},
@@ -255,6 +266,22 @@ func TestReportsServer_ReportResult(t *testing.T) {
 				HostType: _go.StoragePath_LOCAL,
 				Path:     filepath.Join(resultDir, "tests", tests[1]),
 			},
+			Verdict: &api.TestCaseResult_Pass_{Pass: &api.TestCaseResult_Pass{}},
+			TestHarness: &api.TestHarness{
+				TestHarnessType: &api.TestHarness_Tast_{
+					Tast: &api.TestHarness_Tast{},
+				},
+			},
+			StartTime:        testTimePassedTest,
+			Duration:         ptypes.DurationProto(time.Second),
+			TestCaseMetadata: nil,
+		},
+		{
+			TestCaseId: &api.TestCase_Id{Value: testIDs[2]},
+			ResultDirPath: &_go.StoragePath{
+				HostType: _go.StoragePath_LOCAL,
+				Path:     filepath.Join(resultDir, "tests", tests[2]),
+			},
 			Verdict: &api.TestCaseResult_Fail_{Fail: &api.TestCaseResult_Fail{}},
 			Reason:  "intentionally failed",
 			TestHarness: &api.TestHarness{
@@ -264,13 +291,13 @@ func TestReportsServer_ReportResult(t *testing.T) {
 			},
 			StartTime:        testTimeFailedTest,
 			Duration:         ptypes.DurationProto(time.Second),
-			TestCaseMetadata: testNamesToMetadata[tests[1]],
+			TestCaseMetadata: testNamesToMetadata[tests[2]],
 		},
 		{
-			TestCaseId: &api.TestCase_Id{Value: testIDs[2]},
+			TestCaseId: &api.TestCase_Id{Value: testIDs[3]},
 			ResultDirPath: &_go.StoragePath{
 				HostType: _go.StoragePath_LOCAL,
-				Path:     filepath.Join(resultDir, "tests", tests[2]),
+				Path:     filepath.Join(resultDir, "tests", tests[3]),
 			},
 			Verdict: &api.TestCaseResult_Skip_{Skip: &api.TestCaseResult_Skip{}},
 			Reason:  "intentionally skipped",
@@ -281,12 +308,12 @@ func TestReportsServer_ReportResult(t *testing.T) {
 			},
 			StartTime:        testTimeSkippedTest,
 			Duration:         ptypes.DurationProto(0),
-			TestCaseMetadata: testNamesToMetadata[tests[2]],
+			TestCaseMetadata: testNamesToMetadata[tests[3]],
 		},
 	}
 	expectedMissingReports := []*api.TestCaseResult{
 		{
-			TestCaseId: &api.TestCase_Id{Value: testIDs[3]},
+			TestCaseId: &api.TestCase_Id{Value: testIDs[4]},
 			Verdict:    &api.TestCaseResult_NotRun_{NotRun: &api.TestCaseResult_NotRun{}},
 			Reason:     "Test did not run",
 			TestHarness: &api.TestHarness{
@@ -294,7 +321,18 @@ func TestReportsServer_ReportResult(t *testing.T) {
 					Tast: &api.TestHarness_Tast{},
 				},
 			},
-			TestCaseMetadata: testNamesToMetadata[tests[3]],
+			TestCaseMetadata: testNamesToMetadata[tests[4]],
+		},
+		{
+			TestCaseId: &api.TestCase_Id{Value: testIDs[5]},
+			Verdict:    &api.TestCaseResult_NotRun_{NotRun: &api.TestCaseResult_NotRun{}},
+			Reason:     "Test did not run",
+			TestHarness: &api.TestHarness{
+				TestHarnessType: &api.TestHarness_Tast_{
+					Tast: &api.TestHarness_Tast{},
+				},
+			},
+			TestCaseMetadata: nil,
 		},
 	}
 
@@ -333,8 +371,16 @@ func TestReportsServer_ReportResult(t *testing.T) {
 	// Testing for missing reports.
 	missingReports := reportsServer.MissingTestsReports("Test did not run")
 
-	if !proto.Equal(missingReports[0], expectedMissingReports[0]) {
-		t.Errorf("unexpected test results for 'pass' (-got +want):\n%v\n--\n%v\n", missingReports[0], expectedMissingReports[0])
+	for i := range expectedMissingReports {
+		if !proto.Equal(missingReports[i], expectedMissingReports[i]) {
+			t.Errorf("unexpected test results for 'pass' (-got +want):\n%v\n--\n%v\n", missingReports[i], expectedMissingReports[i])
+		}
+	}
+	if reportsServer.Warnings()[0] != "failed to find test metadata for test PassedTestWithNoMetadata" {
+		t.Errorf("Did not encounter expected warning for PassedTestWithNoMetadata")
+	}
+	if reportsServer.Warnings()[1] != "failed to find test metadata for missing test MissingTestWithNoMetadata" {
+		t.Errorf("Did not encounter expected warning for MissingTestWithNoMetadata")
 	}
 }
 

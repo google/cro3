@@ -36,6 +36,7 @@ type ReportsServer struct {
 	testResultsDir      string                           // Parent directory for all test results.
 	testNamesToIds      map[string]string                // Mapping between test names and test ids.
 	testNamesToMetadata map[string]*api.TestCaseMetadata // Mapping between test names and test metadata.
+	allWarnings         []string                         // All warnings that has been encountered.
 	allErrors           []error                          // All errors that has been encountered.
 }
 
@@ -65,8 +66,7 @@ func (s *ReportsServer) ReportResult(ctx context.Context, req *protocol.ReportRe
 	testMetadata, ok := s.testNamesToMetadata[req.Test]
 	if !ok {
 		testMetadata = nil
-		s.allErrors = append(s.allErrors, errors.NewStatusError(errors.MissingArgument,
-			fmt.Errorf("failed to find test metadata for test %v", req.Test)))
+		s.allWarnings = append(s.allWarnings, fmt.Sprintf("failed to find test metadata for test %v", req.Test))
 	}
 	testResult := api.TestCaseResult{
 		TestCaseId: &api.TestCase_Id{Value: testID},
@@ -137,8 +137,7 @@ func (s *ReportsServer) MissingTestsReports(reason string) []*api.TestCaseResult
 		testMetadata, ok := s.testNamesToMetadata[t]
 		if !ok {
 			testMetadata = nil
-			s.allErrors = append(s.allErrors, errors.NewStatusError(errors.MissingArgument,
-				fmt.Errorf("failed to find test metadata for missing test %v", t)))
+			s.allWarnings = append(s.allWarnings, fmt.Sprintf("failed to find test metadata for missing test %v", t))
 		}
 		missingTestResults = append(missingTestResults, &api.TestCaseResult{
 			TestCaseId: &api.TestCase_Id{Value: testID},
@@ -172,9 +171,14 @@ func (s *ReportsServer) Address() string {
 	return s.listenerAddr.String()
 }
 
-// Errors returns errors that encountered during test reporting.
+// Errors returns errors encountered during test reporting.
 func (s *ReportsServer) Errors() []error {
 	return s.allErrors
+}
+
+// Warnings returns warnings encountered during test reporting.
+func (s *ReportsServer) Warnings() []string {
+	return s.allWarnings
 }
 
 // NewReportsServer starts a Reports gRPC service and returns a ReportsServer object when success.
