@@ -6,5 +6,6 @@ module.exports = {
   entry: './generated/index.js',
   output: {
     filename: 'index.js'
-  }
+  },
+  devtool: 'source-map'
 };
