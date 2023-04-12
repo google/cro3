@@ -33,13 +33,17 @@ pub struct Args {
     #[argh(option)]
     board: Option<String>,
 
-    /// chromiumos version to flash
-    #[argh(option)]
-    version: Option<String>,
+    /// chromiumos version to flash (default: latest-dev)
+    #[argh(option, default = "String::from(\"latest-dev\")")]
+    version: String,
 
     /// flash a locally-built image instead of remote prebuilts
     #[argh(switch)]
     use_local_image: bool,
+
+    /// flash recovery image (default: flash test image)
+    #[argh(switch)]
+    recovery: bool,
 
     /// flash image with rootfs verification (disable by default)
     #[argh(switch)]
@@ -83,27 +87,28 @@ pub fn run(args: &Args) -> Result<()> {
         }
         (None, None) => return Err(anyhow!("Please specify --board or --dut")),
     };
-
     // Determine an image to flash
-    let image_path = match (&args.version, args.use_local_image) {
-        (Some(version), false) => {
-            let version = if version == "latest-dev" {
-                version.clone()
-            } else {
-                lookup_full_version(version)?
-            };
-            format!("xBuddy://remote/{board}/{version}/test")
-        }
-        (Some(_version), true) => {
-            todo!("flashing local image other than latest is not yet supported")
-        }
-        (None, true) => {
-            format!("xBuddy://local/{board}/latest/test")
-        }
-        (None, false) => {
-            format!("xBuddy://remote/{board}/latest-dev/test")
-        }
+    let host = if args.use_local_image {
+        "local"
+    } else {
+        "remote"
     };
+    // if version is not specified on the command line, it will be set to "latest" by argh
+    let version = if &args.version == "latest"
+        || &args.version == "latest-dev"
+        || &args.version == "latest-official"
+    {
+        args.version.clone()
+    } else {
+        lookup_full_version(&args.version)?
+    };
+    if host == "local" && version != "latest" {
+        return Err(anyhow!(
+            "flashing local image other than `--version latest` is not yet supported"
+        ));
+    }
+    let variant = if args.recovery { "recovery" } else { "test" };
+    let image_path = format!("xBuddy://{host}/{board}/{version}/{variant}");
 
     // Determine a destination
     let destination = match (&args.dut, args.usb) {
