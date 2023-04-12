@@ -18,6 +18,7 @@ steps:
       "--dockerfile=Dockerfile",
       "--context=.",
       "--cache=true",
+      "--cache-copy-layers",
       "--cache-ttl=366h",
       "--image-fs-extract-retry=2",
 {destinations}

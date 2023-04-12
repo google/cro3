@@ -62,7 +62,7 @@ class CrosPublishArtifactPrep(CrosArtifactPrep):
         """Untar the package prior to depl."""
         os.system(
             f"tar -xvf {self.full_out}/"
-            f"autotest_server_package.tar.bz2 -C {self.full_out}"
+            f"autotest_server_package.tar.bz2 -C {self.full_out} > /dev/null"
         )
 
     def remove_extra(self):
