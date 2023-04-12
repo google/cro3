@@ -9,6 +9,7 @@ import urllib
 
 from acts.controllers.cellular_lib import BaseCellConfig
 from cellular.proxyserver import callbox_configuration as cbc
+from cellular.proxyserver import callbox_info as cbi
 from cellular.simulation_utils import ChromebookCellularDut
 import flask  # pylint: disable=E0401
 from flask import request  # pylint: disable=E0401
@@ -25,7 +26,7 @@ class CallboxManager:
         self.configs_by_host = dict()
 
     def configure_callbox(self, data):
-        self._require_dict_keys(data, "callbox", "hardware", "cellular_type")
+        self._require_dict_keys(data, "callbox", "cellular_type")
         technology = cbc.CellularTechnology(data["cellular_type"])
         dut = ChromebookCellularDut.ChromebookCellularDut(
             "no_dut_connection", app.logger
@@ -36,12 +37,21 @@ class CallboxManager:
             self.configs_by_host[callbox].close()
 
         host, port = self._parse_callbox_host(callbox)
-        if data["hardware"] == "CMW":
+
+        if "hardware" in data:
+            if data["hardware"] in cbi.KNOWN_CALLBOXES:
+                hardware = cbi.CallboxType(data["hardware"])
+            else:
+                raise ValueError(f"Unknown hardware: {data['hardware']}")
+        else:
+            hardware = cbi.get_callbox_type(host, port)
+
+        if hardware == cbi.CallboxType.CMW500:
             config = cbc.CMW500Configuration(dut, host, port, technology)
-        elif data["hardware"] == "CMX":
+        elif hardware == cbi.CallboxType.CMX500:
             config = cbc.CMX500Configuration(dut, host, port, technology)
         else:
-            raise Exception(f'Unsupported hardware: {data["hardware"]}')
+            raise ValueError(f"Unsupported hardware: {hardware}")
 
         self.configs_by_host[callbox] = config
 
