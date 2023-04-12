@@ -1,0 +1,16 @@
+{
+  "name": "cr50",
+  "version": "1.0.0",
+  "description": "Power measurment tool",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "hikalium",
+  "license": "MIT",
+  "dependencies": {
+    "@types/w3c-web-serial": "^1.0.3",
+    "@types/w3c-web-usb": "^1.0.6",
+    "chart.js": "^4.2.1"
+  }
+}

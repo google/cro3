@@ -1,8 +1,12 @@
+import {Chart} from 'chart.js/auto';
+import {ChartType} from 'chart.js';
+
+
 const intervalMs = 100;
 const avgWindow = 9;
 const avgWindow2 = 41;
 
-const ctx = document.getElementById('myChart');
+const ctx = document.getElementById('myChart') as HTMLCanvasElement;
 ctx.width = 1024;
 ctx.height = 768
 
@@ -37,7 +41,7 @@ const data = {
   ],
 };
 const config = {
-  type: 'scatter',
+  type: "scatter" as ChartType ,
   data: data,
   options: {
     scales: {
@@ -45,9 +49,9 @@ const config = {
         suggestedMin: 0,
         suggestedMax: 30 * 1000,
       },
-      x: {position: 'bottom'},
+      x: {},
     },
-    animation: false,
+    animation: false as false,
     responsive: false,
     plugins: {
       tooltip: {
@@ -69,11 +73,7 @@ function pushOutput(s) {
   let splitted = output.split('\n').filter((s) => s.trim().length > 10);
   if (splitted.length > 0 &&
       splitted[splitted.length - 1].indexOf('Alert limit') >= 0) {
-    let power = splitted.find((s) => s.startsWith('Power'));
-    power = power.split('=>')[1].trim();
-    power = power.split(' ');
-    power = parseInt(power[0]);
-    // chart.data.datasets[0].data[dataIndex++] = {x: dataIndex, y: power};
+    let power = parseInt(splitted.find((s) => s.startsWith('Power')).split('=>')[1].trim().split(' ')[0]);
     let p = {x: new Date(), y: power};
     chart.data.datasets[0].data.push(p);
     avgPoints.push(p);
@@ -147,11 +147,11 @@ requestSerialButton.addEventListener('click', () => {
       });
 });
 
-let button = document.getElementById('request-device');
-let serial_output = document.getElementById('serial_output');
-let device;
-let interface = 0;
-let ep = interface + 1;
+let button = document.getElementById('request-device') as HTMLButtonElement;
+let serial_output = document.getElementById('serial_output') as HTMLDivElement;
+let device: USBDevice;
+let usb_interface = 0;
+let ep = usb_interface + 1;
 button.addEventListener('click', async () => {
   device = null;
   button.disabled = true;
@@ -174,7 +174,7 @@ button.addEventListener('click', async () => {
   try {
     await device.open();
     await device.selectConfiguration(1);
-    await device.claimInterface(interface);
+    await device.claimInterface(usb_interface);
 
     const f = async (_event) => {
       while (true) {
@@ -188,11 +188,11 @@ button.addEventListener('click', async () => {
     while (true) {
       let result = await device.transferIn(ep, 64);
       if (result.status === 'stall') {
-        await device.clearHalt(1);
+        await device.clearHalt('in', ep);
         continue;
       }
-      result = new Int8Array(result.data.buffer);
-      pushOutput(utf8decoder.decode(result));
+      const result_array = new Int8Array(result.data.buffer);
+      pushOutput(utf8decoder.decode(result_array));
     }
   } catch (err) {
     console.log(`Disconnected: ${err}`);
