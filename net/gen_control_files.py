@@ -30,7 +30,7 @@ TEST_TYPE = 'Server'
 ATTRIBUTES = '{suites}'
 MAX_RESULT_SIZE_KB = 1024 * 1024
 PY_VERSION = 3
-DEPENDENCIES = "carrier:{carrier}"
+DEPENDENCIES = "carrier:{carrier}{extra_dependencies}"
 
 DOC = \'\'\'
 
@@ -63,7 +63,9 @@ Writes a control file at out_dir/control.suite-carrier-tag. The argument l_tests
 """
 
 
-def write_control_file(l_out_dir, l_suite, l_carrier, l_tag, l_tests):
+def write_control_file(
+    l_out_dir, l_suite, l_carrier, l_extra_dependencies, l_tag, l_tests
+):
     primary_suite = l_suite[0]  # used to name the file and autotest
     suites = ""
     for i, s in enumerate(l_suite):
@@ -75,11 +77,13 @@ def write_control_file(l_out_dir, l_suite, l_carrier, l_tag, l_tests):
     with open(
         os.path.join(l_out_dir, f"control.{primary_suite}-{l_carrier}-{l_tag}"),
         "w",
+        encoding="utf-8",
     ) as control_file:
         control_file.write(
             prefix.format(
                 primary_suite=primary_suite,
                 carrier=l_carrier,
+                extra_dependencies=l_extra_dependencies,
                 tag=l_tag,
                 suites=suites,
             )
@@ -128,6 +132,16 @@ for carrier in [
     "softbank",
     "fi",
 ]:
+    # used by the cellular dashboard to identify bad DUTs
+    tests = single_test_template.format(test_exprs="['cellular.IsModemUp']")
+    write_control_file(
+        out_dir,
+        ["cellular_ota", "cellular_repair"],
+        carrier,
+        "",
+        "is_modem_up",
+        tests,
+    )
 
     dut_check_suites = ["cellular_ota", "cellular_repair"]
     if carrier in ["verizon", "tmobile", "att"]:
@@ -135,13 +149,18 @@ for carrier in [
             "cellular-cq"
         )  # other carriers are sparsely deployed in the lab, thus CQ may fail to find DUTs
 
-    tests = single_test_template.format(test_exprs="['cellular.IsModemUp']")
-    write_control_file(out_dir, dut_check_suites, carrier, "is_modem_up", tests)
-
+    extra_dependencies = ", cellular_modem_state:NORMAL"
     tests = single_test_template.format(
-        test_exprs=f"['cellular.Identifiers.{carrier}','cellular.IsConnected.{carrier}','cellular.Smoke.{carrier}', 'cellular.SmokeIPConnectivity.{carrier}']"
+        test_exprs=f"['cellular.Identifiers.{carrier}','cellular.IsConnected.{carrier}','cellular.Smoke.{carrier}', 'cellular.SmokeIPConnectivity.{carrier}', 'cellular.IsModemUp']"
     )
-    write_control_file(out_dir, dut_check_suites, carrier, "dut_check", tests)
+    write_control_file(
+        out_dir,
+        dut_check_suites,
+        carrier,
+        extra_dependencies,
+        "dut_check",
+        tests,
+    )
 
     tests = single_test_template.format(
         test_exprs=f"['cellular.Autoconnect.{carrier}','cellular.ShillEnableDisable.{carrier}']"
@@ -150,6 +169,7 @@ for carrier in [
         out_dir,
         dut_check_suites,
         carrier,
+        extra_dependencies,
         "autoconnect_enable",
         tests,
     )
@@ -158,7 +178,12 @@ for carrier in [
         test_exprs="['cellular.ShillCellularEnableAndConnect','cellular.HostCellularStressEnableDisable','cellular.ModemmanagerEnableAndConnect','cellular.ShillCellularSafetyDance']"
     )
     write_control_file(
-        out_dir, ["cellular_ota_flaky"], carrier, "stress", tests
+        out_dir,
+        ["cellular_ota_flaky"],
+        carrier,
+        extra_dependencies,
+        "stress",
+        tests,
     )
 
     exclude_sms = "" if carrier in ["tmobile", "att"] else ' && !"cellular_sms"'
@@ -171,6 +196,7 @@ for carrier in [
         out_dir,
         ["cellular_ota_flaky", "cellular_repair"],
         carrier,
+        extra_dependencies,
         "platform",
         tests,
     )
@@ -181,7 +207,12 @@ for carrier in [
         + ")']"
     )
     write_control_file(
-        out_dir, ["cellular_ota", "cellular_repair"], carrier, "platform", tests
+        out_dir,
+        ["cellular_ota", "cellular_repair"],
+        carrier,
+        extra_dependencies,
+        "platform",
+        tests,
     )
 
     tests = single_test_template.format(
@@ -191,6 +222,7 @@ for carrier in [
         out_dir,
         ["cellular_ota_flaky", "cellular_repair"],
         carrier,
+        extra_dependencies,
         "suspend_resume",
         tests,
     )
@@ -198,17 +230,31 @@ for carrier in [
     tests = single_test_template.format(
         test_exprs='[\'("group:cellular" && "cellular_sim_active" && "cellular_unstable" && "cellular_e2e")\']'
     )
-    write_control_file(out_dir, ["cellular_ota_flaky"], carrier, "e2e", tests)
+    write_control_file(
+        out_dir,
+        ["cellular_ota_flaky"],
+        carrier,
+        extra_dependencies,
+        "e2e",
+        tests,
+    )
 
     tests = single_test_template.format(
         test_exprs='[\'("group:cellular" && "cellular_sim_active" && !"cellular_unstable" && "cellular_e2e")\']'
     )
-    write_control_file(out_dir, ["cellular_ota"], carrier, "e2e", tests)
+    write_control_file(
+        out_dir, ["cellular_ota"], carrier, extra_dependencies, "e2e", tests
+    )
     tests = single_test_template.format(
         test_exprs='[\'("group:cellular_crosbolt" && "cellular_crosbolt_perf_nightly")\']'
     )
     write_control_file(
-        out_dir, ["cellular_ota_perf_flaky"], carrier, "perf", tests
+        out_dir,
+        ["cellular_ota_perf_flaky"],
+        carrier,
+        extra_dependencies,
+        "perf",
+        tests,
     )
 
     # limit carrier independent cq tests to tmobile to save lab time.
@@ -216,4 +262,6 @@ for carrier in [
         tests = single_test_template.format(
             test_exprs='[\'("group:cellular" && "cellular_sim_active" && !"cellular_run_isolated" && "cellular_cq")\']'
         )
-        write_control_file(out_dir, ["cellular-cq"], carrier, "cq", tests)
+        write_control_file(
+            out_dir, ["cellular-cq"], carrier, extra_dependencies, "cq", tests
+        )
