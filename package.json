@@ -11,6 +11,7 @@
   "dependencies": {
     "@types/w3c-web-serial": "^1.0.3",
     "@types/w3c-web-usb": "^1.0.6",
-    "chart.js": "^4.2.1"
+    "chart.js": "^4.2.1",
+    "dygraphs": "^2.2.1"
   }
 }

@@ -1,103 +1,44 @@
-import {Chart} from 'chart.js/auto';
-import {ChartType} from 'chart.js';
-
+import Dygraph from 'dygraphs';
 
 const intervalMs = 100;
-const avgWindow = 9;
-const avgWindow2 = 41;
 
-const ctx = document.getElementById('myChart') as HTMLCanvasElement;
-ctx.width = 1024;
-ctx.height = 768
-
-const data = {
-  datasets: [
-    {
-      label: 'Power (mW)',
-      data: [],
-      backgroundColor: 'rgb(255, 99, 132)',
-      pointStyle: 'circle',
-      pointRadius: 1,
-      order: 3,
-    },
-    {
-      label: `Power avg (mW) (window = ${avgWindow})`,
-      data: [],
-      backgroundColor: 'rgb(99, 255, 132)',
-      borderColor: 'rgb(0, 255, 0)',
-      showLine: true,
-      order: 2,
-      pointStyle: 'false',
-    },
-    {
-      label: `Power avg (mW) (window = ${avgWindow2})`,
-      data: [],
-      backgroundColor: 'rgb(0, 0, 255)',
-      borderColor: 'rgb(0, 0, 255)',
-      showLine: true,
-      order: 1,
-      pointStyle: 'false',
-    },
-  ],
-};
-const config = {
-  type: "scatter" as ChartType ,
-  data: data,
-  options: {
-    scales: {
-      y: {
-        suggestedMin: 0,
-        suggestedMax: 30 * 1000,
-      },
-      x: {},
-    },
-    animation: false as false,
-    responsive: false,
-    plugins: {
-      tooltip: {
-        enabled: false,
-      }
-    }
-  },
-};
-const chart = new Chart(ctx, config);
+let powerData = [];
+const g = new Dygraph('graph', powerData, {});
 
 const utf8decoder = new TextDecoder();  // default 'utf-8' or 'utf8'
 
 let output = '';
-let avgPoints = [];
-let avgPoints2 = [];
-function pushOutput(s) {
+let halt = false;
+function pushOutput(s: string) {
   output += s
 
   let splitted = output.split('\n').filter((s) => s.trim().length > 10);
   if (splitted.length > 0 &&
       splitted[splitted.length - 1].indexOf('Alert limit') >= 0) {
-    let power = parseInt(splitted.find((s) => s.startsWith('Power')).split('=>')[1].trim().split(' ')[0]);
+    let power = parseInt(splitted.find((s) => s.startsWith('Power'))
+                             .split('=>')[1]
+                             .trim()
+                             .split(' ')[0]);
     let p = {x: new Date(), y: power};
-    chart.data.datasets[0].data.push(p);
-    avgPoints.push(p);
-    avgPoints2.push(p);
-    if (avgPoints.length == avgWindow) {
-      let sum = avgPoints.reduce((l, r) => l + r.y, 0);
-      let avg = sum / avgWindow;
-      chart.data.datasets[1].data.push({x: avgPoints[(avgWindow/2) | 0].x, y: avg});
-      avgPoints = [];
-    }
-    if (avgPoints2.length == avgWindow2) {
-      let sum = avgPoints2.reduce((l, r) => l + r.y, 0);
-      let avg = sum / avgWindow2;
-      chart.data.datasets[2].data.push({x: avgPoints2[(avgWindow/2) | 0].x, y: avg});
-      avgPoints2 = [];
-    }
-    chart.update('none');
+    powerData.push([p.x, p.y]);
+    g.updateOptions(
+        {
+          file: powerData,
+          labels: ['t', 'Power(mW)'],
+          showRoller: true,
+          // customBars: true,
+          ylabel: 'Power (mW)',
+          legend: 'always',
+        },
+        false);
     serial_output.innerText = output;
     output = '';
   }
 }
 
-const requestSerialButton = document.getElementById('requestSerialButton');
+const requestSerialButton = document.getElementById('requestSerialButton') as HTMLButtonElement;
 requestSerialButton.addEventListener('click', () => {
+  halt = false;
   navigator.serial
       .requestPort({filters: [{usbVendorId: 0x18d1, usbProductId: 0x520d}]})
       .then(async (port) => {
@@ -110,7 +51,7 @@ requestSerialButton.addEventListener('click', () => {
 
         // Launch write loop
         const f = async (event) => {
-          while (true) {
+          while (!halt) {
             let data = new TextEncoder().encode('ina 0\n');
             const writer = port.writable.getWriter();
             await writer.write(data);
@@ -121,7 +62,7 @@ requestSerialButton.addEventListener('click', () => {
         setTimeout(f, 1000);
 
         // read loop
-        for (;;) {
+        while (!halt) {
           while (port.readable) {
             const reader = port.readable.getReader();
             try {
@@ -153,6 +94,7 @@ let device: USBDevice;
 let usb_interface = 0;
 let ep = usb_interface + 1;
 button.addEventListener('click', async () => {
+  halt = false;
   device = null;
   button.disabled = true;
   try {
@@ -177,7 +119,7 @@ button.addEventListener('click', async () => {
     await device.claimInterface(usb_interface);
 
     const f = async (_event) => {
-      while (true) {
+      while (!halt) {
         let data = new TextEncoder().encode('ina 0\n');
         await device.transferOut(ep, data);
         await new Promise(r => setTimeout(r, intervalMs));
@@ -185,7 +127,7 @@ button.addEventListener('click', async () => {
     };
     setTimeout(f, intervalMs);
 
-    while (true) {
+    while (!halt) {
       let result = await device.transferIn(ep, 64);
       if (result.status === 'stall') {
         await device.clearHalt('in', ep);
@@ -214,3 +156,11 @@ window.addEventListener('keydown', async (event) => {
   }
   await device.transferOut(ep, data);
 }, true);
+
+let haltButton = document.getElementById('haltButton') as HTMLButtonElement;
+haltButton.addEventListener('click', () => {
+  halt = true;
+  button.disabled = false;
+  requestSerialButton.disabled = false;
+});
+
