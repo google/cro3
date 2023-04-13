@@ -213,3 +213,21 @@ disp_overwrite[
 disp_overwrite[
     "ad3d8c389580"
 ] = "drop"  # BACKPORT: FROMLIST: media: uvcvideo: Limit power line control for Lenovo Integrated Camera
+disp_overwrite[
+    "55c61a94e44f"
+] = "drop"  # FROMLIST: ath11k: Fix double free issue during SRNG deinit
+disp_overwrite[
+    "d775e54c34ba"
+] = "drop"  # "FROMLIST: ath11k: Move hardware initialization logic to start()
+disp_overwrite[
+    "1aa3b5633862"
+] = "drop"  # FROMLIST: ath11k: Enable low power mode when WLAN is not active
+disp_overwrite[
+    "ffd49f2370f4"
+] = "drop"  # FROMLIST: ath11k: Fix failed to parse regulatory event print
+disp_overwrite[
+    "a06679e1e197"
+] = "drop"  # CHROMIUM: Change scan timeout threshold if 11d scan is in progress
+disp_overwrite[
+    "5767b180a693"
+] = "drop"  # CHROMIUM: wifi: ath11k: Enable split scan functionality on WCN6750
