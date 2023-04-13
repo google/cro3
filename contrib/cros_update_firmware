@@ -95,7 +95,7 @@ update_firmware() {
     die "--project_srcuris set but ${proj_config} unreadable"
   fi
   # checking various use flags to include appropriate packages
-  local all_use_flags=$(portageq-${board} envvar USE)
+  local all_use_flags=$(portageq-"${board}" envvar USE)
   local use_flag pkg
   for use_flag in ${all_use_flags}; do
     case "${use_flag}" in
@@ -119,8 +119,6 @@ update_firmware() {
   done
 
   overlay="${GCLIENT_ROOT}/src/private-overlays/overlay-${board}-private"
-  metadata="${overlay}/metadata"
-  edb_cache="/var/cache/edb/dep/mnt/host/source/src/private-overlays/overlay-${board}-private"
   base="${overlay}/chromeos-base"
   ebuild="${base}/chromeos-firmware-${board}/chromeos-firmware-${board}-9999.ebuild"
   srcuris="${base}/chromeos-firmware-${board}/files/srcuris"
@@ -175,14 +173,62 @@ update_firmware() {
 
   touch "${ebuild}"
 
-  # Clean metadata cache to make sure SRC_URI is fetched from ${srcuris}
-  # instead from portage cache which maybe out of sync.
-  # Note: this workaround is needed because we break the SRC_URI API contract
-  # which is supposed to be a static (see
-  # https://devmanual.gentoo.org/general-concepts/portage-cache/index.html).
-  # TODO(crbug.com/927917): find a different way to generate SRC_URI and remove
-  # these cache cleanup code.
-  rm -rf "${metadata}/cache" "${metadata}/md5-cache" "${edb_cache}"
+
+  # Combine the srcuris files
+  mapfile -t all_srcuris < <(find "${base}"/chromeos-firmware-"${board}"/files -name '*srcuris')
+
+  echo "all_srcuris:"
+  echo "=============="
+  for each in "${all_srcuris[@]}"
+  do
+    echo "${each}"
+  done
+
+  file_srcuris=()
+  if [[ ${#all_srcuris[@]} != 0 && -f ${all_srcuris[0]} ]]; then
+    mapfile -t file_srcuris < <(cat "${all_srcuris[@]}" )
+  fi
+
+  echo "file_srcuris:"
+  echo "=============="
+  for each in "${file_srcuris[@]}"
+  do
+    echo "${each}"
+  done
+
+  sorted_srcuris=()
+  mapfile -t sorted_srcuris < <(printf '%s\n' "${file_srcuris[@]}"\
+    | sort --uniq )
+
+  echo "sorted_srcuris:"
+  echo "=============="
+  for each in "${sorted_srcuris[@]}"
+  do
+    echo "${each}"
+  done
+
+  # Now update the ebuild file
+
+  # Add a fake SRC_URI statement to make next expression match work
+  sed -i 's/cros-firmware_setup_source/SRC_URI=\ncros-firmware_setup_source/;' \
+    "${ebuild}"
+
+  # Remove the old SRC_URI through cros-firmware_setup_source
+  sed -i '/^SRC_URI/,/cros-firmware_setup/d' "${ebuild}"
+
+  # Write the empty SRC_URI
+  echo 'SRC_URI=""' >> "${ebuild}"
+
+  # Write a SRC_URI += line for each one
+  for each in "${sorted_srcuris[@]}"
+  do
+    echo "${each}" | sed -E 's/^(.*)$/SRC_URI+=\"\1 \"/' >> "${ebuild}"
+  done
+
+  # End with the firmware_setup_source
+  echo >> "${ebuild}"
+  echo cros-firmware_setup_source >> "${ebuild}"
+
   "ebuild-${board}" "${ebuild}" manifest
   USE="-bootimage -cros_ec -zephyr_ec" \
 	  "emerge-${board}" -j "${emerge_flags[@]}" "chromeos-firmware-${board}"
