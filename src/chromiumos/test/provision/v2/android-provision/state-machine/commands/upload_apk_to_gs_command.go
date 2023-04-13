@@ -31,7 +31,7 @@ func NewUploadAPKToGSCommand(ctx context.Context, svc *service.AndroidService) *
 	return &UploadAPKToGSCommand{
 		ctx: ctx,
 		svc: svc,
-		gs:  gsstorage.NewGsClient(common.GMSCorePackageName),
+		gs:  gsstorage.NewGsClient(common.GSPackageBucketName),
 	}
 }
 
