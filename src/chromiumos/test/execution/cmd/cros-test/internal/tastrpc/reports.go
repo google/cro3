@@ -19,8 +19,9 @@ import (
 	"go.chromium.org/chromiumos/config/go/test/api"
 	"google.golang.org/grpc"
 
-	"chromiumos/tast/framework/protocol"
 	"chromiumos/test/execution/errors"
+
+	"go.chromium.org/tast/core/framework/protocol"
 )
 
 // ReportsServer implements the tast.framework.protocol.ReportsServer.

@@ -16,7 +16,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 
-	"chromiumos/tast/framework/protocol"
+	"go.chromium.org/tast/core/framework/protocol"
 )
 
 func TestReportsServer_LogStream(t *testing.T) {
