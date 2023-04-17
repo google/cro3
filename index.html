@@ -126,9 +126,19 @@
   </style>
 </head>
 <body>
-  <button id='request-device'>Connect to Servo</button>
-  <button id='requestSerialButton'>Connect via WebSerial</button>
+  <div>
+    <ol>
+      <li>Make sure only one servo is connected to the host</li>
+      <li>Press "Start" and select the first one (Try WebSerial first. If it does not show anything, try WebUSB)</li>
+    </ol>
+  </div>
+  <div>
+  <a id="downloadAnchorElem" style="display:none"></a>
+  <button id='requestSerialButton'>Start(WebSerial)</button>
+  <button id='request-device'>Start(WebUSB)</button>
   <button id='haltButton'>Stop</button>
+  <button id='downloadButton'>Download</button>
+  </div>
   <div id="serial_output" style="margin-left: 100px"></div>
   <div id="graph"></div>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>

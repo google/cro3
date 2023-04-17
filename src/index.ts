@@ -1,4 +1,5 @@
 import Dygraph from 'dygraphs';
+import moment from 'moment';
 
 const intervalMs = 100;
 
@@ -86,6 +87,16 @@ requestSerialButton.addEventListener('click', () => {
         // The user didn't select a port.
         console.log(e);
       });
+});
+
+let downloadButton = document.getElementById('downloadButton') as HTMLButtonElement;
+downloadButton.addEventListener('click', async () => {
+  var dataStr = 'data:text/json;charset=utf-8,' +
+      encodeURIComponent(JSON.stringify(powerData));
+  var dlAnchorElem = document.getElementById('downloadAnchorElem');
+  dlAnchorElem.setAttribute('href', dataStr);
+  dlAnchorElem.setAttribute('download', `power_${moment().format()}.json`);
+  dlAnchorElem.click();
 });
 
 let button = document.getElementById('request-device') as HTMLButtonElement;
