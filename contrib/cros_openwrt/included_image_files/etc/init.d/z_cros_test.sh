@@ -97,7 +97,7 @@ record_and_verify_boot() {
     echo "${BOOT_STATE_HEADER}" > "${CROS_BOOT_STATE_FILE}"
   else
     # Existing log, make sure it's not full.
-    LAST_CHECK_WAS_FAILURE=$(tail -1 "${CROS_BOOT_STATE_FILE}" | grep -q "FAILURE")
+    LAST_CHECK_WAS_FAILURE=$(tail -1 "${CROS_BOOT_STATE_FILE}" | grep -q "FAILURE"; echo $?)
     BOOT_STATE_DATA_ROWS=$(($(wc -l < "${CROS_BOOT_STATE_FILE}")-1))
     if [ "${BOOT_STATE_DATA_ROWS}" -ge "${MAX_BOOT_STATE_ROWS}" ]; then
       # Full log, archive log and create a fresh log.
