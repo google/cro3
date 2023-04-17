@@ -91,8 +91,7 @@ update_firmware() {
   local proj_config="${GCLIENT_ROOT}/src/project/${board}/${project}/sw_build_config/platform/chromeos-config/generated/project-config.json"
 
   # If --project_srcuris set, ensure that the project config is available
-  if [[ "${project_srcuris}" == "${FLAGS_TRUE}" && ! -f "${proj_config}" ]]
-  then
+  if [[ "${project_srcuris}" == "${FLAGS_TRUE}" && ! -f "${proj_config}" ]]; then
     die "--project_srcuris set but ${proj_config} unreadable"
   fi
   # checking various use flags to include appropriate packages
@@ -120,6 +119,8 @@ update_firmware() {
   done
 
   overlay="${GCLIENT_ROOT}/src/private-overlays/overlay-${board}-private"
+  metadata="${overlay}/metadata"
+  edb_cache="/var/cache/edb/dep/mnt/host/source/src/private-overlays/overlay-${board}-private"
   base="${overlay}/chromeos-base"
   ebuild="${base}/chromeos-firmware-${board}/chromeos-firmware-${board}-9999.ebuild"
   srcuris="${base}/chromeos-firmware-${board}/files/srcuris"
@@ -132,9 +133,7 @@ update_firmware() {
     if [[ -z "${project}" ]]; then
       # No project specified, do them all.
       for proj in *; do
-        if [[ -d "${proj}" && -x "${proj}/config/bin/gen_config" \
-          && -f "${proj}/config.star" ]]
-        then
+        if [[ -d "${proj}" && -x "${proj}/config/bin/gen_config" && -f "${proj}/config.star" ]]; then
           pushd "${proj}" > /dev/null
           ./config/bin/gen_config config.star
           popd > /dev/null
@@ -143,9 +142,7 @@ update_firmware() {
       popd > /dev/null
     else
       # Specific project, just regenerate the config for that project.
-      if [[ -d "${project}" && -x "${project}/config/bin/gen_config" \
-        && -f "${project}/config.star" ]]
-      then
+      if [[ -d "${project}" && -x "${project}/config/bin/gen_config" && -f "${project}/config.star" ]]; then
         pushd "${project}" > /dev/null
         ./config/bin/gen_config config.star
         popd > /dev/null
@@ -155,71 +152,37 @@ update_firmware() {
 
   "emerge-${board}" -j "${emerge_flags[@]}" "${config_packages[@]}"
 
-  # Combine SRC_URIs from 3 sources
-  # - 9999.ebuild file
-  # - file srcuris
-  # - cros_config_host
-
-  ebuild_srcuris=()
-  if [[ -f "${ebuild}" ]]; then
-    mapfile -t ebuild_srcuris < <(sed -n -E 's/^SRC_URI\+="(.*)\s+"$/\1/p' "${ebuild}" )
-  fi
-
-  file_srcuris=()
-  if [[ -f "${srcuris}" ]]; then
-    mapfile -t file_srcuris < "${srcuris}"
-  fi
-
-  config_srcuris=()
-  mapfile -t config_srcuris \
-    < <(cros_config_host -c "${yaml_config}" get-firmware-uris \
-    | tr ' ' '\n' )
-
-  # Clear the final_srcuris
-  final_srcuris=()
-
   # If the append_srcuris and project flags are set, append uris that aren't
   # already in srcuris.
   if [[ -n "${project}" && "${append_srcuris}" == "${FLAGS_TRUE}" ]]; then
-    final_srcuris+=("${file_srcuris[@]}")
-    final_srcuris+=("${ebuild_srcuris[@]}")
-    final_srcuris+=("${config_srcuris[@]}")
-  # Otherwise overwrite srcuris from config
+    for uri in $(cros_config_host -c "${yaml_config}" get-firmware-uris); do
+      if ! grep -q "${uri}" "${srcuris}"; then
+        # Append uri to the last line of srcuris (srcuris should be a file with
+        # one line per-uri).
+        echo "${uri}" >> "${srcuris}"
+      fi
+    done
+    # After appending, sort the URIs file so that it is consistent
+    sort -o "${srcuris}" "${srcuris}"
+  # If project_srcuris is set, write URIs to project specific file
+  elif  [[ -n "${project}" && "${project_srcuris}" == "${FLAGS_TRUE}" ]]; then
+    cros_config_host -c "${proj_config}" get-firmware-uris | tr ' ' '\n' | sort > "${proj_srcuris}"
+  # Otherwise overwrite srcuris.
   else
-    final_srcuris+=("${config_srcuris[@]}")
+    # Put each uri on its own line for easier merging in git.
+    cros_config_host -c "${yaml_config}" get-firmware-uris | tr ' ' '\n' | sort > "${srcuris}"
   fi
 
-  sorted_srcuris=()
-  mapfile -t sorted_srcuris < <(printf '%s\n' "${final_srcuris[@]}"\
-    | sort --uniq )
+  touch "${ebuild}"
 
-  # Remove the srcuris file
-  if [[ -f "${srcuris}" ]] ; then
-    rm "${srcuris}"
-  fi
-
-  # Now update the ebuild file
-
-  # Add a fake SRC_URI statement to make next expression match work
-  sed -i 's/cros-firmware_setup_source/SRC_URI=\ncros-firmware_setup_source/;' \
-    "${ebuild}"
-
-  # Remove the old SRC_URI through cros-firmware_setup_source
-  sed -i '/^SRC_URI/,/cros-firmware_setup/d' "${ebuild}"
-
-  # Write the empty SRC_URI
-  echo 'SRC_URI=""' >> "${ebuild}"
-
-  # Write a SRC_URI += line for each one
-  for each in "${sorted_srcuris[@]}"
-  do
-    echo "${each}" | sed -E 's/^(.*)$/SRC_URI+=\"\1 \"/' >> "${ebuild}"
-  done
-
-  # End with the firmware_setup_source
-  echo >> "${ebuild}"
-  echo cros-firmware_setup_source >> "${ebuild}"
-
+  # Clean metadata cache to make sure SRC_URI is fetched from ${srcuris}
+  # instead from portage cache which maybe out of sync.
+  # Note: this workaround is needed because we break the SRC_URI API contract
+  # which is supposed to be a static (see
+  # https://devmanual.gentoo.org/general-concepts/portage-cache/index.html).
+  # TODO(crbug.com/927917): find a different way to generate SRC_URI and remove
+  # these cache cleanup code.
+  rm -rf "${metadata}/cache" "${metadata}/md5-cache" "${edb_cache}"
   "ebuild-${board}" "${ebuild}" manifest
   USE="-bootimage -cros_ec -zephyr_ec" \
 	  "emerge-${board}" -j "${emerge_flags[@]}" "chromeos-firmware-${board}"
@@ -235,19 +198,14 @@ main() {
   if [[ -z "${FLAGS_board}" ]]; then
     die "-b or --board required."
   fi
-  if [[ "${FLAGS_append_srcuris}" == "${FLAGS_TRUE}"\
-    && "${FLAGS_project_srcuris}" == "${FLAGS_TRUE}" ]]
-  then
+  if [[ "${FLAGS_append_srcuris}" == "${FLAGS_TRUE}" && "${FLAGS_project_srcuris}" == "${FLAGS_TRUE}" ]]; then
     die "--append_srcuris and --project_srcuris cannot both be set"
   fi
-  if [[ -z "${FLAGS_project}" \
-    && "${FLAGS_project_srcuris}" == "${FLAGS_TRUE}" ]]
-  then
+  if [[ -z "${FLAGS_project}" && "${FLAGS_project_srcuris}" == "${FLAGS_TRUE}" ]]; then
     die "--project must be set when --project_srcuris is set"
   fi
 
-  update_firmware "${FLAGS_board}" "${FLAGS_project}" "${FLAGS_quiet}" \
-    "${FLAGS_append_srcuris}" "${FLAGS_project_srcuris}"
+  update_firmware "${FLAGS_board}" "${FLAGS_project}" "${FLAGS_quiet}" "${FLAGS_append_srcuris}" "${FLAGS_project_srcuris}"
 }
 
 main "$@"
