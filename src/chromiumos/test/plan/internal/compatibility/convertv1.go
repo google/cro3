@@ -647,6 +647,11 @@ func coverageRuleToSuiteInfo(
 					return nil, fmt.Errorf("VM suite names must start with either \"tast_vm\" or \"tast_gce\" in CTP1 compatibility mode, got %q", name)
 				}
 			} else {
+				// Check that the suite still has a name, as this is required
+				// required for the display name.
+				if suite.GetName() == "" {
+					return nil, fmt.Errorf("TestSuites must still specify a name if they are using TagCriteria")
+				}
 				env = hw
 			}
 

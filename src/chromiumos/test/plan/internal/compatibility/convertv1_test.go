@@ -1269,6 +1269,47 @@ func TestToCTP1Errors(t *testing.T) {
 			errRegexp: "if \"attr-design\" is specified, multiple \"attr-programs\" cannot be used",
 		},
 		{
+			name: "HW test without name",
+			hwTestPlans: []*test_api_v1.HWTestPlan{
+				{
+					CoverageRules: []*testpb.CoverageRule{
+						{
+							DutTargets: []*testpb.DutTarget{
+								{
+									Criteria: []*testpb.DutCriterion{
+										{
+											AttributeId: &testpb.DutAttribute_Id{
+												Value: "attr-program",
+											},
+											Values: []string{"programA"},
+										},
+										{
+											AttributeId: &testpb.DutAttribute_Id{
+												Value: "swarming-pool",
+											},
+											Values: []string{"DUT_POOL_QUOTA"},
+										},
+									},
+								},
+							},
+							TestSuites: []*testpb.TestSuite{
+								{
+									Name: "",
+									Spec: &testpb.TestSuite_TestCaseTagCriteria_{
+										TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
+											Tags: []string{"group:mainline"},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			dutAttributeList: dutAttributeList,
+			errRegexp:        "TestSuites must still specify a name if they are using TagCriteria",
+		},
+		{
 			name:        "invalid VM test name",
 			hwTestPlans: hwTestPlans,
 			vmTestPlans: []*test_api_v1.VMTestPlan{
