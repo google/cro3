@@ -8,7 +8,17 @@ import moment from 'moment';
 
 const intervalMs = 100;
 
+let downloadButton =
+    document.getElementById('downloadButton') as HTMLButtonElement;
+let requestUSBButton =
+    document.getElementById('request-device') as HTMLButtonElement;
+const requestSerialButton =
+    document.getElementById('requestSerialButton') as HTMLButtonElement;
+const serial_output =
+    document.getElementById('serial_output') as HTMLDivElement;
+const serial1 = document.getElementById('serial1') as HTMLDivElement;
 const controlDiv = document.getElementById('controlDiv') as HTMLDivElement;
+
 let powerData = [];
 const g = new Dygraph('graph', powerData, {});
 const utf8decoder = new TextDecoder('utf-8');
@@ -21,7 +31,7 @@ function updateGraph(data) {
   g.updateOptions(
       {
         file: data,
-        labels: ['t', 'ina0', 'ina1'],
+        labels: ['t', 'ina0', 'ina1', 'ina2'],
         showRoller: true,
         // customBars: true,
         ylabel: 'Power (mW)',
@@ -44,6 +54,7 @@ function updateGraph(data) {
 }
 
 let inaIndex = 0;
+let inProgress = false;
 function pushOutput(s: string) {
   output += s
 
@@ -54,18 +65,111 @@ function pushOutput(s: string) {
                              .split('=>')[1]
                              .trim()
                              .split(' ')[0]);
-    let e: Array<Date|Number> = [new Date(), null, null];
-    e[(inaIndex&1)+1] = power;
-    inaIndex += 1;
+    let e: Array<Date|Number> = [new Date(), null, null, null];
+    e[inaIndex + 1] = power;
     powerData.push(e);
     updateGraph(powerData);
     serial_output.innerText = output;
     output = '';
+    inProgress = false;
+    inaIndex += 1;
+    inaIndex %= 3;
   }
 }
 
-const requestSerialButton =
-    document.getElementById('requestSerialButton') as HTMLButtonElement;
+function kickWriteLoop(writeFn: (s: string) => Promise<void>) {
+  const f = async (_: any) => {
+    console.log('write loop started');
+    while (!halt) {
+      if (inProgress) {
+        console.error('previous request is in progress! skip...');
+        // serial1.innerHTML += output;
+      } else {
+        inProgress = true;
+        // writeFn(`ina ${inaIndex}\n`);
+      }
+      const cmd = `ina ${inaIndex}\n`;
+      await writeFn(cmd);
+      await new Promise(r => setTimeout(r, intervalMs));
+    }
+  };
+  setTimeout(f, intervalMs);
+}
+async function readLoop(readFn: () => Promise<string>) {
+  console.log('read fn started');
+  while (!halt) {
+    const s = await readFn();
+    if (s === undefined || !s.length) {
+      continue;
+    }
+    pushOutput(s);
+  }
+}
+
+function setupStartUSBButton() {
+  let device: USBDevice;
+  let usb_interface = 0;
+  let ep = usb_interface + 1;
+  requestUSBButton.addEventListener('click', async () => {
+    halt = false;
+    device = null;
+    requestUSBButton.disabled = true;
+    try {
+      device = await navigator.usb.requestDevice({
+        filters: [{
+          vendorId: 0x18d1,  /* Google */
+          productId: 0x520d, /* Servo v4p1 */
+        }]
+      });
+    } catch (err) {
+      console.log(`Error: ${err}`);
+    }
+    if (!device) {
+      device = null;
+      requestUSBButton.disabled = false;
+      return;
+    }
+
+    try {
+      await device.open();
+      await device.selectConfiguration(1);
+      await device.claimInterface(usb_interface);
+      kickWriteLoop(async (s) => {
+        let data = new TextEncoder().encode(s);
+        await device.transferOut(ep, data);
+      })
+      readLoop(async () => {
+        let result = await device.transferIn(ep, 64);
+        if (result.status === 'stall') {
+          await device.clearHalt('in', ep);
+          throw result;
+        }
+        const result_array = new Int8Array(result.data.buffer);
+        return utf8decoder.decode(result_array);
+      });
+    } catch (err) {
+      console.log(`Disconnected: ${err}`);
+      device = null;
+      requestUSBButton.disabled = false;
+    }
+  });
+  window.addEventListener('keydown', async (event) => {
+    if (!device) {
+      return;
+    }
+    let data: any;
+    if (event.key.length === 1) {
+      data = new Int8Array([event.key.charCodeAt(0)]);
+    } else if (event.code === 'Enter') {
+      data = new Uint8Array([0x0a]);
+    } else {
+      return;
+    }
+    await device.transferOut(ep, data);
+  }, true);
+};
+setupStartUSBButton();
+
 requestSerialButton.addEventListener('click', () => {
   halt = false;
   navigator.serial
@@ -78,38 +182,30 @@ requestSerialButton.addEventListener('click', () => {
         await writer.write(encoder.encode('help\n'));
         writer.releaseLock();
 
-        // Launch write loop
-        const f = async (_: any) => {
-          while (!halt) {
-            let data = new TextEncoder().encode('ina 0\n');
-            const writer = port.writable.getWriter();
-            await writer.write(data);
-            writer.releaseLock();
-            await new Promise(r => setTimeout(r, intervalMs));
-          }
-        };
-        setTimeout(f, 1000);
-
-        // read loop
-        while (!halt) {
-          while (port.readable) {
-            const reader = port.readable.getReader();
-            try {
-              while (true) {
-                const {value, done} = await reader.read();
-                if (done) {
-                  // |reader| has been canceled.
-                  break;
-                }
-                pushOutput(utf8decoder.decode(value));
+        kickWriteLoop(async (s) => {
+          let data = new TextEncoder().encode(s);
+          const writer = port.writable.getWriter();
+          await writer.write(data);
+          writer.releaseLock();
+        })
+        readLoop(async () => {
+          const reader = port.readable.getReader();
+          try {
+            while (true) {
+              const {value, done} = await reader.read();
+              if (done) {
+                // |reader| has been canceled.
+                break;
               }
-            } catch (error) {
-              console.log(error);
-            } finally {
-              reader.releaseLock();
+              return utf8decoder.decode(value);
             }
+          } catch (error) {
+            console.log(error);
+            throw error;
+          } finally {
+            reader.releaseLock();
           }
-        }
+        });
       })
       .catch((e) => {
         // The user didn't select a port.
@@ -117,8 +213,6 @@ requestSerialButton.addEventListener('click', () => {
       });
 });
 
-let downloadButton =
-    document.getElementById('downloadButton') as HTMLButtonElement;
 downloadButton.addEventListener('click', async () => {
   const dataStr = 'data:text/json;charset=utf-8,' +
       encodeURIComponent(JSON.stringify({power: powerData}));
@@ -128,79 +222,10 @@ downloadButton.addEventListener('click', async () => {
   dlAnchorElem.click();
 });
 
-let button = document.getElementById('request-device') as HTMLButtonElement;
-let serial_output = document.getElementById('serial_output') as HTMLDivElement;
-let device: USBDevice;
-let usb_interface = 0;
-let ep = usb_interface + 1;
-button.addEventListener('click', async () => {
-  halt = false;
-  device = null;
-  button.disabled = true;
-  try {
-    device = await navigator.usb.requestDevice({
-      filters: [{
-        vendorId: 0x18d1,  /* Google */
-        productId: 0x520d, /* Servo v4p1 */
-      }]
-    });
-  } catch (err) {
-    console.log(`Error: ${err}`);
-  }
-  if (!device) {
-    device = null;
-    button.disabled = false;
-    return;
-  }
-
-  try {
-    await device.open();
-    await device.selectConfiguration(1);
-    await device.claimInterface(usb_interface);
-
-    const f = async (_event: any) => {
-      while (!halt) {
-        let data = new TextEncoder().encode('ina 0\n');
-        await device.transferOut(ep, data);
-        await new Promise(r => setTimeout(r, intervalMs));
-      }
-    };
-    setTimeout(f, intervalMs);
-
-    while (!halt) {
-      let result = await device.transferIn(ep, 64);
-      if (result.status === 'stall') {
-        await device.clearHalt('in', ep);
-        continue;
-      }
-      const result_array = new Int8Array(result.data.buffer);
-      pushOutput(utf8decoder.decode(result_array));
-    }
-  } catch (err) {
-    console.log(`Disconnected: ${err}`);
-    device = null;
-    button.disabled = false;
-  }
-});
-window.addEventListener('keydown', async (event) => {
-  if (!device) {
-    return;
-  }
-  let data: any;
-  if (event.key.length === 1) {
-    data = new Int8Array([event.key.charCodeAt(0)]);
-  } else if (event.code === 'Enter') {
-    data = new Uint8Array([0x0a]);
-  } else {
-    return;
-  }
-  await device.transferOut(ep, data);
-}, true);
-
 let haltButton = document.getElementById('haltButton') as HTMLButtonElement;
 haltButton.addEventListener('click', () => {
   halt = true;
-  button.disabled = false;
+  requestUSBButton.disabled = false;
   requestSerialButton.disabled = false;
 });
 
@@ -225,7 +250,8 @@ function paintHistogram(t0: number, t1: number) {
               'transform', 'translate(' + margin.left + ',' + margin.top + ')');
 
   // y axis and its label
-  const dataAll: Array<number> = currentData.map((e: (Date|number)) => e[1] as number);
+  const dataAll: Array<number> =
+      currentData.map((e: (Date|number)) => e[1] as number);
   const ymin = d3.min(dataAll) - 1000;
   const ymax = d3.max(dataAll) + 1000;
   const y = d3.scaleLinear().domain([ymax, ymin]).range([0, height]);

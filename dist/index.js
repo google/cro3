@@ -68256,6 +68256,11 @@ var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _argume
 
 
 const intervalMs = 100;
+let downloadButton = document.getElementById('downloadButton');
+let requestUSBButton = document.getElementById('request-device');
+const requestSerialButton = document.getElementById('requestSerialButton');
+const serial_output = document.getElementById('serial_output');
+const serial1 = document.getElementById('serial1');
 const controlDiv = document.getElementById('controlDiv');
 let powerData = [];
 const g = new dygraphs__WEBPACK_IMPORTED_MODULE_1__["default"]('graph', powerData, {});
@@ -68267,7 +68272,7 @@ function updateGraph(data) {
     currentData = data;
     g.updateOptions({
         file: data,
-        labels: ['t', 'ina0', 'ina1'],
+        labels: ['t', 'ina0', 'ina1', 'ina2'],
         showRoller: true,
         // customBars: true,
         ylabel: 'Power (mW)',
@@ -68287,6 +68292,7 @@ function updateGraph(data) {
     }, false);
 }
 let inaIndex = 0;
+let inProgress = false;
 function pushOutput(s) {
     output += s;
     let splitted = output.split('\n').filter((s) => s.trim().length > 10);
@@ -68296,16 +68302,115 @@ function pushOutput(s) {
             .split('=>')[1]
             .trim()
             .split(' ')[0]);
-        let e = [new Date(), null, null];
-        e[(inaIndex & 1) + 1] = power;
-        inaIndex += 1;
+        let e = [new Date(), null, null, null];
+        e[inaIndex + 1] = power;
         powerData.push(e);
         updateGraph(powerData);
         serial_output.innerText = output;
         output = '';
+        inProgress = false;
+        inaIndex += 1;
+        inaIndex %= 3;
     }
 }
-const requestSerialButton = document.getElementById('requestSerialButton');
+function kickWriteLoop(writeFn) {
+    const f = (_) => __awaiter(this, void 0, void 0, function* () {
+        console.log('write loop started');
+        while (!halt) {
+            if (inProgress) {
+                console.error('previous request is in progress! skip...');
+                // serial1.innerHTML += output;
+            }
+            else {
+                inProgress = true;
+                // writeFn(`ina ${inaIndex}\n`);
+            }
+            const cmd = `ina ${inaIndex}\n`;
+            yield writeFn(cmd);
+            yield new Promise(r => setTimeout(r, intervalMs));
+        }
+    });
+    setTimeout(f, intervalMs);
+}
+function readLoop(readFn) {
+    return __awaiter(this, void 0, void 0, function* () {
+        console.log('read fn started');
+        while (!halt) {
+            const s = yield readFn();
+            if (s === undefined || !s.length) {
+                continue;
+            }
+            pushOutput(s);
+        }
+    });
+}
+function setupStartUSBButton() {
+    let device;
+    let usb_interface = 0;
+    let ep = usb_interface + 1;
+    requestUSBButton.addEventListener('click', () => __awaiter(this, void 0, void 0, function* () {
+        halt = false;
+        device = null;
+        requestUSBButton.disabled = true;
+        try {
+            device = yield navigator.usb.requestDevice({
+                filters: [{
+                        vendorId: 0x18d1,
+                        productId: 0x520d, /* Servo v4p1 */
+                    }]
+            });
+        }
+        catch (err) {
+            console.log(`Error: ${err}`);
+        }
+        if (!device) {
+            device = null;
+            requestUSBButton.disabled = false;
+            return;
+        }
+        try {
+            yield device.open();
+            yield device.selectConfiguration(1);
+            yield device.claimInterface(usb_interface);
+            kickWriteLoop((s) => __awaiter(this, void 0, void 0, function* () {
+                let data = new TextEncoder().encode(s);
+                yield device.transferOut(ep, data);
+            }));
+            readLoop(() => __awaiter(this, void 0, void 0, function* () {
+                let result = yield device.transferIn(ep, 64);
+                if (result.status === 'stall') {
+                    yield device.clearHalt('in', ep);
+                    throw result;
+                }
+                const result_array = new Int8Array(result.data.buffer);
+                return utf8decoder.decode(result_array);
+            }));
+        }
+        catch (err) {
+            console.log(`Disconnected: ${err}`);
+            device = null;
+            requestUSBButton.disabled = false;
+        }
+    }));
+    window.addEventListener('keydown', (event) => __awaiter(this, void 0, void 0, function* () {
+        if (!device) {
+            return;
+        }
+        let data;
+        if (event.key.length === 1) {
+            data = new Int8Array([event.key.charCodeAt(0)]);
+        }
+        else if (event.code === 'Enter') {
+            data = new Uint8Array([0x0a]);
+        }
+        else {
+            return;
+        }
+        yield device.transferOut(ep, data);
+    }), true);
+}
+;
+setupStartUSBButton();
 requestSerialButton.addEventListener('click', () => {
     halt = false;
     navigator.serial
@@ -68317,46 +68422,38 @@ requestSerialButton.addEventListener('click', () => {
         const writer = port.writable.getWriter();
         yield writer.write(encoder.encode('help\n'));
         writer.releaseLock();
-        // Launch write loop
-        const f = (_) => __awaiter(void 0, void 0, void 0, function* () {
-            while (!halt) {
-                let data = new TextEncoder().encode('ina 0\n');
-                const writer = port.writable.getWriter();
-                yield writer.write(data);
-                writer.releaseLock();
-                yield new Promise(r => setTimeout(r, intervalMs));
-            }
-        });
-        setTimeout(f, 1000);
-        // read loop
-        while (!halt) {
-            while (port.readable) {
-                const reader = port.readable.getReader();
-                try {
-                    while (true) {
-                        const { value, done } = yield reader.read();
-                        if (done) {
-                            // |reader| has been canceled.
-                            break;
-                        }
-                        pushOutput(utf8decoder.decode(value));
+        kickWriteLoop((s) => __awaiter(void 0, void 0, void 0, function* () {
+            let data = new TextEncoder().encode(s);
+            const writer = port.writable.getWriter();
+            yield writer.write(data);
+            writer.releaseLock();
+        }));
+        readLoop(() => __awaiter(void 0, void 0, void 0, function* () {
+            const reader = port.readable.getReader();
+            try {
+                while (true) {
+                    const { value, done } = yield reader.read();
+                    if (done) {
+                        // |reader| has been canceled.
+                        break;
                     }
-                }
-                catch (error) {
-                    console.log(error);
-                }
-                finally {
-                    reader.releaseLock();
+                    return utf8decoder.decode(value);
                 }
             }
-        }
+            catch (error) {
+                console.log(error);
+                throw error;
+            }
+            finally {
+                reader.releaseLock();
+            }
+        }));
     }))
         .catch((e) => {
         // The user didn't select a port.
         console.log(e);
     });
 });
-let downloadButton = document.getElementById('downloadButton');
 downloadButton.addEventListener('click', () => __awaiter(void 0, void 0, void 0, function* () {
     const dataStr = 'data:text/json;charset=utf-8,' +
         encodeURIComponent(JSON.stringify({ power: powerData }));
@@ -68365,79 +68462,10 @@ downloadButton.addEventListener('click', () => __awaiter(void 0, void 0, void 0,
     dlAnchorElem.setAttribute('download', `power_${moment__WEBPACK_IMPORTED_MODULE_2___default()().format()}.json`);
     dlAnchorElem.click();
 }));
-let button = document.getElementById('request-device');
-let serial_output = document.getElementById('serial_output');
-let device;
-let usb_interface = 0;
-let ep = usb_interface + 1;
-button.addEventListener('click', () => __awaiter(void 0, void 0, void 0, function* () {
-    halt = false;
-    device = null;
-    button.disabled = true;
-    try {
-        device = yield navigator.usb.requestDevice({
-            filters: [{
-                    vendorId: 0x18d1,
-                    productId: 0x520d, /* Servo v4p1 */
-                }]
-        });
-    }
-    catch (err) {
-        console.log(`Error: ${err}`);
-    }
-    if (!device) {
-        device = null;
-        button.disabled = false;
-        return;
-    }
-    try {
-        yield device.open();
-        yield device.selectConfiguration(1);
-        yield device.claimInterface(usb_interface);
-        const f = (_event) => __awaiter(void 0, void 0, void 0, function* () {
-            while (!halt) {
-                let data = new TextEncoder().encode('ina 0\n');
-                yield device.transferOut(ep, data);
-                yield new Promise(r => setTimeout(r, intervalMs));
-            }
-        });
-        setTimeout(f, intervalMs);
-        while (!halt) {
-            let result = yield device.transferIn(ep, 64);
-            if (result.status === 'stall') {
-                yield device.clearHalt('in', ep);
-                continue;
-            }
-            const result_array = new Int8Array(result.data.buffer);
-            pushOutput(utf8decoder.decode(result_array));
-        }
-    }
-    catch (err) {
-        console.log(`Disconnected: ${err}`);
-        device = null;
-        button.disabled = false;
-    }
-}));
-window.addEventListener('keydown', (event) => __awaiter(void 0, void 0, void 0, function* () {
-    if (!device) {
-        return;
-    }
-    let data;
-    if (event.key.length === 1) {
-        data = new Int8Array([event.key.charCodeAt(0)]);
-    }
-    else if (event.code === 'Enter') {
-        data = new Uint8Array([0x0a]);
-    }
-    else {
-        return;
-    }
-    yield device.transferOut(ep, data);
-}), true);
 let haltButton = document.getElementById('haltButton');
 haltButton.addEventListener('click', () => {
     halt = true;
-    button.disabled = false;
+    requestUSBButton.disabled = false;
     requestSerialButton.disabled = false;
 });
 let ranges = [];
