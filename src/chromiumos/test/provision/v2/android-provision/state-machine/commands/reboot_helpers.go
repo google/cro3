@@ -6,6 +6,7 @@ package commands
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"go.chromium.org/luci/common/errors"
@@ -45,7 +46,7 @@ func waitForBootloaderMode(ctx context.Context, dut *service.DUTConnection, wait
 		if err != nil {
 			return err
 		}
-		if ds == "fastboot" {
+		if state := strings.TrimSuffix(ds, "\n"); state == "fastboot" {
 			return nil
 		}
 		retryCount -= 1
@@ -70,7 +71,7 @@ func waitForDevice(ctx context.Context, dut *service.DUTConnection, waitTimeout 
 			successCount = 0
 			failureCount += 1
 		} else {
-			if ds == "device" {
+			if state := strings.TrimSuffix(ds, "\n"); state == "device" {
 				successCount += 1
 				failureCount = 0
 				if successCount >= stateCount {
@@ -78,7 +79,7 @@ func waitForDevice(ctx context.Context, dut *service.DUTConnection, waitTimeout 
 				}
 			} else {
 				successCount = 0
-				if ds == "unauthorized" {
+				if state == "unauthorized" {
 					failureCount += 1
 					// If device is in unauthorized state for more than 90 seconds, return error.
 					// The device either broken or public key is missing.
