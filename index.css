@@ -2,13 +2,7 @@
   position: absolute;
   font-size: 14px;
   z-index: 10;
-  width: 250px;  /* labelsDivWidth */
-  /*
-  dygraphs determines these based on the presence of chart labels.
-  It might make more sense to create a wrapper div around the chart proper.
-  top: 0px;
-  right: 2px;
-  */
+  width: 250px;
   background: white;
   line-height: normal;
   text-align: left;
@@ -115,4 +109,17 @@
   -o-transform: rotate(-90deg);
   -ms-transform: rotate(-90deg);
 }
-#graph { position: absolute; inset: 100px 10px 10px 10px; }
+body {
+  position: relative;
+}
+.log {
+  position: relative;
+  display: inline-block;
+  border: none;
+  height: 400px;
+  width: 20%;
+  padding: 4px;
+  border: 1px solid gray;
+  margin: 4px;
+  vertical-align: bottom;
+}

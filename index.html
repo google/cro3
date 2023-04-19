@@ -7,17 +7,22 @@
     <ol>
       <li>Make sure only one servo is connected to the host</li>
       <li>Press "Start" and select the first one (Try WebSerial first. If it does not show anything, try WebUSB)</li>
+      <li>Zoom: click-drag, Pan: shift-click-drag, Restore: double-click</li>
     </ol>
   </div>
-  <div>
+  <div id="controlDiv">
     <a id="downloadAnchorElem" style="display:none"></a>
     <button id='requestSerialButton'>Start(WebSerial)</button>
     <button id='request-device'>Start(WebUSB)</button>
     <button id='haltButton'>Stop</button>
     <button id='downloadButton'>Download</button>
+    <button id='downloadButton'>Mark</button>
   </div>
-  <div id="serial_output" style="margin-left: 100px"></div>
-  <div id="graph"></div>
+  <span id="serial1" class="log"></span>
+  <span id="serial_output" class="log"></span>
+  <span id="serial2" class="log"></span>
+  <span id="serial3" class="log"></span>
+  <div id="graph" style="width: 100%"></div>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
   <script src='./dist/index.js'></script>

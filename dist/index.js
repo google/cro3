@@ -33932,6 +33932,9 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var dygraphs__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! dygraphs */ "./node_modules/dygraphs/index.js");
 /* harmony import */ var moment__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! moment */ "./node_modules/moment/moment.js");
 /* harmony import */ var moment__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__webpack_require__.n(moment__WEBPACK_IMPORTED_MODULE_1__);
+// while true ; do { echo "do nothing for 5 sec" ; sleep 5 ; echo "yes for 5 sec without displaying" ; timeout 5 yes > /dev/null ; } ; done
+// ectool chargecontrol idle
+// ectool chargecontrol normal
 var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -33943,6 +33946,10 @@ var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _argume
 };
 
 
+const controlDiv = document.getElementById('controlDiv');
+const MarkButton = document.createElement('button');
+MarkButton.innerText = 'Mark!';
+controlDiv.appendChild(MarkButton);
 const intervalMs = 100;
 let powerData = [];
 const g = new dygraphs__WEBPACK_IMPORTED_MODULE_0__["default"]('graph', powerData, {});
@@ -33967,6 +33974,17 @@ function pushOutput(s) {
             // customBars: true,
             ylabel: 'Power (mW)',
             legend: 'always',
+            showRangeSelector: true,
+            underlayCallback: function (canvas, area, g) {
+                canvas.fillStyle = 'rgba(255, 255, 102, 1.0)';
+                function highlight_period(x_start, x_end) {
+                    var canvas_left_x = g.toDomXCoord(x_start);
+                    var canvas_right_x = g.toDomXCoord(x_end);
+                    var canvas_width = canvas_right_x - canvas_left_x;
+                    canvas.fillRect(canvas_left_x, area.y, canvas_width, area.h);
+                }
+                highlight_period(10, 10);
+            }
         }, false);
         serial_output.innerText = output;
         output = '';
@@ -34026,7 +34044,7 @@ requestSerialButton.addEventListener('click', () => {
 let downloadButton = document.getElementById('downloadButton');
 downloadButton.addEventListener('click', () => __awaiter(void 0, void 0, void 0, function* () {
     var dataStr = 'data:text/json;charset=utf-8,' +
-        encodeURIComponent(JSON.stringify(powerData));
+        encodeURIComponent(JSON.stringify({ power: powerData }));
     var dlAnchorElem = document.getElementById('downloadAnchorElem');
     dlAnchorElem.setAttribute('href', dataStr);
     dlAnchorElem.setAttribute('download', `power_${moment__WEBPACK_IMPORTED_MODULE_1___default()().format()}.json`);

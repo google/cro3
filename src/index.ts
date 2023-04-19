@@ -1,5 +1,14 @@
+// while true ; do { echo "do nothing for 5 sec" ; sleep 5 ; echo "yes for 5 sec without displaying" ; timeout 5 yes > /dev/null ; } ; done
+// ectool chargecontrol idle
+// ectool chargecontrol normal
+
 import Dygraph from 'dygraphs';
 import moment from 'moment';
+
+const controlDiv = document.getElementById('controlDiv') as HTMLDivElement;
+const MarkButton = document.createElement('button');
+MarkButton.innerText = 'Mark!';
+controlDiv.appendChild(MarkButton);
 
 const intervalMs = 100;
 
@@ -30,6 +39,18 @@ function pushOutput(s: string) {
           // customBars: true,
           ylabel: 'Power (mW)',
           legend: 'always',
+          showRangeSelector: true,
+          underlayCallback: function(canvas, area, g) {
+            canvas.fillStyle = 'rgba(255, 255, 102, 1.0)';
+
+            function highlight_period(x_start: number, x_end: number) {
+              var canvas_left_x = g.toDomXCoord(x_start);
+              var canvas_right_x = g.toDomXCoord(x_end);
+              var canvas_width = canvas_right_x - canvas_left_x;
+              canvas.fillRect(canvas_left_x, area.y, canvas_width, area.h);
+            }
+            highlight_period(10, 10);
+          }
         },
         false);
     serial_output.innerText = output;
@@ -37,7 +58,8 @@ function pushOutput(s: string) {
   }
 }
 
-const requestSerialButton = document.getElementById('requestSerialButton') as HTMLButtonElement;
+const requestSerialButton =
+    document.getElementById('requestSerialButton') as HTMLButtonElement;
 requestSerialButton.addEventListener('click', () => {
   halt = false;
   navigator.serial
@@ -89,10 +111,11 @@ requestSerialButton.addEventListener('click', () => {
       });
 });
 
-let downloadButton = document.getElementById('downloadButton') as HTMLButtonElement;
+let downloadButton =
+    document.getElementById('downloadButton') as HTMLButtonElement;
 downloadButton.addEventListener('click', async () => {
   var dataStr = 'data:text/json;charset=utf-8,' +
-      encodeURIComponent(JSON.stringify(powerData));
+      encodeURIComponent(JSON.stringify({power: powerData}));
   var dlAnchorElem = document.getElementById('downloadAnchorElem');
   dlAnchorElem.setAttribute('href', dataStr);
   dlAnchorElem.setAttribute('download', `power_${moment().format()}.json`);
@@ -129,7 +152,7 @@ button.addEventListener('click', async () => {
     await device.selectConfiguration(1);
     await device.claimInterface(usb_interface);
 
-    const f = async (_event : any) => {
+    const f = async (_event: any) => {
       while (!halt) {
         let data = new TextEncoder().encode('ina 0\n');
         await device.transferOut(ep, data);
