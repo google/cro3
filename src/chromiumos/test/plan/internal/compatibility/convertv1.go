@@ -257,10 +257,8 @@ func getTestArtifacts(build *bbpb.Build) (*testplans.BuildPayload, error) {
 	// as keys in the map but empty lists; in this case, skip the artifact
 	// and log a warning, as this is somewhat unexpected.
 	testArtifacts := []string{
-		"AUTOTEST_FILES",
 		"IMAGE_ZIP",
 		"PINNED_GUEST_IMAGES",
-		"TAST_FILES",
 		"TEST_UPDATE_PAYLOAD",
 	}
 

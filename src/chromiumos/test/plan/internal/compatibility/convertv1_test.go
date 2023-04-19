@@ -362,7 +362,7 @@ func getSerializedBuilds(t *testing.T) []*testplans.ProtoBytes {
 					"gs_bucket": "testgsbucket",
 					"gs_path":   "testgspathA",
 					"files_by_artifact": map[string]interface{}{
-						"AUTOTEST_FILES": []interface{}{"file1", "file2"},
+						"IMAGE_ZIP": []interface{}{"file1", "file2"},
 					},
 				},
 			}),
@@ -391,7 +391,7 @@ func getSerializedBuilds(t *testing.T) []*testplans.ProtoBytes {
 						// A test artifact is an empty list, this should be ignored.
 						"IMAGE_ZIP": []interface{}{},
 						// A test artifact is not a list, this should also be ignored.
-						"AUTOTEST_FILES": 123,
+						"TEST_UPDATE_PAYLOAD": 123,
 					},
 				},
 			}),
@@ -416,7 +416,7 @@ func getSerializedBuilds(t *testing.T) []*testplans.ProtoBytes {
 					"gs_bucket": "testgsbucket",
 					"gs_path":   "testgspathC",
 					"files_by_artifact": map[string]interface{}{
-						"AUTOTEST_FILES": []interface{}{"file1", "file2"},
+						"IMAGE_ZIP": []interface{}{"file1", "file2"},
 					},
 				},
 			}),
@@ -440,7 +440,7 @@ func getSerializedBuilds(t *testing.T) []*testplans.ProtoBytes {
 					"gs_bucket": "testgsbucket",
 					"gs_path":   "testgspath",
 					"files_by_artifact": map[string]interface{}{
-						"AUTOTEST_FILES": []interface{}{"file1", "file2"},
+						"IMAGE_ZIP": []interface{}{"file1", "file2"},
 					},
 				},
 			}),
@@ -498,7 +498,7 @@ func getSerializedBuilds(t *testing.T) []*testplans.ProtoBytes {
 					"gs_bucket": "testgsbucket",
 					"gs_path":   "testgspathA-kernelnext",
 					"files_by_artifact": map[string]interface{}{
-						"AUTOTEST_FILES": []interface{}{"file1", "file2"},
+						"IMAGE_ZIP": []interface{}{"file1", "file2"},
 					},
 				},
 			}),
@@ -523,7 +523,7 @@ func getSerializedBuilds(t *testing.T) []*testplans.ProtoBytes {
 					"gs_bucket": "testgsbucket",
 					"gs_path":   "testgspathA",
 					"files_by_artifact": map[string]interface{}{
-						"AUTOTEST_FILES": []interface{}{"file1", "file2"},
+						"IMAGE_ZIP": []interface{}{"file1", "file2"},
 					},
 				},
 			}),
@@ -548,7 +548,7 @@ func getSerializedBuilds(t *testing.T) []*testplans.ProtoBytes {
 					"gs_bucket": "testgsbucket",
 					"gs_path":   "testgspathA-arc-r",
 					"files_by_artifact": map[string]interface{}{
-						"AUTOTEST_FILES": []interface{}{"file1", "file2"},
+						"IMAGE_ZIP": []interface{}{"file1", "file2"},
 					},
 				},
 			}),
@@ -573,7 +573,7 @@ func getSerializedBuilds(t *testing.T) []*testplans.ProtoBytes {
 					"gs_bucket": "testgsbucket",
 					"gs_path":   "testgspathA-asan",
 					"files_by_artifact": map[string]interface{}{
-						"AUTOTEST_FILES": []interface{}{"file1", "file2"},
+						"IMAGE_ZIP": []interface{}{"file1", "file2"},
 					},
 				},
 			}),
@@ -598,7 +598,7 @@ func getSerializedBuilds(t *testing.T) []*testplans.ProtoBytes {
 					"gs_bucket": "testgsbucket",
 					"gs_path":   "testgspathA",
 					"files_by_artifact": map[string]interface{}{
-						"AUTOTEST_FILES": []interface{}{"file1", "file2"},
+						"IMAGE_ZIP": []interface{}{"file1", "file2"},
 					},
 				},
 			}),
@@ -710,7 +710,7 @@ func TestToCTP1(t *testing.T) {
 						ArtifactsGsBucket: "testgsbucket",
 						ArtifactsGsPath:   "testgspathA",
 						FilesByArtifact: newStruct(t, map[string]interface{}{
-							"AUTOTEST_FILES": []interface{}{"file1", "file2"},
+							"IMAGE_ZIP": []interface{}{"file1", "file2"},
 						}),
 					},
 				},
@@ -765,7 +765,7 @@ func TestToCTP1(t *testing.T) {
 						ArtifactsGsBucket: "testgsbucket",
 						ArtifactsGsPath:   "testgspathA-kernelnext",
 						FilesByArtifact: newStruct(t, map[string]interface{}{
-							"AUTOTEST_FILES": []interface{}{"file1", "file2"},
+							"IMAGE_ZIP": []interface{}{"file1", "file2"},
 						}),
 					},
 				},
@@ -795,7 +795,7 @@ func TestToCTP1(t *testing.T) {
 						ArtifactsGsBucket: "testgsbucket",
 						ArtifactsGsPath:   "testgspathA-asan",
 						FilesByArtifact: newStruct(t, map[string]interface{}{
-							"AUTOTEST_FILES": []interface{}{"file1", "file2"},
+							"IMAGE_ZIP": []interface{}{"file1", "file2"},
 						}),
 					},
 				},
@@ -826,7 +826,7 @@ func TestToCTP1(t *testing.T) {
 						ArtifactsGsBucket: "testgsbucket",
 						ArtifactsGsPath:   "testgspathA",
 						FilesByArtifact: newStruct(t, map[string]interface{}{
-							"AUTOTEST_FILES": []interface{}{"file1", "file2"},
+							"IMAGE_ZIP": []interface{}{"file1", "file2"},
 						}),
 					},
 				},
@@ -854,7 +854,7 @@ func TestToCTP1(t *testing.T) {
 						ArtifactsGsBucket: "testgsbucket",
 						ArtifactsGsPath:   "testgspathA-arc-r",
 						FilesByArtifact: newStruct(t, map[string]interface{}{
-							"AUTOTEST_FILES": []interface{}{"file1", "file2"},
+							"IMAGE_ZIP": []interface{}{"file1", "file2"},
 						}),
 					},
 				},
@@ -914,7 +914,7 @@ func TestToCTP1(t *testing.T) {
 						ArtifactsGsBucket: "testgsbucket",
 						ArtifactsGsPath:   "testgspathA",
 						FilesByArtifact: newStruct(t, map[string]interface{}{
-							"AUTOTEST_FILES": []interface{}{"file1", "file2"},
+							"IMAGE_ZIP": []interface{}{"file1", "file2"},
 						}),
 					},
 				},
