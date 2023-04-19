@@ -15,7 +15,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
@@ -352,7 +351,12 @@ func (r *generateRun) run() error {
 		}
 
 		resp, err := compatibility.ToCTP1(
-			rand.New(rand.NewSource(time.Now().Unix())),
+			// Disable randomness when selecting boards for now, since this can
+			// lead to cases where a different board is selected on the first
+			// and second CQ runs, causing test history to not be reused.
+			// TODO(b/278624587): Pass a list of previously-passed tests, so
+			// this can be used to ensure test reuse.
+			rand.New(rand.NewSource(0)),
 			hwTestPlans, vmTestPlans, generateTestPlanReq, dutAttributeList, boardPriorityList, builderConfigs,
 		)
 		if err != nil {
