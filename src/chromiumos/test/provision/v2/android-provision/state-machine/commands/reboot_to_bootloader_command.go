@@ -26,7 +26,7 @@ func NewRebootToBootloaderCommand(ctx context.Context, svc *service.AndroidServi
 
 func (c *RebootToBootloaderCommand) Execute(log *log.Logger) error {
 	log.Printf("Start RebootToBootloaderCommand Execute")
-	if osImage := c.svc.OS; osImage != nil {
+	if osImage := c.svc.OS; osImage != nil && osImage.ImagePath.GsPath != "" {
 		if err := rebootToBootloader(c.ctx, c.svc.DUT, "adb"); err != nil {
 			log.Printf("RebootToBootloaderCommand failed: %v", err)
 			return err

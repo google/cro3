@@ -37,7 +37,11 @@ func TestRebootToBootloaderCommand(t *testing.T) {
 		cmd := NewRebootToBootloaderCommand(context.Background(), svc)
 
 		Convey("Execute", func() {
-			svc.OS = &service.AndroidOS{ImagePath: &service.ImagePath{}}
+			svc.OS = &service.AndroidOS{
+				ImagePath: &service.ImagePath{
+					GsPath: "gs://gs_bucket/folder/image",
+				},
+			}
 			rebootArgs := []string{"-s", "dutSerialNumber", "reboot", "bootloader"}
 			waitArgs := []string{"devices", "|", "grep", "-sw", "dutSerialNumber", "|", "awk", "'{print $2}'"}
 			gomock.InOrder(

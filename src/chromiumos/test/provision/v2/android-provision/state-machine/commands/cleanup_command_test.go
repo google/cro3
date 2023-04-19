@@ -47,6 +47,7 @@ func TestCleanupCommand(t *testing.T) {
 		provisionDir, _ := os.MkdirTemp("", "testCleanup")
 		defer os.RemoveAll(provisionDir)
 		svc.ProvisionDir = provisionDir
+		svc.OS.ImagePath.GsPath = "gs://gs_bucket/folder/image"
 		svc.OS.ImagePath.DutAndroidProductOut = "/tmp_DutAndroidProductOut"
 		cmd := NewCleanupCommand(context.Background(), svc)
 

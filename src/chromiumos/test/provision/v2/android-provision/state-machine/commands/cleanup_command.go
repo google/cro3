@@ -33,7 +33,7 @@ func (c *CleanupCommand) Execute(log *log.Logger) error {
 	if stage := c.ctx.Value("stage"); stage != nil {
 		switch stage {
 		case common.OSInstall:
-			if osImage := c.svc.OS; osImage != nil {
+			if osImage := c.svc.OS; osImage != nil && osImage.ImagePath.GsPath != "" {
 				c.svc.DUT.AssociatedHost.DeleteDirectory(c.ctx, osImage.ImagePath.DutAndroidProductOut)
 			}
 		case common.PackageInstall:

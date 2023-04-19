@@ -31,7 +31,7 @@ func NewFlashOsCommand(ctx context.Context, svc *service.AndroidService) *FlashO
 
 func (c *FlashOsCommand) Execute(log *log.Logger) error {
 	log.Printf("Start FlashOsCommand Execute")
-	if osImage := c.svc.OS; osImage != nil {
+	if osImage := c.svc.OS; osImage != nil && osImage.ImagePath.GsPath != "" {
 		// Flashing bootloader and radio partitions.
 		partitions := []string{"bootloader", "radio"}
 		for _, p := range partitions {

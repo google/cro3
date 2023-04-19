@@ -41,6 +41,7 @@ func TestFlashOsCommand(t *testing.T) {
 			svc.OS = &service.AndroidOS{
 				ImagePath: &service.ImagePath{
 					DutAndroidProductOut: provisionDir,
+					GsPath:               "gs://gs_bucket/folder/image",
 					Files:                []string{"abcd/bootloader-model-123456789.img", "radio-model-123456789.img", "model-img-123456789.zip"},
 				},
 			}
