@@ -51,7 +51,7 @@ requestSerialButton.addEventListener('click', () => {
         writer.releaseLock();
 
         // Launch write loop
-        const f = async (event) => {
+        const f = async (_: any) => {
           while (!halt) {
             let data = new TextEncoder().encode('ina 0\n');
             const writer = port.writable.getWriter();
@@ -129,7 +129,7 @@ button.addEventListener('click', async () => {
     await device.selectConfiguration(1);
     await device.claimInterface(usb_interface);
 
-    const f = async (_event) => {
+    const f = async (_event : any) => {
       while (!halt) {
         let data = new TextEncoder().encode('ina 0\n');
         await device.transferOut(ep, data);
@@ -157,7 +157,7 @@ window.addEventListener('keydown', async (event) => {
   if (!device) {
     return;
   }
-  let data;
+  let data: any;
   if (event.key.length === 1) {
     data = new Int8Array([event.key.charCodeAt(0)]);
   } else if (event.code === 'Enter') {

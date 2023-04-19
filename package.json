@@ -14,5 +14,8 @@
     "chart.js": "^4.2.1",
     "dygraphs": "^2.2.1",
     "moment": "^2.29.4"
+  },
+  "devDependencies": {
+    "@types/dygraphs": "^2.1.4"
   }
 }

@@ -33985,7 +33985,7 @@ requestSerialButton.addEventListener('click', () => {
         yield writer.write(encoder.encode('help\n'));
         writer.releaseLock();
         // Launch write loop
-        const f = (event) => __awaiter(void 0, void 0, void 0, function* () {
+        const f = (_) => __awaiter(void 0, void 0, void 0, function* () {
             while (!halt) {
                 let data = new TextEncoder().encode('ina 0\n');
                 const writer = port.writable.getWriter();
