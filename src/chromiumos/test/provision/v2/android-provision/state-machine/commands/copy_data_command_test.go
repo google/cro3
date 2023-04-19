@@ -71,10 +71,10 @@ func TestCopyDataCommand(t *testing.T) {
 			svc.OS.ImagePath.GsPath = "gs://bucket/folder1/folder2/"
 			cmd.ctx = context.WithValue(cmd.ctx, "stage", common.OSFetch)
 			log, _ := common.SetUpLog(provisionDir)
-			gomock.InOrder(
-				mockGsClient.EXPECT().ListFiles(gomock.Any(), gomock.Eq("folder1/folder2/"), gomock.Eq("/")).Return([]string{"bootloader.img", "radio.img", "smtg-img-2132123.zip"}, nil).Times(1),
-				associatedHost.EXPECT().CopyData(gomock.Any(), gomock.Any(), gomock.Eq("/mnt/stateful_partition/android_provision/folder1/folder2")).Times(3),
-			)
+			mockGsClient.EXPECT().ListFiles(gomock.Any(), gomock.Eq("folder1/folder2/"), gomock.Eq("/")).Return([]string{"bootloader.img", "radio.img", "smtg-img-2132123.zip"}, nil).Times(1)
+			associatedHost.EXPECT().CopyData(gomock.Any(), gomock.Any(), gomock.Eq("/mnt/stateful_partition/android_provision/folder1/folder2/bootloader.img")).Times(1)
+			associatedHost.EXPECT().CopyData(gomock.Any(), gomock.Any(), gomock.Eq("/mnt/stateful_partition/android_provision/folder1/folder2/radio.img")).Times(1)
+			associatedHost.EXPECT().CopyData(gomock.Any(), gomock.Any(), gomock.Eq("/mnt/stateful_partition/android_provision/folder1/folder2/smtg-img-2132123.zip")).Times(1)
 			So(cmd.Execute(log), ShouldBeNil)
 			So(svc.OS.ImagePath.Files, ShouldResemble, []string{"bootloader.img", "radio.img", "smtg-img-2132123.zip"})
 		})

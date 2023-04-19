@@ -123,7 +123,7 @@ func (c *CopyDataCommand) cacheOSFiles(dstPath string, provisionFiles []string) 
 		f := f
 		errs.Go(func() error {
 			gsFullPath := gsPath + f
-			return dut.AssociatedHost.CopyData(ctx, gsFullPath, dstPath)
+			return dut.AssociatedHost.CopyData(ctx, gsFullPath, filepath.Join(dstPath, f))
 		})
 	}
 	return errs.Wait()
