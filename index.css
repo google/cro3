@@ -116,10 +116,15 @@ body {
   position: relative;
   display: inline-block;
   border: none;
-  height: 400px;
+  height: 300px;
   width: 20%;
   padding: 4px;
   border: 1px solid gray;
   margin: 4px;
   vertical-align: bottom;
+}
+.dropzone {
+  border: 1px solid gray;
+  padding: 4px;
+  margin: 4px;
 }

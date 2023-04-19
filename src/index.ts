@@ -1,22 +1,19 @@
-// while true ; do { echo "do nothing for 5 sec" ; sleep 5 ; echo "yes for 5 sec without displaying" ; timeout 5 yes > /dev/null ; } ; done
-// ectool chargecontrol idle
-// ectool chargecontrol normal
+// while true ; do { echo "do nothing for 5 sec" ; sleep 5 ; echo "yes for 5 sec
+// without displaying" ; timeout 5 yes > /dev/null ; } ; done ectool
+// chargecontrol idle ectool chargecontrol normal
 
 import Dygraph from 'dygraphs';
 import moment from 'moment';
+
+const intervalMs = 100;
 
 const controlDiv = document.getElementById('controlDiv') as HTMLDivElement;
 const MarkButton = document.createElement('button');
 MarkButton.innerText = 'Mark!';
 controlDiv.appendChild(MarkButton);
-
-const intervalMs = 100;
-
 let powerData = [];
 const g = new Dygraph('graph', powerData, {});
-
-const utf8decoder = new TextDecoder();  // default 'utf-8' or 'utf8'
-
+const utf8decoder = new TextDecoder('utf-8');
 let output = '';
 let halt = false;
 function pushOutput(s: string) {
@@ -198,3 +195,33 @@ haltButton.addEventListener('click', () => {
   requestSerialButton.disabled = false;
 });
 
+function setupDataLoad() {
+  const handleFileSelect = (evt: DragEvent) => {
+    evt.stopPropagation();
+    evt.preventDefault();
+    var file = evt.dataTransfer.files[0];
+    if (file === undefined) {
+        return;
+    }
+    const r = new FileReader();
+    r.addEventListener("load", ()=> {
+      const data = JSON.parse(r.result as string);
+      console.log(data);
+    })
+    r.readAsText(file);
+  };
+
+  const handleDragOver = (evt: DragEvent) => {
+    evt.stopPropagation();
+    evt.preventDefault();
+    evt.dataTransfer.dropEffect = 'copy';  // Explicitly show this is a copy.
+  };
+  const dropZone = document.createElement('span');
+  dropZone.innerText = 'Drop .json here';
+  dropZone.className = 'dropzone'
+  controlDiv.appendChild(dropZone);
+  dropZone.addEventListener('dragover', handleDragOver, false);
+  dropZone.addEventListener('drop', handleFileSelect, false);
+}
+
+setupDataLoad();

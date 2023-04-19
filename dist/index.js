@@ -33932,9 +33932,9 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var dygraphs__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! dygraphs */ "./node_modules/dygraphs/index.js");
 /* harmony import */ var moment__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! moment */ "./node_modules/moment/moment.js");
 /* harmony import */ var moment__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__webpack_require__.n(moment__WEBPACK_IMPORTED_MODULE_1__);
-// while true ; do { echo "do nothing for 5 sec" ; sleep 5 ; echo "yes for 5 sec without displaying" ; timeout 5 yes > /dev/null ; } ; done
-// ectool chargecontrol idle
-// ectool chargecontrol normal
+// while true ; do { echo "do nothing for 5 sec" ; sleep 5 ; echo "yes for 5 sec
+// without displaying" ; timeout 5 yes > /dev/null ; } ; done ectool
+// chargecontrol idle ectool chargecontrol normal
 var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -33946,14 +33946,14 @@ var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _argume
 };
 
 
+const intervalMs = 100;
 const controlDiv = document.getElementById('controlDiv');
 const MarkButton = document.createElement('button');
 MarkButton.innerText = 'Mark!';
 controlDiv.appendChild(MarkButton);
-const intervalMs = 100;
 let powerData = [];
 const g = new dygraphs__WEBPACK_IMPORTED_MODULE_0__["default"]('graph', powerData, {});
-const utf8decoder = new TextDecoder(); // default 'utf-8' or 'utf8'
+const utf8decoder = new TextDecoder('utf-8');
 let output = '';
 let halt = false;
 function pushOutput(s) {
@@ -34125,6 +34125,34 @@ haltButton.addEventListener('click', () => {
     button.disabled = false;
     requestSerialButton.disabled = false;
 });
+function setupDataLoad() {
+    const handleFileSelect = (evt) => {
+        evt.stopPropagation();
+        evt.preventDefault();
+        var file = evt.dataTransfer.files[0];
+        if (file === undefined) {
+            return;
+        }
+        const r = new FileReader();
+        r.addEventListener("load", () => {
+            const data = JSON.parse(r.result);
+            console.log(data);
+        });
+        r.readAsText(file);
+    };
+    const handleDragOver = (evt) => {
+        evt.stopPropagation();
+        evt.preventDefault();
+        evt.dataTransfer.dropEffect = 'copy'; // Explicitly show this is a copy.
+    };
+    const dropZone = document.createElement('span');
+    dropZone.innerText = 'Drop .json here';
+    dropZone.className = 'dropzone';
+    controlDiv.appendChild(dropZone);
+    dropZone.addEventListener('dragover', handleDragOver, false);
+    dropZone.addEventListener('drop', handleFileSelect, false);
+}
+setupDataLoad();
 //# sourceMappingURL=index.js.map
 })();
 
