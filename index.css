@@ -128,3 +128,7 @@ body {
   padding: 4px;
   margin: 4px;
 }
+#graph {
+  height: 800px;
+  width: 100%;
+}

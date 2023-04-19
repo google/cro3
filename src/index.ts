@@ -2,22 +2,22 @@
 // without displaying" ; timeout 5 yes > /dev/null ; } ; done ectool
 // chargecontrol idle ectool chargecontrol normal
 
+import * as d3 from 'd3';
 import Dygraph from 'dygraphs';
 import moment from 'moment';
 
 const intervalMs = 100;
 
 const controlDiv = document.getElementById('controlDiv') as HTMLDivElement;
-const MarkButton = document.createElement('button');
-MarkButton.innerText = 'Mark!';
-controlDiv.appendChild(MarkButton);
 let powerData = [];
 const g = new Dygraph('graph', powerData, {});
 const utf8decoder = new TextDecoder('utf-8');
 let output = '';
 let halt = false;
 
+let currentData = undefined;
 function updateGraph(data) {
+  currentData = data;
   g.updateOptions(
       {
         file: data,
@@ -31,9 +31,9 @@ function updateGraph(data) {
           canvas.fillStyle = 'rgba(255, 255, 102, 1.0)';
 
           function highlight_period(x_start: number, x_end: number) {
-            var canvas_left_x = g.toDomXCoord(x_start);
-            var canvas_right_x = g.toDomXCoord(x_end);
-            var canvas_width = canvas_right_x - canvas_left_x;
+            const canvas_left_x = g.toDomXCoord(x_start);
+            const canvas_right_x = g.toDomXCoord(x_end);
+            const canvas_width = canvas_right_x - canvas_left_x;
             canvas.fillRect(canvas_left_x, area.y, canvas_width, area.h);
           }
           highlight_period(10, 10);
@@ -116,9 +116,9 @@ requestSerialButton.addEventListener('click', () => {
 let downloadButton =
     document.getElementById('downloadButton') as HTMLButtonElement;
 downloadButton.addEventListener('click', async () => {
-  var dataStr = 'data:text/json;charset=utf-8,' +
+  const dataStr = 'data:text/json;charset=utf-8,' +
       encodeURIComponent(JSON.stringify({power: powerData}));
-  var dlAnchorElem = document.getElementById('downloadAnchorElem');
+  const dlAnchorElem = document.getElementById('downloadAnchorElem');
   dlAnchorElem.setAttribute('href', dataStr);
   dlAnchorElem.setAttribute('download', `power_${moment().format()}.json`);
   dlAnchorElem.click();
@@ -200,16 +200,117 @@ haltButton.addEventListener('click', () => {
   requestSerialButton.disabled = false;
 });
 
+function paintHistogram(data: Array<number>) {
+  // set the dimensions and margins of the graph
+  const margin = {top: 40, right: 40, bottom: 40, left: 100};
+  const width = 400 - margin.left - margin.right;
+  const height = 400 - margin.top - margin.bottom;
+
+  // append the svg object to the body of the page
+  const svg =
+      d3.select('#my_dataviz')
+          .append('svg')
+          .attr('width', width + margin.left + margin.right)
+          .attr('height', height + margin.top + margin.bottom)
+          .append('g')
+          .attr(
+              'transform', 'translate(' + margin.left + ',' + margin.top + ')');
+
+  // Compute summary statistics used for the box:
+  const data_sorted = data.sort(d3.ascending);
+  const q1 = d3.quantile(data_sorted, .25);
+  const median = d3.quantile(data_sorted, .5);
+  const q3 = d3.quantile(data_sorted, .75);
+  const interQuantileRange = q3 - q1;
+  const lowerFence = q1 - 1.5 * interQuantileRange;
+  const upperFence = q1 + 1.5 * interQuantileRange;
+
+  // Show the Y scale
+  const ymin = Math.min(d3.min(data), lowerFence);
+  const ymax = Math.max(d3.max(data), upperFence);
+  const y = d3.scaleLinear().domain([ymin, ymax]).range([
+    height, 0
+  ]);
+  svg.call(d3.axisLeft(y))
+
+  // a few features for the box
+  const center = 20;
+  const bw = 10;
+
+  // Show the main vertical line
+  svg.append('line')
+      .attr('x1', center)
+      .attr('x2', center)
+      .attr('y1', y(lowerFence))
+      .attr('y2', y(upperFence))
+      .attr('stroke', 'black')
+
+  // Show the box
+  svg.append('rect')
+      .attr('x', center - bw / 2)
+      .attr('y', y(q3))
+      .attr('height', (y(q1) - y(q3)))
+      .attr('width', bw)
+      .attr('stroke', 'black')
+      .style('fill', '#69b3a2')
+
+  // show median, min and max horizontal lines
+  svg.selectAll('toto')
+      .data([lowerFence, median, upperFence])
+      .enter()
+      .append('line')
+      .attr('x1', center - bw / 2)
+      .attr('x2', center + bw / 2)
+      .attr(
+          'y1',
+          function(d) {
+            return (y(d))
+          })
+      .attr(
+          'y2',
+          function(d) {
+            return (y(d))
+          })
+      .attr('stroke', 'black');
+  svg.append('text')
+      .attr('x', center + bw)
+      .attr('y', y(q1))
+      .attr('text-anchor', 'start')
+      .text('Q1')
+      .attr('stroke', 'black');
+}
+
+function setupAnalyze() {
+  const button = document.createElement('button');
+  button.innerText = 'Analyze displayed range';
+  controlDiv.appendChild(button);
+  button.addEventListener('click', () => {
+    // https://dygraphs.com/jsdoc/symbols/Dygraph.html#xAxisRange
+    let range = g.xAxisRange();
+    let left = range[0];
+    let right = range[1];
+    let data = currentData.filter(
+        (e: (Date|String)) =>
+            (left <= e[0].getTime() && e[0].getTime() <= right));
+    let values = data.map((e: (Date|String)) => e[1]);
+    console.log(values);
+    let histogram = d3.bin()(values);
+    console.log(histogram);
+    paintHistogram(values);
+  });
+}
+setupAnalyze();
+
 function setupDataLoad() {
   const handleFileSelect = (evt: DragEvent) => {
     evt.stopPropagation();
     evt.preventDefault();
-    var file = evt.dataTransfer.files[0];
+    const file = evt.dataTransfer.files[0];
     if (file === undefined) {
-        return;
+      return;
     }
     const r = new FileReader();
-    r.addEventListener("load", ()=> {
+    r.addEventListener('load', () => {
       const data = JSON.parse(r.result as string);
       console.log(data);
       const powerData = data.power.map((d: string) => [new Date(d[0]), d[1]])
@@ -230,5 +331,4 @@ function setupDataLoad() {
   dropZone.addEventListener('dragover', handleDragOver, false);
   dropZone.addEventListener('drop', handleFileSelect, false);
 }
-
 setupDataLoad();
