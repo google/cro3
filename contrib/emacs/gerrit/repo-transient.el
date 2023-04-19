@@ -42,7 +42,7 @@
   ["Commands"
    ("y" "Sync" repo-sync)])
 
-(transient-define-prefix repo-rebase-menu
+(transient-define-prefix repo-rebase-menu ()
   "Transient menu for repo rebase."
   ["Project"
    (repo:current-project)]
