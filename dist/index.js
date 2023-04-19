@@ -68436,90 +68436,103 @@ haltButton.addEventListener('click', () => {
     button.disabled = false;
     requestSerialButton.disabled = false;
 });
-function paintHistogram(data, ymin, ymax) {
-    // set the dimensions and margins of the graph
+let ranges = [];
+function paintHistogram(t0, t1) {
+    // constants
+    const xtick = 40;
+    const boxWidth = 10;
+    // setup a graph (drop if exists)
     const margin = { top: 40, right: 40, bottom: 100, left: 100 };
-    const width = 400 - margin.left - margin.right;
-    const height = 400 - margin.top - margin.bottom;
-    // append the svg object to the body of the page
+    const width = 1000 - margin.left - margin.right;
+    const height = 1000 - margin.top - margin.bottom;
     const svg = d3__WEBPACK_IMPORTED_MODULE_0__.select('#my_dataviz')
-        .html("")
+        .html('')
         .append('svg')
         .attr('width', width + margin.left + margin.right)
         .attr('height', height + margin.top + margin.bottom)
         .append('g')
         .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
-    const y = d3__WEBPACK_IMPORTED_MODULE_0__.scaleLinear().domain([ymax, ymin]).range([height, 0]);
+    // y axis and its label
+    const dataAll = currentData.map((e) => e[1]);
+    const ymin = d3__WEBPACK_IMPORTED_MODULE_0__.min(dataAll) - 1000;
+    const ymax = d3__WEBPACK_IMPORTED_MODULE_0__.max(dataAll) + 1000;
+    const y = d3__WEBPACK_IMPORTED_MODULE_0__.scaleLinear().domain([ymax, ymin]).range([0, height]);
     svg.append('g').call(d3__WEBPACK_IMPORTED_MODULE_0__.axisLeft(y));
-    // Compute summary statistics used for the box:
-    const data_sorted = data.sort(d3__WEBPACK_IMPORTED_MODULE_0__.ascending);
-    const q1 = d3__WEBPACK_IMPORTED_MODULE_0__.quantile(data_sorted, .25);
-    const median = d3__WEBPACK_IMPORTED_MODULE_0__.quantile(data_sorted, .5);
-    const q3 = d3__WEBPACK_IMPORTED_MODULE_0__.quantile(data_sorted, .75);
-    const interQuantileRange = q3 - q1;
-    const lowerFence = q1 - 1.5 * interQuantileRange;
-    const upperFence = q3 + 1.5 * interQuantileRange;
-    const minValue = d3__WEBPACK_IMPORTED_MODULE_0__.min(data);
-    const maxValue = d3__WEBPACK_IMPORTED_MODULE_0__.max(data);
-    const mean = d3__WEBPACK_IMPORTED_MODULE_0__.mean(data);
     svg.append('text')
         .attr('text-anchor', 'end')
         .attr('transform', 'rotate(-90)')
         .attr('y', -margin.left + 20)
         .attr('x', -margin.top)
         .text('Power (mW)');
-    // a few features for the box
-    const center = 20;
-    const bw = 10;
-    // min, mean, max
-    svg.append('line')
-        .attr('x1', center)
-        .attr('x2', center)
-        .attr('y1', y(minValue))
-        .attr('y2', y(maxValue))
-        .style('stroke-dasharray', '3, 3')
-        .attr('stroke', 'gray');
-    svg.selectAll('toto')
-        .data([minValue, mean, maxValue])
-        .enter()
-        .append('line')
-        .attr('x1', center - bw / 2)
-        .attr('x2', center + bw / 2)
-        .attr('y1', function (d) {
-        return (y(d));
-    })
-        .attr('y2', function (d) {
-        return (y(d));
-    })
-        .style('stroke-dasharray', '3, 3')
-        .attr('stroke', 'gray');
-    // box and line
-    svg.append('line')
-        .attr('x1', center)
-        .attr('x2', center)
-        .attr('y1', y(lowerFence))
-        .attr('y2', y(upperFence))
-        .attr('stroke', 'black');
-    svg.append('rect')
-        .attr('x', center - bw / 2)
-        .attr('y', y(q3))
-        .attr('height', (y(q1) - y(q3)))
-        .attr('width', bw)
-        .attr('stroke', 'black')
-        .style('fill', '#69b3a2');
-    svg.selectAll('toto')
-        .data([lowerFence, median, upperFence])
-        .enter()
-        .append('line')
-        .attr('x1', center - bw / 2)
-        .attr('x2', center + bw / 2)
-        .attr('y1', function (d) {
-        return (y(d));
-    })
-        .attr('y2', function (d) {
-        return (y(d));
-    })
-        .attr('stroke', 'black');
+    ranges.push([t0, t1]);
+    for (let i = 0; i < ranges.length; i++) {
+        // compute data and place of i-th series
+        const left = ranges[i][0];
+        const right = ranges[i][1];
+        let points = currentData.filter((e) => (left <= e[0].getTime() && e[0].getTime() <= right));
+        let data = points.map((e) => e[1]);
+        const center = xtick * (i + 1);
+        // Compute statistics
+        const data_sorted = data.sort(d3__WEBPACK_IMPORTED_MODULE_0__.ascending);
+        const q1 = d3__WEBPACK_IMPORTED_MODULE_0__.quantile(data_sorted, .25);
+        const median = d3__WEBPACK_IMPORTED_MODULE_0__.quantile(data_sorted, .5);
+        const q3 = d3__WEBPACK_IMPORTED_MODULE_0__.quantile(data_sorted, .75);
+        const interQuantileRange = q3 - q1;
+        const lowerFence = q1 - 1.5 * interQuantileRange;
+        const upperFence = q3 + 1.5 * interQuantileRange;
+        const minValue = d3__WEBPACK_IMPORTED_MODULE_0__.min(data);
+        const maxValue = d3__WEBPACK_IMPORTED_MODULE_0__.max(data);
+        const mean = d3__WEBPACK_IMPORTED_MODULE_0__.mean(data);
+        // min, mean, max
+        svg.append('line')
+            .attr('x1', center)
+            .attr('x2', center)
+            .attr('y1', y(minValue))
+            .attr('y2', y(maxValue))
+            .style('stroke-dasharray', '3, 3')
+            .attr('stroke', 'gray');
+        svg.selectAll('toto')
+            .data([minValue, mean, maxValue])
+            .enter()
+            .append('line')
+            .attr('x1', center - boxWidth)
+            .attr('x2', center + boxWidth)
+            .attr('y1', function (d) {
+            return (y(d));
+        })
+            .attr('y2', function (d) {
+            return (y(d));
+        })
+            .style('stroke-dasharray', '3, 3')
+            .attr('stroke', 'gray');
+        // box and line
+        svg.append('line')
+            .attr('x1', center)
+            .attr('x2', center)
+            .attr('y1', y(lowerFence))
+            .attr('y2', y(upperFence))
+            .attr('stroke', 'black');
+        svg.append('rect')
+            .attr('x', center - boxWidth / 2)
+            .attr('y', y(q3))
+            .attr('height', (y(q1) - y(q3)))
+            .attr('width', boxWidth)
+            .attr('stroke', 'black')
+            .style('fill', '#69b3a2');
+        svg.selectAll('toto')
+            .data([lowerFence, median, upperFence])
+            .enter()
+            .append('line')
+            .attr('x1', center - boxWidth / 2)
+            .attr('x2', center + boxWidth / 2)
+            .attr('y1', function (d) {
+            return (y(d));
+        })
+            .attr('y2', function (d) {
+            return (y(d));
+        })
+            .attr('stroke', 'black');
+    }
 }
 function setupAnalyze() {
     const button = document.createElement('button');
@@ -68530,15 +68543,7 @@ function setupAnalyze() {
         let xrange = g.xAxisRange();
         let left = xrange[0];
         let right = xrange[1];
-        let yrange = g.yAxisRange();
-        let top = yrange[0];
-        let bottom = yrange[1];
-        let data = currentData.filter((e) => (left <= e[0].getTime() && e[0].getTime() <= right));
-        let values = data.map((e) => e[1]);
-        console.log(values);
-        let histogram = d3__WEBPACK_IMPORTED_MODULE_0__.bin()(values);
-        console.log(histogram);
-        paintHistogram(values, bottom, top);
+        paintHistogram(left, right);
     });
 }
 setupAnalyze();
