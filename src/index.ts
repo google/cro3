@@ -16,7 +16,6 @@ const requestSerialButton =
     document.getElementById('requestSerialButton') as HTMLButtonElement;
 const serial_output =
     document.getElementById('serial_output') as HTMLDivElement;
-const serial1 = document.getElementById('serial1') as HTMLDivElement;
 const controlDiv = document.getElementById('controlDiv') as HTMLDivElement;
 
 let powerData = [];
@@ -31,9 +30,8 @@ function updateGraph(data) {
   g.updateOptions(
       {
         file: data,
-        labels: ['t', 'ina0', 'ina1', 'ina2'],
+        labels: ['t', 'ina0'],
         showRoller: true,
-        // customBars: true,
         ylabel: 'Power (mW)',
         legend: 'always',
         showRangeSelector: true,
@@ -53,7 +51,6 @@ function updateGraph(data) {
       false);
 }
 
-let inaIndex = 0;
 let inProgress = false;
 function pushOutput(s: string) {
   output += s
@@ -65,21 +62,17 @@ function pushOutput(s: string) {
                              .split('=>')[1]
                              .trim()
                              .split(' ')[0]);
-    let e: Array<Date|Number> = [new Date(), null, null, null];
-    e[inaIndex + 1] = power;
+    let e: Array<Date|Number> = [new Date(), power];
     powerData.push(e);
     updateGraph(powerData);
     serial_output.innerText = output;
     output = '';
     inProgress = false;
-    inaIndex += 1;
-    inaIndex %= 3;
   }
 }
 
 function kickWriteLoop(writeFn: (s: string) => Promise<void>) {
   const f = async (_: any) => {
-    console.log('write loop started');
     while (!halt) {
       if (inProgress) {
         console.error('previous request is in progress! skip...');
@@ -88,7 +81,9 @@ function kickWriteLoop(writeFn: (s: string) => Promise<void>) {
         inProgress = true;
         // writeFn(`ina ${inaIndex}\n`);
       }
-      const cmd = `ina ${inaIndex}\n`;
+      // ina 0 and 1 seems to be the same
+      // ina 2 is something but not useful
+      const cmd = `ina 0\n`;
       await writeFn(cmd);
       await new Promise(r => setTimeout(r, intervalMs));
     }
@@ -96,7 +91,6 @@ function kickWriteLoop(writeFn: (s: string) => Promise<void>) {
   setTimeout(f, intervalMs);
 }
 async function readLoop(readFn: () => Promise<string>) {
-  console.log('read fn started');
   while (!halt) {
     const s = await readFn();
     if (s === undefined || !s.length) {
@@ -122,7 +116,7 @@ function setupStartUSBButton() {
         }]
       });
     } catch (err) {
-      console.log(`Error: ${err}`);
+      console.error(`Error: ${err}`);
     }
     if (!device) {
       device = null;
@@ -148,7 +142,7 @@ function setupStartUSBButton() {
         return utf8decoder.decode(result_array);
       });
     } catch (err) {
-      console.log(`Disconnected: ${err}`);
+      console.error(`Disconnected: ${err}`);
       device = null;
       requestUSBButton.disabled = false;
     }
@@ -200,7 +194,7 @@ requestSerialButton.addEventListener('click', () => {
               return utf8decoder.decode(value);
             }
           } catch (error) {
-            console.log(error);
+            console.error(error);
             throw error;
           } finally {
             reader.releaseLock();
@@ -209,7 +203,7 @@ requestSerialButton.addEventListener('click', () => {
       })
       .catch((e) => {
         // The user didn't select a port.
-        console.log(e);
+        console.error(e);
       });
 });
 
@@ -240,7 +234,7 @@ function paintHistogram(t0: number, t1: number) {
   const width = 1000 - margin.left - margin.right;
   const height = 1000 - margin.top - margin.bottom;
   const svg =
-      d3.select('#my_dataviz')
+      d3.select('#d3area')
           .html('')
           .append('svg')
           .attr('width', width + margin.left + margin.right)
@@ -374,7 +368,6 @@ function setupDataLoad() {
     const r = new FileReader();
     r.addEventListener('load', () => {
       const data = JSON.parse(r.result as string);
-      console.log(data);
       const powerData = data.power.map((d: string) => [new Date(d[0]), d[1]])
       updateGraph(powerData);
     })

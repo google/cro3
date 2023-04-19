@@ -68260,7 +68260,6 @@ let downloadButton = document.getElementById('downloadButton');
 let requestUSBButton = document.getElementById('request-device');
 const requestSerialButton = document.getElementById('requestSerialButton');
 const serial_output = document.getElementById('serial_output');
-const serial1 = document.getElementById('serial1');
 const controlDiv = document.getElementById('controlDiv');
 let powerData = [];
 const g = new dygraphs__WEBPACK_IMPORTED_MODULE_1__["default"]('graph', powerData, {});
@@ -68272,9 +68271,8 @@ function updateGraph(data) {
     currentData = data;
     g.updateOptions({
         file: data,
-        labels: ['t', 'ina0', 'ina1', 'ina2'],
+        labels: ['t', 'ina0'],
         showRoller: true,
-        // customBars: true,
         ylabel: 'Power (mW)',
         legend: 'always',
         showRangeSelector: true,
@@ -68291,7 +68289,6 @@ function updateGraph(data) {
         }
     }, false);
 }
-let inaIndex = 0;
 let inProgress = false;
 function pushOutput(s) {
     output += s;
@@ -68302,20 +68299,16 @@ function pushOutput(s) {
             .split('=>')[1]
             .trim()
             .split(' ')[0]);
-        let e = [new Date(), null, null, null];
-        e[inaIndex + 1] = power;
+        let e = [new Date(), power];
         powerData.push(e);
         updateGraph(powerData);
         serial_output.innerText = output;
         output = '';
         inProgress = false;
-        inaIndex += 1;
-        inaIndex %= 3;
     }
 }
 function kickWriteLoop(writeFn) {
     const f = (_) => __awaiter(this, void 0, void 0, function* () {
-        console.log('write loop started');
         while (!halt) {
             if (inProgress) {
                 console.error('previous request is in progress! skip...');
@@ -68325,7 +68318,9 @@ function kickWriteLoop(writeFn) {
                 inProgress = true;
                 // writeFn(`ina ${inaIndex}\n`);
             }
-            const cmd = `ina ${inaIndex}\n`;
+            // ina 0 and 1 seems to be the same
+            // ina 2 is something but not useful
+            const cmd = `ina 0\n`;
             yield writeFn(cmd);
             yield new Promise(r => setTimeout(r, intervalMs));
         }
@@ -68334,7 +68329,6 @@ function kickWriteLoop(writeFn) {
 }
 function readLoop(readFn) {
     return __awaiter(this, void 0, void 0, function* () {
-        console.log('read fn started');
         while (!halt) {
             const s = yield readFn();
             if (s === undefined || !s.length) {
@@ -68361,7 +68355,7 @@ function setupStartUSBButton() {
             });
         }
         catch (err) {
-            console.log(`Error: ${err}`);
+            console.error(`Error: ${err}`);
         }
         if (!device) {
             device = null;
@@ -68387,7 +68381,7 @@ function setupStartUSBButton() {
             }));
         }
         catch (err) {
-            console.log(`Disconnected: ${err}`);
+            console.error(`Disconnected: ${err}`);
             device = null;
             requestUSBButton.disabled = false;
         }
@@ -68441,7 +68435,7 @@ requestSerialButton.addEventListener('click', () => {
                 }
             }
             catch (error) {
-                console.log(error);
+                console.error(error);
                 throw error;
             }
             finally {
@@ -68451,7 +68445,7 @@ requestSerialButton.addEventListener('click', () => {
     }))
         .catch((e) => {
         // The user didn't select a port.
-        console.log(e);
+        console.error(e);
     });
 });
 downloadButton.addEventListener('click', () => __awaiter(void 0, void 0, void 0, function* () {
@@ -68477,7 +68471,7 @@ function paintHistogram(t0, t1) {
     const margin = { top: 40, right: 40, bottom: 100, left: 100 };
     const width = 1000 - margin.left - margin.right;
     const height = 1000 - margin.top - margin.bottom;
-    const svg = d3__WEBPACK_IMPORTED_MODULE_0__.select('#my_dataviz')
+    const svg = d3__WEBPACK_IMPORTED_MODULE_0__.select('#d3area')
         .html('')
         .append('svg')
         .attr('width', width + margin.left + margin.right)
@@ -68590,7 +68584,6 @@ function setupDataLoad() {
         const r = new FileReader();
         r.addEventListener('load', () => {
             const data = JSON.parse(r.result);
-            console.log(data);
             const powerData = data.power.map((d) => [new Date(d[0]), d[1]]);
             updateGraph(powerData);
         });

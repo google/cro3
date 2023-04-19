@@ -116,12 +116,15 @@ body {
   position: relative;
   display: inline-block;
   border: none;
-  height: 300px;
+  height: 400px;
   width: 20%;
   padding: 4px;
   border: 1px solid gray;
   margin: 4px;
   vertical-align: bottom;
+}
+#d3area {
+  height: 400px;
 }
 .dropzone {
   border: 1px solid gray;
@@ -129,6 +132,6 @@ body {
   margin: 4px;
 }
 #graph {
-  height: 800px;
+  height: 500px;
   width: 100%;
 }
