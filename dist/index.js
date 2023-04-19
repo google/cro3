@@ -68467,13 +68467,16 @@ function paintHistogram(t0, t1) {
     const boxWidth = 10;
     // setup a graph (drop if exists)
     const margin = { top: 60, right: 200, bottom: 0, left: 200 };
-    const width = 1000 - margin.left - margin.right;
-    const height = 500;
-    const svg = d3__WEBPACK_IMPORTED_MODULE_0__.select('#d3area')
+    const area = d3__WEBPACK_IMPORTED_MODULE_0__.select('#d3area');
+    var targetWidth = area.node().getBoundingClientRect().width;
+    var targetHeight = area.node().getBoundingClientRect().height;
+    const width = targetWidth - margin.left - margin.right;
+    const height = targetHeight - margin.top - margin.bottom;
+    const svg = area
         .html('')
         .append('svg')
-        .attr('width', width + margin.left + margin.right)
-        .attr('height', height)
+        .attr('height', targetHeight)
+        .attr('width', targetWidth)
         .append('g')
         .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
     // y axis and its label

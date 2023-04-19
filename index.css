@@ -1,11 +1,11 @@
 .dygraph-legend {
-  position: absolute;
   font-size: 14px;
   z-index: 10;
   width: 250px;
   background: white;
   line-height: normal;
   text-align: left;
+  margin-left: 300px;
   overflow: hidden;
 }
 
@@ -117,34 +117,43 @@ body {
   display: inline-block;
   border: none;
   height: 400px;
-  width: 20%;
-  padding: 4px;
+  width: 600px;
   border: 1px solid gray;
   margin: 4px;
   vertical-align: bottom;
+  padding-top: 4px;
+  padding-bottom: 4px;
 }
 #d3area {
-  position: relative;
+  position: absolute;
   padding: 4px;
   margin: 4px;
   display: inline-block;
   height: 400px;
   border: 1px solid gray;
+  width: auto;
+  right: 0px;
+  left: 600px;
   vertical-align: bottom;
 }
 #dropZone {
+  position: absolute;
   display: inline-block;
   border: 1px solid gray;
   padding: 4px;
   margin: 4px;
   text-align: left;
   height: 64px;
-  width: 90%;
   padding: 8px;
   margin: 0px;
   margin-top: 16px;
+  width: auto;
+  left: 0;
+  right: 0;
 }
 #graph {
   height: 500px;
-  width: 80%;
+  width: auto;
+  left: 0;
+  right: 0;
 }

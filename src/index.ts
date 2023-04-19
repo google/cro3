@@ -229,14 +229,16 @@ function paintHistogram(t0: number, t1: number) {
 
   // setup a graph (drop if exists)
   const margin = {top: 60, right: 200, bottom: 0, left: 200};
-  const width = 1000 - margin.left - margin.right;
-  const height = 500;
-  const svg =
-      d3.select('#d3area')
+  const area = d3.select('#d3area');
+  var targetWidth = (area.node() as HTMLElement).getBoundingClientRect().width;
+  var targetHeight = (area.node() as HTMLElement).getBoundingClientRect().height;
+  const width = targetWidth - margin.left - margin.right;
+  const height = targetHeight - margin.top - margin.bottom;
+  const svg = area
           .html('')
           .append('svg')
-          .attr('width', width + margin.left + margin.right)
-          .attr('height', height)
+          .attr('height', targetHeight)
+          .attr('width', targetWidth)
           .append('g')
           .attr(
               'transform', 'translate(' + margin.left + ',' + margin.top + ')');
@@ -359,7 +361,7 @@ function paintHistogram(t0: number, t1: number) {
         .attr('y', center - boxWidth)
         .attr('x', y(mean))
         .attr('font-size', boxWidth)
-        .text(`mean:${mean|0}`);
+        .text(`mean:${mean | 0}`);
 
     svg.append('text')
         .attr('text-anchor', 'middle')
