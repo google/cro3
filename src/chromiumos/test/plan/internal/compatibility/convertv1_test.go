@@ -254,6 +254,18 @@ var vmTestPlans = []*test_api_v1.VMTestPlan{
 						},
 						TotalShards: 2,
 					},
+					{
+						Name: "tast_vm_hwsec_cq",
+						Spec: &testpb.TestSuite_TestCaseTagCriteria_{
+							TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
+								Tags:             []string{"\"group:mainline\"", "\"dep:depB\""},
+								TagExcludes:      []string{"informational"},
+								TestNames:        []string{"hwsec.*", "cryptohome.*"},
+								TestNameExcludes: []string{"firmware.*"},
+							},
+						},
+						TotalShards: 1,
+					},
 					// Add suites twice, they should be de-duped.
 					{
 						Name: "tast_vm_suite1",
@@ -273,6 +285,18 @@ var vmTestPlans = []*test_api_v1.VMTestPlan{
 							},
 						},
 						TotalShards: 2,
+					},
+					{
+						Name: "tast_vm_hwsec_cq",
+						Spec: &testpb.TestSuite_TestCaseTagCriteria_{
+							TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
+								Tags:             []string{"group:mainline", "dep:depB"},
+								TagExcludes:      []string{"informational"},
+								TestNames:        []string{"hwsec.*", "cryptohome.*"},
+								TestNameExcludes: []string{"firmware.*"},
+							},
+						},
+						TotalShards: 1,
 					},
 				},
 				DutTargets: []*testpb.DutTarget{
@@ -833,10 +857,19 @@ func TestToCTP1(t *testing.T) {
 				TastVmTestCfg: &testplans.TastVmTestCfg{
 					TastVmTest: []*testplans.TastVmTestCfg_TastVmTest{
 						{
+							SuiteName: "tast_vm_hwsec_cq",
+							TastTestExpr: []*testplans.TastVmTestCfg_TastTestExpr{
+								{
+									TestExpr: "(\"group:mainline\"&&\"dep:depB\"&&!informational&&(\"name:hwsec.*\"||\"name:cryptohome.*\")&&!\"name:firmware.*\")",
+								},
+							},
+							Common: &testplans.TestSuiteCommon{DisplayName: "cq-vmBuilderA.tast_vm.tast_vm_hwsec_cq", Critical: wrapperspb.Bool(true)},
+						},
+						{
 							SuiteName: "tast_vm_suite1",
 							TastTestExpr: []*testplans.TastVmTestCfg_TastTestExpr{
 								{
-									TestExpr: "(\"group:mainline\" && \"dep:depA\" && !informational)",
+									TestExpr: "(\"group:mainline\"&&\"dep:depA\"&&!informational)",
 								},
 							},
 							Common: &testplans.TestSuiteCommon{DisplayName: "cq-vmBuilderA.tast_vm.tast_vm_suite1", Critical: wrapperspb.Bool(true)},
@@ -864,7 +897,7 @@ func TestToCTP1(t *testing.T) {
 							SuiteName: "tast_vm_suite1",
 							TastTestExpr: []*testplans.TastVmTestCfg_TastTestExpr{
 								{
-									TestExpr: "(\"group:mainline\" && \"dep:depA\" && !informational)",
+									TestExpr: "(\"group:mainline\"&&\"dep:depA\"&&!informational)",
 								},
 							},
 							TastTestShard: &testplans.TastTestShard{
@@ -877,7 +910,7 @@ func TestToCTP1(t *testing.T) {
 							SuiteName: "tast_vm_suite1",
 							TastTestExpr: []*testplans.TastVmTestCfg_TastTestExpr{
 								{
-									TestExpr: "(\"group:mainline\" && \"dep:depA\" && !informational)",
+									TestExpr: "(\"group:mainline\"&&\"dep:depA\"&&!informational)",
 								},
 							},
 							TastTestShard: &testplans.TastTestShard{
@@ -890,7 +923,7 @@ func TestToCTP1(t *testing.T) {
 							SuiteName: "tast_vm_suite1",
 							TastTestExpr: []*testplans.TastVmTestCfg_TastTestExpr{
 								{
-									TestExpr: "(\"group:mainline\" && \"dep:depA\" && !informational)",
+									TestExpr: "(\"group:mainline\"&&\"dep:depA\"&&!informational)",
 								},
 							},
 							TastTestShard: &testplans.TastTestShard{
@@ -931,7 +964,7 @@ func TestToCTP1(t *testing.T) {
 							},
 							TastTestExpr: []*testplans.TastGceTestCfg_TastTestExpr{
 								{
-									TestExpr: "(\"group:mainline\" && informational)",
+									TestExpr: "(\"group:mainline\"&&informational)",
 								},
 							},
 							TastTestShard: &testplans.TastTestShard{
@@ -954,7 +987,7 @@ func TestToCTP1(t *testing.T) {
 							},
 							TastTestExpr: []*testplans.TastGceTestCfg_TastTestExpr{
 								{
-									TestExpr: "(\"group:mainline\" && informational)",
+									TestExpr: "(\"group:mainline\"&&informational)",
 								},
 							},
 							TastTestShard: &testplans.TastTestShard{

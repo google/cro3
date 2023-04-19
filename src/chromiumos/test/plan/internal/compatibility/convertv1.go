@@ -464,7 +464,24 @@ func (si *suiteInfo) getTastExpr() string {
 		attributes = append(attributes, "!"+tag)
 	}
 
-	return "(" + strings.Join(attributes, " && ") + ")"
+	// Match ONE of the name.
+	if len(si.tagCriteria.GetTestNames()) > 0 {
+		oneOfNames := []string{}
+		for _, name := range si.tagCriteria.GetTestNames() {
+			name = fmt.Sprintf("\"name:%s\"", name)
+			oneOfNames = append(oneOfNames, name)
+		}
+		attr := "(" + strings.Join(oneOfNames, "||") + ")"
+		attributes = append(attributes, attr)
+	}
+
+	// Don't match ANY excluded name.
+	for _, name := range si.tagCriteria.GetTestNameExcludes() {
+		name = fmt.Sprintf("\"name:%s\"", name)
+		attributes = append(attributes, "!"+name)
+	}
+
+	return "(" + strings.Join(attributes, "&&") + ")"
 }
 
 // coverageRuleToSuiteInfo converts a CoverageRule (CTPv2 compatible) to a
