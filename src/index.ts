@@ -16,6 +16,32 @@ const g = new Dygraph('graph', powerData, {});
 const utf8decoder = new TextDecoder('utf-8');
 let output = '';
 let halt = false;
+
+function updateGraph(data) {
+  g.updateOptions(
+      {
+        file: data,
+        labels: ['t', 'Power(mW)'],
+        showRoller: true,
+        // customBars: true,
+        ylabel: 'Power (mW)',
+        legend: 'always',
+        showRangeSelector: true,
+        underlayCallback: function(canvas, area, g) {
+          canvas.fillStyle = 'rgba(255, 255, 102, 1.0)';
+
+          function highlight_period(x_start: number, x_end: number) {
+            var canvas_left_x = g.toDomXCoord(x_start);
+            var canvas_right_x = g.toDomXCoord(x_end);
+            var canvas_width = canvas_right_x - canvas_left_x;
+            canvas.fillRect(canvas_left_x, area.y, canvas_width, area.h);
+          }
+          highlight_period(10, 10);
+        }
+      },
+      false);
+}
+
 function pushOutput(s: string) {
   output += s
 
@@ -28,28 +54,7 @@ function pushOutput(s: string) {
                              .split(' ')[0]);
     let p = {x: new Date(), y: power};
     powerData.push([p.x, p.y]);
-    g.updateOptions(
-        {
-          file: powerData,
-          labels: ['t', 'Power(mW)'],
-          showRoller: true,
-          // customBars: true,
-          ylabel: 'Power (mW)',
-          legend: 'always',
-          showRangeSelector: true,
-          underlayCallback: function(canvas, area, g) {
-            canvas.fillStyle = 'rgba(255, 255, 102, 1.0)';
-
-            function highlight_period(x_start: number, x_end: number) {
-              var canvas_left_x = g.toDomXCoord(x_start);
-              var canvas_right_x = g.toDomXCoord(x_end);
-              var canvas_width = canvas_right_x - canvas_left_x;
-              canvas.fillRect(canvas_left_x, area.y, canvas_width, area.h);
-            }
-            highlight_period(10, 10);
-          }
-        },
-        false);
+    updateGraph(powerData);
     serial_output.innerText = output;
     output = '';
   }
@@ -207,6 +212,8 @@ function setupDataLoad() {
     r.addEventListener("load", ()=> {
       const data = JSON.parse(r.result as string);
       console.log(data);
+      const powerData = data.power.map((d: string) => [new Date(d[0]), d[1]])
+      updateGraph(powerData);
     })
     r.readAsText(file);
   };
