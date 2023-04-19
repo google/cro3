@@ -21,12 +21,13 @@ function updateGraph(data) {
   g.updateOptions(
       {
         file: data,
-        labels: ['t', 'Power(mW)'],
+        labels: ['t', 'ina0', 'ina1'],
         showRoller: true,
         // customBars: true,
         ylabel: 'Power (mW)',
         legend: 'always',
         showRangeSelector: true,
+        connectSeparatedPoints: true,
         underlayCallback: function(canvas, area, g) {
           canvas.fillStyle = 'rgba(255, 255, 102, 1.0)';
 
@@ -42,6 +43,7 @@ function updateGraph(data) {
       false);
 }
 
+let inaIndex = 0;
 function pushOutput(s: string) {
   output += s
 
@@ -52,8 +54,10 @@ function pushOutput(s: string) {
                              .split('=>')[1]
                              .trim()
                              .split(' ')[0]);
-    let p = {x: new Date(), y: power};
-    powerData.push([p.x, p.y]);
+    let e: Array<Date|Number> = [new Date(), null, null];
+    e[(inaIndex&1)+1] = power;
+    inaIndex += 1;
+    powerData.push(e);
     updateGraph(powerData);
     serial_output.innerText = output;
     output = '';
