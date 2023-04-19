@@ -200,21 +200,25 @@ haltButton.addEventListener('click', () => {
   requestSerialButton.disabled = false;
 });
 
-function paintHistogram(data: Array<number>) {
+function paintHistogram(data: Array<number>, ymin: number, ymax: number) {
   // set the dimensions and margins of the graph
-  const margin = {top: 40, right: 40, bottom: 40, left: 100};
+  const margin = {top: 40, right: 40, bottom: 100, left: 100};
   const width = 400 - margin.left - margin.right;
   const height = 400 - margin.top - margin.bottom;
 
   // append the svg object to the body of the page
   const svg =
       d3.select('#my_dataviz')
+          .html("")
           .append('svg')
           .attr('width', width + margin.left + margin.right)
           .attr('height', height + margin.top + margin.bottom)
           .append('g')
           .attr(
               'transform', 'translate(' + margin.left + ',' + margin.top + ')');
+
+  const y = d3.scaleLinear().domain([ymax, ymin]).range([height, 0]);
+  svg.append('g').call(d3.axisLeft(y));
 
   // Compute summary statistics used for the box:
   const data_sorted = data.sort(d3.ascending);
@@ -223,29 +227,56 @@ function paintHistogram(data: Array<number>) {
   const q3 = d3.quantile(data_sorted, .75);
   const interQuantileRange = q3 - q1;
   const lowerFence = q1 - 1.5 * interQuantileRange;
-  const upperFence = q1 + 1.5 * interQuantileRange;
+  const upperFence = q3 + 1.5 * interQuantileRange;
+  const minValue = d3.min(data);
+  const maxValue = d3.max(data);
+  const mean = d3.mean(data);
 
-  // Show the Y scale
-  const ymin = Math.min(d3.min(data), lowerFence);
-  const ymax = Math.max(d3.max(data), upperFence);
-  const y = d3.scaleLinear().domain([ymin, ymax]).range([
-    height, 0
-  ]);
-  svg.call(d3.axisLeft(y))
+  svg.append('text')
+      .attr('text-anchor', 'end')
+      .attr('transform', 'rotate(-90)')
+      .attr('y', -margin.left + 20)
+      .attr('x', -margin.top)
+      .text('Power (mW)')
 
   // a few features for the box
   const center = 20;
   const bw = 10;
 
-  // Show the main vertical line
+  // min, mean, max
+  svg.append('line')
+      .attr('x1', center)
+      .attr('x2', center)
+      .attr('y1', y(minValue))
+      .attr('y2', y(maxValue))
+      .style('stroke-dasharray', '3, 3')
+      .attr('stroke', 'gray')
+  svg.selectAll('toto')
+      .data([minValue, mean, maxValue])
+      .enter()
+      .append('line')
+      .attr('x1', center - bw / 2)
+      .attr('x2', center + bw / 2)
+      .attr(
+          'y1',
+          function(d) {
+            return (y(d))
+          })
+      .attr(
+          'y2',
+          function(d) {
+            return (y(d))
+          })
+      .style('stroke-dasharray', '3, 3')
+      .attr('stroke', 'gray');
+
+  // box and line
   svg.append('line')
       .attr('x1', center)
       .attr('x2', center)
       .attr('y1', y(lowerFence))
       .attr('y2', y(upperFence))
       .attr('stroke', 'black')
-
-  // Show the box
   svg.append('rect')
       .attr('x', center - bw / 2)
       .attr('y', y(q3))
@@ -253,8 +284,6 @@ function paintHistogram(data: Array<number>) {
       .attr('width', bw)
       .attr('stroke', 'black')
       .style('fill', '#69b3a2')
-
-  // show median, min and max horizontal lines
   svg.selectAll('toto')
       .data([lowerFence, median, upperFence])
       .enter()
@@ -272,12 +301,6 @@ function paintHistogram(data: Array<number>) {
             return (y(d))
           })
       .attr('stroke', 'black');
-  svg.append('text')
-      .attr('x', center + bw)
-      .attr('y', y(q1))
-      .attr('text-anchor', 'start')
-      .text('Q1')
-      .attr('stroke', 'black');
 }
 
 function setupAnalyze() {
@@ -286,9 +309,12 @@ function setupAnalyze() {
   controlDiv.appendChild(button);
   button.addEventListener('click', () => {
     // https://dygraphs.com/jsdoc/symbols/Dygraph.html#xAxisRange
-    let range = g.xAxisRange();
-    let left = range[0];
-    let right = range[1];
+    let xrange = g.xAxisRange();
+    let left = xrange[0];
+    let right = xrange[1];
+    let yrange = g.yAxisRange();
+    let top = yrange[0];
+    let bottom = yrange[1];
     let data = currentData.filter(
         (e: (Date|String)) =>
             (left <= e[0].getTime() && e[0].getTime() <= right));
@@ -296,7 +322,7 @@ function setupAnalyze() {
     console.log(values);
     let histogram = d3.bin()(values);
     console.log(histogram);
-    paintHistogram(values);
+    paintHistogram(values, bottom, top);
   });
 }
 setupAnalyze();
@@ -327,7 +353,7 @@ function setupDataLoad() {
   const dropZone = document.createElement('span');
   dropZone.innerText = 'Drop .json here';
   dropZone.className = 'dropzone'
-  controlDiv.appendChild(dropZone);
+  document.body.appendChild(dropZone);
   dropZone.addEventListener('dragover', handleDragOver, false);
   dropZone.addEventListener('drop', handleFileSelect, false);
 }

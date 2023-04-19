@@ -68436,18 +68436,21 @@ haltButton.addEventListener('click', () => {
     button.disabled = false;
     requestSerialButton.disabled = false;
 });
-function paintHistogram(data) {
+function paintHistogram(data, ymin, ymax) {
     // set the dimensions and margins of the graph
-    const margin = { top: 40, right: 40, bottom: 40, left: 100 };
+    const margin = { top: 40, right: 40, bottom: 100, left: 100 };
     const width = 400 - margin.left - margin.right;
     const height = 400 - margin.top - margin.bottom;
     // append the svg object to the body of the page
     const svg = d3__WEBPACK_IMPORTED_MODULE_0__.select('#my_dataviz')
+        .html("")
         .append('svg')
         .attr('width', width + margin.left + margin.right)
         .attr('height', height + margin.top + margin.bottom)
         .append('g')
         .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
+    const y = d3__WEBPACK_IMPORTED_MODULE_0__.scaleLinear().domain([ymax, ymin]).range([height, 0]);
+    svg.append('g').call(d3__WEBPACK_IMPORTED_MODULE_0__.axisLeft(y));
     // Compute summary statistics used for the box:
     const data_sorted = data.sort(d3__WEBPACK_IMPORTED_MODULE_0__.ascending);
     const q1 = d3__WEBPACK_IMPORTED_MODULE_0__.quantile(data_sorted, .25);
@@ -68455,25 +68458,48 @@ function paintHistogram(data) {
     const q3 = d3__WEBPACK_IMPORTED_MODULE_0__.quantile(data_sorted, .75);
     const interQuantileRange = q3 - q1;
     const lowerFence = q1 - 1.5 * interQuantileRange;
-    const upperFence = q1 + 1.5 * interQuantileRange;
-    // Show the Y scale
-    const ymin = Math.min(d3__WEBPACK_IMPORTED_MODULE_0__.min(data), lowerFence);
-    const ymax = Math.max(d3__WEBPACK_IMPORTED_MODULE_0__.max(data), upperFence);
-    const y = d3__WEBPACK_IMPORTED_MODULE_0__.scaleLinear().domain([ymin, ymax]).range([
-        height, 0
-    ]);
-    svg.call(d3__WEBPACK_IMPORTED_MODULE_0__.axisLeft(y));
+    const upperFence = q3 + 1.5 * interQuantileRange;
+    const minValue = d3__WEBPACK_IMPORTED_MODULE_0__.min(data);
+    const maxValue = d3__WEBPACK_IMPORTED_MODULE_0__.max(data);
+    const mean = d3__WEBPACK_IMPORTED_MODULE_0__.mean(data);
+    svg.append('text')
+        .attr('text-anchor', 'end')
+        .attr('transform', 'rotate(-90)')
+        .attr('y', -margin.left + 20)
+        .attr('x', -margin.top)
+        .text('Power (mW)');
     // a few features for the box
     const center = 20;
     const bw = 10;
-    // Show the main vertical line
+    // min, mean, max
+    svg.append('line')
+        .attr('x1', center)
+        .attr('x2', center)
+        .attr('y1', y(minValue))
+        .attr('y2', y(maxValue))
+        .style('stroke-dasharray', '3, 3')
+        .attr('stroke', 'gray');
+    svg.selectAll('toto')
+        .data([minValue, mean, maxValue])
+        .enter()
+        .append('line')
+        .attr('x1', center - bw / 2)
+        .attr('x2', center + bw / 2)
+        .attr('y1', function (d) {
+        return (y(d));
+    })
+        .attr('y2', function (d) {
+        return (y(d));
+    })
+        .style('stroke-dasharray', '3, 3')
+        .attr('stroke', 'gray');
+    // box and line
     svg.append('line')
         .attr('x1', center)
         .attr('x2', center)
         .attr('y1', y(lowerFence))
         .attr('y2', y(upperFence))
         .attr('stroke', 'black');
-    // Show the box
     svg.append('rect')
         .attr('x', center - bw / 2)
         .attr('y', y(q3))
@@ -68481,7 +68507,6 @@ function paintHistogram(data) {
         .attr('width', bw)
         .attr('stroke', 'black')
         .style('fill', '#69b3a2');
-    // show median, min and max horizontal lines
     svg.selectAll('toto')
         .data([lowerFence, median, upperFence])
         .enter()
@@ -68495,12 +68520,6 @@ function paintHistogram(data) {
         return (y(d));
     })
         .attr('stroke', 'black');
-    svg.append('text')
-        .attr('x', center + bw)
-        .attr('y', y(q1))
-        .attr('text-anchor', 'start')
-        .text('Q1')
-        .attr('stroke', 'black');
 }
 function setupAnalyze() {
     const button = document.createElement('button');
@@ -68508,15 +68527,18 @@ function setupAnalyze() {
     controlDiv.appendChild(button);
     button.addEventListener('click', () => {
         // https://dygraphs.com/jsdoc/symbols/Dygraph.html#xAxisRange
-        let range = g.xAxisRange();
-        let left = range[0];
-        let right = range[1];
+        let xrange = g.xAxisRange();
+        let left = xrange[0];
+        let right = xrange[1];
+        let yrange = g.yAxisRange();
+        let top = yrange[0];
+        let bottom = yrange[1];
         let data = currentData.filter((e) => (left <= e[0].getTime() && e[0].getTime() <= right));
         let values = data.map((e) => e[1]);
         console.log(values);
         let histogram = d3__WEBPACK_IMPORTED_MODULE_0__.bin()(values);
         console.log(histogram);
-        paintHistogram(values);
+        paintHistogram(values, bottom, top);
     });
 }
 setupAnalyze();
@@ -68545,7 +68567,7 @@ function setupDataLoad() {
     const dropZone = document.createElement('span');
     dropZone.innerText = 'Drop .json here';
     dropZone.className = 'dropzone';
-    controlDiv.appendChild(dropZone);
+    document.body.appendChild(dropZone);
     dropZone.addEventListener('dragover', handleDragOver, false);
     dropZone.addEventListener('drop', handleFileSelect, false);
 }
