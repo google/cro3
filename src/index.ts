@@ -76,10 +76,8 @@ function kickWriteLoop(writeFn: (s: string) => Promise<void>) {
     while (!halt) {
       if (inProgress) {
         console.error('previous request is in progress! skip...');
-        // serial1.innerHTML += output;
       } else {
         inProgress = true;
-        // writeFn(`ina ${inaIndex}\n`);
       }
       // ina 0 and 1 seems to be the same
       // ina 2 is something but not useful
