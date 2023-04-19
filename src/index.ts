@@ -25,7 +25,7 @@ let output = '';
 let halt = false;
 
 let currentData = undefined;
-function updateGraph(data) {
+function updateGraph(data: Array<Array<Date|number>>) {
   currentData = data;
   g.updateOptions(
       {
@@ -228,15 +228,15 @@ function paintHistogram(t0: number, t1: number) {
   const boxWidth = 10;
 
   // setup a graph (drop if exists)
-  const margin = {top: 40, right: 40, bottom: 100, left: 100};
+  const margin = {top: 60, right: 200, bottom: 0, left: 200};
   const width = 1000 - margin.left - margin.right;
-  const height = 1000 - margin.top - margin.bottom;
+  const height = 500;
   const svg =
       d3.select('#d3area')
           .html('')
           .append('svg')
           .attr('width', width + margin.left + margin.right)
-          .attr('height', height + margin.top + margin.bottom)
+          .attr('height', height)
           .append('g')
           .attr(
               'transform', 'translate(' + margin.left + ',' + margin.top + ')');
@@ -246,13 +246,12 @@ function paintHistogram(t0: number, t1: number) {
       currentData.map((e: (Date|number)) => e[1] as number);
   const ymin = d3.min(dataAll) - 1000;
   const ymax = d3.max(dataAll) + 1000;
-  const y = d3.scaleLinear().domain([ymax, ymin]).range([0, height]);
-  svg.append('g').call(d3.axisLeft(y));
+  const y = d3.scaleLinear().domain([ymin, ymax]).range([0, width]);
+  svg.append('g').call(d3.axisTop(y));
   svg.append('text')
       .attr('text-anchor', 'end')
-      .attr('transform', 'rotate(-90)')
-      .attr('y', -margin.left + 20)
-      .attr('x', -margin.top)
+      .attr('x', width)
+      .attr('y', -margin.top / 2)
       .text('Power (mW)');
 
   ranges.push([t0, t1]);
@@ -282,25 +281,25 @@ function paintHistogram(t0: number, t1: number) {
 
     // min, mean, max
     svg.append('line')
-        .attr('x1', center)
-        .attr('x2', center)
-        .attr('y1', y(minValue))
-        .attr('y2', y(maxValue))
+        .attr('y1', center)
+        .attr('y2', center)
+        .attr('x1', y(minValue))
+        .attr('x2', y(maxValue))
         .style('stroke-dasharray', '3, 3')
         .attr('stroke', 'gray')
     svg.selectAll('toto')
         .data([minValue, mean, maxValue])
         .enter()
         .append('line')
-        .attr('x1', center - boxWidth)
-        .attr('x2', center + boxWidth)
+        .attr('y1', center - boxWidth)
+        .attr('y2', center + boxWidth)
         .attr(
-            'y1',
+            'x1',
             function(d) {
               return (y(d))
             })
         .attr(
-            'y2',
+            'x2',
             function(d) {
               return (y(d))
             })
@@ -309,35 +308,74 @@ function paintHistogram(t0: number, t1: number) {
 
     // box and line
     svg.append('line')
-        .attr('x1', center)
-        .attr('x2', center)
-        .attr('y1', y(lowerFence))
-        .attr('y2', y(upperFence))
+        .attr('y1', center)
+        .attr('y2', center)
+        .attr('x1', y(lowerFence))
+        .attr('x2', y(upperFence))
         .attr('stroke', 'black')
     svg.append('rect')
-        .attr('x', center - boxWidth / 2)
-        .attr('y', y(q3))
-        .attr('height', (y(q1) - y(q3)))
-        .attr('width', boxWidth)
+        .attr('y', center - boxWidth / 2)
+        .attr('x', y(q1))
+        .attr('width', (y(q3) - y(q1)))
+        .attr('height', boxWidth)
         .attr('stroke', 'black')
         .style('fill', '#69b3a2')
     svg.selectAll('toto')
         .data([lowerFence, median, upperFence])
         .enter()
         .append('line')
-        .attr('x1', center - boxWidth / 2)
-        .attr('x2', center + boxWidth / 2)
+        .attr('y1', center - boxWidth / 2)
+        .attr('y2', center + boxWidth / 2)
         .attr(
-            'y1',
+            'x1',
             function(d) {
               return (y(d))
             })
         .attr(
-            'y2',
+            'x2',
             function(d) {
               return (y(d))
             })
         .attr('stroke', 'black');
+
+    svg.append('text')
+        .attr('text-anchor', 'end')
+        .attr('alignment-baseline', 'baseline')
+        .attr('y', center - boxWidth / 4)
+        .attr('x', 0)
+        .attr('font-size', boxWidth)
+        .text(`${moment(left).format()}`);
+    svg.append('text')
+        .attr('text-anchor', 'end')
+        .attr('alignment-baseline', 'hanging')
+        .attr('y', center + boxWidth / 4)
+        .attr('x', 0)
+        .attr('font-size', boxWidth)
+        .text(`${moment(right).format()}`);
+
+    svg.append('text')
+        .attr('text-anchor', 'middle')
+        .attr('alignment-baseline', 'baseline')
+        .attr('y', center - boxWidth)
+        .attr('x', y(mean))
+        .attr('font-size', boxWidth)
+        .text(`mean:${mean|0}`);
+
+    svg.append('text')
+        .attr('text-anchor', 'middle')
+        .attr('alignment-baseline', 'hanging')
+        .attr('y', center + boxWidth)
+        .attr('x', y(median))
+        .attr('font-size', boxWidth)
+        .text(`median:${median}`);
+
+    svg.append('text')
+        .attr('text-anchor', 'start')
+        .attr('alignment-baseline', 'hanging')
+        .attr('y', center + boxWidth)
+        .attr('x', y(ymax))
+        .attr('font-size', boxWidth)
+        .text(`N:${data.length}`);
   }
 }
 
@@ -377,10 +415,8 @@ function setupDataLoad() {
     evt.preventDefault();
     evt.dataTransfer.dropEffect = 'copy';  // Explicitly show this is a copy.
   };
-  const dropZone = document.createElement('span');
+  const dropZone = document.getElementById('dropZone');
   dropZone.innerText = 'Drop .json here';
-  dropZone.className = 'dropzone'
-  document.body.appendChild(dropZone);
   dropZone.addEventListener('dragover', handleDragOver, false);
   dropZone.addEventListener('drop', handleFileSelect, false);
 }

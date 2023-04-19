@@ -124,14 +124,27 @@ body {
   vertical-align: bottom;
 }
 #d3area {
+  position: relative;
+  padding: 4px;
+  margin: 4px;
+  display: inline-block;
   height: 400px;
+  border: 1px solid gray;
+  vertical-align: bottom;
 }
-.dropzone {
+#dropZone {
+  display: inline-block;
   border: 1px solid gray;
   padding: 4px;
   margin: 4px;
+  text-align: left;
+  height: 64px;
+  width: 90%;
+  padding: 8px;
+  margin: 0px;
+  margin-top: 16px;
 }
 #graph {
   height: 500px;
-  width: 100%;
+  width: 80%;
 }
