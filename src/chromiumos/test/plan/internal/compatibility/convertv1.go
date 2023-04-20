@@ -459,8 +459,26 @@ func (si *suiteInfo) getBuildTarget() string {
 // See https://chromium.googlesource.com/chromiumos/platform/tast/+/HEAD/docs/running_tests.md
 // for a description of Tast expressions.
 func (si *suiteInfo) getTastExpr() string {
-	attributes := si.tagCriteria.GetTags()
+	// The expr would be the AND of all attributes.
+	attributes := []string{}
+
+	// Note: Due to the backward compatibility issue, we also support `"group:mainline"` and
+	// `("name:a.*"||"name:b.*")` these two kinds of tags. To prevent double quoting or making
+	// expression as a string, we only add quote when the tag is not starting with `"` or `(`.
+
+	// Match ALL of the tags.
+	for _, tag := range si.tagCriteria.GetTags() {
+		if !strings.HasPrefix(tag, "(") && !strings.HasPrefix(tag, "\"") {
+			tag = fmt.Sprintf("\"%s\"", tag)
+		}
+		attributes = append(attributes, tag)
+	}
+
+	// Don't match ANY excluded tags.
 	for _, tag := range si.tagCriteria.GetTagExcludes() {
+		if !strings.HasPrefix(tag, "(") && !strings.HasPrefix(tag, "\"") {
+			tag = fmt.Sprintf("\"%s\"", tag)
+		}
 		attributes = append(attributes, "!"+tag)
 	}
 
