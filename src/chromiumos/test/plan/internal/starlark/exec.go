@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"path/filepath"
 
-	protov1 "github.com/golang/protobuf/proto"
 	buildpb "go.chromium.org/chromiumos/config/go/build/api"
 	"go.chromium.org/chromiumos/config/go/payload"
 	test_api_v1 "go.chromium.org/chromiumos/config/go/test/api/v1"
@@ -23,7 +22,7 @@ import (
 func protoAccessorBuiltin(
 	protoLoader *starlarkproto.Loader,
 	name string,
-	m protov1.Message,
+	m proto.Message,
 ) *starlark.Builtin {
 	return starlark.NewBuiltin(
 		name,
@@ -34,18 +33,7 @@ func protoAccessorBuiltin(
 				return nil, err
 			}
 
-			// starlarkproto.MessageType.MessageFromProto should work here, but
-			// panics because some descriptors are not exactly the same. Marshal
-			// to bytes and then use starlarkproto.FromWirePB for now.
-			bytes, err := protov1.Marshal(m)
-			if err != nil {
-				return nil, err
-			}
-
-			return starlarkproto.FromWirePB(
-				protoLoader.MessageType(protov1.MessageReflect(m).Descriptor()),
-				bytes,
-			)
+			return protoLoader.MessageType(m.ProtoReflect().Descriptor()).MessageFromProto(m), nil
 		},
 	)
 }
@@ -53,8 +41,8 @@ func protoAccessorBuiltin(
 // starlarkValueToProto converts value to proto Message m. An error is returned
 // if value is not a starlarkproto.Message, with a protoreflect.FullName that is
 // exactly the same as the protoreflect.FullName of m.
-func starlarkValueToProto(value starlark.Value, m protov1.Message) error {
-	mName := protov1.MessageReflect(m).Descriptor().FullName()
+func starlarkValueToProto(value starlark.Value, m proto.Message) error {
+	mName := m.ProtoReflect().Descriptor().FullName()
 
 	// Assert value is a starlarkproto.Message.
 	starlarkMessage, ok := value.(*starlarkproto.Message)
@@ -63,8 +51,8 @@ func starlarkValueToProto(value starlark.Value, m protov1.Message) error {
 	}
 
 	// It is not possible to use type assertions to convert the
-	// starlarkproto.Message to a protov1.Message, so marshal it to bytes and
-	// then unmarshal as a protov1.Message.
+	// starlarkproto.Message to the concrete proto type, so marshal it to bytes
+	// and then unmarshal as the concrete proto type.
 	//
 	// First check that the full name of the message passed in exactly
 	// matches the full name of m, to avoid confusing errors
@@ -80,7 +68,7 @@ func starlarkValueToProto(value starlark.Value, m protov1.Message) error {
 		return err
 	}
 
-	if err := protov1.Unmarshal(bytes, m); err != nil {
+	if err := proto.Unmarshal(bytes, m); err != nil {
 		return err
 	}
 
