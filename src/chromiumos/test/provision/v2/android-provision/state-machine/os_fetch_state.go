@@ -29,7 +29,6 @@ func (s OSFetchState) Execute(ctx context.Context, log *log.Logger) (*anypb.Any,
 	cmds := []common_utils.CommandInterface{
 		commands.NewResolveImagePathCommand(ctx, s.svc),
 		commands.NewCopyDataCommand(ctx, s.svc),
-		commands.NewExtractZipCommand(ctx, s.svc),
 	}
 	for i, c := range cmds {
 		if err := c.Execute(log); err != nil {
