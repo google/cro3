@@ -23,6 +23,8 @@ chromeos {
         project: "chromeos/config-internal"
         path: "test/plans/v2/ctpv1_compatible/legacy_default_tast_hw.star"
       }
+      # test/plan CLs do not affect end-to-end testing.
+      path_regexp_excludes: "src/chromiumos/test/plan/.*"
     }
   }
 }
