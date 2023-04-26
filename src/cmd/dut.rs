@@ -8,7 +8,8 @@ use anyhow::Result;
 use argh::FromArgs;
 use lazy_static::lazy_static;
 use lium::cros;
-use lium::dut::discover_local_duts;
+use lium::dut::discover_local_nodes;
+use lium::dut::fetch_dut_info_in_parallel;
 use lium::dut::DutInfo;
 use lium::dut::MonitoredDut;
 use lium::dut::SshInfo;
@@ -16,7 +17,9 @@ use lium::dut::SSH_CACHE;
 use rayon::prelude::*;
 use std::collections::HashMap;
 use std::env::current_exe;
+use std::fs::read_to_string;
 use std::io::stdout;
+use std::io::Read;
 use std::io::Write;
 use std::thread;
 use std::time;
@@ -454,6 +457,9 @@ pub struct ArgsDiscover {
     /// remote machine to do the scan. If not specified, run the discovery locally.
     #[argh(option)]
     remote: Option<String>,
+    /// path to a list of DUT_IDs to scan.
+    #[argh(option)]
+    target_list: Option<String>,
     /// additional attributes to retrieve
     #[argh(positional, greedy)]
     extra_attr: Vec<String>,
@@ -474,16 +480,34 @@ pub fn run_discover(args: &ArgsDiscover) -> Result<()> {
             cmd += ea;
         }
         remote.run_cmd_piped(&[cmd])?;
-        Ok(())
-    } else {
-        let dut_list = discover_local_duts(args.interface.to_owned(), &args.extra_attr)?;
-        let dut_list: Vec<HashMap<String, String>> =
-            dut_list.iter().map(|e| e.info().to_owned()).collect();
-        let dut_list = serde_json::to_string_pretty(&dut_list)?;
-        println!("{}", dut_list);
-
-        Ok(())
+        return Ok(());
     }
+    let addrs = if let Some(target_list) = &args.target_list {
+        let addrs: String = if target_list == "-" {
+            let mut buffer = Vec::new();
+            std::io::stdin().read_to_end(&mut buffer)?;
+            Ok(std::str::from_utf8(&buffer)?.to_string())
+        } else {
+            read_to_string(target_list)
+        }?;
+        Ok(addrs
+            .trim()
+            .split("\n")
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_string)
+            .collect())
+    } else {
+        discover_local_nodes(args.interface.to_owned())
+    }?;
+    eprintln!("Found {} candidates. Checking...", addrs.len());
+    let duts = fetch_dut_info_in_parallel(&addrs, &args.extra_attr)?;
+    eprintln!("Discovery completed with {} DUTs", duts.len());
+    let duts: Vec<HashMap<String, String>> = duts.iter().map(|e| e.info().to_owned()).collect();
+    let dut_list = serde_json::to_string_pretty(&duts)?;
+    println!("{}", dut_list);
+
+    Ok(())
 }
 
 #[derive(FromArgs, PartialEq, Debug)]

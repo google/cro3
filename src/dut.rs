@@ -848,31 +848,15 @@ pub fn pingable_duts() -> Result<Vec<SshInfo>> {
         .collect())
 }
 
-pub fn discover_local_duts(iface: Option<String>, extra_attr: &[String]) -> Result<Vec<DutInfo>> {
-    ensure_testing_rsa_is_there()?;
-    eprintln!("Detecting DUTs on the same network...");
-    let iface = iface
-        .ok_or(())
-        .or_else(|_| -> Result<String, anyhow::Error> {
-            let r = run_bash_command(CMD_GET_DEFAULT_IFACE, None)
-                .context("failed to determine interface to scan from ip route")?;
-            r.status.exit_ok()?;
-            Ok(get_stdout(&r).trim().to_string())
-        })
-        .context("Failed to determine interface to scan")?;
-    eprintln!("Using {iface} to scan...");
-    let output = run_bash_command(&format!(
-        "ping6 -c 3 -I {iface} ff02::1 | grep 'bytes from' | cut -d ' ' -f 4 | tr -d ',' | sort | uniq"),
-        None,
-    )?;
-    let stdout = get_stdout(&output);
-    let addrs = stdout.split('\n').collect::<Vec<&str>>();
-    eprintln!("Found {} candidates. Checking...", addrs.len());
+pub fn fetch_dut_info_in_parallel(
+    addrs: &Vec<String>,
+    extra_attr: &[String],
+) -> Result<Vec<DutInfo>> {
     rayon::ThreadPoolBuilder::new()
-        .num_threads(16)
+        .num_threads(std::cmp::min(16, addrs.len()))
         .build_global()
         .context("Failed to set thread count")?;
-    let duts: Vec<DutInfo> = block_on(async {
+    Ok(block_on(async {
         addrs
             .par_iter()
             .flat_map(|addr| -> Result<DutInfo> {
@@ -893,9 +877,32 @@ pub fn discover_local_duts(iface: Option<String>, extra_attr: &[String]) -> Resu
                 dut
             })
             .collect()
-    });
-    eprintln!("Discovery completed with {} DUTs", duts.len());
-    Ok(duts)
+    }))
+}
+
+pub fn discover_local_nodes(iface: Option<String>) -> Result<Vec<String>> {
+    ensure_testing_rsa_is_there()?;
+    eprintln!("Detecting DUTs on the same network...");
+    let iface = iface
+        .ok_or(())
+        .or_else(|_| -> Result<String, anyhow::Error> {
+            let r = run_bash_command(CMD_GET_DEFAULT_IFACE, None)
+                .context("failed to determine interface to scan from ip route")?;
+            r.status.exit_ok()?;
+            Ok(get_stdout(&r).trim().to_string())
+        })
+        .context("Failed to determine interface to scan")?;
+    eprintln!("Using {iface} to scan...");
+    let output = run_bash_command(&format!(
+        "ping6 -c 3 -I {iface} ff02::1 | grep 'bytes from' | cut -d ' ' -f 4 | tr -d ',' | sort | uniq"),
+        None,
+    )?;
+    let stdout = get_stdout(&output);
+    let addrs = stdout
+        .split('\n')
+        .map(str::to_string)
+        .collect::<Vec<String>>();
+    Ok(addrs)
 }
 
 pub fn register_dut(dut: &str) -> Result<DutInfo> {
