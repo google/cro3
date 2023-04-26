@@ -367,6 +367,7 @@ func buildsToBuildInfos(
 
 		if payload == nil && skipIfNoTestArtifacts {
 			glog.Warningf("skipIfNoTestArtifacts set, skipping build %q", builderName)
+			continue
 		}
 
 		// Attempt to lookup the BuilderConfig to find profile information. If

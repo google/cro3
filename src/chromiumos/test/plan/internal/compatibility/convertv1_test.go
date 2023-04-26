@@ -225,6 +225,43 @@ var hwTestPlans = []*test_api_v1.HWTestPlan{
 				Critical:  &wrapperspb.BoolValue{Value: true},
 				RunViaCft: true,
 			},
+			{
+				TestSuites: []*testpb.TestSuite{
+					{
+						Spec: &testpb.TestSuite_TestCaseIds{
+							TestCaseIds: &testpb.TestCaseIdList{
+								TestCaseIds: []*testpb.TestCase_Id{
+									{
+										Value: "suite1",
+									},
+								},
+							},
+						},
+					},
+				},
+				DutTargets: []*testpb.DutTarget{
+					{
+						Criteria: []*testpb.DutCriterion{
+							{
+								AttributeId: &testpb.DutAttribute_Id{
+									Value: "attr-program",
+								},
+								// boardB doesn't contain any testable artifacts
+								// so this should be skipped.
+								Values: []string{"boardB"},
+							},
+							{
+								AttributeId: &testpb.DutAttribute_Id{
+									Value: "swarming-pool",
+								},
+								Values: []string{"DUT_POOL_QUOTA"},
+							},
+						},
+					},
+				},
+				Critical:  &wrapperspb.BoolValue{Value: true},
+				RunViaCft: true,
+			},
 		},
 	},
 }
