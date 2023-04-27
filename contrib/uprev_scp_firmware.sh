@@ -110,9 +110,8 @@ ${FLAGS_fw_version}"
 
 # Upload the SCP firmware tarball to chrmoeos-localmirror and update the ebuild.
 upload_to_localmirror() {
-  gsutil cp "${TMP}/${SCP_FW_TAR_NAME}" gs://chromeos-localmirror/distfiles/
-  gsutil acl ch -u AllUsers:R \
-    gs://chromeos-localmirror/distfiles/"${SCP_FW_TAR_NAME}"
+  gsutil cp -n -a public-read \
+    "${TMP}/${SCP_FW_TAR_NAME}" gs://chromeos-localmirror/distfiles/
 
   # Update the ebuild Manifest
   mv -n "${OLD_EBUILD_FILE}" "${NEW_EBUILD_FILE}"
