@@ -39,14 +39,28 @@ def _test_case_exec_factory(target_bin_location: str) -> th_pb.TestHarness:
     )
 
 
-def _test_case_info_factory(data: dict) -> list:
+def _test_case_info_factory(
+    contacts: dict,
+    criteria: str,
+    hw_agnostic: bool = False,
+    bug_component: str = "",
+    reqs: list = None,
+) -> list:
     """Factory method to build TestCaseInfo proto objects
 
     Args:
-        data: dict representing the 'owners' yaml data
+        contacts: dict representing the 'owners' yaml data
+        criteria: string representing 'criteria' yaml data
+        hw_agnostic: bool representing 'hw_agnostic' yaml data
+        bug_component: string representing 'bug_component' yaml data
+        reqs: list representing 'requirements' yaml data
     """
     return tc_metadata_pb.TestCaseInfo(
-        owners=[tc_metadata_pb.Contact(email=x["email"]) for x in data]
+        owners=[tc_metadata_pb.Contact(email=x["email"]) for x in contacts],
+        criteria=tc_metadata_pb.Criteria(value=criteria),
+        bug_component=tc_metadata_pb.BugComponent(value=bug_component),
+        hw_agnostic=tc_metadata_pb.HwAgnostic(value=hw_agnostic),
+        requirements=[tc_metadata_pb.Requirement(value=x) for x in reqs],
     )
 
 
@@ -84,7 +98,13 @@ def _test_case_list_factory(input_data: dict) -> list:
     """Factory method for batch building TestCaseMetadata objects"""
     suite_name = input_data["name"]
     test_case_exec = _test_case_exec_factory(input_data["target_bin_location"])
-    test_case_info = _test_case_info_factory(input_data["owners"])
+    test_case_info = _test_case_info_factory(
+        input_data["owners"],
+        input_data["criteria"],
+        input_data.get("hw_agnostic", False),
+        input_data.get("bug_component", ""),
+        input_data.get("requirements", []),
+    )
 
     test_cases = [
         _test_case_factory(tc, suite_name) for tc in input_data["cases"]

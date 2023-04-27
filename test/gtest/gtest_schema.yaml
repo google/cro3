@@ -39,6 +39,20 @@ properties:
     minItems: 1
     uniqueItems: true
     additionalProperties: false
+  hw_agnostic:
+    description: "Specifies if a test is HW Agnostic"
+    type: boolean
+  criteria:
+    description: "test criteria notes"
+    type: string
+  bug_component:
+    description: "Specifies a bug component to file bugs against"
+    type: string
+  requirements:
+    description: "Requirements this test satisfies"
+    type: array
+    items:
+      type: string
   cases:
     type: array
     items:
@@ -51,9 +65,6 @@ properties:
           type: array
           items:
             type: string
-        criteria:
-          description: "test criteria notes"
-          type: string
         testBedDependencies:
           description: "Field for defining test bed dependencies for test"
           type: array
@@ -63,7 +74,6 @@ properties:
       required:
         - id
         - tags
-        - criteria
     minItems: 1
     uniqueItems: true
     additionalProperties: false
@@ -81,3 +91,4 @@ required:
   - owners
   - cases
   - target_bin_location
+  - criteria

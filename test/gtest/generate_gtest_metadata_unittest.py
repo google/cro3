@@ -76,7 +76,7 @@ class Generate_Gtest_Metadata_Test(TestCase):
             ),
         ]
 
-        with open("gtest_schema.yaml", "r") as f:
+        with open("gtest_schema.yaml", "r", encoding='utf-8') as f:
             cls._yaml_schema = f.read()
 
         Bad_Yaml = collections.namedtuple("Bad_Yaml", ["yaml", "msg"])
@@ -207,7 +207,18 @@ class Generate_Gtest_Metadata_Test(TestCase):
                 owners=[
                     tc_metadata_pb.Contact(email=x["email"])
                     for x in f["owners"]
-                ]
+                ],
+                criteria=tc_metadata_pb.Criteria(value=f["criteria"]),
+                hw_agnostic=tc_metadata_pb.HwAgnostic(
+                    value=f.get("hw_agnostic", False)
+                ),
+                bug_component=tc_metadata_pb.BugComponent(
+                    value=f.get("bug_component", "")
+                ),
+                requirements=[
+                    tc_metadata_pb.Requirement(value=x)
+                    for x in f.get("requirements", [])
+                ],
             )
 
             for c in f["cases"]:
