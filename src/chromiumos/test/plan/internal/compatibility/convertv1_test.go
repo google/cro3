@@ -297,8 +297,8 @@ var vmTestPlans = []*test_api_v1.VMTestPlan{
 							TestCaseTagCriteria: &testpb.TestSuite_TestCaseTagCriteria{
 								Tags:             []string{"group:mainline", "dep:depB"},
 								TagExcludes:      []string{"informational"},
-								TestNames:        []string{"hwsec.*", "cryptohome.*"},
-								TestNameExcludes: []string{"firmware.*"},
+								TestNames:        []string{"hwsec.*", "tast.cryptohome.*"},
+								TestNameExcludes: []string{"firmware.*", "tast.arc.*"},
 							},
 						},
 						TotalShards: 1,
@@ -897,7 +897,7 @@ func TestToCTP1(t *testing.T) {
 							SuiteName: "tast_vm_hwsec_cq",
 							TastTestExpr: []*testplans.TastVmTestCfg_TastTestExpr{
 								{
-									TestExpr: "(\"group:mainline\"&&\"dep:depB\"&&!\"informational\"&&(\"name:hwsec.*\"||\"name:cryptohome.*\")&&!\"name:firmware.*\")",
+									TestExpr: "(\"group:mainline\"&&\"dep:depB\"&&!\"informational\"&&(\"name:hwsec.*\"||\"name:cryptohome.*\")&&!\"name:firmware.*\"&&!\"name:arc.*\")",
 								},
 							},
 							Common: &testplans.TestSuiteCommon{DisplayName: "cq-vmBuilderA.tast_vm.tast_vm_hwsec_cq", Critical: wrapperspb.Bool(true)},

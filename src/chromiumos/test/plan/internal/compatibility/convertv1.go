@@ -457,6 +457,14 @@ func (si *suiteInfo) getBuildTarget() string {
 // Tast expressions with "|" cannot be generated. Excluded tags are negated with
 // "!". The entire expression is surrounded in parens.
 //
+// Test name includes and excludes are turned into tags like "name:...".
+//
+// For backwards compatibility between TestCaseTagCriteria and pure Tast
+// expressions, the following transformations are done:
+//
+// - Tags are quoted if they aren't already.
+// - If test names have "tast." as a prefix, this prefix is stripped.
+//
 // See https://chromium.googlesource.com/chromiumos/platform/tast/+/HEAD/docs/running_tests.md
 // for a description of Tast expressions.
 func (si *suiteInfo) getTastExpr() string {
@@ -487,7 +495,7 @@ func (si *suiteInfo) getTastExpr() string {
 	if len(si.tagCriteria.GetTestNames()) > 0 {
 		oneOfNames := []string{}
 		for _, name := range si.tagCriteria.GetTestNames() {
-			name = fmt.Sprintf("\"name:%s\"", name)
+			name = fmt.Sprintf("\"name:%s\"", strings.TrimPrefix(name, "tast."))
 			oneOfNames = append(oneOfNames, name)
 		}
 		attr := "(" + strings.Join(oneOfNames, "||") + ")"
@@ -496,7 +504,7 @@ func (si *suiteInfo) getTastExpr() string {
 
 	// Don't match ANY excluded name.
 	for _, name := range si.tagCriteria.GetTestNameExcludes() {
-		name = fmt.Sprintf("\"name:%s\"", name)
+		name = fmt.Sprintf("\"name:%s\"", strings.TrimPrefix(name, "tast."))
 		attributes = append(attributes, "!"+name)
 	}
 
