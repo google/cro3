@@ -59,11 +59,6 @@ func (s FirmwarePrepareState) Execute(ctx context.Context, log *log.Logger) (*an
 				return nil, api.InstallResponse_STATUS_UPDATE_FIRMWARE_FAILED, firmwareservice.UpdateFirmwareFailedErr(err.Error())
 			}
 		}
-		if pdRoPath := s.service.GetPdRoPath(); len(pdRoPath) > 0 {
-			if err := s.service.DownloadAndProcess(ctx, pdRoPath); err != nil {
-				return nil, api.InstallResponse_STATUS_UPDATE_FIRMWARE_FAILED, firmwareservice.UpdateFirmwareFailedErr(err.Error())
-			}
-		}
 	}
 	return nil, api.InstallResponse_STATUS_OK, nil
 }

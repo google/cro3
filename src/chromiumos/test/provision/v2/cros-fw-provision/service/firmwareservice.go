@@ -31,7 +31,6 @@ type FirmwareService struct {
 	mainRwPath *conf.StoragePath
 	mainRoPath *conf.StoragePath
 	ecRoPath   *conf.StoragePath
-	pdRoPath   *conf.StoragePath
 	// SimpleRequest fields
 	simpleImagePath *conf.StoragePath
 	simpleFlashRo   bool
@@ -104,7 +103,6 @@ func NewFirmwareService(ctx context.Context, dutAdapter common_utils.ServiceAdap
 		// flashed with write protection turned off.
 		fws.mainRoPath = detailedRequest.MainRoPayload.GetFirmwareImagePath()
 		fws.ecRoPath = detailedRequest.EcRoPayload.GetFirmwareImagePath()
-		fws.pdRoPath = detailedRequest.PdRoPayload.GetFirmwareImagePath()
 	}
 
 	if useServo {
@@ -205,9 +203,6 @@ func (fws *FirmwareService) PrintRequestInfo() {
 		if fws.ecRoPath != nil {
 			images = append(images, "EC(RO)")
 		}
-		if fws.pdRoPath != nil {
-			images = append(images, "PD(RO)")
-		}
 		informationString += strings.Join(images, " and ") + " firmware"
 	}
 
@@ -239,7 +234,7 @@ func (fws *FirmwareService) UpdateRo() bool {
 	if fws.useSimpleRequest {
 		return fws.simpleFlashRo && len(fws.simpleImagePath.GetPath()) > 0
 	}
-	return (fws.mainRoPath != nil) || (fws.ecRoPath != nil) || (fws.pdRoPath != nil)
+	return (fws.mainRoPath != nil) || (fws.ecRoPath != nil)
 }
 
 // GetBoard returns board of the DUT to provision. Returns empty string if board is not known.
@@ -458,11 +453,6 @@ func (fws FirmwareService) GetMainRoPath() string {
 // GetEcRoPath returns the path for the readonly portion of the EC firmware.
 func (fws FirmwareService) GetEcRoPath() string {
 	return fws.ecRoPath.GetPath()
-}
-
-// GetPdRoPath returns the path for power delivery firmware.
-func (fws FirmwareService) GetPdRoPath() string {
-	return fws.pdRoPath.GetPath()
 }
 
 // GetSimpleRequest returns (imageGsLink, flashRo)

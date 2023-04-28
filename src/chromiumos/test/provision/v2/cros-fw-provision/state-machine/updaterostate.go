@@ -75,19 +75,6 @@ func (s FirmwareUpdateRoState) Execute(ctx context.Context, log *log.Logger) (*a
 				futilityImageArgs = append(futilityImageArgs, []string{fmt.Sprint("--ec_image=", ecRoPath)}...)
 			}
 		}
-
-		pdRoMetadata, ok := s.service.GetImageMetadata(s.service.GetPdRoPath())
-		if ok {
-			log.Printf("[FW Provisioning: Update RO] extracting PD image to flash\n")
-			if s.service.IsServoUsed() {
-				return nil, api.InstallResponse_STATUS_UPDATE_FIRMWARE_FAILED, firmwareservice.UpdateFirmwareFailedErr("can't flash PD as a separate image over servo")
-			}
-			pdRoPath, err := firmwareservice.PickAndExtractPDImage(ctx, connection, pdRoMetadata, s.service.GetBoard(), s.service.GetModel())
-			if err != nil {
-				return nil, api.InstallResponse_STATUS_UPDATE_FIRMWARE_FAILED, firmwareservice.UpdateFirmwareFailedErr(err.Error())
-			}
-			futilityImageArgs = append(futilityImageArgs, []string{fmt.Sprint("--pd_image=", pdRoPath)}...)
-		}
 	}
 
 	log.Printf("[FW Provisioning: Update RO] flashing RO firmware with futility\n")

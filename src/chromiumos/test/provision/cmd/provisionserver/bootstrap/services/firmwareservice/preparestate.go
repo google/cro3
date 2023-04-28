@@ -38,11 +38,6 @@ func (s FirmwarePrepareState) Execute(ctx context.Context) error {
 			return err
 		}
 	}
-	if pdRoPath := s.service.pdRoPath.GetPath(); len(pdRoPath) > 0 {
-		if err := s.downloadAndProcess(ctx, pdRoPath); err != nil {
-			return err
-		}
-	}
 	return nil
 }
 

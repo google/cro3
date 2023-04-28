@@ -31,7 +31,6 @@ type FirmwareService struct {
 
 	mainRoPath *conf.StoragePath
 	ecRoPath   *conf.StoragePath
-	pdRoPath   *conf.StoragePath
 
 	board, model string
 
@@ -75,7 +74,6 @@ func NewFirmwareServiceFromExistingConnection(ctx context.Context, dut *lab_api.
 	// flashed with write protection turned off.
 	mainRoPath := req.FirmwareConfig.MainRoPayload.GetFirmwareImagePath()
 	ecRoPath := req.FirmwareConfig.EcRoPayload.GetFirmwareImagePath()
-	pdRoPath := req.FirmwareConfig.PdRoPayload.GetFirmwareImagePath()
 
 	imagesMetadata := make(map[string]ImageArchiveMetadata)
 
@@ -154,7 +152,6 @@ func NewFirmwareServiceFromExistingConnection(ctx context.Context, dut *lab_api.
 		mainRwPath,
 		mainRoPath,
 		ecRoPath,
-		pdRoPath,
 		board,
 		model,
 		force,
@@ -188,9 +185,6 @@ func (fws *FirmwareService) PrintRequestInfo() {
 	if fws.ecRoPath != nil {
 		images = append(images, "EC(RO)")
 	}
-	if fws.pdRoPath != nil {
-		images = append(images, "PD(RO)")
-	}
 	informationString += strings.Join(images, " and ") + " firmware"
 
 	flashMode := "SSH"
@@ -213,7 +207,7 @@ func (fws *FirmwareService) UpdateRw() bool {
 }
 
 func (fws *FirmwareService) UpdateRo() bool {
-	return (fws.mainRoPath != nil) || (fws.ecRoPath != nil) || (fws.pdRoPath != nil)
+	return (fws.mainRoPath != nil) || (fws.ecRoPath != nil)
 }
 
 // GetBoard returns board of the DUT to provision. Returns empty string if board is not known.

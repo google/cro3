@@ -731,17 +731,14 @@ func TestFirmwareProvisioningSSHStates(t *testing.T) {
 
 	apImageWithinArchive := "image.bin"
 	ecImageWithinArchive := "ec.bin"
-	pdImageWithinArchive := "pd.bin"
 	imagesWithinArchive := strings.Join([]string{
 		"foo",
 		apImageWithinArchive,
 		"bar",
 		ecImageWithinArchive,
-		"baz",
-		pdImageWithinArchive,
 	}, "\n") // as reported by tar
 
-	makeRequest := func(main_rw, main_ro, ec_ro, pd_ro bool) *api.InstallFirmwareRequest {
+	makeRequest := func(main_rw, main_ro, ec_ro bool) *api.InstallFirmwareRequest {
 		fakePayload := &build_api.FirmwarePayload{FirmwareImage: &build_api.FirmwarePayload_FirmwareImagePath{FirmwareImagePath: &conf.StoragePath{HostType: conf.StoragePath_GS, Path: fakeGSPath}}}
 		FirmwareConfig := build_api.FirmwareConfig{}
 		if main_rw {
@@ -752,9 +749,6 @@ func TestFirmwareProvisioningSSHStates(t *testing.T) {
 		}
 		if ec_ro {
 			FirmwareConfig.EcRoPayload = fakePayload
-		}
-		if pd_ro {
-			FirmwareConfig.PdRoPayload = fakePayload
 		}
 		fmt.Printf("FirmwareConfig %#v \n", &FirmwareConfig)
 
@@ -785,20 +779,20 @@ func TestFirmwareProvisioningSSHStates(t *testing.T) {
 
 	type TestCase struct {
 		// inputs
-		main_rw, main_ro, ec_ro, pd_ro bool
+		main_rw, main_ro, ec_ro bool
 		// expected outputs
 		updateRw, updateRo     bool
 		expectConstructorError bool
 	}
 
 	testCases := []TestCase{
-		{ /*in*/ false, false, false, false /*out*/, false, false /*err*/, true},
-		{ /*in*/ true, false, false, false /*out*/, true, false /*err*/, false},
-		{ /*in*/ false, true, false, false /*out*/, false, true /*err*/, false},
-		{ /*in*/ false, false, true, true /*out*/, false, true /*err*/, false},
-		{ /*in*/ false, true, true, true /*out*/, false, true /*err*/, false},
-		{ /*in*/ true, true, true, true /*out*/, true, true /*err*/, false},
-		{ /*in*/ true, true, false, true /*out*/, true, true /*err*/, false},
+		{ /*in*/ false, false, false /*out*/, false, false /*err*/, true},
+		{ /*in*/ true, false, false /*out*/, true, false /*err*/, false},
+		{ /*in*/ false, true, false /*out*/, false, true /*err*/, false},
+		{ /*in*/ false, false, true /*out*/, false, true /*err*/, false},
+		{ /*in*/ false, true, true /*out*/, false, true /*err*/, false},
+		{ /*in*/ true, true, true /*out*/, true, true /*err*/, false},
+		{ /*in*/ true, true, false /*out*/, true, true /*err*/, false},
 	}
 
 	// Set up the mock.
@@ -814,7 +808,7 @@ func TestFirmwareProvisioningSSHStates(t *testing.T) {
 			fakeDutProto,
 			sam,
 			nil,
-			makeRequest(testCase.main_rw, testCase.main_ro, testCase.ec_ro, testCase.pd_ro),
+			makeRequest(testCase.main_rw, testCase.main_ro, testCase.ec_ro),
 		)
 		// Check if init error is expected/got.
 		if err != nil {
@@ -869,12 +863,6 @@ func TestFirmwareProvisioningSSHStates(t *testing.T) {
 			}
 			if testCase.ec_ro {
 				expectedFutilityImageArgs = append(expectedFutilityImageArgs, "--ec_image="+ecImageWithinArchive)
-				gomock.InOrder(
-					sam.EXPECT().RunCmd(gomock.Any(), "cd", gomock.Any()).Return("", nil), // tar
-				)
-			}
-			if testCase.pd_ro {
-				expectedFutilityImageArgs = append(expectedFutilityImageArgs, "--pd_image="+pdImageWithinArchive)
 				gomock.InOrder(
 					sam.EXPECT().RunCmd(gomock.Any(), "cd", gomock.Any()).Return("", nil), // tar
 				)

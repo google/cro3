@@ -190,19 +190,3 @@ func PickAndExtractECImage(ctx context.Context, s common_utils.ServiceAdapterInt
 List of files in archive: %v.
 Specifying board and model may help`, candidates, imageMetadata.ListOfFiles)
 }
-
-// PickAndExtractPDImage uses provided list of |filesInArchive| to pick a PD
-// image to use, extracts only it, and returns a path to extracted image.
-func PickAndExtractPDImage(ctx context.Context, s common_utils.ServiceAdapterInterface, imageMetadata ImageArchiveMetadata, board, model string) (string, error) {
-	candidates := []string{"pd.bin"}
-
-	for i := 0; i < len(candidates); i++ {
-		if imageMetadata.IncludesFile(candidates[i]) {
-			return extractFileFromImage(ctx, candidates[i], imageMetadata, s)
-		}
-	}
-
-	return "", fmt.Errorf(`could not find an PD image named any of: %v.
-List of files in archive: %v.
-Specifying board and model may help`, candidates, imageMetadata.ListOfFiles)
-}
