@@ -4,9 +4,6 @@
 
 """Prep everything for for the cros-fw-provision Docker Build Context."""
 
-import os
-from pathlib import Path
-import shutil
 import sys
 
 
@@ -33,22 +30,5 @@ class CrosFWProvisionArtifactPrep(CrosArtifactPrep):
     def prep(self):
         """Run the steps needed to prep the container artifacts."""
         self.copy_service()
-        self.copy_fw_config()
         self.copy_metadata()
         self.copy_dockercontext()
-
-    def copy_fw_config(self):
-        """Return the absolute path of the metadata files."""
-        fw_config_src = (
-            Path("usr") / "share" / "ap_firmware_config" / "fw-config.json"
-        )
-        fw_config_dst = os.path.join(self.full_out, "fw-config.json")
-        full_md_path = os.path.join(self.chroot, fw_config_src)
-        if not os.path.exists(full_md_path):
-            raise SystemExit(("Path %s does not exist, failing" % full_md_path))
-        print(
-            f"copying from {full_md_path} to {os.path.join(self.full_out, fw_config_dst)}"
-        )
-        shutil.copyfile(
-            full_md_path, os.path.join(self.full_out, fw_config_dst)
-        )
