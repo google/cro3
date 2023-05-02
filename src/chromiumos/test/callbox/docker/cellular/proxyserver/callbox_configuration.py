@@ -8,6 +8,9 @@ from enum import Enum
 
 from acts import logger
 from acts.controllers import handover_simulator as hs
+from acts.controllers.cellular_lib.LteSimulation import (
+    IPAddressType as _ACTSIPType,
+)
 from acts.controllers.rohdeschwarz_lib import cmw500_cellular_simulator as cmw
 from acts.controllers.rohdeschwarz_lib import cmx500_cellular_simulator as cmx
 from acts.controllers.rohdeschwarz_lib.cmw500_handover_simulator import (
@@ -26,6 +29,21 @@ class CellularTechnology(Enum):
     WCDMA = "WCDMA"
     NR5G_NSA = "NR5G_NSA"
 
+
+class IPAddressType(Enum):
+    """Supported IP Address types."""
+
+    IPV4 = "IPV4"
+    IPV6 = "IPV6"
+    IPV4V6 = "IPV4V6"
+
+
+# Maps CrOS IP Types to ACTS IP types
+_IP_TYPE_MAP = {
+    IPAddressType.IPV4: _ACTSIPType.IPV4,
+    IPAddressType.IPV6: _ACTSIPType.IPV6,
+    IPAddressType.IPV4V6: _ACTSIPType.IPV4V6,
+}
 
 # Maps CrOS CellularTechnology to ACTS handover CellularTechnologies
 _HANDOVER_MAP = {
@@ -75,6 +93,16 @@ class CallboxConfiguration(object):
 
         Args:
             parameters: the callbox configuration dictionary.
+        """
+        raise NotImplementedError()
+
+    def configure_network(self, apn, mtu, ip_type):
+        """Configures the callbox network with the provided parameters.
+
+        Args:
+            apn: the callbox network access point name.
+            mtu: the callbox network maximum transmission unit.
+            ip_type: the callbox network IP address type.
         """
         raise NotImplementedError()
 
@@ -201,7 +229,31 @@ class CMW500Configuration(CallboxConfiguration):
         self.simulation.stop()
         self.simulation.configure(parameters)
         self.simulator.wait_until_quiet()
+        # reset network options to default on full reconfiguration.
+        self._configure_network("internet", 1500, IPAddressType.IPV4)
         self.simulation.setup_simulator()
+
+    def configure_network(self, apn, mtu, ip_type):
+        """Configures the callbox network with the provided parameters.
+
+        Args:
+            apn: the callbox network access point name.
+            mtu: the callbox network maximum transmission unit.
+            ip_type: the callbox network IP address type.
+        """
+        # need to be detached to configure network settings
+        self.simulator.stop()
+        self._configure_network(apn, mtu, ip_type)
+        self.simulation.setup_simulator()
+
+    def _configure_network(self, apn, mtu, ip_type):
+        self.logger.info(
+            f"Configuring network: apn {apn}, mtu: {mtu}, ip_type: {ip_type}"
+        )
+        self.simulator.set_apn(apn)
+        self.simulator.set_ip_type(_IP_TYPE_MAP[ip_type])
+        self.simulator.set_mtu(mtu)
+        self.simulator.wait_until_quiet()
 
     def _set_technology(self, technology):
         """Switches the active simulation technology implementation."""

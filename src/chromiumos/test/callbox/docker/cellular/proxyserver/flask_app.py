@@ -71,7 +71,40 @@ class CallboxManager:
             )
 
         config.configure(config.parameters)
+
+        # if additional network configuration has been provided
+        if "network" in data:
+            self._configure_network(config, data["network"])
+
         return "OK"
+
+    def configure_network(self, data):
+        self._require_dict_keys(data, "callbox", "network")
+        config = self._get_callbox_config(data["callbox"])
+        config.require_simulation()
+        self._configure_network(config, data["network"])
+        return "OK"
+
+    def _configure_network(self, config, data):
+        if "apn" in data and data["apn"]:
+            apn = data["apn"]
+        else:
+            apn = "internet"
+
+        if "mtu" in data and data["mtu"]:
+            mtu = data["mtu"]
+        else:
+            mtu = 1500
+
+        if "ip_type" in data and data["ip_type"]:
+            ip_type = cbc.IPAddressType(data["ip_type"])
+        else:
+            # Default to IPv4 only since lab network doesn't support external
+            # IPv6 connections with callboxes (b/255775799).
+            # TODO(b/281525299) switch to IPv4/v6 when supported in lab.
+            ip_type = cbc.IPAddressType.IPV4
+
+        config.configure_network(apn, mtu, ip_type)
 
     def begin_simulation(self, data):
         self._require_dict_keys(data, "callbox")
@@ -273,6 +306,7 @@ callbox_manager = CallboxManager()
 
 path_lookup = {
     "config": callbox_manager.configure_callbox,
+    "config/network": callbox_manager.configure_network,
     "config/power/downlink": callbox_manager.set_downlink_rx_power,
     "config/power/uplink": callbox_manager.set_uplink_tx_power,
     "config/fetch/power/downlink": callbox_manager.query_downlink_rx_power,
