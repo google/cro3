@@ -148,6 +148,13 @@ func (cc *CLICommand) Run() error {
 	defer cc.saveResponse(out)
 	cc.log.Printf("Starting State Machine.")
 	respStatus, _, err := common_utils.ExecuteStateMachine(context.Background(), state_machine.NewPrepareState(svc), cc.log)
+	if os := svc.OS; os != nil && os.UpdatedBuildInfo != nil {
+		out.InstalledAndroidOs = &api.InstalledAndroidOS{
+			BuildId:            os.UpdatedBuildInfo.Id,
+			OsVersion:          os.UpdatedBuildInfo.OsVersion,
+			IncrementalVersion: os.UpdatedBuildInfo.IncrementalVersion,
+		}
+	}
 	for _, pkg := range svc.ProvisionPackages {
 		if androidPkg := pkg.AndroidPackage; androidPkg != nil && androidPkg.UpdatedVersionCode != "" {
 			installedPkg := &api.InstalledAndroidPackage{
