@@ -84,6 +84,7 @@ var (
 	chmodDLCs                 = RunCommandStructure{Command: "chmod", Args: []string{"-R", "0755", "/var/cache/dlc"}}
 	cgptRoot9                 = RunCommandStructure{Command: "cgpt", Args: []string{"show", "-t", "root_disk", "-i", "9"}}
 	cgptRoot10                = RunCommandStructure{Command: "cgpt", Args: []string{"show", "-t", "root_disk", "-i", "10"}}
+	cgptStickyCheck           = RunCommandStructure{Command: "cgpt", Args: []string{"show", "-S", "-i", "2", "root_disk"}}
 	copyMiniOS9               = PipeCommandStructure{Source: "gs://path/to/image/full_dev_part_MINIOS.bin.gz", Command: "gzip -d | dd of=root_diskroot9 obs=2M \npipestatus=(\"${PIPESTATUS[@]}\")\nif [[ \"${pipestatus[0]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Fetching path/to/image failed.\" >&2\n  exit 1\nelif [[ \"${pipestatus[1]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Decompressing path/to/image failed.\" >&2\n  exit 1\nelif [[ \"${pipestatus[2]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Writing to root_diskroot9 failed.\" >&2\n  exit 1\nfi"}
 	copyMiniOS10              = PipeCommandStructure{Source: "gs://path/to/image/full_dev_part_MINIOS.bin.gz", Command: "gzip -d | dd of=root_diskroot10 obs=2M \npipestatus=(\"${PIPESTATUS[@]}\")\nif [[ \"${pipestatus[0]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Fetching path/to/image failed.\" >&2\n  exit 1\nelif [[ \"${pipestatus[1]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Decompressing path/to/image failed.\" >&2\n  exit 1\nelif [[ \"${pipestatus[2]}\" -ne 0 ]]; then\n  echo \"$(date --rfc-3339=seconds) ERROR: Writing to root_diskroot10 failed.\" >&2\n  exit 1\nfi"}
 	checkFirmwareUpdater      = PathExistsCommandStructure{Path: common_utils.FirmwareUpdaterPath}
@@ -196,6 +197,9 @@ func TestStateTransitions(t *testing.T) {
 
 	gomock.InOrder(
 		getRunCmdCommand(sam, waitforStabilize).Return("start/running", nil),
+		getRunCmdCommand(sam, rootDevPartition).Return(fmt.Sprintf("root%s", common_utils.PartitionNumRootA), nil),
+		getRunCmdCommand(sam, rootDevDisk).Return("root_disk", nil),
+		getRunCmdCommand(sam, cgptStickyCheck).Return("1", nil),
 		getRunCmdCommand(sam, echoFastKeepImg).Return("", nil),
 		getRestartCommand(sam).Return(nil),
 		getRunCmdCommand(sam, stopUI).Return("", nil),
@@ -626,6 +630,9 @@ func TestPostInstallStatePreservesStatefulWhenRequested(t *testing.T) {
 
 	gomock.InOrder(
 		getRunCmdCommand(sam, waitforStabilize).Return("start/running", nil),
+		getRunCmdCommand(sam, rootDevPartition).Return(fmt.Sprintf("root%s", common_utils.PartitionNumRootA), nil),
+		getRunCmdCommand(sam, rootDevDisk).Return("root_disk", nil),
+		getRunCmdCommand(sam, cgptStickyCheck).Return("1", nil),
 		// Delete steps elided due to preserve stateful
 		getRunCmdCommand(sam, stopUI).Return("", nil),
 		getRunCmdCommand(sam, stopUpdateEngine).Return("", nil),
@@ -684,6 +691,9 @@ func TestPostInstallStatefulFailsGetsReversed(t *testing.T) {
 
 	gomock.InOrder(
 		getRunCmdCommand(sam, waitforStabilize).Return("start/running", nil),
+		getRunCmdCommand(sam, rootDevPartition).Return(fmt.Sprintf("root%s", common_utils.PartitionNumRootA), nil),
+		getRunCmdCommand(sam, rootDevDisk).Return("root_disk", nil),
+		getRunCmdCommand(sam, cgptStickyCheck).Return("1", nil),
 		// Delete steps elided due to preserve stateful
 		getRunCmdCommand(sam, stopUI).Return("", nil),
 		getRunCmdCommand(sam, stopUpdateEngine).Return("", nil),
@@ -837,6 +847,9 @@ func TestPostInstallOverwriteWhenSpecified(t *testing.T) {
 
 	gomock.InOrder(
 		getRunCmdCommand(sam, waitforStabilize).Return("start/running", nil),
+		getRunCmdCommand(sam, rootDevPartition).Return(fmt.Sprintf("root%s", common_utils.PartitionNumRootA), nil),
+		getRunCmdCommand(sam, rootDevDisk).Return("root_disk", nil),
+		getRunCmdCommand(sam, cgptStickyCheck).Return("1", nil),
 		getRunCmdCommand(sam, echoFastKeepImg).Return("", nil),
 		getRestartCommand(sam).Return(nil),
 		getRunCmdCommand(sam, stopUI).Return("", nil),

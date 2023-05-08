@@ -26,6 +26,8 @@ func (s CrOSPostInstallState) Execute(ctx context.Context, log *log.Logger) (*an
 
 	comms := []common_utils.CommandInterface{
 		commands.NewWaitForDutToStabilizeCommand(ctx, s.service),
+		commands.NewGetRootInfoCommand(ctx, s.service),
+		commands.NewWaitForStickyKernel(ctx, s.service),
 		commands.NewWipeStatefulCommand(ctx, s.service),
 		commands.NewStopSystemDaemonsCommand(ctx, s.service),
 		commands.NewProvisionStatefulCommand(ctx, s.service),

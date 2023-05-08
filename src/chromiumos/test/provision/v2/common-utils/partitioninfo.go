@@ -61,21 +61,23 @@ func GetPartitionInfo(root string, rootDisk string, rootPartNum string) Partitio
 	switch rootPartNum {
 	case PartitionNumRootA:
 		return PartitionInfo{
-			ActiveKernel:   rootDiskPartDelim + PartitionNumKernelA,
-			InactiveKernel: rootDiskPartDelim + PartitionNumKernelB,
-			ActiveRoot:     rootDiskPartDelim + PartitionNumRootA,
-			InactiveRoot:   rootDiskPartDelim + PartitionNumRootB,
-			MiniOSA:        rootDiskPartDelim + partitionNumMiniOSA,
-			MiniOSB:        rootDiskPartDelim + partitionNumMiniOSB,
+			ActiveKernel:    rootDiskPartDelim + PartitionNumKernelA,
+			ActiveKernelNum: PartitionNumKernelA,
+			InactiveKernel:  rootDiskPartDelim + PartitionNumKernelB,
+			ActiveRoot:      rootDiskPartDelim + PartitionNumRootA,
+			InactiveRoot:    rootDiskPartDelim + PartitionNumRootB,
+			MiniOSA:         rootDiskPartDelim + partitionNumMiniOSA,
+			MiniOSB:         rootDiskPartDelim + partitionNumMiniOSB,
 		}
 	case PartitionNumRootB:
 		return PartitionInfo{
-			ActiveKernel:   rootDiskPartDelim + PartitionNumKernelB,
-			InactiveKernel: rootDiskPartDelim + PartitionNumKernelA,
-			ActiveRoot:     rootDiskPartDelim + PartitionNumRootB,
-			InactiveRoot:   rootDiskPartDelim + PartitionNumRootA,
-			MiniOSA:        rootDiskPartDelim + partitionNumMiniOSB,
-			MiniOSB:        rootDiskPartDelim + partitionNumMiniOSA,
+			ActiveKernel:    rootDiskPartDelim + PartitionNumKernelB,
+			ActiveKernelNum: PartitionNumKernelB,
+			InactiveKernel:  rootDiskPartDelim + PartitionNumKernelA,
+			ActiveRoot:      rootDiskPartDelim + PartitionNumRootB,
+			InactiveRoot:    rootDiskPartDelim + PartitionNumRootA,
+			MiniOSA:         rootDiskPartDelim + partitionNumMiniOSB,
+			MiniOSB:         rootDiskPartDelim + partitionNumMiniOSA,
 		}
 	default:
 		panic(fmt.Sprintf("Unexpected root partition number of %s", rootPartNum))
