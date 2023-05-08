@@ -434,8 +434,7 @@ type suiteInfo struct {
 	profile string
 	// optional, the licenses required for the DUT the test will run on.
 	licenses []lab.LicenseType
-	// optional, the total number of shards to be used in a test run. Only valid
-	// if environment is TastVM or TastGCE.
+	// optional, the total number of shards to be used in a test run.
 	totalShards int64
 	// optional, if true then run test suites in this rule via CFT workflow.
 	runViaCft bool
@@ -1012,6 +1011,7 @@ func ToCTP1(
 					},
 					RunViaCft:   suiteInfo.runViaCft,
 					TagCriteria: suiteInfo.tagCriteria,
+					TotalShards: suiteInfo.totalShards,
 				}
 
 				if _, found := hwTests[displayName]; found {

@@ -92,6 +92,7 @@ var hwTestPlans = []*test_api_v1.HWTestPlan{
 					},
 				},
 			},
+			// Specified the number of shards.
 			{
 				TestSuites: []*testpb.TestSuite{
 					{
@@ -102,6 +103,7 @@ var hwTestPlans = []*test_api_v1.HWTestPlan{
 								TagExcludes: []string{"informational"},
 							},
 						},
+						TotalShards: 5,
 					},
 				},
 				DutTargets: []*testpb.DutTarget{
@@ -805,6 +807,7 @@ func TestToCTP1(t *testing.T) {
 								Tags:        []string{`"group:somegroup"`},
 								TagExcludes: []string{"informational"},
 							},
+							TotalShards: 5,
 							SkylabBoard: "boardA",
 							SkylabModel: "model1",
 							Licenses: []lab.LicenseType{
