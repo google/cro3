@@ -177,44 +177,59 @@ update_firmware() {
   # Combine the srcuris files
   mapfile -t all_srcuris < <(find "${base}"/chromeos-firmware-"${board}"/files -name '*srcuris')
 
-  echo "all_srcuris:"
-  echo "=============="
-  for each in "${all_srcuris[@]}"
-  do
-    echo "${each}"
-  done
-
   file_srcuris=()
   if [[ ${#all_srcuris[@]} != 0 && -f ${all_srcuris[0]} ]]; then
     mapfile -t file_srcuris < <(cat "${all_srcuris[@]}" )
   fi
 
-  echo "file_srcuris:"
-  echo "=============="
-  for each in "${file_srcuris[@]}"
-  do
-    echo "${each}"
-  done
-
   sorted_srcuris=()
   mapfile -t sorted_srcuris < <(printf '%s\n' "${file_srcuris[@]}"\
     | sort --uniq )
 
-  echo "sorted_srcuris:"
-  echo "=============="
-  for each in "${sorted_srcuris[@]}"
-  do
-    echo "${each}"
-  done
-
   # Now update the ebuild file
 
-  # Add a fake SRC_URI statement to make next expression match work
-  sed -i 's/cros-firmware_setup_source/SRC_URI=\ncros-firmware_setup_source/;' \
-    "${ebuild}"
+  cat > /tmp/comment_template.txt <<EOF
+# Generated Code Follows
+#
+# The remainder of this file is generated from the script cros_update_firmware
+# Follow these instructions to re-generate.
+#
+# Unified Builds firmware URL's are read from:
+#   chromeos-base/chromeos-config-bsp-@@BOARD@@-private/files/*srcuris
+# in this repository. Those config files output the SRC_URI's used by Portage.
+#
+# To modify the configured versions, make a change to either
+#
+# chromeos-base/chromeos-config-bsp-@@BOARD@@-private/files/model.yaml
+#   or
+# src/project/@@BOARD@@/MODEL/config.star
+#
+# And then, run this command from the src/platform/dev/contrib directory:
+#
+# ~/trunk/src/platform/dev/contrib/cros_update_firmware --board @@BOARD@@
+#
+# Verify the changes by running:
+#
+# /build/@@BOARD@@/usr/sbin/chromeos-firmwareupdate --manifest
+#
+# If this works then you can create a CL with your changes, which should include
+# the files:
+#
+# chromeos-base/chromeos-config-bsp-@@BOARD@@-private/files/model.yaml
+#   or
+# src/project/@@BOARD@@/MODEL/config.star
+#
+# chromeos-base/chromeos-firmware-@@BOARD@@/Manifest
+# chromeos-base/chromeos-firmware-@@BOARD@@/files/*srcuris
+# chromeos-base/chromeos-firmware-@@BOARD@@/chromeos-firmware-@@BOARD@@-9999.ebuild
 
-  # Remove the old SRC_URI through cros-firmware_setup_source
-  sed -i '/^SRC_URI/,/cros-firmware_setup/d' "${ebuild}"
+EOF
+
+  # Remove the old generated portion
+  sed -i -E '/((^# Unified Builds firmware URL.*$)|(^# Generated Code Follows.*$))/,$ d' "${ebuild}"
+
+  # Put the message back in with the board name substitution
+  sed -E "s/@@BOARD@@/${board}/" < /tmp/comment_template.txt  >> "${ebuild}"
 
   # Write the empty SRC_URI
   echo 'SRC_URI=""' >> "${ebuild}"
