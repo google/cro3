@@ -11,9 +11,8 @@ build:
 install:
 	@rustup -q which rustc > /dev/null || { echo "Please install rustup via https://rustup.rs/" ; exit 1 ; }
 	RUSTFLAGS=$(RUSTFLAGS) cargo install --target x86_64-unknown-linux-gnu --path .
-	file `which lium`
-	ls -lah `which lium`
-	echo $${SHELL} | grep bash && { lium setup bash-completion && source ~/.bash_completion ; }
+	@echo $$SHELL | grep bash > /dev/null && lium setup bash-completion || echo "SHELL is not Bash. Command completion will not work."
+	@printf "\nlium is successfully installed at `which lium`. Try \`lium --help\` if you want!\n"
 
 check:
 	cargo fmt
