@@ -492,7 +492,7 @@ pub fn run_discover(args: &ArgsDiscover) -> Result<()> {
         }?;
         Ok(addrs
             .trim()
-            .split("\n")
+            .split('\n')
             .map(str::trim)
             .filter(|s| !s.is_empty())
             .map(str::to_string)
