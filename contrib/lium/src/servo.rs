@@ -263,6 +263,12 @@ impl LocalServo {
     }
     pub fn run_cmd(&self, tty_type: &str, cmd: &str) -> Result<String> {
         let tty_path = self.tty_path(tty_type)?;
+        // Check if socat is installed
+        let socat_path = run_bash_command("which socat", None)?;
+        let socat_path = get_stdout(&socat_path);
+        if socat_path.trim().is_empty() {
+            return Err(anyhow!("socat not found. Please install socat with something like: `sudo apt install socat`"));
+        }
         // stat tty_path first to ensure that the tty is available
         let output = run_bash_command(
             &format!("stat {tty_path} && echo {cmd} | socat - {tty_path},echo=0,crtscts=1"),
