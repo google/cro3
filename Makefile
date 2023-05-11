@@ -27,3 +27,8 @@ commit:
 
 test:
 	cargo test
+
+release:
+	make
+	cipd auth-info | grep 'Logged in as' || cipd auth-login
+	cipd set-ref experimental/lium -ref latest -version `cipd create -pkg-def cipd.yaml | grep Instance: | cut -d ' ' -f 2 | cut -d ':' -f 2`
