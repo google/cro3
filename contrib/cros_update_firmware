@@ -229,7 +229,7 @@ EOF
   sed -i -E '/((^# Unified Builds firmware URL.*$)|(^# Generated Code Follows.*$))/,$ d' "${ebuild}"
 
   # Put the message back in with the board name substitution
-  sed -E "s/@@BOARD@@/${board}/" < /tmp/comment_template.txt  >> "${ebuild}"
+  sed -E "s/@@BOARD@@/${board}/g" < /tmp/comment_template.txt  >> "${ebuild}"
 
   # Write the empty SRC_URI
   echo 'SRC_URI=""' >> "${ebuild}"
