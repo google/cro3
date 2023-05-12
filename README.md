@@ -104,3 +104,6 @@ to make a commit after running various checks.
 Once your commit is ready, please file a pull request on GitHub, as described in [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 Happy hacking!
+
+## Disclaimer
+This is not an officially supported Google product.
