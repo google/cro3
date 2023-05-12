@@ -101,11 +101,6 @@ make commit
 ```
 to make a commit after running various checks.
 
-Once your commit is ready, upload a CL with:
-```
-repo upload --cbr --wip .
-```
-
-and please add hikalium@ and/or mhiramat@ as reviewers.
+Once your commit is ready, please file a pull request on GitHub, as described in [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 Happy hacking!
