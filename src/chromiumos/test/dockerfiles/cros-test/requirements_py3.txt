@@ -32,7 +32,7 @@ numpy==1.16.6
     # via
     #   -r requirements.in
     #   matplotlib
-pillow==8.3.2
+pillow==9.3.0
     # via
     #   -r requirements.in
     #   matplotlib
