@@ -28,7 +28,7 @@ matplotlib==3.3.4
     # via -r requirements.in
 mock==3.0.5
     # via -r requirements.in
-numpy==1.16.6
+numpy==1.22.0
     # via
     #   -r requirements.in
     #   matplotlib

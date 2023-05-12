@@ -1,7 +1,7 @@
 docker==4.4.4
 grpcio==1.31.0
 mock==3.0.5
-numpy==1.16.6
+numpy==1.22.0
 pyparsing
 protobuf==3.18.0
 six==1.15.0
