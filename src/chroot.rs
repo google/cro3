@@ -1,6 +1,8 @@
 // Copyright 2023 The ChromiumOS Authors
-// Use of this source code is governed by a BSD-style license that can be
-// found in the LICENSE file.
+//
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file or at
+// https://developers.google.com/open-source/licenses/bsd
 
 use crate::util::gen_path_in_lium_dir;
 use crate::util::get_stderr;

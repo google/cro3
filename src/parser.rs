@@ -1,6 +1,8 @@
 // Copyright 2023 The ChromiumOS Authors
-// Use of this source code is governed by a BSD-style license that can be
-// found in the LICENSE file.
+//
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file or at
+// https://developers.google.com/open-source/licenses/bsd
 
 //! This module is used to get Linux System Base (LSB) release information on Chrome OS systems, as
 //! usually located in `/etc/lsb-release`.
