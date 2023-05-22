@@ -121,29 +121,35 @@ struct ArgsVnc {
     #[argh(option)]
     dut: String,
 
-    /// local port (default: 5900)
+    /// host port to forward (default: 5900)
     #[argh(option)]
-    port: Option<u16>,
+    vnc_port: Option<u16>,
 }
 
 fn run_dut_vnc(args: &ArgsVnc) -> Result<()> {
     cros::ensure_testing_rsa_is_there()?;
     let target = &SshInfo::new(&args.dut)?;
-    let port = if let Some(_port) = args.port {
-        _port
-    } else {
-        5900
-    };
-    let mut child = target.start_port_forwarding(5900, port, "kmsvnc")?;
-    let mut shown = false;
+    let vnc_port = args.vnc_port.unwrap_or(5900);
+    let web_port = args.vnc_port.unwrap_or(6080);
+
+    if let Err(e) = target.run_cmd_piped(&["kill -9 $(pgrep --full vnc)"]) {
+        eprintln!("Failed to kill previous vnc instance: {e}")
+    }
+
+    let mut child_kmsvnc = target.start_port_forwarding(vnc_port, 5900, "kmsvnc")?;
+    let mut child_novnc = target.start_port_forwarding(web_port, 6080, "novnc")?;
+
+    eprintln!("To use VNC via web browser, please open:");
+    eprintln!("  http://localhost:{vnc_port}/vnc.html");
+    eprintln!("To connect via VNC client directly, use:");
+    eprintln!("  xtightvncviewer -encodings raw localhost:{vnc_port}");
 
     loop {
-        if let Some(status) = child.try_status()? {
-            eprintln!("Failed to connect to {}: {}", &args.dut, status);
-            return Ok(());
-        } else if !shown {
-            println!("Connected. Please run `xtightvncviewer -encodings raw localhost:5900`");
-            shown = true;
+        if let Some(status) = child_kmsvnc.try_status()? {
+            panic!("kmsvnc terminated {}: {}", &args.dut, status);
+        }
+        if let Some(status) = child_novnc.try_status()? {
+            panic!("novnc terminated {}: {}", &args.dut, status);
         }
         thread::sleep(time::Duration::from_secs(5));
     }
