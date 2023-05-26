@@ -97,6 +97,8 @@ impl FromStr for LsbRelease {
 /// of release.
 #[derive(PartialEq, Eq, Debug)]
 pub enum ReleaseChannel<'a> {
+    Lts,
+    Ltc,
     Stable,
     Beta,
     Dev,
@@ -111,6 +113,8 @@ impl<'a> From<&'a str> for ReleaseChannel<'a> {
     fn from(s: &str) -> ReleaseChannel {
         use self::ReleaseChannel::*;
         match s {
+            "lts-channel" => Lts,
+            "ltc-channel" => Ltc,
             "stable-channel" => Stable,
             "beta-channel" => Beta,
             "dev-channel" => Dev,
@@ -193,5 +197,13 @@ mod tests {
             .parse::<LsbRelease>()
             .unwrap();
         assert_eq!(lsb_release.release_channel(), Some(ReleaseChannel::Stable));
+        let lsb_release = "CHROMEOS_RELEASE_TRACK=ltc-channel"
+            .parse::<LsbRelease>()
+            .unwrap();
+        assert_eq!(lsb_release.release_channel(), Some(ReleaseChannel::Ltc));
+        let lsb_release = "CHROMEOS_RELEASE_TRACK=lts-channel"
+            .parse::<LsbRelease>()
+            .unwrap();
+        assert_eq!(lsb_release.release_channel(), Some(ReleaseChannel::Lts));
     }
 }
