@@ -87,11 +87,15 @@ pub fn get_stderr(output: &Output) -> String {
         .trim()
         .to_string()
 }
+pub type AsyncLinesReader<T> = Lines<BufReader<T>>;
 pub fn get_async_lines(
     child: &mut Child,
-) -> (Lines<BufReader<ChildStdout>>, Lines<BufReader<ChildStderr>>) {
-    let lines = BufReader::new(child.stdout.take().unwrap()).lines();
-    let lines_err = BufReader::new(child.stderr.take().unwrap()).lines();
+) -> (
+    Option<AsyncLinesReader<ChildStdout>>,
+    Option<AsyncLinesReader<ChildStderr>>,
+) {
+    let lines = child.stdout.take().map(|s| BufReader::new(s).lines());
+    let lines_err = child.stderr.take().map(|s| BufReader::new(s).lines());
     (lines, lines_err)
 }
 

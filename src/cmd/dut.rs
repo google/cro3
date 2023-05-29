@@ -235,6 +235,14 @@ type DutAction = Box<fn(&SshInfo) -> Result<()>>;
 fn do_reboot(s: &SshInfo) -> Result<()> {
     s.run_cmd_piped(&["reboot; exit"])
 }
+fn do_wait_online(s: &SshInfo) -> Result<()> {
+    for _ in 0..100 {
+        if s.run_cmd_piped(&["echo ok"]).is_ok() {
+            return Ok(());
+        }
+    }
+    Err(anyhow!("do_wait_online timed out"))
+}
 fn do_login(s: &SshInfo) -> Result<()> {
     s.run_autologin()
 }
@@ -244,6 +252,7 @@ fn do_tail_messages(s: &SshInfo) -> Result<()> {
 lazy_static! {
     static ref DUT_ACTIONS: HashMap<&'static str, DutAction> = {
         let mut m: HashMap<&'static str, DutAction> = HashMap::new();
+        m.insert("wait_online", Box::new(do_wait_online));
         m.insert("reboot", Box::new(do_reboot));
         m.insert("login", Box::new(do_login));
         m.insert("tail_messages", Box::new(do_tail_messages));

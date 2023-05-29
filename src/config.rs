@@ -191,8 +191,8 @@ impl Config {
     pub fn default_cros_checkout(&self) -> Option<String> {
         self.default_cros_checkout.clone()
     }
-    pub fn ssh_port_search_timeout(&self) -> Option<u64> {
-        self.ssh_port_search_timeout
+    pub fn ssh_port_search_timeout(&self) -> u64 {
+        self.ssh_port_search_timeout.unwrap_or(60 /* 1 min */)
     }
     pub fn default_ipv6_prefix(&self) -> Option<String> {
         self.default_ipv6_prefix.clone()

@@ -324,7 +324,9 @@ impl LocalServo {
             ports.shuffle(&mut rng);
             for port in ports {
                 let mut servod = self.start_servod_on_port(chroot, port)?;
-                let (mut servod_stdout, mut servod_stderr) = get_async_lines(&mut servod);
+                let (servod_stdout, servod_stderr) = get_async_lines(&mut servod);
+                let mut servod_stdout = servod_stdout.context(anyhow!("servod_stdout was None"))?;
+                let mut servod_stderr = servod_stderr.context(anyhow!("servod_stdout was None"))?;
                 loop {
                     let mut servod_stdout = servod_stdout.next().fuse();
                     let mut servod_stderr = servod_stderr.next().fuse();

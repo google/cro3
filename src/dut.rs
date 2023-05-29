@@ -35,7 +35,6 @@ use std::process::Command;
 use std::process::Output;
 use std::process::Stdio;
 use std::str::FromStr;
-use std::sync::{Arc, Condvar, Mutex};
 use std::thread;
 use std::time::Duration;
 use url::Url;
@@ -66,7 +65,6 @@ const COMMON_SSH_OPTIONS: [&str; 16] = [
     "-o",
     "PreferredAuthentications=publickey",
 ];
-const COMMON_PORT_FORWARD_TOKEN: &str = "lium-ssh-portforward";
 
 lazy_static! {
     static ref RE_IPV6_WITH_BRACKETS: Regex = Regex::new(r"^\[(?P<addr>[0-9a-fA-F:]+(%.*)?)\]$").unwrap();
@@ -639,6 +637,7 @@ impl SshInfo {
         &self,
         port_range: Range<u16>,
     ) -> Result<(async_process::Child, u16)> {
+        const COMMON_PORT_FORWARD_TOKEN: &str = "lium-ssh-portforward";
         let sshcmd = &format!("echo {COMMON_PORT_FORWARD_TOKEN}; sleep 8h");
         block_on(async {
             let mut ports: Vec<u16> = port_range.into_iter().collect::<Vec<u16>>();
@@ -647,19 +646,18 @@ impl SshInfo {
             for port in ports {
                 // Try to establish port forwarding
                 let mut child = self.start_port_forwarding(port, 22, sshcmd)?;
-                let (mut ssh_stdout, mut ssh_stderr) = get_async_lines(&mut child);
+                let (ssh_stdout, ssh_stderr) = get_async_lines(&mut child);
+                let mut ssh_stdout = ssh_stdout.context(anyhow!("ssh_stdout was None"))?;
+                let mut ssh_stderr = ssh_stderr.context(anyhow!("ssh_stdout was None"))?;
                 loop {
                     let mut ssh_stdout = ssh_stdout.next().fuse();
                     let mut ssh_stderr = ssh_stderr.next().fuse();
                     select! {
                         line = ssh_stderr => {
-                            if let Some(line) = line {
-                                let line = line?;
-                                if line.contains("cannot listen to port") {
-                                    break;
-                                }
-                            } else {
-                                return Err(anyhow!("ssh failed unexpectedly"));
+                            let line = line.context(anyhow!("ssh forwarding failed"))??;
+                            eprintln!("{line}");
+                            if line.contains("cannot listen to port") {
+                                break;
                             }
                         }
                         line = ssh_stdout => {
@@ -669,71 +667,40 @@ impl SshInfo {
                                     return Ok((child, port));
                                 }
                             } else {
-                                return Err(anyhow!("ssh failed unexpectedly"));
+                                // stdout is closed unexpectedly since ssh process is terminated.
+                                // stderr may contain some info and will be closed as well,
+                                // so do nothing here and wait for activities on stderr stream.
                             }
                         }
                     }
                 }
             }
-            return Err(anyhow!("Do not find any vacant port"));
+            return Err(anyhow!("Could not find a port available for forwarding"));
         })
     }
-    // Keep forwarding in background. This refers config.ssh_port_search_timeout.
+    /// Keep forwarding in background.
+    /// The execution will be blocked until the first attemp succeeds, and the return value
+    /// represents which port is used for this forwarding, or an error.
+    /// Forwarding port on this side will be automatically determined by start_ssh_forwarding,
+    /// and the same port will be used for reconnecting while this lium instance is running.
     pub fn start_ssh_forwarding_range_background(&self, port_range: Range<u16>) -> Result<u16> {
-        let timeout = if let Some(timeout) = Config::read()?.ssh_port_search_timeout() {
-            timeout
-        } else {
-            // Default timeout is 1 hour. This should be enough long.
-            3600
-        };
-
-        let est_port = Arc::new((Mutex::new(0_u16), Condvar::new()));
-        let est_port2 = est_port.clone();
-
+        let (mut child, port) = self.start_ssh_forwarding_range(port_range)?;
+        eprintln!("Established SSH port forwarding for {self:?} on {port}");
         let ssh = self.clone();
         thread::spawn(move || {
-            let (lock, cvar) = &*est_port2;
-            let (mut child, port) =
-                if let Ok((child, port)) = ssh.start_ssh_forwarding_range(port_range) {
-                    (child, port)
-                } else {
-                    eprintln!("Failed to establish ssh port forwarding");
-                    return;
-                };
-
-            {
-                // NOTE: We have to unlock mutex after updating the object
-                let mut fwport = lock.lock().unwrap();
-                *fwport = port;
-            };
-            cvar.notify_all(); // notify the port forwarding is established.
-
             block_on(async move {
                 loop {
                     let _ = child.status().await; // Ignore the result.
                     loop {
                         thread::sleep(Duration::from_secs(5));
-                        let ret = ssh.start_ssh_forwarding(port);
-                        if let Ok(new_child) = ret {
-                            child = new_child;
-                            break;
+                        if let Err(e) = ssh.start_ssh_forwarding(port) {
+                            eprintln!("lium: background port forwarding failed: {e:?}")
                         }
                     }
                 }
             });
         });
-
-        let (lock, cvar) = &*est_port;
-        let port = lock.lock().unwrap();
-        let result = cvar
-            .wait_timeout(port, Duration::from_secs(timeout))
-            .unwrap();
-
-        if result.1.timed_out() {
-            Err(anyhow!("SSH vacant port search timed out"))
-        } else {
-            Ok(*result.0)
-        }
+        Ok(port)
     }
 
     pub fn run_cmd_stdio(&self, cmd: &str) -> Result<String> {
