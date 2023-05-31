@@ -19,7 +19,7 @@ use base64::Engine;
 use chrono::Local;
 use futures::executor::block_on;
 use futures::select;
-use futures::FutureExt;
+use futures::stream;
 use futures::StreamExt;
 use lazy_static::lazy_static;
 use rand::seq::SliceRandom;
@@ -93,7 +93,7 @@ impl MonitoredDut {
             ssh: ssh.clone(),
             dut: dut.to_string(),
             port,
-            child: ssh.start_ssh_forwarding(port).ok(),
+            child: block_on(ssh.start_ssh_forwarding(port)).ok(),
             reconnecting: false,
         };
         Ok(dut)
@@ -102,7 +102,7 @@ impl MonitoredDut {
         self.reconnecting
     }
     fn reconnect(&mut self) -> Result<String> {
-        let new_child = self.ssh.start_ssh_forwarding(self.port);
+        let new_child = block_on(self.ssh.start_ssh_forwarding(self.port));
         if let Err(e) = &new_child {
             eprintln!("Failed to reconnect: {e:?}");
         };
@@ -627,56 +627,59 @@ impl SshInfo {
             .spawn()?;
         Ok(child)
     }
-    pub fn start_ssh_forwarding(&self, port: u16) -> Result<async_process::Child> {
-        self.start_port_forwarding(port, 22, "sleep 8h")
+    // Start SSH port forwarding on a given port.
+    // The future will be resolved once the first connection attempt is succeeded.
+    pub async fn start_ssh_forwarding(&self, port: u16) -> Result<async_process::Child> {
+        self.start_ssh_forwarding_range(Range {
+            start: port,
+            end: port + 1,
+        })
+        .await
+        .map(|e| e.0)
     }
     // Start SSH port forwarding in a given range without timeout.
-    // Since this doesn't check the timeout, user should use
-    // SshInfo::start_ssh_forwarding_range_background() instead.
-    fn start_ssh_forwarding_range(
+    async fn start_ssh_forwarding_range(
         &self,
         port_range: Range<u16>,
     ) -> Result<(async_process::Child, u16)> {
         const COMMON_PORT_FORWARD_TOKEN: &str = "lium-ssh-portforward";
         let sshcmd = &format!("echo {COMMON_PORT_FORWARD_TOKEN}; sleep 8h");
-        block_on(async {
-            let mut ports: Vec<u16> = port_range.into_iter().collect::<Vec<u16>>();
-            let mut rng = thread_rng();
-            ports.shuffle(&mut rng);
-            for port in ports {
-                // Try to establish port forwarding
-                let mut child = self.start_port_forwarding(port, 22, sshcmd)?;
-                let (ssh_stdout, ssh_stderr) = get_async_lines(&mut child);
-                let mut ssh_stdout = ssh_stdout.context(anyhow!("ssh_stdout was None"))?;
-                let mut ssh_stderr = ssh_stderr.context(anyhow!("ssh_stdout was None"))?;
-                loop {
-                    let mut ssh_stdout = ssh_stdout.next().fuse();
-                    let mut ssh_stderr = ssh_stderr.next().fuse();
-                    select! {
-                        line = ssh_stderr => {
-                            let line = line.context(anyhow!("ssh forwarding failed"))??;
+        let mut ports: Vec<u16> = port_range.into_iter().collect::<Vec<u16>>();
+        let mut rng = thread_rng();
+        ports.shuffle(&mut rng);
+        for port in ports {
+            // Try to establish port forwarding
+            let mut child = self.start_port_forwarding(port, 22, sshcmd)?;
+            let (ssh_stdout, ssh_stderr) = get_async_lines(&mut child);
+            let ssh_stdout = ssh_stdout.context(anyhow!("ssh_stdout was None"))?;
+            let ssh_stderr = ssh_stderr.context(anyhow!("ssh_stdout was None"))?;
+            let mut merged_stream = stream::select(ssh_stdout.fuse(), ssh_stderr.fuse());
+            loop {
+                let mut merged_stream = merged_stream.next();
+                select! {
+                    line = merged_stream => {
+                        if let Some(Ok(line)) = line {
+                            if line.contains(COMMON_PORT_FORWARD_TOKEN) {
+                                eprintln!("lium: Established SSH port forwarding for {self:?} on {port}");
+                                return Ok((child, port));
+                            }
                             eprintln!("{line}");
                             if line.contains("cannot listen to port") {
+                                // Try next port
                                 break;
                             }
                         }
-                        line = ssh_stdout => {
-                            if let Some(line) = line {
-                                let line = line?;
-                                if line.contains(COMMON_PORT_FORWARD_TOKEN) {
-                                    return Ok((child, port));
-                                }
-                            } else {
-                                // stdout is closed unexpectedly since ssh process is terminated.
-                                // stderr may contain some info and will be closed as well,
-                                // so do nothing here and wait for activities on stderr stream.
-                            }
-                        }
+                    }
+                    complete => {
+                            // stdout is closed unexpectedly since ssh process is terminated.
+                            // stderr may contain some info and will be closed as well,
+                            // so do nothing here and wait for activities on stderr stream.
+                        return Err(anyhow!("SSH process streams are closed"));
                     }
                 }
             }
-            return Err(anyhow!("Could not find a port available for forwarding"));
-        })
+        }
+        return Err(anyhow!("Could not find a port available for forwarding"));
     }
     /// Keep forwarding in background.
     /// The execution will be blocked until the first attemp succeeds, and the return value
@@ -684,18 +687,20 @@ impl SshInfo {
     /// Forwarding port on this side will be automatically determined by start_ssh_forwarding,
     /// and the same port will be used for reconnecting while this lium instance is running.
     pub fn start_ssh_forwarding_range_background(&self, port_range: Range<u16>) -> Result<u16> {
-        let (mut child, port) = self.start_ssh_forwarding_range(port_range)?;
-        eprintln!("Established SSH port forwarding for {self:?} on {port}");
+        let (mut child, port) = block_on(self.start_ssh_forwarding_range(port_range))?;
         let ssh = self.clone();
         thread::spawn(move || {
             block_on(async move {
                 loop {
-                    let _ = child.status().await; // Ignore the result.
+                    let status = child.status().await;
+                    eprintln!("lium: SSH forwarding process exited with {status:?}");
                     loop {
-                        thread::sleep(Duration::from_secs(5));
-                        if let Err(e) = ssh.start_ssh_forwarding(port) {
-                            eprintln!("lium: background port forwarding failed: {e:?}")
+                        eprintln!("lium: Reconnecting to {ssh:?}...");
+                        if let Ok(new_child) = ssh.start_ssh_forwarding(port).await {
+                            child = new_child;
+                            break;
                         }
+                        thread::sleep(Duration::from_secs(5));
                     }
                 }
             });
@@ -825,28 +830,25 @@ pub fn fetch_dut_info_in_parallel(
         .num_threads(std::cmp::min(16, addrs.len()))
         .build_global()
         .context("Failed to set thread count")?;
-    Ok(block_on(async {
-        addrs
-            .par_iter()
-            .flat_map(|addr| -> Result<DutInfo> {
-                let addr = &format!("[{}]", addr);
-                // Since we are listing the DUTs on the same network
-                // so assume that port 22 is open for ssh
-                let ssh =
-                    SshInfo::new_host_and_port(addr, 22).context("failed to create SshInfo")?;
-                let dut = block_on(DutInfo::from_ssh(&ssh, extra_attr));
-                match &dut {
-                    Ok(_) => {
-                        eprintln!("{} is a DUT :)", addr)
-                    }
-                    Err(e) => {
-                        eprintln!("{} is not a DUT...(ToT) : {:#}", addr, e)
-                    }
+    Ok(addrs
+        .par_iter()
+        .flat_map(|addr| -> Result<DutInfo> {
+            let addr = &format!("[{}]", addr);
+            // Since we are listing the DUTs on the same network
+            // so assume that port 22 is open for ssh
+            let ssh = SshInfo::new_host_and_port(addr, 22).context("failed to create SshInfo")?;
+            let dut = block_on(DutInfo::from_ssh(&ssh, extra_attr));
+            match &dut {
+                Ok(_) => {
+                    eprintln!("{} is a DUT :)", addr)
                 }
-                dut
-            })
-            .collect()
-    }))
+                Err(e) => {
+                    eprintln!("{} is not a DUT...(ToT) : {:#}", addr, e)
+                }
+            }
+            dut
+        })
+        .collect())
 }
 
 pub fn discover_local_nodes(iface: Option<String>) -> Result<Vec<String>> {
