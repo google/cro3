@@ -20,6 +20,8 @@ jobs:
       run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
     - name: Format
       run: source "$HOME/.cargo/env" && cargo fmt --check
+    - name: Clippy
+      run: source "$HOME/.cargo/env" && cargo clippy -- -D warnings
     - name: Build
       run: source "$HOME/.cargo/env" && cargo build --verbose
     - name: Run tests
