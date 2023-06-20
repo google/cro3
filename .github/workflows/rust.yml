@@ -1,0 +1,28 @@
+name: Compile, format and test rust binaries
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Install rustup
+      run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+    - name: Format
+      run: source "$HOME/.cargo/env" && cargo fmt --check
+    - name: Clippy
+      run: source "$HOME/.cargo/env" && cargo clippy -- -D warnings
+    - name: Build
+      run: source "$HOME/.cargo/env" && cargo build --verbose
+    - name: Run tests
+      run: source "$HOME/.cargo/env" && cargo test --verbose
