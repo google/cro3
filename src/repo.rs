@@ -21,6 +21,7 @@ fn is_cros_dir(dir: &str) -> bool {
     let path = PathBuf::from(dir);
     path.is_dir() && path.join(".repo").is_dir() && path.join("chromite").join("bin").is_dir()
 }
+
 fn ensure_if_cros_dir(path: &str) -> Result<()> {
     if is_cros_dir(path) {
         Ok(())
@@ -29,6 +30,20 @@ fn ensure_if_cros_dir(path: &str) -> Result<()> {
             "{path} is not a Chromium OS checkout. Please consider specifying --repo option."
         ))
     }
+}
+
+fn find_cros_dir_from_cwd() -> Result<String> {
+    let mut path = env::current_dir()?;
+    let mut dir = path.to_string_lossy().to_string();
+
+    while !is_cros_dir(&dir) {
+        match path.parent() {
+            Some(p) => path = p.to_path_buf(),
+            None => return Err(anyhow!("Failed to find Cros SDK dir")),
+        }
+        dir = path.to_string_lossy().to_string();
+    }
+    Ok(dir)
 }
 
 pub fn get_cros_dir_unchecked(dir: &Option<String>) -> Result<String> {
@@ -44,7 +59,7 @@ pub fn get_cros_dir_unchecked(dir: &Option<String>) -> Result<String> {
     } else if let Some(crosdir) = Config::read()?.default_cros_checkout() {
         crosdir
     } else {
-        env::current_dir()?.to_string_lossy().to_string()
+        find_cros_dir_from_cwd()?
     };
     Ok(crosdir)
 }
