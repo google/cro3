@@ -140,7 +140,7 @@ fn run_dut_vnc(args: &ArgsVnc) -> Result<()> {
     let mut child_novnc = target.start_port_forwarding(web_port, 6080, "novnc")?;
 
     eprintln!("To use VNC via web browser, please open:");
-    eprintln!("  http://localhost:{vnc_port}/vnc.html");
+    eprintln!("  http://localhost:{web_port}/vnc.html");
     eprintln!("To connect via VNC client directly, use:");
     eprintln!("  xtightvncviewer -encodings raw localhost:{vnc_port}");
 
