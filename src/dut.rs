@@ -622,8 +622,6 @@ impl SshInfo {
             .arg(command)
             .kill_on_drop(true)
             .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
             .spawn()?;
         Ok(child)
     }
