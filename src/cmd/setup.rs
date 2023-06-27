@@ -15,7 +15,7 @@ use lium::cros::ensure_testing_rsa_is_there;
 use lium::dut::register_dut;
 use lium::dut::DutInfo;
 use lium::repo::get_repo_dir;
-use lium::servo::get_servo_attached_to_cr50;
+use lium::servo::get_cr50_attached_to_servo;
 use lium::servo::LocalServo;
 use lium::servo::ServoList;
 use lium::util::gen_path_in_lium_dir;
@@ -122,7 +122,7 @@ fn setup_dut_ccd_open(cr50: &LocalServo) -> Result<()> {
     Err(anyhow!("Failed to get rma_auth code."))
 }
 
-fn ensure_dut_network_connection(servo: &mut LocalServo) -> Result<DutInfo> {
+fn ensure_dut_network_connection(servo: &LocalServo) -> Result<DutInfo> {
     register_dut(&servo.read_ipv6_addr()?)
 }
 
@@ -149,7 +149,8 @@ fn ensure_dev_gbb_flags(repo: &str, cr50: &LocalServo) -> Result<()> {
     Ok(())
 }
 
-fn setup_dut(repo: &str, cr50: &LocalServo) -> Result<()> {
+fn setup_dut(repo: &str, servo: &LocalServo) -> Result<()> {
+    let cr50 = get_cr50_attached_to_servo(servo)?;
     ensure_testing_rsa_is_there()?;
     let config = Config::read()?;
     if config.default_ipv6_prefix().is_none() {
@@ -159,13 +160,12 @@ fn setup_dut(repo: &str, cr50: &LocalServo) -> Result<()> {
     }
 
     eprintln!("Setting up DUT: {}", cr50.serial());
-    setup_dut_ccd_open(cr50)?;
-    let mut servo = get_servo_attached_to_cr50(cr50)?;
+    setup_dut_ccd_open(&cr50)?;
     eprintln!("Using Servo: {}", servo.serial());
-    if ensure_dut_network_connection(&mut servo).is_err() {
-        ensure_dev_gbb_flags(repo, cr50)?;
+    if ensure_dut_network_connection(servo).is_err() {
+        ensure_dev_gbb_flags(repo, &cr50)?;
     }
-    let dut = ensure_dut_network_connection(&mut servo)?;
+    let dut = ensure_dut_network_connection(servo)?;
     eprintln!("DUT is ready!");
     eprintln!("export DUT={}", dut.id());
     eprintln!("export SERVO_SERIAL={}", servo.serial());
@@ -173,30 +173,32 @@ fn setup_dut(repo: &str, cr50: &LocalServo) -> Result<()> {
 }
 
 #[derive(FromArgs, PartialEq, Debug)]
-/// Setup a DUT for dev
+/// Setup a DUT for dev using Servo
 #[argh(subcommand, name = "dut")]
 pub struct ArgsDut {
+    /// servo serial
+    #[argh(option)]
+    serial: String,
     /// target cros repo dir. If omitted, current directory will be used.
     #[argh(option)]
     repo: Option<String>,
+    /// do ccd unlock only
+    #[argh(switch)]
+    ccd_unlock: bool,
 }
 fn run_dut(args: &ArgsDut) -> Result<()> {
     let repo = get_repo_dir(&args.repo)?;
     ServoList::update()?;
     let list = ServoList::read()?;
-    let list: Vec<&LocalServo> = list.devices().iter().filter(|e| e.is_cr50()).collect();
-    eprintln!("{} Cr50 found.", list.len());
-    if list.is_empty() {
-        return Err(anyhow!(
-        "No Servos or Cr50 are detected. Please check the servo connection, try another side of USB port, attach servo directly with a host instead of via hub, etc..."));
+    let servo = list.find_by_serial(&args.serial).context(
+        "No Servos or Cr50 are detected. Please check the servo connection, try another side of USB port, attach servo directly with a host instead of via hub, etc...")?;
+    eprintln!("Using {servo:?}");
+    if args.ccd_unlock {
+        let cr50 = get_cr50_attached_to_servo(servo)?;
+        setup_dut_ccd_open(&cr50)
+    } else {
+    setup_dut(&repo, servo)
     }
-    for cr50 in list {
-        if let Err(e) = setup_dut(&repo, cr50) {
-            eprintln!("{:?}", e);
-            continue;
-        }
-    }
-    Ok(())
 }
 
 #[derive(FromArgs, PartialEq, Debug)]
