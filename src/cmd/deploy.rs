@@ -25,9 +25,9 @@ pub struct Args {
     #[argh(option)]
     dut: String,
 
-    /// package to deploy (space separated)
-    #[argh(option)]
-    packages: String,
+    /// packages to deploy
+    #[argh(positional)]
+    packages: Vec<String>,
 
     /// if specified, it will skip automatic reboot
     #[argh(switch)]
@@ -38,7 +38,7 @@ pub fn run(args: &Args) -> Result<()> {
     let target = SshInfo::new(&args.dut)?;
     println!("Target DUT is {:?}", target);
     let board = target.get_board()?;
-    let packages = &args.packages;
+    let packages = args.packages.join(" ");
     let re_cros_kernel = regex!(r"chromeos-kernel-");
     let target = SshInfo::new(&args.dut)?;
     let target = if target.needs_port_forwarding_in_chroot() {
@@ -49,10 +49,7 @@ pub fn run(args: &Args) -> Result<()> {
     };
     let chroot = Chroot::new(&get_repo_dir(&args.repo)?)?;
 
-    let mut iter = args
-        .packages
-        .split_whitespace()
-        .filter(|s| re_cros_kernel.is_match(s));
+    let mut iter = args.packages.iter().filter(|&s| re_cros_kernel.is_match(s));
     if iter.clone().count() > 1 {
         return Err(anyhow!(
             "There are more than 2 kernel packages. Please specify one of them."
@@ -61,7 +58,7 @@ pub fn run(args: &Args) -> Result<()> {
     let kernel_pkg = iter.next();
 
     let mut user_pkgs = String::new();
-    args.packages.split_whitespace().for_each(|s| {
+    args.packages.iter().for_each(|s| {
         if !re_cros_kernel.is_match(s) {
             user_pkgs.push_str(&format!("{s} "))
         }
