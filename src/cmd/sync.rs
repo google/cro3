@@ -49,7 +49,7 @@ pub fn run(args: &Args) -> Result<()> {
         if args.version == "tot" {
             args.version.clone()
         } else {
-            lookup_full_version(&args.version)?
+            lookup_full_version(&args.version, "eve")?
         }
     } else {
         lookup_arc_version(&args.version)?
