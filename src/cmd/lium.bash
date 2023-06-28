@@ -64,6 +64,10 @@ _lium_get_servos() {
   ${COMP_WORDS[0]} servo list --serials 2>/dev/null | cut -f 1
 }
 
+_lium_get_packages() {
+  ${COMP_WORDS[0]} packages list --cached 2>/dev/null | cut -f 1
+}
+
 _lium_get_dut_actions() {
   lium dut do --list-actions 2>/dev/null
 }
@@ -114,6 +118,8 @@ _lium_get_options() { # current
             _lium_get_dut_actions;;
           tests)
             _lium_get_tests;;
+          packages)
+            _lium_get_packages;;
           files)
             if [ "${1#-}" == "${1}" ]; then
               _lium_comp_fs -f ${1}
@@ -132,7 +138,7 @@ _lium() { # command current prev
   local cur=$2
   local prev=$3
   local dir_opts="--repo --dir --dest"
-  local todo_opts="--version --board --workon --packages"
+  local todo_opts="--version --board --workon"
 
   COMPREPLY=
   # If there is --help option, no more options available.
