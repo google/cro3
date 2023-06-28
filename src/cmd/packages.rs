@@ -45,7 +45,7 @@ pub struct ArgsList {
     board: Option<String>,
 
     /// only show the cached list
-    #[argh(option)]
+    #[argh(switch)]
     cached: bool,
 
     /// glob pattern of the packages
