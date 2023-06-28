@@ -22,9 +22,9 @@ pub struct Args {
     #[argh(option)]
     board: String,
 
-    /// packages to build (or workon, for a full build), space separated
-    #[argh(option)]
-    packages: Option<String>,
+    /// packages to build (or workon, for a full build)
+    #[argh(positional)]
+    packages: Vec<String>,
 
     /// if specified, skip update_chroot and setup_board
     #[argh(switch)]
@@ -72,12 +72,13 @@ cros-workon-{board} stop --all
             None,
         )?;
     }
-    if let Some(packages) = &args.packages {
+    if !args.packages.is_empty() {
+        let package_list = args.packages.join(" ");
         chroot.run_bash_script_in_chroot(
             "start_workon",
             &format!(
                 r###"
-cros-workon-{board} start {packages}
+cros-workon-{board} start {package_list}
 "###
             ),
             None,
@@ -97,19 +98,20 @@ build_image --board={board} --noenable_rootfs_verification test
             None,
         )?;
         eprintln!("Succesfully built a test image!");
-    } else if let Some(packages) = &args.packages {
-        eprintln!("Building {packages}...");
+    } else if !args.packages.is_empty() {
+        let package_list = args.packages.join(" ");
+        eprintln!("Building {package_list}...");
         chroot.run_bash_script_in_chroot(
             "emerge_packages",
             &format!(
                 r###"
 export USE='{use_flags}'
-emerge-{board} {packages}
+emerge-{board} {package_list}
 "###
             ),
             None,
         )?;
-        eprintln!("Succesfully built {packages}!");
+        eprintln!("Succesfully built {package_list}!");
     } else {
         return Err(anyhow!(
             "Please specify --full or --packages. `lium build --help` for more details."
