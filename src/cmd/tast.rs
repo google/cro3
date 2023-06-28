@@ -162,6 +162,10 @@ pub struct ArgsRun {
     #[argh(option)]
     dut: String,
 
+    /// test options (e.g. "-var ...")
+    #[argh(option)]
+    option: Option<String>,
+
     /// test name or pattern
     #[argh(positional)]
     tests: String,
@@ -178,10 +182,19 @@ fn bundle_has_test(bundle: &str, filter: &Pattern) -> bool {
     false
 }
 
-fn run_test_with_bundle(bundle: &str, filter: &Pattern, chroot: &Chroot, port: u16) -> Result<()> {
+fn run_test_with_bundle(
+    bundle: &str,
+    filter: &Pattern,
+    chroot: &Chroot,
+    port: u16,
+    opt: Option<&str>,
+) -> Result<()> {
     chroot.run_bash_script_in_chroot(
         "tast_run_cmd",
-        &format!("tast run -installbuilddeps -buildbundle={bundle} 127.0.0.1:{port} {filter}"),
+        &format!(
+            "tast run -installbuilddeps -buildbundle={bundle} {} 127.0.0.1:{port} {filter}",
+            opt.unwrap_or("")
+        ),
         None,
     )?;
     Ok(())
@@ -195,15 +208,16 @@ fn run_tast_run(args: &ArgsRun) -> Result<()> {
     let ssh = SshInfo::new(&args.dut).context("failed to create SshInfo")?;
     // setup port forwarding for chroot.
     let port = ssh.start_ssh_forwarding_range_background(4100..4200)?;
+    let opt = args.option.as_deref();
 
     let config = Config::read()?;
     let bundles = config.tast_bundles();
     if bundles.is_empty() {
-        run_test_with_bundle(DEFAULT_BUNDLE, &filter, &chroot, port)?
+        run_test_with_bundle(DEFAULT_BUNDLE, &filter, &chroot, port, opt)?
     } else {
         for b in bundles {
             if bundle_has_test(b, &filter) {
-                run_test_with_bundle(b, &filter, &chroot, port)?
+                run_test_with_bundle(b, &filter, &chroot, port, opt)?
             }
         }
     }
