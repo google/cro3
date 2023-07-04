@@ -622,6 +622,8 @@ impl SshInfo {
             .arg(command)
             .kill_on_drop(true)
             .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
             .spawn()?;
         Ok(child)
     }
@@ -650,7 +652,7 @@ impl SshInfo {
             let mut child = self.start_port_forwarding(port, 22, sshcmd)?;
             let (ssh_stdout, ssh_stderr) = get_async_lines(&mut child);
             let ssh_stdout = ssh_stdout.context(anyhow!("ssh_stdout was None"))?;
-            let ssh_stderr = ssh_stderr.context(anyhow!("ssh_stdout was None"))?;
+            let ssh_stderr = ssh_stderr.context(anyhow!("ssh_stderr was None"))?;
             let mut merged_stream = stream::select(ssh_stdout.fuse(), ssh_stderr.fuse());
             loop {
                 let mut merged_stream = merged_stream.next();
