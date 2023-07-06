@@ -155,6 +155,9 @@ _lium() { # command current prev
   elif [ x"$prev" = x"--serial" ]; then
     local DUTS=`_lium_get_servos`
     COMPREPLY=($(compgen -W "${DUTS}" -- $cur))
+  elif [ x"$prev" = x"--remove" -a "${COMP_WORDS[1]}" = "dut" -a "${COMP_WORDS[2]}" = "list" ]; then
+    local DUTS=`_lium_get_duts`
+    COMPREPLY=($(compgen -W "${DUTS}" -- $cur))
   elif _lium_arg_included ${prev} ${dir_opts}; then
     COMPREPLY=($(_lium_comp_fs -d ${cur}))
   else
