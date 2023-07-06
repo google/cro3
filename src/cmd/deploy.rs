@@ -32,6 +32,10 @@ pub struct Args {
     /// if specified, it will skip automatic reboot
     #[argh(switch)]
     skip_reboot: bool,
+
+    /// use ab_update for kernel package
+    #[argh(switch)]
+    ab_update: bool,
 }
 pub fn run(args: &Args) -> Result<()> {
     ensure_testing_rsa_is_there()?;
@@ -85,8 +89,9 @@ pub fn run(args: &Args) -> Result<()> {
             &format!(
                 r###"
 cros-workon-{board} start {packages}
-~/trunk/src/scripts/update_kernel.sh --remote={} --ssh_port {} --remote_bootargs
+~/trunk/src/scripts/update_kernel.sh {} --remote={} --ssh_port {} --remote_bootargs
 "###,
+                if args.ab_update { "--ab_update" } else { "" },
                 target.host(),
                 target.port()
             ),
