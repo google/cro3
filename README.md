@@ -1,10 +1,10 @@
-# lium - yet another wrapper for CrOS developers
+# lium - yet another wrapper for ChromiumOS developers
 
 ## Goal
 
 We have too many ways to do common tasks. Also, our builds are fragile due to the multi-repo structure and
 build system quirks, which consumes so much time of developers to try out trivial fix commands.
-"lium" provides a simple interface for common tasks for CrOS developers,
+"lium" provides a simple interface for common tasks for ChromiumOS developers,
 with plenty of automatic error recovery mechanisms to avoid keep sticking your eyes on the display(s),
 give you some time for a nap and/or coffee, or other tasks ;)
 
