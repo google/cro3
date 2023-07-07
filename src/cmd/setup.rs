@@ -188,8 +188,7 @@ pub struct ArgsDut {
 }
 fn run_dut(args: &ArgsDut) -> Result<()> {
     let repo = get_repo_dir(&args.repo)?;
-    ServoList::update()?;
-    let list = ServoList::read()?;
+    let list = ServoList::discover()?;
     let servo = list.find_by_serial(&args.serial).context(
         "No Servos or Cr50 are detected. Please check the servo connection, try another side of USB port, attach servo directly with a host instead of via hub, etc...")?;
     eprintln!("Using {servo:?}");
@@ -197,7 +196,7 @@ fn run_dut(args: &ArgsDut) -> Result<()> {
         let cr50 = get_cr50_attached_to_servo(servo)?;
         setup_dut_ccd_open(&cr50)
     } else {
-    setup_dut(&repo, servo)
+        setup_dut(&repo, servo)
     }
 }
 

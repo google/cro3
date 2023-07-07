@@ -6,7 +6,6 @@
 
 use crate::chroot::Chroot;
 use crate::config::Config;
-use crate::util::gen_path_in_lium_dir;
 use crate::util::get_async_lines;
 use crate::util::get_stderr;
 use crate::util::get_stdout;
@@ -38,8 +37,6 @@ use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::fs;
-use std::fs::read_to_string;
-use std::fs::write;
 use std::iter::FromIterator;
 use std::path::Path;
 use std::time::Duration;
@@ -150,12 +147,12 @@ fn discover_slow() -> Result<Vec<LocalServo>> {
     let mut servos = discover()?;
     servos.iter_mut().for_each(|s| {
         eprintln!("Checking {}", s.serial);
-        if s.is_servo() {
-            s.mac_addr = s.read_mac_addr().ok();
-        }
-        if s.is_cr50() {
-            s.ec_version = s.read_ec_version().ok();
-        }
+        let mac_addr = s.read_mac_addr().ok();
+        let ec_version = s.read_ec_version().ok();
+        s.cached_info = Some(CachedServoInfo {
+            mac_addr,
+            ec_version,
+        })
     });
     Ok(servos)
 }
@@ -180,38 +177,20 @@ pub fn reset_devices(serials: &Vec<String>) -> Result<()> {
     Ok(())
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, Default)]
+#[derive(Debug, Clone, Default, Serialize)]
 pub struct ServoList {
-    #[serde(default)]
     devices: Vec<LocalServo>,
 }
-static CONFIG_FILE_NAME: &str = "servo_list.json";
 impl ServoList {
-    pub fn read() -> Result<Self> {
-        let path = gen_path_in_lium_dir(CONFIG_FILE_NAME)?;
-        let list = read_to_string(&path);
-        match list {
-            Ok(list) => Ok(serde_json::from_str(&list)?),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-                // Just create a default config
-                let list = Self::default();
-                list.write()?;
-                eprintln!("INFO: Servo list created at {:?}", path);
-                Ok(list)
-            }
-            e => Err(anyhow!("Failed to create a new servo list: {:?}", e)),
-        }
+    pub fn discover() -> Result<Self> {
+        Ok(Self {
+            devices: discover()?,
+        })
     }
-    // This is private since write should happen on every updates transparently
-    fn write(&self) -> Result<()> {
-        let s = serde_json::to_string_pretty(&self)?;
-        write(gen_path_in_lium_dir(CONFIG_FILE_NAME)?, s.into_bytes())
-            .context("failed to write servo list")
-    }
-    pub fn update() -> Result<()> {
-        let devices = discover_slow()?;
-        let list = Self { devices };
-        list.write()
+    pub fn discover_slow() -> Result<Self> {
+        Ok(Self {
+            devices: discover_slow()?,
+        })
     }
     pub fn find_by_serial(&self, serial: &str) -> Result<&LocalServo> {
         self.devices
@@ -234,17 +213,23 @@ impl Display for ServoList {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
-pub struct LocalServo {
-    product: String,
-    serial: String,
-    usb_sysfs_path: String,
-    tty_list: HashMap<String, String>,
+pub struct CachedServoInfo {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     mac_addr: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     ec_version: Option<String>,
+}
+impl CachedServoInfo {}
+
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
+pub struct LocalServo {
+    product: String,
+    serial: String,
+    usb_sysfs_path: String,
+    tty_list: HashMap<String, String>,
+    cached_info: Option<CachedServoInfo>,
 }
 impl LocalServo {
     pub fn product(&self) -> &str {

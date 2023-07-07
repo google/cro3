@@ -62,7 +62,7 @@ pub struct ArgsGet {
     key: String,
 }
 pub fn run_get(args: &ArgsGet) -> Result<()> {
-    let list = ServoList::read()?;
+    let list = ServoList::discover()?;
     let s = list.find_by_serial(&args.serial)?;
     s.reset()?;
     std::thread::sleep(Duration::from_millis(1000));
@@ -116,19 +116,20 @@ pub fn run_reset(args: &ArgsReset) -> Result<()> {
 /// list servo-compatible devices (Servo V4, Servo V4p1, SuzyQable)
 #[argh(subcommand, name = "list")]
 pub struct ArgsList {
-    /// update the cached servo info. It will take a few seconds per servo.
+    /// print additional info as well (takes more time)
     #[argh(switch)]
-    update: bool,
+    extra: bool,
 
     /// display space-separated Servo serials on one line (stable)
     #[argh(switch)]
     serials: bool,
 }
 pub fn run_list(args: &ArgsList) -> Result<()> {
-    if args.update {
-        ServoList::update()?;
-    }
-    let list = ServoList::read()?;
+    let list = if args.extra {
+        ServoList::discover_slow()?
+    } else {
+        ServoList::discover()?
+    };
     if args.serials {
         let keys: Vec<String> = list
             .devices()
@@ -197,7 +198,7 @@ pub struct ArgsShell {
     cmd: Option<String>,
 }
 fn run_shell(args: &ArgsShell) -> Result<()> {
-    let list = ServoList::read()?;
+    let list = ServoList::discover()?;
     let s = list.find_by_serial(&args.serial)?;
     if args.print_tty_path {
         eprintln!("{}", s.tty_path(&args.tty_type)?);
