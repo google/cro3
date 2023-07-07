@@ -274,8 +274,11 @@ impl LocalServo {
         if has_root_privilege()? {
             eprintln!("Resetting servo device: {}", self.serial);
             let path = Path::new(&self.usb_sysfs_path).join("authorized");
-            fs::write(&path, b"0").context("Failed to set authorized = 0")?;
-            fs::write(&path, b"1").context("Failed to set authorized = 1")?;
+            fs::write(&path, b"0").context(anyhow!("Failed to set authorized = 0 {path:?}"))?;
+            if let Err(e) = fs::write(&path, b"1") {
+                // sometimes writing to `authorized` fails with EPIPE, but it can be ignored.
+                eprintln!("Warning: Failed to set authorized = 1 {path:?} ({e:?})");
+            }
             Ok(())
         } else {
             run_lium_with_sudo(&["servo", "reset", self.serial()])

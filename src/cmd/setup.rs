@@ -16,6 +16,7 @@ use lium::dut::register_dut;
 use lium::dut::DutInfo;
 use lium::repo::get_repo_dir;
 use lium::servo::get_cr50_attached_to_servo;
+use lium::servo::get_servo_attached_to_cr50;
 use lium::servo::LocalServo;
 use lium::servo::ServoList;
 use lium::util::gen_path_in_lium_dir;
@@ -68,6 +69,14 @@ fn is_ccd_opened(cr50: &LocalServo) -> Result<bool> {
 /// - A Servo is attached correctly
 /// - At least one Ethernet connection is available (so MAC addr and an IP address is known)
 fn setup_dut_ccd_open(cr50: &LocalServo) -> Result<()> {
+    if let Ok(servo)  = get_servo_attached_to_cr50(cr50) {
+        servo.reset()?;
+    }
+    cr50.reset()?;
+    std::thread::sleep(std::time::Duration::from_secs(1));
+    let list = ServoList::discover()?;
+    // Lookup cr50 again, since its usb path can be changed after resetting Servo
+    let cr50 = list.find_by_serial(cr50.serial())?;
     if is_ccd_opened(cr50)? {
         eprintln!("CCD is Opened");
         return Ok(());
@@ -191,7 +200,7 @@ fn run_dut(args: &ArgsDut) -> Result<()> {
     let list = ServoList::discover()?;
     let servo = list.find_by_serial(&args.serial).context(
         "No Servos or Cr50 are detected. Please check the servo connection, try another side of USB port, attach servo directly with a host instead of via hub, etc...")?;
-    eprintln!("Using {servo:?}");
+    eprintln!("Using {} {}",servo.product() ,servo.serial());
     if args.ccd_unlock {
         let cr50 = get_cr50_attached_to_servo(servo)?;
         setup_dut_ccd_open(&cr50)
