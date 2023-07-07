@@ -123,6 +123,10 @@ pub struct ArgsList {
     /// display space-separated Servo serials on one line (stable)
     #[argh(switch)]
     serials: bool,
+
+    /// print in JSON format (no effect on --serials)
+    #[argh(switch)]
+    json: bool,
 }
 pub fn run_list(args: &ArgsList) -> Result<()> {
     let list = if args.extra {
@@ -139,7 +143,16 @@ pub fn run_list(args: &ArgsList) -> Result<()> {
         println!("{}", keys.join(" "));
         return Ok(());
     }
-    println!("{}", list);
+    if args.json {
+        println!("{}", list);
+        return Ok(());
+    }
+    println!("usb_sysfs_path\tserial\tproduct");
+    let mut devices = list.devices().clone();
+    devices.sort_by(|l, r| l.usb_sysfs_path().cmp(r.usb_sysfs_path()));
+    for s in devices {
+        println!("{}\t{}\t{}", s.usb_sysfs_path(), s.serial(), s.product());
+    }
     Ok(())
 }
 
