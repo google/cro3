@@ -102,7 +102,7 @@ pub fn run(args: &Args) -> Result<()> {
     {
         args.version.clone()
     } else {
-        lookup_full_version(&args.version)?
+        lookup_full_version(&args.version, &board)?
     };
     if host == "local" && version != "latest" {
         return Err(anyhow!(

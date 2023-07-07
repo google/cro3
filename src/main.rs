@@ -35,7 +35,7 @@ fn list_gs_files(pattern: &str) -> Result<String> {
         .to_string())
 }
 
-fn lookup_full_version(input: &str) -> Result<String> {
+fn lookup_full_version(input: &str, board: &str) -> Result<String> {
     let input = input.trim();
     let re_cros_version_without_milestone = regex!(r"^\d+\.\d+\.\d+$");
     let re_cros_version = regex!(r"/(R\d+\-\d+\.\d+\.\d+)/");
@@ -46,7 +46,8 @@ fn lookup_full_version(input: &str) -> Result<String> {
     } else if re_cros_version_without_milestone.is_match(input) {
         VERSION_TO_MILESTONE_CACHE.get_or_else(input, &|key| {
             let output = list_gs_files(&format!(
-                "gs://chromeos-image-archive/eve-release/R*-{}/chromiumos_test_image.tar.xz",
+                "gs://chromeos-image-archive/{}-release/R*-{}/chromiumos_test_image.tar.xz",
+                board,
                 key
             ))
             .context("gsutil command failed (maybe you need depot_tools and/or `gsutil.py config` with 'chromeos-swarming' project)")?;
