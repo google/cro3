@@ -19,7 +19,6 @@ use lium::util::lium_dir;
 use lium::util::run_bash_command;
 use std::fs::read_to_string;
 use std::process;
-use std::time::Duration;
 
 #[derive(FromArgs, PartialEq, Debug)]
 /// DUT controller
@@ -64,8 +63,6 @@ pub struct ArgsGet {
 pub fn run_get(args: &ArgsGet) -> Result<()> {
     let list = ServoList::discover()?;
     let s = list.find_by_serial(&args.serial)?;
-    s.reset()?;
-    std::thread::sleep(Duration::from_millis(1000));
     match args.key.as_str() {
         "ipv6_addr" => {
             println!("{}", s.read_ipv6_addr()?);
