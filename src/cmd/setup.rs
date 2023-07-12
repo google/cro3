@@ -69,7 +69,7 @@ fn is_ccd_opened(cr50: &LocalServo) -> Result<bool> {
 /// - A Servo is attached correctly
 /// - At least one Ethernet connection is available (so MAC addr and an IP address is known)
 fn setup_dut_ccd_open(cr50: &LocalServo) -> Result<()> {
-    if let Ok(servo)  = get_servo_attached_to_cr50(cr50) {
+    if let Ok(servo) = get_servo_attached_to_cr50(cr50) {
         servo.reset()?;
     }
     cr50.reset()?;
@@ -200,7 +200,7 @@ fn run_dut(args: &ArgsDut) -> Result<()> {
     let list = ServoList::discover()?;
     let servo = list.find_by_serial(&args.serial).context(
         "No Servos or Cr50 are detected. Please check the servo connection, try another side of USB port, attach servo directly with a host instead of via hub, etc...")?;
-    eprintln!("Using {} {}",servo.product() ,servo.serial());
+    eprintln!("Using {} {}", servo.product(), servo.serial());
     if args.ccd_unlock {
         let cr50 = get_cr50_attached_to_servo(servo)?;
         setup_dut_ccd_open(&cr50)
