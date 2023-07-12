@@ -446,6 +446,15 @@ impl LocalServo {
         u64::from_str_radix(flags, 16).context("Failed to convert value: {flags}")
     }
 }
+impl Display for LocalServo {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            serde_json::to_string_pretty(&self).map_err(|_| fmt::Error)?
+        )
+    }
+}
 
 pub struct ServodConnection {
     serial: String,

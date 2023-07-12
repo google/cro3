@@ -36,6 +36,7 @@ enum SubCommand {
     Kill(ArgsKill),
     Reset(ArgsReset),
     Shell(ArgsShell),
+    Show(ArgsShow),
 }
 pub fn run(args: &Args) -> Result<()> {
     match &args.nested {
@@ -45,6 +46,7 @@ pub fn run(args: &Args) -> Result<()> {
         SubCommand::Kill(args) => run_kill(args),
         SubCommand::Reset(args) => run_reset(args),
         SubCommand::Shell(args) => run_shell(args),
+        SubCommand::Show(args) => run_show(args),
     }
 }
 
@@ -220,4 +222,31 @@ fn run_shell(args: &ArgsShell) -> Result<()> {
     } else {
         Err(anyhow!("invalid args. please check --help."))
     }
+}
+
+#[derive(FromArgs, PartialEq, Debug)]
+/// show info related to a Servo
+#[argh(subcommand, name = "show")]
+pub struct ArgsShow {
+    /// a Servo serial number
+    #[argh(option)]
+    servo: String,
+    /// print info in JSON format
+    #[argh(switch)]
+    json: bool,
+}
+fn run_show(args: &ArgsShow) -> Result<()> {
+    let list = ServoList::discover()?;
+    let s = list.find_by_serial(&args.servo)?;
+    if args.json {
+        println!("{s}");
+    } else {
+        println!(
+            "{} {} {}",
+            s.serial(),
+            s.usb_sysfs_path(),
+            s.tty_path("Servo EC Shell")?
+        );
+    }
+    Ok(())
 }

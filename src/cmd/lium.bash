@@ -139,6 +139,7 @@ _lium() { # command current prev
   local prev=$3
   local dir_opts="--repo --dir --dest"
   local todo_opts="--version --board --workon"
+  local servo_serial_opts="--serial --servo"
 
   COMPREPLY=
   # If there is --help option, no more options available.
@@ -152,7 +153,7 @@ _lium() { # command current prev
   elif [ x"$prev" = x"--dut" ]; then
     local DUTS=`_lium_get_duts`
     COMPREPLY=($(compgen -W "${DUTS}" -- $cur))
-  elif [ x"$prev" = x"--serial" ]; then
+  elif _lium_arg_included ${prev} ${servo_serial_opts}; then
     local DUTS=`_lium_get_servos`
     COMPREPLY=($(compgen -W "${DUTS}" -- $cur))
   elif [ x"$prev" = x"--remove" -a "${COMP_WORDS[1]}" = "dut" -a "${COMP_WORDS[2]}" = "list" ]; then
