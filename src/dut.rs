@@ -179,7 +179,7 @@ const CMD_GET_DEFAULT_IFACE: &str =
     r"ip route get 8.8.8.8 | sed -E 's/^.* dev ([^ ]+) .*$/\1/' | head -n 1";
 
 // Only keys that are always available can be listed here
-const DEFAULT_DUT_INFO_KEYS: [&str; 7] = [
+const DEFAULT_DUT_INFO_KEYS: [&str; 8] = [
     "timestamp",
     "dut_id",
     "hwid",
@@ -187,6 +187,7 @@ const DEFAULT_DUT_INFO_KEYS: [&str; 7] = [
     "model",
     "serial",
     "board",
+    "mac",
 ];
 
 /// DutInfo holds information around a DUT
@@ -307,13 +308,26 @@ impl DutInfo {
             }
         }
         if keys.contains(&"dut_id") {
-            let model = values.get("model");
-            let serial = values.get("serial");
-            if let (Some(Ok(model)), Some(Ok(serial))) = (model, serial) {
+            let serial = if let Some(Ok(serial)) = values.get("serial") {
+                serial.to_string()
+            } else {
+                // Some DUTs don't have serial number. So use MAC address,
+                let serial = if let Some(Ok(mac)) = values.get("mac") {
+                    format!("NoSerial{}", mac.replace(':', "").to_lowercase())
+                } else {
+                    return Err(anyhow!(
+                        "Failed to get MAC address. {:?}",
+                        values.get("mac")
+                    ));
+                };
+                values.insert("serial".to_string(), Ok(serial.to_string()));
+                serial
+            };
+            if let Some(Ok(model)) = values.get("model") {
                 let dut_id = format!("{model}_{serial}");
                 values.insert("dut_id".to_string(), Ok(dut_id));
             } else {
-                return Err(anyhow!("model and serial is needed for dut_id but got: (model: {model:?}, serial: {serial:?})"));
+                return Err(anyhow!("Failed to get model. {:?}", values.get("model")));
             }
         }
         // Collect all values for given keys
