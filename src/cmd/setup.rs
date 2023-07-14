@@ -78,7 +78,7 @@ fn setup_dut_ccd_open(cr50: &LocalServo) -> Result<()> {
     // Lookup cr50 again, since its usb path can be changed after resetting Servo
     let cr50 = list.find_by_serial(cr50.serial())?;
     if is_ccd_opened(cr50)? {
-        eprintln!("CCD is Opened");
+        eprintln!("CCD is Opened ({})", cr50.tty_path("Shell")?);
         return Ok(());
     }
     // Get rma_auth_challenge first, to get the code correctly
