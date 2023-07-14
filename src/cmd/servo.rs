@@ -115,9 +115,9 @@ pub fn run_reset(args: &ArgsReset) -> Result<()> {
 /// list servo-compatible devices (Servo V4, Servo V4p1, SuzyQable)
 #[argh(subcommand, name = "list")]
 pub struct ArgsList {
-    /// print additional info as well (takes more time)
+    /// retrieve additional info as well (takes more time)
     #[argh(switch)]
-    extra: bool,
+    slow: bool,
 
     /// display space-separated Servo serials on one line (stable)
     #[argh(switch)]
@@ -128,7 +128,7 @@ pub struct ArgsList {
     json: bool,
 }
 pub fn run_list(args: &ArgsList) -> Result<()> {
-    let list = if args.extra {
+    let list = if args.slow {
         ServoList::discover_slow()?
     } else {
         ServoList::discover()?

@@ -70,7 +70,7 @@ mod tests {
         );
     }
     fn create_mock_servo(serial: &str, sysfs_path: &str) -> LocalServo {
-        let cached_info = CachedServoInfo {
+        let slow_info = SlowServoInfo {
             mac_addr: Some("00:00:5e:00:53:01".to_string()),
             ec_version: None,
         };
@@ -85,7 +85,7 @@ mod tests {
             serial: serial.to_string(),
             usb_sysfs_path: sysfs_path.to_string(),
             tty_list,
-            cached_info: Some(cached_info),
+            slow_info: Some(slow_info),
         }
     }
     #[test]
@@ -106,7 +106,7 @@ mod tests {
     "I2C": "/dev/ttyUSB1",
     "Servo EC Shell": "/dev/ttyUSB0"
   },
-  "cached_info": {
+  "slow_info": {
     "mac_addr": "00:00:5e:00:53:01"
   }
 }"#
@@ -134,7 +134,7 @@ mod tests {
         "I2C": "/dev/ttyUSB1",
         "Servo EC Shell": "/dev/ttyUSB0"
       },
-      "cached_info": {
+      "slow_info": {
         "mac_addr": "00:00:5e:00:53:01"
       }
     },
@@ -149,7 +149,7 @@ mod tests {
         "I2C": "/dev/ttyUSB1",
         "Servo EC Shell": "/dev/ttyUSB0"
       },
-      "cached_info": {
+      "slow_info": {
         "mac_addr": "00:00:5e:00:53:01"
       }
     }
@@ -175,7 +175,7 @@ mod tests {
         "I2C": "/dev/ttyUSB1",
         "Servo EC Shell": "/dev/ttyUSB0"
       },
-      "cached_info": {
+      "slow_info": {
         "mac_addr": "00:00:5e:00:53:01"
       }
     },
@@ -190,7 +190,7 @@ mod tests {
         "I2C": "/dev/ttyUSB1",
         "Servo EC Shell": "/dev/ttyUSB0"
       },
-      "cached_info": {
+      "slow_info": {
         "mac_addr": "00:00:5e:00:53:01"
       }
     }
@@ -281,7 +281,7 @@ fn discover_slow() -> Result<Vec<LocalServo>> {
         eprintln!("Checking {}", s.serial);
         let mac_addr = s.read_mac_addr().ok();
         let ec_version = s.read_ec_version().ok();
-        s.cached_info = Some(CachedServoInfo {
+        s.slow_info = Some(SlowServoInfo {
             mac_addr,
             ec_version,
         })
@@ -345,7 +345,7 @@ impl Display for ServoList {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
-pub struct CachedServoInfo {
+pub struct SlowServoInfo {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     mac_addr: Option<String>,
@@ -353,7 +353,7 @@ pub struct CachedServoInfo {
     #[serde(default)]
     ec_version: Option<String>,
 }
-impl CachedServoInfo {}
+impl SlowServoInfo {}
 
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct LocalServo {
@@ -362,7 +362,7 @@ pub struct LocalServo {
     usb_sysfs_path: String,
     // Using BTreeMap here to keep the ordering when printing this structure
     tty_list: BTreeMap<String, String>,
-    cached_info: Option<CachedServoInfo>,
+    slow_info: Option<SlowServoInfo>,
 }
 impl LocalServo {
     pub fn product(&self) -> &str {
