@@ -31,7 +31,7 @@ use retry::delay;
 use retry::retry;
 use serde::Deserialize;
 use serde::Serialize;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::collections::HashSet;
 use std::fmt;
 use std::fmt::Display;
@@ -113,7 +113,7 @@ fn discover() -> Result<Vec<LocalServo>> {
                 || product.starts_with("Ti50")
             {
                 let paths = fs::read_dir(&usb_sysfs_path).context("failed to read dir")?;
-                let tty_list: HashMap<String, String> = paths
+                let tty_list: BTreeMap<String, String> = paths
                     .flat_map(|path| -> Result<(String, String)> {
                         let path = path?.path();
                         let interface = fs::read_to_string(path.join("interface"))?
@@ -123,7 +123,7 @@ fn discover() -> Result<Vec<LocalServo>> {
                             .find_map(|p| {
                                 let s = p.ok()?.path();
                                 let s = s.file_name()?.to_string_lossy().to_string();
-                                s.starts_with("ttyUSB").then_some(s.clone())
+                                s.starts_with("ttyUSB").then_some("/dev/".to_string() + &s)
                             })
                             .context("ttyUSB not found")?;
                         Ok((interface, tty_name))
@@ -228,7 +228,8 @@ pub struct LocalServo {
     product: String,
     serial: String,
     usb_sysfs_path: String,
-    tty_list: HashMap<String, String>,
+    // Using BTreeMap here to keep the ordering when printing this structure
+    tty_list: BTreeMap<String, String>,
     cached_info: Option<CachedServoInfo>,
 }
 impl LocalServo {
@@ -238,15 +239,15 @@ impl LocalServo {
     pub fn serial(&self) -> &str {
         &self.serial
     }
-    pub fn tty_list(&self) -> &HashMap<String, String> {
+    pub fn tty_list(&self) -> &BTreeMap<String, String> {
         &self.tty_list
     }
     pub fn tty_path(&self, tty_type: &str) -> Result<String> {
-        let tty_name = self
+        let path = self
             .tty_list()
             .get(tty_type)
             .context(anyhow!("tty[{}] not found", tty_type))?;
-        Ok(format!("/dev/{tty_name}"))
+        Ok(path.clone())
     }
     pub fn run_cmd(&self, tty_type: &str, cmd: &str) -> Result<String> {
         let tty_path = self.tty_path(tty_type)?;
@@ -499,4 +500,36 @@ impl ServodConnection {
         )?;
         Ok(output)
     }
+}
+
+#[test]
+fn local_servo_info_in_json() {
+    let cached_info = CachedServoInfo{
+        mac_addr: Some("00:00:5e:00:53:01".to_string()),
+        ec_version: None
+    };
+    let mut tty_list = BTreeMap::new();
+    tty_list.insert("Atmega UART".to_string(), "/dev/ttyUSB3".to_string());
+    tty_list.insert("DUT UART".to_string(), "/dev/ttyUSB2".to_string());
+    tty_list.insert("Firmware update".to_string(), "/dev/ttyUSB4".to_string());
+    tty_list.insert("I2C".to_string(), "/dev/ttyUSB1".to_string());
+    tty_list.insert("Servo EC Shell".to_string(), "/dev/ttyUSB0".to_string());
+    let servo = LocalServo { product: "Servo V4p1".to_string(), serial: "SERVOV4P1-S-0000000000".to_string(), usb_sysfs_path: "/sys/bus/usb/devices/1-2.3".to_string(), tty_list, cached_info: Some(cached_info) };
+    let serialized = format!("\n{servo}");
+    assert_eq!(serialized, r#"
+{
+  "product": "Servo V4p1",
+  "serial": "SERVOV4P1-S-0000000000",
+  "usb_sysfs_path": "/sys/bus/usb/devices/1-2.3",
+  "tty_list": {
+    "Atmega UART": "/dev/ttyUSB3",
+    "DUT UART": "/dev/ttyUSB2",
+    "Firmware update": "/dev/ttyUSB4",
+    "I2C": "/dev/ttyUSB1",
+    "Servo EC Shell": "/dev/ttyUSB0"
+  },
+  "cached_info": {
+    "mac_addr": "00:00:5e:00:53:01"
+  }
+}"#);
 }
