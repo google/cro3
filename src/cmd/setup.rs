@@ -194,6 +194,9 @@ pub struct ArgsDut {
     /// do ccd unlock only
     #[argh(switch)]
     ccd_unlock: bool,
+    /// do gbb flags update only
+    #[argh(switch)]
+    set_gbb_flags: bool,
 }
 fn run_dut(args: &ArgsDut) -> Result<()> {
     let repo = get_repo_dir(&args.repo)?;
@@ -201,9 +204,11 @@ fn run_dut(args: &ArgsDut) -> Result<()> {
     let servo = list.find_by_serial(&args.serial).context(
         "No Servos or Cr50 are detected. Please check the servo connection, try another side of USB port, attach servo directly with a host instead of via hub, etc...")?;
     eprintln!("Using {} {}", servo.product(), servo.serial());
+    let cr50 = get_cr50_attached_to_servo(servo)?;
     if args.ccd_unlock {
-        let cr50 = get_cr50_attached_to_servo(servo)?;
         setup_dut_ccd_open(&cr50)
+    } else if args.set_gbb_flags {
+        ensure_dev_gbb_flags(&repo, &cr50)
     } else {
         setup_dut(&repo, servo)
     }
