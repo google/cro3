@@ -146,11 +146,11 @@ pub fn run_list(args: &ArgsList) -> Result<()> {
         println!("{}", list);
         return Ok(());
     }
-    println!("usb_sysfs_path\tserial\tproduct");
+    println!("product         serial                          usb_sysfs_path");
     let mut devices = list.devices().clone();
     devices.sort_by(|l, r| l.usb_sysfs_path().cmp(r.usb_sysfs_path()));
     for s in devices {
-        println!("{}\t{}\t{}", s.usb_sysfs_path(), s.serial(), s.product());
+        println!("{:16}{:24}\t{}", s.product(), s.serial(), s.usb_sysfs_path());
     }
     Ok(())
 }
