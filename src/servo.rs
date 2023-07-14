@@ -31,6 +31,7 @@ use retry::delay;
 use retry::retry;
 use serde::Deserialize;
 use serde::Serialize;
+use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use std::collections::HashSet;
 use std::fmt;
@@ -51,6 +52,7 @@ lazy_static! {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pretty_assertions::assert_eq;
     #[test]
     fn regex() {
         assert!(RE_MAC_ADDR.is_match("FF:FF:FF:FF:FF:FF"));
@@ -65,6 +67,136 @@ mod tests {
         assert_eq!(
             &RE_GBB_FLAGS.captures("flags: 0x000040b9").unwrap()["flags"],
             "000040b9"
+        );
+    }
+    fn create_mock_servo(serial: &str, sysfs_path: &str) -> LocalServo {
+        let cached_info = CachedServoInfo {
+            mac_addr: Some("00:00:5e:00:53:01".to_string()),
+            ec_version: None,
+        };
+        let mut tty_list = BTreeMap::new();
+        tty_list.insert("Atmega UART".to_string(), "/dev/ttyUSB3".to_string());
+        tty_list.insert("DUT UART".to_string(), "/dev/ttyUSB2".to_string());
+        tty_list.insert("Firmware update".to_string(), "/dev/ttyUSB4".to_string());
+        tty_list.insert("I2C".to_string(), "/dev/ttyUSB1".to_string());
+        tty_list.insert("Servo EC Shell".to_string(), "/dev/ttyUSB0".to_string());
+        LocalServo {
+            product: "Servo V4p1".to_string(),
+            serial: serial.to_string(),
+            usb_sysfs_path: sysfs_path.to_string(),
+            tty_list,
+            cached_info: Some(cached_info),
+        }
+    }
+    #[test]
+    fn local_servo_info_in_json() {
+        let servo = create_mock_servo("SERVOV4P1-S-0000000000", "/sys/bus/usb/devices/1-2.3");
+        let serialized = format!("\n{servo}");
+        assert_eq!(
+            serialized,
+            r#"
+{
+  "product": "Servo V4p1",
+  "serial": "SERVOV4P1-S-0000000000",
+  "usb_sysfs_path": "/sys/bus/usb/devices/1-2.3",
+  "tty_list": {
+    "Atmega UART": "/dev/ttyUSB3",
+    "DUT UART": "/dev/ttyUSB2",
+    "Firmware update": "/dev/ttyUSB4",
+    "I2C": "/dev/ttyUSB1",
+    "Servo EC Shell": "/dev/ttyUSB0"
+  },
+  "cached_info": {
+    "mac_addr": "00:00:5e:00:53:01"
+  }
+}"#
+        );
+    }
+    #[test]
+    fn servo_info_sorted_by_sysfs_path() {
+        let servo0 = create_mock_servo("SERVOV4P1-S-0000000001", "/sys/bus/usb/devices/0-0.0");
+        let servo1 = create_mock_servo("SERVOV4P1-S-0000000000", "/sys/bus/usb/devices/1-1.1");
+        let list = ServoList::new(vec![servo0.clone(), servo1.clone()]);
+        let serialized = format!("\n{list}\n");
+        assert_eq!(
+            serialized,
+            r#"
+{
+  "devices": [
+    {
+      "product": "Servo V4p1",
+      "serial": "SERVOV4P1-S-0000000001",
+      "usb_sysfs_path": "/sys/bus/usb/devices/0-0.0",
+      "tty_list": {
+        "Atmega UART": "/dev/ttyUSB3",
+        "DUT UART": "/dev/ttyUSB2",
+        "Firmware update": "/dev/ttyUSB4",
+        "I2C": "/dev/ttyUSB1",
+        "Servo EC Shell": "/dev/ttyUSB0"
+      },
+      "cached_info": {
+        "mac_addr": "00:00:5e:00:53:01"
+      }
+    },
+    {
+      "product": "Servo V4p1",
+      "serial": "SERVOV4P1-S-0000000000",
+      "usb_sysfs_path": "/sys/bus/usb/devices/1-1.1",
+      "tty_list": {
+        "Atmega UART": "/dev/ttyUSB3",
+        "DUT UART": "/dev/ttyUSB2",
+        "Firmware update": "/dev/ttyUSB4",
+        "I2C": "/dev/ttyUSB1",
+        "Servo EC Shell": "/dev/ttyUSB0"
+      },
+      "cached_info": {
+        "mac_addr": "00:00:5e:00:53:01"
+      }
+    }
+  ]
+}
+"#
+        );
+        let list = ServoList::new(vec![servo1.clone(), servo0.clone()]);
+        let serialized = format!("\n{list}\n");
+        assert_eq!(
+            serialized,
+            r#"
+{
+  "devices": [
+    {
+      "product": "Servo V4p1",
+      "serial": "SERVOV4P1-S-0000000001",
+      "usb_sysfs_path": "/sys/bus/usb/devices/0-0.0",
+      "tty_list": {
+        "Atmega UART": "/dev/ttyUSB3",
+        "DUT UART": "/dev/ttyUSB2",
+        "Firmware update": "/dev/ttyUSB4",
+        "I2C": "/dev/ttyUSB1",
+        "Servo EC Shell": "/dev/ttyUSB0"
+      },
+      "cached_info": {
+        "mac_addr": "00:00:5e:00:53:01"
+      }
+    },
+    {
+      "product": "Servo V4p1",
+      "serial": "SERVOV4P1-S-0000000000",
+      "usb_sysfs_path": "/sys/bus/usb/devices/1-1.1",
+      "tty_list": {
+        "Atmega UART": "/dev/ttyUSB3",
+        "DUT UART": "/dev/ttyUSB2",
+        "Firmware update": "/dev/ttyUSB4",
+        "I2C": "/dev/ttyUSB1",
+        "Servo EC Shell": "/dev/ttyUSB0"
+      },
+      "cached_info": {
+        "mac_addr": "00:00:5e:00:53:01"
+      }
+    }
+  ]
+}
+"#
         );
     }
 }
@@ -182,15 +314,15 @@ pub struct ServoList {
     devices: Vec<LocalServo>,
 }
 impl ServoList {
+    pub fn new(mut devices: Vec<LocalServo>) -> Self {
+        devices.sort();
+        Self { devices }
+    }
     pub fn discover() -> Result<Self> {
-        Ok(Self {
-            devices: discover()?,
-        })
+        Ok(Self::new(discover()?))
     }
     pub fn discover_slow() -> Result<Self> {
-        Ok(Self {
-            devices: discover_slow()?,
-        })
+        Ok(Self::new(discover_slow()?))
     }
     pub fn find_by_serial(&self, serial: &str) -> Result<&LocalServo> {
         self.devices
@@ -456,6 +588,22 @@ impl Display for LocalServo {
         )
     }
 }
+impl PartialEq for LocalServo {
+    fn eq(&self, other: &Self) -> bool {
+        self.usb_sysfs_path == other.usb_sysfs_path
+    }
+}
+impl Eq for LocalServo {}
+impl PartialOrd for LocalServo {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.usb_sysfs_path.cmp(&other.usb_sysfs_path))
+    }
+}
+impl Ord for LocalServo {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.usb_sysfs_path.cmp(&other.usb_sysfs_path)
+    }
+}
 
 pub struct ServodConnection {
     serial: String,
@@ -500,36 +648,4 @@ impl ServodConnection {
         )?;
         Ok(output)
     }
-}
-
-#[test]
-fn local_servo_info_in_json() {
-    let cached_info = CachedServoInfo{
-        mac_addr: Some("00:00:5e:00:53:01".to_string()),
-        ec_version: None
-    };
-    let mut tty_list = BTreeMap::new();
-    tty_list.insert("Atmega UART".to_string(), "/dev/ttyUSB3".to_string());
-    tty_list.insert("DUT UART".to_string(), "/dev/ttyUSB2".to_string());
-    tty_list.insert("Firmware update".to_string(), "/dev/ttyUSB4".to_string());
-    tty_list.insert("I2C".to_string(), "/dev/ttyUSB1".to_string());
-    tty_list.insert("Servo EC Shell".to_string(), "/dev/ttyUSB0".to_string());
-    let servo = LocalServo { product: "Servo V4p1".to_string(), serial: "SERVOV4P1-S-0000000000".to_string(), usb_sysfs_path: "/sys/bus/usb/devices/1-2.3".to_string(), tty_list, cached_info: Some(cached_info) };
-    let serialized = format!("\n{servo}");
-    assert_eq!(serialized, r#"
-{
-  "product": "Servo V4p1",
-  "serial": "SERVOV4P1-S-0000000000",
-  "usb_sysfs_path": "/sys/bus/usb/devices/1-2.3",
-  "tty_list": {
-    "Atmega UART": "/dev/ttyUSB3",
-    "DUT UART": "/dev/ttyUSB2",
-    "Firmware update": "/dev/ttyUSB4",
-    "I2C": "/dev/ttyUSB1",
-    "Servo EC Shell": "/dev/ttyUSB0"
-  },
-  "cached_info": {
-    "mac_addr": "00:00:5e:00:53:01"
-  }
-}"#);
 }
