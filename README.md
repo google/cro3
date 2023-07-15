@@ -1,12 +1,12 @@
-# lium - yet another wrapper for ChromiumOS developers
+# lium - Abstraction Layer of ChromiumOS development
 
-## Goal
+`lium` is an abstruction layer of ChromiumOS development environment and workflows.
 
-We have too many ways to do common tasks. Also, our builds are fragile due to the multi-repo structure and
-build system quirks, which consumes so much time of developers to try out trivial fix commands.
-"lium" provides a simple interface for common tasks for ChromiumOS developers,
+It provides a simple interface for common tasks for ChromiumOS developers,
 with plenty of automatic error recovery mechanisms to avoid keep sticking your eyes on the display(s),
 give you some time for a nap and/or coffee, or other tasks ;)
+
+Also, it manages local development hardware including DUTs and Servos, and act as working examples of commands to interact with them.
 
 ## Build and install
 
@@ -16,9 +16,9 @@ give you some time for a nap and/or coffee, or other tasks ;)
 make install
 ```
 
-### Install bash completion file
+### Bash completion
 
-You can also install the bash completion file by running:
+You can install the bash completion file by running this at any time:
 
 ```
 lium setup bash-completion && source ~/.bash_completion
@@ -26,11 +26,11 @@ lium setup bash-completion && source ~/.bash_completion
 
 This will be done automatically after `make install` if your default shell is bash.
 
+...are you using other shells? We appreciate your pull-requests!
+
 ## Usage examples
 
 Note: You can replace `lium` with `cargo run -- ` to run your own modified version of lium.
-
-Some may not work due to the updates. If you find them, let hikalium@ know or upload a CL to fix them!
 
 ### DUT
 ```
@@ -59,14 +59,14 @@ lium dut info --dut ${DUT} ipv6_addr
 lium dut discover --remote ${REMOTE} | tee /tmp/dut_discovered.json
 ```
 
-### Servo
+### Servo / Cr50
 
 ```
-# Update the list of Servo devices connected
-lium servo list --update
-
-# Show the cached list of Servo devices
+# Show list of Servo / Cr50 devices
 lium servo list
+
+# Do the same thing in JSON format
+lium servo list --json
 ```
 
 ### Flash
