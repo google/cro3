@@ -79,6 +79,9 @@ function kickWriteLoop(writeFn: (s: string) => Promise<void>) {
       } else {
         inProgress = true;
       }
+
+      document.querySelector('#tooltip').classList.add("hidden")
+
       // ina 0 and 1 seems to be the same
       // ina 2 is something but not useful
       const cmd = `ina 0\n`;
@@ -230,8 +233,8 @@ function paintHistogram(t0: number, t1: number) {
   // setup a graph (drop if exists)
   const margin = {top: 60, right: 200, bottom: 0, left: 200};
   const area = d3.select('#d3area');
-  var targetWidth = (area.node() as HTMLElement).getBoundingClientRect().width;
-  var targetHeight = (area.node() as HTMLElement).getBoundingClientRect().height;
+  var targetWidth = (area.node() as HTMLElement).getBoundingClientRect().width * 0.98;
+  var targetHeight = 10000; // (area.node() as HTMLElement).getBoundingClientRect().height;
   const width = targetWidth - margin.left - margin.right;
   const height = targetHeight - margin.top - margin.bottom;
   const svg = area
@@ -254,6 +257,7 @@ function paintHistogram(t0: number, t1: number) {
       .attr('text-anchor', 'end')
       .attr('x', width)
       .attr('y', -margin.top / 2)
+      .attr('stroke', '#fff')
       .text('Power (mW)');
 
   ranges.push([t0, t1]);
@@ -288,7 +292,7 @@ function paintHistogram(t0: number, t1: number) {
         .attr('x1', y(minValue))
         .attr('x2', y(maxValue))
         .style('stroke-dasharray', '3, 3')
-        .attr('stroke', 'gray')
+        .attr('stroke', '#aaa')
     svg.selectAll('toto')
         .data([minValue, mean, maxValue])
         .enter()
@@ -306,7 +310,7 @@ function paintHistogram(t0: number, t1: number) {
               return (y(d))
             })
         .style('stroke-dasharray', '3, 3')
-        .attr('stroke', 'gray');
+        .attr('stroke', '#aaa');
 
     // box and line
     svg.append('line')
@@ -314,13 +318,13 @@ function paintHistogram(t0: number, t1: number) {
         .attr('y2', center)
         .attr('x1', y(lowerFence))
         .attr('x2', y(upperFence))
-        .attr('stroke', 'black')
+        .attr('stroke', '#fff')
     svg.append('rect')
         .attr('y', center - boxWidth / 2)
         .attr('x', y(q1))
         .attr('width', (y(q3) - y(q1)))
         .attr('height', boxWidth)
-        .attr('stroke', 'black')
+        .attr('stroke', '#fff')
         .style('fill', '#69b3a2')
     svg.selectAll('toto')
         .data([lowerFence, median, upperFence])
@@ -338,7 +342,7 @@ function paintHistogram(t0: number, t1: number) {
             function(d) {
               return (y(d))
             })
-        .attr('stroke', 'black');
+        .attr('stroke', '#fff');
 
     svg.append('text')
         .attr('text-anchor', 'end')
@@ -346,6 +350,7 @@ function paintHistogram(t0: number, t1: number) {
         .attr('y', center - boxWidth / 4)
         .attr('x', 0)
         .attr('font-size', boxWidth)
+        .attr('stroke', '#fff')
         .text(`${moment(left).format()}`);
     svg.append('text')
         .attr('text-anchor', 'end')
@@ -353,6 +358,7 @@ function paintHistogram(t0: number, t1: number) {
         .attr('y', center + boxWidth / 4)
         .attr('x', 0)
         .attr('font-size', boxWidth)
+        .attr('stroke', '#fff')
         .text(`${moment(right).format()}`);
 
     svg.append('text')
@@ -361,6 +367,7 @@ function paintHistogram(t0: number, t1: number) {
         .attr('y', center - boxWidth)
         .attr('x', y(mean))
         .attr('font-size', boxWidth)
+        .attr('stroke', '#fff')
         .text(`mean:${mean | 0}`);
 
     svg.append('text')
@@ -369,6 +376,7 @@ function paintHistogram(t0: number, t1: number) {
         .attr('y', center + boxWidth)
         .attr('x', y(median))
         .attr('font-size', boxWidth)
+        .attr('stroke', '#fff')
         .text(`median:${median}`);
 
     svg.append('text')
@@ -377,6 +385,7 @@ function paintHistogram(t0: number, t1: number) {
         .attr('y', center + boxWidth)
         .attr('x', y(ymax))
         .attr('font-size', boxWidth)
+        .attr('stroke', '#fff')
         .text(`N:${data.length}`);
   }
 }
@@ -388,6 +397,7 @@ function setupAnalyze() {
   button.addEventListener('click', () => {
     // https://dygraphs.com/jsdoc/symbols/Dygraph.html#xAxisRange
     let xrange = g.xAxisRange();
+    console.log(g.xAxisExtremes())
     let left = xrange[0];
     let right = xrange[1];
     paintHistogram(left, right);

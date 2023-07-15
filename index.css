@@ -1,8 +1,21 @@
+body {
+  background-color: #222;
+  color: #fff;
+  font-family: sans-serif;
+}
+button {
+  color: #fff;
+  background-color: #333;
+  padding: 4px;
+  padding-left: 0.7em;
+  padding-right: 0.7em;
+  
+}
 .dygraph-legend {
   font-size: 14px;
   z-index: 10;
   width: 250px;
-  background: white;
+  background: #222;
   line-height: normal;
   text-align: left;
   margin-left: 300px;
@@ -53,8 +66,8 @@
 /* This class only applies to annotations without icons */
 /* Old class name: .dygraphDefaultAnnotation */
 .dygraph-default-annotation {
-  border: 1px solid black;
-  background-color: white;
+  border: 1px solid #fff;
+  background-color: #333;
   text-align: center;
 }
 
@@ -64,7 +77,7 @@
   z-index: 10;
   line-height: normal;
   overflow: hidden;
-  color: black;  /* replaces old axisLabelColor option */
+  color: #fff;  /* replaces old axisLabelColor option */
 }
 
 .dygraph-axis-label-x {
@@ -112,43 +125,52 @@
 body {
   position: relative;
 }
-.log {
-  position: relative;
+#tooltip {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: #333;
+  padding: 1rem;
+  z-index: 2;
+}
+#tooltip.hidden {
+  display: none;
+}
+#backlog {
+  margin-top: 1rem;
+  width: auto;
+  padding: 0;
+}
+#backlog span {
   display: inline-block;
+  border: 1px solid #aaa;
+  padding: 1rem;
+  min-height: 100px;
+  height: 300px;
+}
+.log {
+  font-family: monospace;
   border: none;
-  height: 400px;
-  width: 600px;
-  border: 1px solid gray;
-  margin: 4px;
-  vertical-align: bottom;
-  padding-top: 4px;
-  padding-bottom: 4px;
+  width: 26%;
 }
 #d3area {
   position: absolute;
-  padding: 4px;
-  margin: 4px;
-  display: inline-block;
-  height: 400px;
-  border: 1px solid gray;
-  width: auto;
-  right: 0px;
-  left: 600px;
-  vertical-align: bottom;
+  width: 70%;
+  overflow-y: scroll;
 }
 #dropZone {
   position: absolute;
-  display: inline-block;
-  border: 1px solid gray;
+  float: right;
+  border: 1px solid #aaa;
   padding: 4px;
   margin: 4px;
-  text-align: left;
-  height: 64px;
+  text-align: right;
+  height: 20px;
   padding: 8px;
   margin: 0px;
-  margin-top: 16px;
-  width: auto;
-  left: 0;
+  width: 20%;;
+  top: 0;
   right: 0;
 }
 #graph {

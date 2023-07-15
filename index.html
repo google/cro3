@@ -3,7 +3,7 @@
   <link rel="stylesheet" href="index.css">
 </head>
 <body>
-  <div>
+  <div id="tooltip">
     <ol>
       <li>Make sure only one servo is connected to the host</li>
       <li>Press "Start" and select the first one (Try WebSerial first. If it does not show anything, try WebUSB)</li>
@@ -18,9 +18,9 @@
     <button id='downloadButton'>Download</button>
     <button id='downloadButton'>Mark</button>
   </div>
-  <div>
-  <span id="serial_output" class="log"></span>
-  <span id="d3area"></span>
+  <div id="backlog">
+    <span id="serial_output" class="log"></span>
+    <span id="d3area"></span>  
   </div>
   <div id="graph"></div>
   <span id="dropZone"></span>
