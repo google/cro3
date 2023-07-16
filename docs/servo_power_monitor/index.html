@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<head>
+  <link rel="stylesheet" href="index.css">
+</head>
+<body>
+  <div id="tooltip">
+    <ol>
+      <li>Make sure only one servo is connected to the host</li>
+      <li>Press "Start" and select the first one (Try WebSerial first. If it does not show anything, try WebUSB)</li>
+      <li>Zoom: click-drag, Pan: shift-click-drag, Restore: double-click</li>
+    </ol>
+  </div>
+  <div id="controlDiv">
+    <a id="downloadAnchorElem" style="display:none"></a>
+    <button id='requestSerialButton'>Start(WebSerial)</button>
+    <button id='request-device'>Start(WebUSB)</button>
+    <button id='haltButton'>Stop</button>
+    <button id='downloadButton'>Download</button>
+    <button id='downloadButton'>Mark</button>
+  </div>
+  <div id="backlog">
+    <span id="serial_output" class="log"></span>
+    <span id="d3area"></span>  
+  </div>
+  <div id="graph"></div>
+  <span id="dropZone"></span>
+  <script src='./dist/index.js'></script>
+</body>
