@@ -19,7 +19,6 @@ use lium::util::lium_dir;
 use lium::util::run_bash_command;
 use std::fs::read_to_string;
 use std::process;
-use std::time::Duration;
 
 #[derive(FromArgs, PartialEq, Debug)]
 /// DUT controller
@@ -37,6 +36,7 @@ enum SubCommand {
     Kill(ArgsKill),
     Reset(ArgsReset),
     Shell(ArgsShell),
+    Show(ArgsShow),
 }
 pub fn run(args: &Args) -> Result<()> {
     match &args.nested {
@@ -46,6 +46,7 @@ pub fn run(args: &Args) -> Result<()> {
         SubCommand::Kill(args) => run_kill(args),
         SubCommand::Reset(args) => run_reset(args),
         SubCommand::Shell(args) => run_shell(args),
+        SubCommand::Show(args) => run_show(args),
     }
 }
 
@@ -62,10 +63,8 @@ pub struct ArgsGet {
     key: String,
 }
 pub fn run_get(args: &ArgsGet) -> Result<()> {
-    let list = ServoList::read()?;
+    let list = ServoList::discover()?;
     let s = list.find_by_serial(&args.serial)?;
-    s.reset()?;
-    std::thread::sleep(Duration::from_millis(1000));
     match args.key.as_str() {
         "ipv6_addr" => {
             println!("{}", s.read_ipv6_addr()?);
@@ -116,19 +115,24 @@ pub fn run_reset(args: &ArgsReset) -> Result<()> {
 /// list servo-compatible devices (Servo V4, Servo V4p1, SuzyQable)
 #[argh(subcommand, name = "list")]
 pub struct ArgsList {
-    /// update the cached servo info. It will take a few seconds per servo.
+    /// retrieve additional info as well (takes more time)
     #[argh(switch)]
-    update: bool,
+    slow: bool,
 
     /// display space-separated Servo serials on one line (stable)
     #[argh(switch)]
     serials: bool,
+
+    /// print in JSON format (no effect on --serials)
+    #[argh(switch)]
+    json: bool,
 }
 pub fn run_list(args: &ArgsList) -> Result<()> {
-    if args.update {
-        ServoList::update()?;
-    }
-    let list = ServoList::read()?;
+    let list = if args.slow {
+        ServoList::discover_slow()?
+    } else {
+        ServoList::discover()?
+    };
     if args.serials {
         let keys: Vec<String> = list
             .devices()
@@ -138,7 +142,20 @@ pub fn run_list(args: &ArgsList) -> Result<()> {
         println!("{}", keys.join(" "));
         return Ok(());
     }
-    println!("{}", list);
+    if args.json {
+        println!("{}", list);
+        return Ok(());
+    }
+    println!("product         serial                          usb_sysfs_path");
+    let devices = list.devices().clone();
+    for s in devices {
+        println!(
+            "{:16}{:24}\t{}",
+            s.product(),
+            s.serial(),
+            s.usb_sysfs_path()
+        );
+    }
     Ok(())
 }
 
@@ -197,7 +214,7 @@ pub struct ArgsShell {
     cmd: Option<String>,
 }
 fn run_shell(args: &ArgsShell) -> Result<()> {
-    let list = ServoList::read()?;
+    let list = ServoList::discover()?;
     let s = list.find_by_serial(&args.serial)?;
     if args.print_tty_path {
         eprintln!("{}", s.tty_path(&args.tty_type)?);
@@ -209,4 +226,31 @@ fn run_shell(args: &ArgsShell) -> Result<()> {
     } else {
         Err(anyhow!("invalid args. please check --help."))
     }
+}
+
+#[derive(FromArgs, PartialEq, Debug)]
+/// show info related to a Servo
+#[argh(subcommand, name = "show")]
+pub struct ArgsShow {
+    /// a Servo serial number
+    #[argh(option)]
+    servo: String,
+    /// print info in JSON format
+    #[argh(switch)]
+    json: bool,
+}
+fn run_show(args: &ArgsShow) -> Result<()> {
+    let list = ServoList::discover()?;
+    let s = list.find_by_serial(&args.servo)?;
+    if args.json {
+        println!("{s}");
+    } else {
+        println!(
+            "{} {} {}",
+            s.serial(),
+            s.usb_sysfs_path(),
+            s.tty_path("Servo EC Shell")?
+        );
+    }
+    Ok(())
 }

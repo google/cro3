@@ -6,7 +6,6 @@
 
 use crate::chroot::Chroot;
 use crate::config::Config;
-use crate::util::gen_path_in_lium_dir;
 use crate::util::get_async_lines;
 use crate::util::get_stderr;
 use crate::util::get_stdout;
@@ -32,14 +31,13 @@ use retry::delay;
 use retry::retry;
 use serde::Deserialize;
 use serde::Serialize;
-use std::collections::HashMap;
+use std::cmp::Ordering;
+use std::collections::BTreeMap;
 use std::collections::HashSet;
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::fs;
-use std::fs::read_to_string;
-use std::fs::write;
 use std::iter::FromIterator;
 use std::path::Path;
 use std::time::Duration;
@@ -54,6 +52,7 @@ lazy_static! {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pretty_assertions::assert_eq;
     #[test]
     fn regex() {
         assert!(RE_MAC_ADDR.is_match("FF:FF:FF:FF:FF:FF"));
@@ -68,6 +67,136 @@ mod tests {
         assert_eq!(
             &RE_GBB_FLAGS.captures("flags: 0x000040b9").unwrap()["flags"],
             "000040b9"
+        );
+    }
+    fn create_mock_servo(serial: &str, sysfs_path: &str) -> LocalServo {
+        let slow_info = SlowServoInfo {
+            mac_addr: Some("00:00:5e:00:53:01".to_string()),
+            ec_version: None,
+        };
+        let mut tty_list = BTreeMap::new();
+        tty_list.insert("Atmega UART".to_string(), "/dev/ttyUSB3".to_string());
+        tty_list.insert("DUT UART".to_string(), "/dev/ttyUSB2".to_string());
+        tty_list.insert("Firmware update".to_string(), "/dev/ttyUSB4".to_string());
+        tty_list.insert("I2C".to_string(), "/dev/ttyUSB1".to_string());
+        tty_list.insert("Servo EC Shell".to_string(), "/dev/ttyUSB0".to_string());
+        LocalServo {
+            product: "Servo V4p1".to_string(),
+            serial: serial.to_string(),
+            usb_sysfs_path: sysfs_path.to_string(),
+            tty_list,
+            slow_info: Some(slow_info),
+        }
+    }
+    #[test]
+    fn local_servo_info_in_json() {
+        let servo = create_mock_servo("SERVOV4P1-S-0000000000", "/sys/bus/usb/devices/1-2.3");
+        let serialized = format!("\n{servo}");
+        assert_eq!(
+            serialized,
+            r#"
+{
+  "product": "Servo V4p1",
+  "serial": "SERVOV4P1-S-0000000000",
+  "usb_sysfs_path": "/sys/bus/usb/devices/1-2.3",
+  "tty_list": {
+    "Atmega UART": "/dev/ttyUSB3",
+    "DUT UART": "/dev/ttyUSB2",
+    "Firmware update": "/dev/ttyUSB4",
+    "I2C": "/dev/ttyUSB1",
+    "Servo EC Shell": "/dev/ttyUSB0"
+  },
+  "slow_info": {
+    "mac_addr": "00:00:5e:00:53:01"
+  }
+}"#
+        );
+    }
+    #[test]
+    fn servo_info_sorted_by_sysfs_path() {
+        let servo0 = create_mock_servo("SERVOV4P1-S-0000000001", "/sys/bus/usb/devices/0-0.0");
+        let servo1 = create_mock_servo("SERVOV4P1-S-0000000000", "/sys/bus/usb/devices/1-1.1");
+        let list = ServoList::new(vec![servo0.clone(), servo1.clone()]);
+        let serialized = format!("\n{list}\n");
+        assert_eq!(
+            serialized,
+            r#"
+{
+  "devices": [
+    {
+      "product": "Servo V4p1",
+      "serial": "SERVOV4P1-S-0000000001",
+      "usb_sysfs_path": "/sys/bus/usb/devices/0-0.0",
+      "tty_list": {
+        "Atmega UART": "/dev/ttyUSB3",
+        "DUT UART": "/dev/ttyUSB2",
+        "Firmware update": "/dev/ttyUSB4",
+        "I2C": "/dev/ttyUSB1",
+        "Servo EC Shell": "/dev/ttyUSB0"
+      },
+      "slow_info": {
+        "mac_addr": "00:00:5e:00:53:01"
+      }
+    },
+    {
+      "product": "Servo V4p1",
+      "serial": "SERVOV4P1-S-0000000000",
+      "usb_sysfs_path": "/sys/bus/usb/devices/1-1.1",
+      "tty_list": {
+        "Atmega UART": "/dev/ttyUSB3",
+        "DUT UART": "/dev/ttyUSB2",
+        "Firmware update": "/dev/ttyUSB4",
+        "I2C": "/dev/ttyUSB1",
+        "Servo EC Shell": "/dev/ttyUSB0"
+      },
+      "slow_info": {
+        "mac_addr": "00:00:5e:00:53:01"
+      }
+    }
+  ]
+}
+"#
+        );
+        let list = ServoList::new(vec![servo1.clone(), servo0.clone()]);
+        let serialized = format!("\n{list}\n");
+        assert_eq!(
+            serialized,
+            r#"
+{
+  "devices": [
+    {
+      "product": "Servo V4p1",
+      "serial": "SERVOV4P1-S-0000000001",
+      "usb_sysfs_path": "/sys/bus/usb/devices/0-0.0",
+      "tty_list": {
+        "Atmega UART": "/dev/ttyUSB3",
+        "DUT UART": "/dev/ttyUSB2",
+        "Firmware update": "/dev/ttyUSB4",
+        "I2C": "/dev/ttyUSB1",
+        "Servo EC Shell": "/dev/ttyUSB0"
+      },
+      "slow_info": {
+        "mac_addr": "00:00:5e:00:53:01"
+      }
+    },
+    {
+      "product": "Servo V4p1",
+      "serial": "SERVOV4P1-S-0000000000",
+      "usb_sysfs_path": "/sys/bus/usb/devices/1-1.1",
+      "tty_list": {
+        "Atmega UART": "/dev/ttyUSB3",
+        "DUT UART": "/dev/ttyUSB2",
+        "Firmware update": "/dev/ttyUSB4",
+        "I2C": "/dev/ttyUSB1",
+        "Servo EC Shell": "/dev/ttyUSB0"
+      },
+      "slow_info": {
+        "mac_addr": "00:00:5e:00:53:01"
+      }
+    }
+  ]
+}
+"#
         );
     }
 }
@@ -116,7 +245,7 @@ fn discover() -> Result<Vec<LocalServo>> {
                 || product.starts_with("Ti50")
             {
                 let paths = fs::read_dir(&usb_sysfs_path).context("failed to read dir")?;
-                let tty_list: HashMap<String, String> = paths
+                let tty_list: BTreeMap<String, String> = paths
                     .flat_map(|path| -> Result<(String, String)> {
                         let path = path?.path();
                         let interface = fs::read_to_string(path.join("interface"))?
@@ -126,7 +255,7 @@ fn discover() -> Result<Vec<LocalServo>> {
                             .find_map(|p| {
                                 let s = p.ok()?.path();
                                 let s = s.file_name()?.to_string_lossy().to_string();
-                                s.starts_with("ttyUSB").then_some(s.clone())
+                                s.starts_with("ttyUSB").then_some("/dev/".to_string() + &s)
                             })
                             .context("ttyUSB not found")?;
                         Ok((interface, tty_name))
@@ -150,12 +279,12 @@ fn discover_slow() -> Result<Vec<LocalServo>> {
     let mut servos = discover()?;
     servos.iter_mut().for_each(|s| {
         eprintln!("Checking {}", s.serial);
-        if s.is_servo() {
-            s.mac_addr = s.read_mac_addr().ok();
-        }
-        if s.is_cr50() {
-            s.ec_version = s.read_ec_version().ok();
-        }
+        let mac_addr = s.read_mac_addr().ok();
+        let ec_version = s.read_ec_version().ok();
+        s.slow_info = Some(SlowServoInfo {
+            mac_addr,
+            ec_version,
+        })
     });
     Ok(servos)
 }
@@ -180,38 +309,20 @@ pub fn reset_devices(serials: &Vec<String>) -> Result<()> {
     Ok(())
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, Default)]
+#[derive(Debug, Clone, Default, Serialize)]
 pub struct ServoList {
-    #[serde(default)]
     devices: Vec<LocalServo>,
 }
-static CONFIG_FILE_NAME: &str = "servo_list.json";
 impl ServoList {
-    pub fn read() -> Result<Self> {
-        let path = gen_path_in_lium_dir(CONFIG_FILE_NAME)?;
-        let list = read_to_string(&path);
-        match list {
-            Ok(list) => Ok(serde_json::from_str(&list)?),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-                // Just create a default config
-                let list = Self::default();
-                list.write()?;
-                eprintln!("INFO: Servo list created at {:?}", path);
-                Ok(list)
-            }
-            e => Err(anyhow!("Failed to create a new servo list: {:?}", e)),
-        }
+    pub fn new(mut devices: Vec<LocalServo>) -> Self {
+        devices.sort();
+        Self { devices }
     }
-    // This is private since write should happen on every updates transparently
-    fn write(&self) -> Result<()> {
-        let s = serde_json::to_string_pretty(&self)?;
-        write(gen_path_in_lium_dir(CONFIG_FILE_NAME)?, s.into_bytes())
-            .context("failed to write servo list")
+    pub fn discover() -> Result<Self> {
+        Ok(Self::new(discover()?))
     }
-    pub fn update() -> Result<()> {
-        let devices = discover_slow()?;
-        let list = Self { devices };
-        list.write()
+    pub fn discover_slow() -> Result<Self> {
+        Ok(Self::new(discover_slow()?))
     }
     pub fn find_by_serial(&self, serial: &str) -> Result<&LocalServo> {
         self.devices
@@ -234,17 +345,24 @@ impl Display for ServoList {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
-pub struct LocalServo {
-    product: String,
-    serial: String,
-    usb_sysfs_path: String,
-    tty_list: HashMap<String, String>,
+pub struct SlowServoInfo {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     mac_addr: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     ec_version: Option<String>,
+}
+impl SlowServoInfo {}
+
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
+pub struct LocalServo {
+    product: String,
+    serial: String,
+    usb_sysfs_path: String,
+    // Using BTreeMap here to keep the ordering when printing this structure
+    tty_list: BTreeMap<String, String>,
+    slow_info: Option<SlowServoInfo>,
 }
 impl LocalServo {
     pub fn product(&self) -> &str {
@@ -253,15 +371,15 @@ impl LocalServo {
     pub fn serial(&self) -> &str {
         &self.serial
     }
-    pub fn tty_list(&self) -> &HashMap<String, String> {
+    pub fn tty_list(&self) -> &BTreeMap<String, String> {
         &self.tty_list
     }
     pub fn tty_path(&self, tty_type: &str) -> Result<String> {
-        let tty_name = self
+        let path = self
             .tty_list()
             .get(tty_type)
             .context(anyhow!("tty[{}] not found", tty_type))?;
-        Ok(format!("/dev/{tty_name}"))
+        Ok(path.clone())
     }
     pub fn run_cmd(&self, tty_type: &str, cmd: &str) -> Result<String> {
         let tty_path = self.tty_path(tty_type)?;
@@ -289,8 +407,11 @@ impl LocalServo {
         if has_root_privilege()? {
             eprintln!("Resetting servo device: {}", self.serial);
             let path = Path::new(&self.usb_sysfs_path).join("authorized");
-            fs::write(&path, b"0").context("Failed to set authorized = 0")?;
-            fs::write(&path, b"1").context("Failed to set authorized = 1")?;
+            fs::write(&path, b"0").context(anyhow!("Failed to set authorized = 0 {path:?}"))?;
+            if let Err(e) = fs::write(&path, b"1") {
+                // sometimes writing to `authorized` fails with EPIPE, but it can be ignored.
+                eprintln!("Warning: Failed to set authorized = 1 {path:?} ({e:?})");
+            }
             Ok(())
         } else {
             run_lium_with_sudo(&["servo", "reset", self.serial()])
@@ -456,6 +577,31 @@ impl LocalServo {
             .captures(&flags)
             .context("Invalid output of futility: {flags}")?["flags"];
         u64::from_str_radix(flags, 16).context("Failed to convert value: {flags}")
+    }
+}
+impl Display for LocalServo {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            serde_json::to_string_pretty(&self).map_err(|_| fmt::Error)?
+        )
+    }
+}
+impl PartialEq for LocalServo {
+    fn eq(&self, other: &Self) -> bool {
+        self.usb_sysfs_path == other.usb_sysfs_path
+    }
+}
+impl Eq for LocalServo {}
+impl PartialOrd for LocalServo {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.usb_sysfs_path.cmp(&other.usb_sysfs_path))
+    }
+}
+impl Ord for LocalServo {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.usb_sysfs_path.cmp(&other.usb_sysfs_path)
     }
 }
 
