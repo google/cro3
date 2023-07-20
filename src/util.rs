@@ -18,10 +18,13 @@ use futures::AsyncBufReadExt;
 use std::env::current_exe;
 use std::fs::create_dir_all;
 use std::io::ErrorKind;
+use std::io::Read;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
 use std::process::Output;
+use std::time::Duration;
+use wait_timeout::ChildExt;
 
 pub fn has_root_privilege() -> Result<bool> {
     let output = run_bash_command("id -u", None)?;
@@ -110,6 +113,47 @@ pub fn run_bash_command(cmd: &str, dir: Option<&str>) -> Result<Output> {
         .arg(cmd)
         .output()
         .context("Failed to execute cmd")
+}
+
+pub fn run_bash_command_with_timeout(
+    script: &str,
+    dir: Option<&str>,
+    timeout: Duration,
+) -> Result<String> {
+    let mut cmd = Command::new("bash");
+    let cmd = if let Some(dir) = dir {
+        cmd.current_dir(dir)
+    } else {
+        &mut cmd
+    };
+    let mut child = cmd
+        .arg("-c")
+        .arg(script)
+        .stdout(Stdio::piped())
+        .spawn()
+        .context(anyhow!("Failed to spawn command"))?;
+    let status = match child
+        .wait_timeout(timeout)
+        .context(anyhow!("Failed to wait on command"))?
+    {
+        Some(status) => status,
+        None => {
+            child.kill().context("Failed to kill")?;
+            child.wait().context("Failed to wait after kill")?;
+            return Err(anyhow!("Command timeout: {script}"));
+        }
+    };
+    if status.success() {
+        let mut stdout = String::new();
+        child
+            .stdout
+            .context("stdout was null")?
+            .read_to_string(&mut stdout)
+            .context("read_to_string failed")?;
+        Ok(stdout)
+    } else {
+        return Err(anyhow!("Command returned {status:?}: {script}"));
+    }
 }
 
 pub fn run_bash_command_async(cmd: &str, dir: Option<&str>) -> Result<async_process::Child> {

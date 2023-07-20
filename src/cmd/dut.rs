@@ -9,6 +9,7 @@ use anyhow::Context;
 use anyhow::Result;
 use argh::FromArgs;
 use lazy_static::lazy_static;
+use lium::chroot::Chroot;
 use lium::cros;
 use lium::dut::discover_local_nodes;
 use lium::dut::fetch_dut_info_in_parallel;
@@ -16,6 +17,10 @@ use lium::dut::DutInfo;
 use lium::dut::MonitoredDut;
 use lium::dut::SshInfo;
 use lium::dut::SSH_CACHE;
+use lium::repo::get_repo_dir;
+use lium::servo::get_cr50_attached_to_servo;
+use lium::servo::LocalServo;
+use lium::servo::ServoList;
 use rayon::prelude::*;
 use std::collections::HashMap;
 use std::env::current_exe;
@@ -47,6 +52,7 @@ enum SubCommand {
     Monitor(ArgsDutMonitor),
     Pull(ArgsPull),
     Push(ArgsPush),
+    Setup(ArgsSetup),
     Vnc(ArgsVnc),
 }
 pub fn run(args: &Args) -> Result<()> {
@@ -61,6 +67,7 @@ pub fn run(args: &Args) -> Result<()> {
         SubCommand::Monitor(args) => run_dut_monitor(args),
         SubCommand::Pull(args) => run_dut_pull(args),
         SubCommand::Push(args) => run_dut_push(args),
+        SubCommand::Setup(args) => run_setup(args),
         SubCommand::Vnc(args) => run_dut_vnc(args),
     }
 }
@@ -265,6 +272,287 @@ lazy_static! {
         m
     };
 }
+
+fn is_ccd_opened(cr50: &LocalServo) -> Result<bool> {
+    let ccd_state = cr50.run_cmd("Shell", "ccd")?;
+    let ccd_state = ccd_state
+        .split('\n')
+        .rev()
+        .find(|line| line.starts_with("State: "))
+        .context("Could not detect CCD state")?
+        .trim();
+    if ccd_state == "State: Locked" {
+        Ok(false)
+    } else if ccd_state == "State: Opened" {
+        Ok(true)
+    } else {
+        Err(anyhow!("Unexpected ccd state: {}", ccd_state))
+    }
+}
+
+fn do_rma_auth(cr50: &LocalServo) -> Result<()> {
+    // Get rma_auth_challenge first, to get the code correctly
+    let rma_auth_challenge = cr50.run_cmd("Shell", "rma_auth")?;
+    // Try ccd open first since pre-MP devices may be able to open ccd without rma_auth
+    cr50.run_cmd("Shell", "ccd open")?;
+    for _ in 0..3 {
+        // Generate rma_auth URL to unlock and abort
+        let rma_auth_challenge: Vec<&str> = rma_auth_challenge
+            .split('\n')
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty())
+            .collect();
+        eprintln!("{:?}", rma_auth_challenge);
+        let rma_auth_challenge = rma_auth_challenge
+            .iter()
+            .skip_while(|s| *s != &"generated challenge:")
+            .nth(1)
+            .context("Could not get rma_auth challenge")?;
+        if !rma_auth_challenge.starts_with("RMA Auth error") {
+            eprintln!("CCD unlock is required.");
+            eprintln!(
+                r#"If you are eligible, visit https://chromeos.google.com/partner/console/cr50reset?challenge={rma_auth_challenge} to get the unlock code and paste the output below. ( For Googlers, go/rma-auth has more details. )"#,
+            );
+            eprintln!("If not, follow https://chromium.googlesource.com/chromiumos/platform/ec/+/cr50_stab/docs/case_closed_debugging_cr50.md#ccd-open to do this manually.");
+            let mut input = String::new();
+            std::io::stdin()
+                .read_line(&mut input)
+                .context("Failed to read a line")?;
+            let response = cr50
+                .run_cmd(
+                    "Shell",
+                    &format!(
+                        "rma_auth {}",
+                        input
+                            .trim()
+                            .split(':')
+                            .last()
+                            .context("code is invalid")?
+                            .trim()
+                    ),
+                )
+                .context("Failed to run rma_auth command")?;
+            return Err(anyhow!("response: {response}"));
+        }
+        eprintln!("Failed: {rma_auth_challenge}");
+        eprintln!("retrying in 3 sec...");
+        std::thread::sleep(std::time::Duration::from_secs(3));
+    }
+    Err(anyhow!("Failed to get rma_auth code."))
+}
+
+fn open_ccd(cr50: &LocalServo) -> Result<()> {
+    let list = ServoList::discover()?;
+    // Lookup cr50 again, since its usb path can be changed after resetting Servo
+    let cr50 = list.find_by_serial(cr50.serial())?;
+    let mut ccd = false;
+    ccd |= is_ccd_opened(cr50)?;
+    ccd |= is_ccd_opened(cr50)?;
+    if ccd {
+        eprintln!("CCD is Opened already ({})", cr50.tty_path("Shell")?);
+        return Ok(());
+    }
+    do_rma_auth(cr50)?;
+    if !is_ccd_opened(cr50)? {
+        return Err(anyhow!(
+            "Could not open CCD after rma_auth ({})",
+            cr50.tty_path("Shell")?
+        ));
+    }
+    eprintln!("CCD is Opened successfully ({})", cr50.tty_path("Shell")?);
+    Ok(())
+}
+
+fn get_ccd_status(cr50: &LocalServo) -> Result<()> {
+    let list = ServoList::discover()?;
+    // Lookup cr50 again, since its usb path can be changed after resetting Servo
+    let cr50 = list.find_by_serial(cr50.serial())?;
+    if !is_ccd_opened(cr50)? {
+        return Err(anyhow!("CCD is Closed ({})", cr50.tty_path("Shell")?));
+    }
+    eprintln!("CCD is Opened ({})", cr50.tty_path("Shell")?);
+    Ok(())
+}
+
+fn set_dev_gbb_flags(repo: &str, cr50: &LocalServo) -> Result<()> {
+    let chroot = Chroot::new(repo)?;
+    chroot.run_bash_script_in_chroot(
+        "read gbb flags",
+        &format!(
+            "sudo flashrom -p raiden_debug_spi:target=AP,serial={} -r -i GBB:/tmp/gbb.bin",
+            cr50.serial()
+        ),
+        None,
+    )?;
+    chroot.run_bash_script_in_chroot(
+        "generate a new gbb",
+        "sudo futility gbb -s --flags=0x40b9 /tmp/gbb.bin /tmp/gbb2.bin",
+        None,
+    )?;
+    chroot.run_bash_script_in_chroot(
+        "write gbb flags",
+        &format!("sudo flashrom -p raiden_debug_spi:target=AP,serial={} -w -i GBB:/tmp/gbb2.bin --noverify-all", cr50.serial()),
+        None
+        )?;
+    Ok(())
+}
+
+fn reset_gbb_flags(repo: &str, cr50: &LocalServo) -> Result<()> {
+    let chroot = Chroot::new(repo)?;
+    chroot.run_bash_script_in_chroot(
+        "read gbb flags",
+        &format!(
+            "sudo flashrom -p raiden_debug_spi:target=AP,serial={} -r -i GBB:/tmp/gbb.bin",
+            cr50.serial()
+        ),
+        None,
+    )?;
+    chroot.run_bash_script_in_chroot(
+        "generate a new gbb",
+        "sudo futility gbb -s --flags=0x0 /tmp/gbb.bin /tmp/gbb2.bin",
+        None,
+    )?;
+    chroot.run_bash_script_in_chroot(
+        "write gbb flags",
+        &format!("sudo flashrom -p raiden_debug_spi:target=AP,serial={} -w -i GBB:/tmp/gbb2.bin --noverify-all", cr50.serial()),
+        None
+        )?;
+    Ok(())
+}
+fn is_ccd_testlab_enabled(cr50: &LocalServo) -> Result<bool> {
+    let result = cr50
+        .run_cmd("Shell", "ccd testlab")
+        .context(anyhow!("Failed to run `ccd testlab` command"))?;
+    Ok(result.contains("CCD test lab mode enabled"))
+}
+fn enable_ccd_testlab(servo: &LocalServo) -> Result<()> {
+    let cr50 = get_cr50_attached_to_servo(servo)?;
+    eprintln!("Enabling CCD testlab mode of DUT: {}", cr50.serial());
+    open_ccd(&cr50)?;
+    if is_ccd_testlab_enabled(&cr50)? {
+        eprintln!("CCD testlab mode is already enabled");
+        return Ok(());
+    }
+    let result = cr50
+        .run_cmd("Shell", "ccd testlab")
+        .context(anyhow!("Failed to run `ccd testlab` command"))?;
+    if !result.trim().contains("CCD test lab mode enabled") {
+        return Err(anyhow!("CCD testlab mode is disabled. Please run `minicom -w -D {}` and run `ccd testlab enable` on it and follow the instructions.", cr50.tty_path("Shell")?));
+    }
+    Ok(())
+}
+fn check_ssh(servo: &LocalServo) -> Result<DutInfo> {
+    let addr = servo.read_ipv6_addr()?;
+    eprintln!("IP address: {addr}");
+    let dut = DutInfo::new(&addr)?;
+    eprintln!("PASS: {} @ {} is reachable via SSH", dut.id(), addr);
+    Ok(dut)
+}
+fn check_gbb_flags(dut: &DutInfo) -> Result<()> {
+    let info = DutInfo::fetch_keys(dut.ssh(), &vec!["gbb_flags"])?;
+    let gbb_flags = info
+        .get("gbb_flags")
+        .context("gbb_flags is not set")?
+        .replace(r"0x", "");
+    let gbb_flags = u64::from_str_radix(&gbb_flags, 16).context("failed to parse gbb_flags")?;
+    eprintln!("GBB flags: {gbb_flags:#10X}");
+    if !gbb_flags & 0x19 != 0 {
+        return Err(anyhow!(
+            "GBB flags are not set properly for development. Please run:
+                lium dut shell --dut [{0}] -- /usr/share/vboot/bin/set_gbb_flags.sh 0x19
+                lium dut shell --dut [{0}] -- /usr/share/vboot/bin/set_gbb_flags.sh 0x19",
+            info.get("ipv6_addr").context("Failed to get ipv6_addr")?
+        ));
+    }
+    eprintln!("PASS: GBB flags are set for dev");
+    Ok(())
+}
+
+#[derive(FromArgs, PartialEq, Debug)]
+/// Make DUTs connected via Servo ready for development
+/// "Ready for development" means:
+/// - CCD (Closed Case Debugging) is in "Open" state
+/// - A Servo is attached correctly
+/// - At least one Ethernet connection is available (so MAC addr and an IP address is known)
+/// - GBB flags are set to 0x19
+/// - CCD testlab mode is enabled
+#[argh(subcommand, name = "setup")]
+struct ArgsSetup {
+    /// servo serial
+    #[argh(option)]
+    serial: Option<String>,
+    /// cros repo dir to use
+    #[argh(option)]
+    repo: Option<String>,
+    /// do ccd open only
+    #[argh(switch)]
+    open_ccd: bool,
+    /// check ccd status via servo
+    #[argh(switch)]
+    get_ccd_status: bool,
+    /// do gbb flags update only
+    #[argh(switch)]
+    set_dev_gbb_flags: bool,
+    /// reset gbb flags only
+    #[argh(switch)]
+    reset_gbb_flags: bool,
+    /// do ccd unlock only
+    #[argh(switch)]
+    enable_ccd_testlab: bool,
+    /// check if the DUT is reachable via SSH
+    #[argh(switch)]
+    check_ssh: bool,
+}
+fn run_setup(args: &ArgsSetup) -> Result<()> {
+    let repo = get_repo_dir(&args.repo)?;
+    let servo = if let Some(serial) = &args.serial {
+        let list = ServoList::discover()?;
+        list.find_by_serial(serial).context(format!("
+        Servo {serial} not found.
+        Please check the servo connection, try another side of USB port, attach servo directly with a host instead of via hub, etc...
+        `lium servo list` may be helpful.
+        "))?.clone()
+    } else {
+        let list = ServoList::discover()?;
+        let list: Vec<LocalServo> = list
+            .devices()
+            .iter()
+            .filter(|s| s.is_servo())
+            .cloned()
+            .collect();
+        if list.len() != 1 {
+            return Err(anyhow!("Please specify --serial when multiple Servo is connected. `lium servo list` may be helpful."));
+        }
+        list.first()
+            .context(
+                "Servo is not connected. Run `lium servo list` to check if Servo is connected.",
+            )?
+            .clone()
+    };
+    eprintln!("Using {} {} as Servo", servo.product(), servo.serial());
+    let cr50 = get_cr50_attached_to_servo(&servo)?;
+    eprintln!("Using {} {} as Cr50", cr50.product(), cr50.serial());
+    if args.open_ccd {
+        open_ccd(&cr50)?;
+    } else if args.get_ccd_status {
+        get_ccd_status(&cr50)?;
+    } else if args.set_dev_gbb_flags {
+        set_dev_gbb_flags(&repo, &cr50)?;
+    } else if args.reset_gbb_flags {
+        reset_gbb_flags(&repo, &cr50)?;
+    } else if args.enable_ccd_testlab {
+        enable_ccd_testlab(&cr50)?;
+    } else if args.check_ssh {
+        check_ssh(&servo)?;
+    } else {
+        open_ccd(&cr50)?;
+        enable_ccd_testlab(&cr50)?;
+        let dut = check_ssh(&servo)?;
+        check_gbb_flags(&dut)?;
+    }
+    Ok(())
+}
+
 #[derive(FromArgs, PartialEq, Debug)]
 /// send actions
 #[argh(subcommand, name = "do")]
