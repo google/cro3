@@ -16,7 +16,7 @@ use regex::Regex;
 use std::process::Command;
 
 #[derive(FromArgs, PartialEq, Debug)]
-/// Flash CrOS images
+/// flash image
 #[argh(subcommand, name = "flash")]
 pub struct Args {
     /// flash to a USB stick

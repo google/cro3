@@ -21,7 +21,7 @@ use std::fs::read_to_string;
 use std::process;
 
 #[derive(FromArgs, PartialEq, Debug)]
-/// DUT controller
+/// control Servo
 #[argh(subcommand, name = "servo")]
 pub struct Args {
     #[argh(subcommand)]

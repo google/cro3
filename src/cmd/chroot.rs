@@ -11,7 +11,7 @@ use lium::dut::SshInfo;
 use lium::repo::get_repo_dir;
 
 #[derive(FromArgs, PartialEq, Debug)]
-/// cros_sdk wrapper
+/// run in chroot
 #[argh(subcommand, name = "chroot")]
 pub struct Args {
     /// target cros repo dir

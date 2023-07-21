@@ -17,7 +17,7 @@ use lium::dut::SshInfo;
 use lium::repo::get_repo_dir;
 
 #[derive(FromArgs, PartialEq, Debug)]
-/// Tast test wrapper
+/// run Tast test
 #[argh(subcommand, name = "tast")]
 pub struct Args {
     #[argh(subcommand)]

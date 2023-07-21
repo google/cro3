@@ -11,7 +11,7 @@ use lium::chroot::Chroot;
 use lium::repo::get_repo_dir;
 
 #[derive(FromArgs, PartialEq, Debug)]
-/// build a package
+/// build package(s)
 #[argh(subcommand, name = "build")]
 pub struct Args {
     /// target cros repo dir

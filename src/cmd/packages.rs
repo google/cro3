@@ -11,7 +11,7 @@ use lium::chroot::Chroot;
 use lium::repo::get_repo_dir;
 
 #[derive(FromArgs, PartialEq, Debug)]
-/// Tast test wrapper
+/// manage modified package(s)
 #[argh(subcommand, name = "packages")]
 pub struct Args {
     #[argh(subcommand)]
