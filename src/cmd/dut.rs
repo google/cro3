@@ -28,7 +28,7 @@ use std::time;
 use termion::screen::IntoAlternateScreen;
 
 #[derive(FromArgs, PartialEq, Debug)]
-/// DUT controller
+/// control DUT
 #[argh(subcommand, name = "dut")]
 pub struct Args {
     #[argh(subcommand)]

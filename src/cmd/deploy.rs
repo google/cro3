@@ -14,7 +14,7 @@ use lium::repo::get_repo_dir;
 use regex_macro::regex;
 
 #[derive(FromArgs, PartialEq, Debug)]
-/// cros deploy wrapper
+/// deploy package(s)
 #[argh(subcommand, name = "deploy")]
 pub struct Args {
     /// target cros repo dir

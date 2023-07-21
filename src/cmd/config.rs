@@ -9,7 +9,7 @@ use argh::FromArgs;
 use lium::config::Config;
 
 #[derive(FromArgs, PartialEq, Debug)]
-/// DUT controller
+/// configure lium
 #[argh(subcommand, name = "config")]
 pub struct Args {
     #[argh(subcommand)]

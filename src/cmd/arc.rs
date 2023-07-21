@@ -13,7 +13,7 @@ use lium::repo::get_repo_dir;
 use std::process::Command;
 
 #[derive(FromArgs, PartialEq, Debug)]
-/// DUT controller
+/// control ARC
 #[argh(subcommand, name = "arc")]
 pub struct Args {
     #[argh(subcommand)]

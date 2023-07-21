@@ -25,7 +25,7 @@ use lium::util::run_bash_command;
 use std::fs;
 
 #[derive(FromArgs, PartialEq, Debug)]
-/// DUT controller
+/// setup development environment
 #[argh(subcommand, name = "setup")]
 pub struct Args {
     #[argh(subcommand)]

@@ -19,7 +19,7 @@ use std::fs;
 use std::path::Path;
 
 #[derive(FromArgs, PartialEq, Debug)]
-/// smart repo sync wrapper
+/// synchronize repository
 #[argh(subcommand, name = "sync")]
 pub struct Args {
     /// target cros repo dir. If omitted, current directory will be used.

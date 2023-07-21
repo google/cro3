@@ -17,7 +17,7 @@ lazy_static! {
 }
 
 #[derive(FromArgs, PartialEq, Debug)]
-/// CL (Change List) helpers
+/// manage CL (Change List)
 #[argh(subcommand, name = "cl")]
 pub struct Args {
     #[argh(subcommand)]
