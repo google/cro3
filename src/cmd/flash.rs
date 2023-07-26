@@ -35,6 +35,10 @@ pub struct Args {
     #[argh(option)]
     board: Option<String>,
 
+    /// path to image to flash
+    #[argh(option)]
+    image: Option<String>,
+
     /// chromiumos version to flash (default: latest-dev)
     #[argh(option, default = "String::from(\"latest-dev\")")]
     version: String,
@@ -55,62 +59,67 @@ pub fn run(args: &Args) -> Result<()> {
     // repo path is needed since cros flash outside chroot only works within the cros checkout
     let repo = &get_repo_dir(&args.repo)?;
 
-    // Determine a BOARD to flash
-    let board = match (&args.board, &args.dut) {
-        (Some(board), None) => board.clone(),
-        (_, Some(dut)) => {
-            ensure_testing_rsa_is_there()?;
-            let dut = &DutInfo::new(dut)?;
-            let board_from_dut = dut
-                .info()
-                .get("board")
-                .context("Failed to get --board from ")?
-                .clone();
-            if let Some(board_from_arg) = &args.board {
-                // The board name may have suffix '64' or '-*', so get the first alphabet
-                // sequence as the base board name.
-                let re = Regex::new(r"(^[[:alpha:]]*)")?;
-                let cap_arg = if let Some(cap) = re.captures(board_from_arg) {
-                    cap
+    let image_path = if let Some(image) = &args.image {
+        // If --image is specified, use the local file
+        image.clone()
+    } else {
+        // Determine a BOARD to flash
+        let board = match (&args.board, &args.dut) {
+            (Some(board), None) => board.clone(),
+            (_, Some(dut)) => {
+                ensure_testing_rsa_is_there()?;
+                let dut = &DutInfo::new(dut)?;
+                let board_from_dut = dut
+                    .info()
+                    .get("board")
+                    .context("Failed to get --board from ")?
+                    .clone();
+                if let Some(board_from_arg) = &args.board {
+                    // The board name may have suffix '64' or '-*', so get the first alphabet
+                    // sequence as the base board name.
+                    let re = Regex::new(r"(^[[:alpha:]]*)")?;
+                    let cap_arg = if let Some(cap) = re.captures(board_from_arg) {
+                        cap
+                    } else {
+                        return Err(anyhow!(
+                            "{} doesn not match the board name pattern.",
+                            board_from_arg
+                        ));
+                    };
+                    let cap_dut = re.captures(&board_from_dut).unwrap();
+                    if cap_arg[1] != cap_dut[1] {
+                        return Err(anyhow!("Given BOARD does not match with DUT: {} is given but {} is installed on {:?}", board_from_arg, board_from_dut, dut));
+                    }
+                    board_from_arg.to_string()
                 } else {
-                    return Err(anyhow!(
-                        "{} doesn not match the board name pattern.",
-                        board_from_arg
-                    ));
-                };
-                let cap_dut = re.captures(&board_from_dut).unwrap();
-                if cap_arg[1] != cap_dut[1] {
-                    return Err(anyhow!("Given BOARD does not match with DUT: {} is given but {} is installed on {:?}", board_from_arg, board_from_dut, dut));
+                    board_from_dut
                 }
-                board_from_arg.to_string()
-            } else {
-                board_from_dut
             }
+            (None, None) => return Err(anyhow!("Please specify --board or --dut")),
+        };
+        // Determine an image to flash
+        let host = if args.use_local_image {
+            "local"
+        } else {
+            "remote"
+        };
+        // if version is not specified on the command line, it will be set to "latest" by argh
+        let version = if &args.version == "latest"
+            || &args.version == "latest-dev"
+            || &args.version == "latest-official"
+        {
+            args.version.clone()
+        } else {
+            lookup_full_version(&args.version, &board)?
+        };
+        if host == "local" && version != "latest" {
+            return Err(anyhow!(
+                "flashing local image other than `--version latest` is not yet supported"
+            ));
         }
-        (None, None) => return Err(anyhow!("Please specify --board or --dut")),
+        let variant = if args.recovery { "recovery" } else { "test" };
+        format!("xBuddy://{host}/{board}/{version}/{variant}")
     };
-    // Determine an image to flash
-    let host = if args.use_local_image {
-        "local"
-    } else {
-        "remote"
-    };
-    // if version is not specified on the command line, it will be set to "latest" by argh
-    let version = if &args.version == "latest"
-        || &args.version == "latest-dev"
-        || &args.version == "latest-official"
-    {
-        args.version.clone()
-    } else {
-        lookup_full_version(&args.version, &board)?
-    };
-    if host == "local" && version != "latest" {
-        return Err(anyhow!(
-            "flashing local image other than `--version latest` is not yet supported"
-        ));
-    }
-    let variant = if args.recovery { "recovery" } else { "test" };
-    let image_path = format!("xBuddy://{host}/{board}/{version}/{variant}");
 
     // Determine a destination
     let destination = match (&args.dut, args.usb) {

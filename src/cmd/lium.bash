@@ -138,6 +138,7 @@ _lium() { # command current prev
   local cur=$2
   local prev=$3
   local dir_opts="--repo --dir --dest"
+  local file_opts="--image"
   local todo_opts="--version --board --workon"
   local servo_serial_opts="--serial --servo"
 
@@ -161,6 +162,8 @@ _lium() { # command current prev
     COMPREPLY=($(compgen -W "${DUTS}" -- $cur))
   elif _lium_arg_included ${prev} ${dir_opts}; then
     COMPREPLY=($(_lium_comp_fs -d ${cur}))
+  elif _lium_arg_included ${prev} ${file_opts}; then
+    COMPREPLY=($(_lium_comp_fs -f ${cur}))
   else
     local OPTS=`_lium_get_options ${cur}`
     COMPREPLY=($(compgen -W "${OPTS}" -- ${cur}))
