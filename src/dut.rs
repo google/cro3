@@ -747,6 +747,29 @@ impl SshInfo {
         // Return "x86_64" or "arm64"
         self.run_cmd_stdio("uname -m | sed s/aarch64/arm64/")
     }
+    pub fn get_rootdev(&self) -> Result<String> {
+        self.run_cmd_stdio("rootdev -s")
+    }
+    pub fn get_rootdisk(&self) -> Result<String> {
+        let rootdev = self.get_rootdev()?;
+        Ok(rootdev
+            .trim_end_matches(char::is_numeric)
+            .trim_end_matches('p')
+            .to_string())
+    }
+    pub fn get_partnum_info(&self) -> Result<HashMap<String, String>> {
+        let cmd_str = "source /usr/sbin/write_gpt.sh; load_base_vars;
+            echo kern_a=${PARTITION_NUM_KERN_A}; echo root_a=${PARTITION_NUM_ROOT_A};
+            echo kern_b=${PARTITION_NUM_KERN_B}; echo root_b=${PARTITION_NUM_ROOT_B}";
+        let res = self.run_cmd_stdio(cmd_str)?;
+        let mut info = HashMap::new();
+        for i in res.split_whitespace() {
+            if let Some((key, value)) = i.split_once('=') {
+                info.insert(key.to_string(), value.to_string());
+            }
+        }
+        Ok(info)
+    }
     pub fn get_arc_version(&self) -> Result<String> {
         self.run_cmd_stdio("cat /etc/lsb-release | grep CHROMEOS_ARC_VERSION= | cut -d '=' -f 2")
     }

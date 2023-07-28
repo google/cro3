@@ -241,6 +241,45 @@ type DutAction = Box<fn(&SshInfo) -> Result<()>>;
 fn do_reboot(s: &SshInfo) -> Result<()> {
     s.run_cmd_piped(&["reboot; exit"])
 }
+
+enum PartitionSet {
+    Primary,
+    Secondary,
+}
+fn switch_partition_set(s: &SshInfo, target: PartitionSet) -> Result<()> {
+    let rootdev = s.get_rootdev()?;
+    let rootdisk = s.get_rootdisk()?;
+    let part = s.get_partnum_info()?;
+    let kern_a = part.get("kern_a").ok_or(anyhow!("KERN-A not found"))?;
+    let kern_b = part.get("kern_b").ok_or(anyhow!("KERN-B not found"))?;
+    let root_a = part.get("root_a").ok_or(anyhow!("ROOT-A not found"))?;
+    let root_b = part.get("root_b").ok_or(anyhow!("ROOT-B not found"))?;
+    let (current_name, current_kern, current_root, other_name, other_kern, other_root) =
+        if rootdev.ends_with(root_a) {
+            ("A", kern_a, root_a, "B", kern_b, root_b)
+        } else if rootdev.ends_with(root_b) {
+            ("B", kern_b, root_b, "A", kern_a, root_a)
+        } else {
+            return Err(anyhow!("unsupported partition layout"));
+        };
+    let cmd = match target {
+        PartitionSet::Primary => {
+            println!("switching to primary: {current_name} ({rootdisk}p{current_root})");
+            format!("cgpt prioritize -P2 -i {current_kern} {rootdisk}")
+        }
+        PartitionSet::Secondary => {
+            println!("switching to secondary: {other_name} ({rootdisk}p{other_root})");
+            format!("cgpt prioritize -P2 -i {other_kern} {rootdisk}")
+        }
+    };
+    s.run_cmd_piped(&[cmd])
+}
+fn do_switch_to_primary(s: &SshInfo) -> Result<()> {
+    switch_partition_set(s, PartitionSet::Primary)
+}
+fn do_switch_to_secondary(s: &SshInfo) -> Result<()> {
+    switch_partition_set(s, PartitionSet::Secondary)
+}
 fn do_wait_online(s: &SshInfo) -> Result<()> {
     for _ in 0..100 {
         if s.run_cmd_piped(&["echo ok"]).is_ok() {
@@ -260,6 +299,8 @@ lazy_static! {
         let mut m: HashMap<&'static str, DutAction> = HashMap::new();
         m.insert("wait_online", Box::new(do_wait_online));
         m.insert("reboot", Box::new(do_reboot));
+        m.insert("switch_to_primary", Box::new(do_switch_to_primary));
+        m.insert("switch_to_secondary", Box::new(do_switch_to_secondary));
         m.insert("login", Box::new(do_login));
         m.insert("tail_messages", Box::new(do_tail_messages));
         m
