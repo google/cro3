@@ -1,7 +1,10 @@
 [package]
 name = "lium"
+description = "Abstraction Layer of ChromiumOS development"
 version = "0.1.1"
 edition = "2021"
+license-file = "LICENSE"
+repository = "https://github.com/google/lium"
 
 [dependencies]
 argh = "0.1.9"
