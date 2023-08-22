@@ -24,7 +24,7 @@ fi
 
 # Create a new release
 read -r -d '' RELEASE_NOTE <<EOF
-To install lium, please run:
+To install lium ${VERSION}, please run:
 \`\`\`
 curl -L -o /usr/local/bin/lium https://github.com/google/lium/releases/download/${VERSION}/lium && chmod +x /usr/local/bin/lium
 \`\`\`
