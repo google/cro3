@@ -117,6 +117,10 @@ pub fn repo_sync(repo: &str, force: bool) -> Result<()> {
                 .split('\n')
                 .skip_while(|e| !e.contains("Failing repos:"));
             let repos: Vec<String> = it.map(|e| e.to_string()).collect();
+            if repos.is_empty() {
+                println!("{stderr}");
+                return Err(anyhow!("repo sync failed (please check the above message)"));
+            }
             let repos = repos[1..=repos.len() - 2].to_owned();
             println!("Failed repos: {:?}", &repos);
             if !force {
