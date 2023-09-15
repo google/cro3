@@ -448,7 +448,9 @@ fn check_ssh(servo: &LocalServo) -> Result<DutInfo> {
     eprintln!("PASS: {} @ {} is reachable via SSH", dut.id(), addr);
     Ok(dut)
 }
-fn check_gbb_flags(dut: &DutInfo) -> Result<()> {
+
+/// Check if GBB flags are set for development.
+fn check_dev_gbb_flags(dut: &DutInfo) -> Result<()> {
     let info = DutInfo::fetch_keys(dut.ssh(), &vec!["gbb_flags"])?;
     let gbb_flags = info
         .get("gbb_flags")
@@ -456,6 +458,7 @@ fn check_gbb_flags(dut: &DutInfo) -> Result<()> {
         .replace(r"0x", "");
     let gbb_flags = u64::from_str_radix(&gbb_flags, 16).context("failed to parse gbb_flags")?;
     eprintln!("GBB flags: {gbb_flags:#10X}");
+    // 
     if !gbb_flags & 0x19 != 0 {
         return Err(anyhow!(
             "GBB flags are not set properly for development. Please run:
@@ -490,6 +493,9 @@ struct ArgsSetup {
     /// check ccd status via servo
     #[argh(switch)]
     get_ccd_status: bool,
+    /// check if GBB flags are set for development
+    #[argh(switch)]
+    check_dev_gbb_flags: bool,
     /// do gbb flags update only
     #[argh(switch)]
     set_dev_gbb_flags: bool,
@@ -536,6 +542,9 @@ fn run_setup(args: &ArgsSetup) -> Result<()> {
         open_ccd(&cr50)?;
     } else if args.get_ccd_status {
         get_ccd_status(&cr50)?;
+    } else if args.check_dev_gbb_flags {
+        let dut = check_ssh(&servo)?;
+        check_dev_gbb_flags(&dut)?;
     } else if args.set_dev_gbb_flags {
         set_dev_gbb_flags(&repo, &cr50)?;
     } else if args.reset_gbb_flags {
@@ -548,7 +557,7 @@ fn run_setup(args: &ArgsSetup) -> Result<()> {
         open_ccd(&cr50)?;
         enable_ccd_testlab(&cr50)?;
         let dut = check_ssh(&servo)?;
-        check_gbb_flags(&dut)?;
+        check_dev_gbb_flags(&dut)?;
     }
     Ok(())
 }
