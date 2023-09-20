@@ -7,10 +7,10 @@
 use crate::chroot::Chroot;
 use crate::config::Config;
 use crate::util::get_async_lines;
-use crate::util::get_stderr;
 use crate::util::get_stdout;
 use crate::util::has_root_privilege;
 use crate::util::run_bash_command;
+use crate::util::run_bash_command_with_timeout;
 use crate::util::run_lium_with_sudo;
 use anyhow::anyhow;
 use anyhow::Context;
@@ -39,6 +39,7 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 use std::fs;
 use std::iter::FromIterator;
+use std::os::unix::fs::FileTypeExt;
 use std::path::Path;
 use std::time::Duration;
 
@@ -382,23 +383,23 @@ impl LocalServo {
         Ok(path.clone())
     }
     pub fn run_cmd(&self, tty_type: &str, cmd: &str) -> Result<String> {
-        let tty_path = self.tty_path(tty_type)?;
+        let tty_path = &self.tty_path(tty_type)?;
         // Check if socat is installed
         let socat_path = run_bash_command("which socat", None)?;
         let socat_path = get_stdout(&socat_path);
         if socat_path.trim().is_empty() {
             return Err(anyhow!("socat not found. Please install socat with something like: `sudo apt install socat`"));
         }
-        // stat tty_path first to ensure that the tty is available
-        let output = run_bash_command(
-            &format!("stat {tty_path} && echo {cmd} | socat - {tty_path},echo=0,crtscts=1"),
+        if !fs::metadata(tty_path)?.file_type().is_char_device() {
+            return Err(anyhow!("{tty_path} is not a char device"));
+        }
+        let output = run_bash_command_with_timeout(
+            &format!("echo {cmd} | socat - {tty_path},echo=0,crtscts=1 2>&1"),
             None,
-        )?;
-        output
-            .status
-            .exit_ok()
-            .context(anyhow!("servo command failed: {}", get_stderr(&output)))?;
-        Ok(get_stdout(&output))
+            Duration::from_secs(1),
+        )
+        .context(anyhow!("Servo command failed: {cmd}"))?;
+        Ok(output)
     }
     pub fn usb_sysfs_path(&self) -> &str {
         &self.usb_sysfs_path
@@ -517,11 +518,15 @@ impl LocalServo {
                 self.product()
             ));
         }
-        retry(delay::Fixed::from_millis(500).take(2), || {
+        retry(delay::Fixed::from_millis(1000).take(10), || {
+            let output = &self
+                .run_cmd("Servo EC Shell", "macaddr")
+                .inspect_err(|_| eprintln!("macaddr cmd failed. retrying..."))?;
             RE_MAC_ADDR
-                .captures(&self.run_cmd("Servo EC Shell", "macaddr")?)
+                .captures(output)
                 .map(|c| c["addr"].to_lowercase())
-                .context(anyhow!("Failed to get mac_addr of Servo"))
+                .ok_or(anyhow!("macaddr not found in the output. retrying..."))
+                .inspect_err(|e| eprintln!("{e}"))
         })
         .or(Err(anyhow!("Failed to get mac_addr after retries")))
     }

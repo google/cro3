@@ -145,14 +145,10 @@ lazy_static! {
         m.insert("model_from_mosys", r"mosys platform name");
         m.insert("ectool_temps_all", r"ectool temps all");
         m.insert(
-            "gbb_flags_from_futility",
-            r"/usr/bin/futility gbb --flash --get --flags | grep 'flags: ' | cut -d : -f 2",
-        );
-        m.insert(
-            "gbb_flags_from_shell",
+            "gbb_flags",
             // get_gbb_flags.sh is deprecated but keeping this usage for backwards compatibility.
             // Newer scripts should use futility instead (see above). b/269179419 for more info.
-            r"/usr/share/vboot/bin/get_gbb_flags.sh | grep 'Chrome OS GBB' | cut -d : -f 2",
+            r"{ /usr/bin/futility gbb --flash --get --flags | grep 'flags: ' || /usr/share/vboot/bin/get_gbb_flags.sh | grep 'Chrome OS GBB' ; } | cut -d : -f 2",
         );
         m.insert(
             "host_kernel_config",
@@ -292,18 +288,16 @@ impl DutInfo {
             }
         }
         if keys.contains(&"gbb_flags") {
-            let gbb_flags = if let Some(Ok(v)) = values.get("gbb_flags_from_futility") {
-                v
-            } else if let Some(Ok(v)) = values.get("gbb_flags_from_shell") {
+            let gbb_flags = if let Some(Ok(v)) = values.get("gbb_flags") {
                 v
             } else {
                 return Err(anyhow!("Failed to get model"));
             };
-            if RE_GBB_FLAGS.is_match(gbb_flags) {
-                values.insert("gbb_flags".to_string(), Ok(gbb_flags.clone()));
+            if let Some(gbb_flags) = RE_GBB_FLAGS.find(gbb_flags) {
+                values.insert("gbb_flags".to_string(), Ok(gbb_flags.as_str().to_string()));
             } else {
                 return Err(anyhow!(
-                    "Model should match regex RE_GBB_FLAGS but got {gbb_flags:?}"
+                    "gbb_flags should match regex RE_GBB_FLAGS but got {gbb_flags:?}"
                 ));
             }
         }
@@ -350,10 +344,6 @@ impl DutInfo {
         for k in keys {
             match *k {
                 "timestamp" => continue,
-                "gbb_flags" => {
-                    keys_from_dut.insert("gbb_flags_from_futility");
-                    keys_from_dut.insert("gbb_flags_from_shell");
-                }
                 "dut_id" => {
                     keys_from_dut.insert("ipv6_addr");
                     keys_from_dut.insert("serial");
