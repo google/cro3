@@ -458,7 +458,6 @@ fn check_dev_gbb_flags(dut: &DutInfo) -> Result<()> {
         .replace(r"0x", "");
     let gbb_flags = u64::from_str_radix(&gbb_flags, 16).context("failed to parse gbb_flags")?;
     eprintln!("GBB flags: {gbb_flags:#10X}");
-    // 
     if !gbb_flags & 0x19 != 0 {
         return Err(anyhow!(
             "GBB flags are not set properly for development. Please run:
