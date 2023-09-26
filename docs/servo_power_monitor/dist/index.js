@@ -68626,9 +68626,11 @@ function setupDataLoad() {
         }
         const r = new FileReader();
         r.addEventListener('load', () => {
-            const data = JSON.parse(r.result);
-            const powerData = data.power.map((d) => [new Date(d[0]), d[1]]);
-            updateGraph(powerData);
+            kickWriteLoop((s) => __awaiter(this, void 0, void 0, function* () {
+                const data = JSON.parse(r.result);
+                const powerData = data.power.map((d) => [new Date(d[0]), d[1]]);
+                updateGraph(powerData);
+            }));
         });
         r.readAsText(file);
     };
