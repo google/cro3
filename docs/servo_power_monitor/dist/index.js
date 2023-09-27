@@ -68268,6 +68268,10 @@ let output = '';
 let halt = false;
 let currentData = undefined;
 function updateGraph(data) {
+    // console.log(data);
+    // if (data !== undefined && data.length) {
+    // }
+    document.querySelector('#tooltip').classList.add("hidden");
     currentData = data;
     g.updateOptions({
         file: data,
@@ -68316,7 +68320,6 @@ function kickWriteLoop(writeFn) {
             else {
                 inProgress = true;
             }
-            document.querySelector('#tooltip').classList.add("hidden");
             // ina 0 and 1 seems to be the same
             // ina 2 is something but not useful
             const cmd = `ina 0\n`;
@@ -68626,11 +68629,9 @@ function setupDataLoad() {
         }
         const r = new FileReader();
         r.addEventListener('load', () => {
-            kickWriteLoop((s) => __awaiter(this, void 0, void 0, function* () {
-                const data = JSON.parse(r.result);
-                const powerData = data.power.map((d) => [new Date(d[0]), d[1]]);
-                updateGraph(powerData);
-            }));
+            const data = JSON.parse(r.result);
+            const powerData = data.power.map((d) => [new Date(d[0]), d[1]]);
+            updateGraph(powerData);
         });
         r.readAsText(file);
     };

@@ -26,6 +26,9 @@ let halt = false;
 
 let currentData = undefined;
 function updateGraph(data: Array<Array<Date|number>>) {
+  if (data !== undefined && data.length) {
+    document.querySelector('#tooltip').classList.add("hidden");
+  }
   currentData = data;
   g.updateOptions(
       {
@@ -79,8 +82,6 @@ function kickWriteLoop(writeFn: (s: string) => Promise<void>) {
       } else {
         inProgress = true;
       }
-
-      document.querySelector('#tooltip').classList.add("hidden")
 
       // ina 0 and 1 seems to be the same
       // ina 2 is something but not useful
@@ -415,11 +416,9 @@ function setupDataLoad() {
     }
     const r = new FileReader();
     r.addEventListener('load', () => {
-      kickWriteLoop(async (s) => {
-        const data = JSON.parse(r.result as string);
-        const powerData = data.power.map((d: string) => [new Date(d[0]), d[1]])
-        updateGraph(powerData);
-      })
+      const data = JSON.parse(r.result as string);
+      const powerData = data.power.map((d: string) => [new Date(d[0]), d[1]])
+      updateGraph(powerData);
     })
     r.readAsText(file);
   };
