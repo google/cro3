@@ -26,7 +26,7 @@ let halt = false;
 
 let currentData = undefined;
 function updateGraph(data: Array<Array<Date|number>>) {
-  if (data !== undefined && data.length) {
+  if (data !== undefined && data.length > 0) {
     document.querySelector('#tooltip').classList.add("hidden");
   }
   currentData = data;

@@ -68268,10 +68268,9 @@ let output = '';
 let halt = false;
 let currentData = undefined;
 function updateGraph(data) {
-    // console.log(data);
-    // if (data !== undefined && data.length) {
-    // }
-    document.querySelector('#tooltip').classList.add("hidden");
+    if (data !== undefined && data.length > 0) {
+        document.querySelector('#tooltip').classList.add("hidden");
+    }
     currentData = data;
     g.updateOptions({
         file: data,
