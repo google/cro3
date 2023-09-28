@@ -6,7 +6,6 @@
 
 use crate::lookup_full_version;
 use anyhow::anyhow;
-use anyhow::Context;
 use anyhow::Result;
 use argh::FromArgs;
 use lium::cros::ensure_testing_rsa_is_there;
@@ -14,6 +13,52 @@ use lium::dut::DutInfo;
 use lium::repo::get_repo_dir;
 use regex::Regex;
 use std::process::Command;
+
+/// Determine a BOARD to flash, based on the parameters.
+/// If arg_dut is specified, this function will check if the board given via args is
+/// compatible with the BOARD of an image which is currently installed on the DUT.
+fn determine_board_to_flash(
+    arg_dut: &Option<String>,
+    arg_board: &Option<String>,
+) -> Result<String> {
+    let board_from_dut = arg_dut
+        .clone()
+        .ok_or(anyhow!("--dut is not specified"))
+        .map(|dut| -> Result<String> {
+            let dut = DutInfo::new(&dut)?;
+            dut.info()
+                .get("board")
+                .cloned()
+                .ok_or(anyhow!("Failed to get --board from "))
+        })?;
+    let board_from_arg = arg_board
+        .as_ref()
+        .ok_or("--board is not specified")
+        .cloned();
+    match (board_from_dut, board_from_arg) {
+        (Err(_), Err(_)) => Err(anyhow!("Please specify --board or --dut")),
+        (Ok(board_from_dut), Err(_)) => Ok(board_from_dut),
+        (Err(_), Ok(board_from_arg)) => Ok(board_from_arg),
+        (Ok(board_from_dut), Ok(board_from_arg)) => {
+            // Check if the base board names (without suffix '64' or '-*') are matched
+            // to avoid flashing an unsupported image
+            let re = Regex::new(r"(^[[:alpha:]]*)")?;
+            let cap_arg = if let Some(cap) = re.captures(&board_from_arg) {
+                cap
+            } else {
+                return Err(anyhow!(
+                    "{} doesn not match the board name pattern.",
+                    board_from_arg
+                ));
+            };
+            let cap_dut = re.captures(&board_from_dut).unwrap();
+            if cap_arg[1] != cap_dut[1] {
+                return Err(anyhow!("Given BOARD does not match with DUT: {} is given but {} is installed on the DUT", board_from_arg, board_from_dut));
+            }
+            Ok(board_from_arg)
+        }
+    }
+}
 
 #[derive(FromArgs, PartialEq, Debug)]
 /// flash image
@@ -35,6 +80,10 @@ pub struct Args {
     #[argh(option)]
     board: Option<String>,
 
+    /// path to image to flash
+    #[argh(option)]
+    image: Option<String>,
+
     /// chromiumos version to flash (default: latest-dev)
     #[argh(option, default = "String::from(\"latest-dev\")")]
     version: String,
@@ -55,62 +104,35 @@ pub fn run(args: &Args) -> Result<()> {
     // repo path is needed since cros flash outside chroot only works within the cros checkout
     let repo = &get_repo_dir(&args.repo)?;
 
-    // Determine a BOARD to flash
-    let board = match (&args.board, &args.dut) {
-        (Some(board), None) => board.clone(),
-        (_, Some(dut)) => {
-            ensure_testing_rsa_is_there()?;
-            let dut = &DutInfo::new(dut)?;
-            let board_from_dut = dut
-                .info()
-                .get("board")
-                .context("Failed to get --board from ")?
-                .clone();
-            if let Some(board_from_arg) = &args.board {
-                // The board name may have suffix '64' or '-*', so get the first alphabet
-                // sequence as the base board name.
-                let re = Regex::new(r"(^[[:alpha:]]*)")?;
-                let cap_arg = if let Some(cap) = re.captures(board_from_arg) {
-                    cap
-                } else {
-                    return Err(anyhow!(
-                        "{} doesn not match the board name pattern.",
-                        board_from_arg
-                    ));
-                };
-                let cap_dut = re.captures(&board_from_dut).unwrap();
-                if cap_arg[1] != cap_dut[1] {
-                    return Err(anyhow!("Given BOARD does not match with DUT: {} is given but {} is installed on {:?}", board_from_arg, board_from_dut, dut));
-                }
-                board_from_arg.to_string()
-            } else {
-                board_from_dut
-            }
+    let image_path = if let Some(image) = &args.image {
+        // If --image is specified, use the local file
+        image.clone()
+    } else {
+        let board_to_flash = determine_board_to_flash(&args.dut, &args.board)?;
+
+        // Determine an image to flash
+        let host = if args.use_local_image {
+            "local"
+        } else {
+            "remote"
+        };
+        // if version is not specified on the command line, it will be set to "latest" by argh
+        let version = if &args.version == "latest"
+            || &args.version == "latest-dev"
+            || &args.version == "latest-official"
+        {
+            args.version.clone()
+        } else {
+            lookup_full_version(&args.version, &board_to_flash)?
+        };
+        if host == "local" && version != "latest" {
+            return Err(anyhow!(
+                "flashing local image other than `--version latest` is not yet supported"
+            ));
         }
-        (None, None) => return Err(anyhow!("Please specify --board or --dut")),
+        let variant = if args.recovery { "recovery" } else { "test" };
+        format!("xBuddy://{host}/{board_to_flash}/{version}/{variant}")
     };
-    // Determine an image to flash
-    let host = if args.use_local_image {
-        "local"
-    } else {
-        "remote"
-    };
-    // if version is not specified on the command line, it will be set to "latest" by argh
-    let version = if &args.version == "latest"
-        || &args.version == "latest-dev"
-        || &args.version == "latest-official"
-    {
-        args.version.clone()
-    } else {
-        lookup_full_version(&args.version, &board)?
-    };
-    if host == "local" && version != "latest" {
-        return Err(anyhow!(
-            "flashing local image other than `--version latest` is not yet supported"
-        ));
-    }
-    let variant = if args.recovery { "recovery" } else { "test" };
-    let image_path = format!("xBuddy://{host}/{board}/{version}/{variant}");
 
     // Determine a destination
     let destination = match (&args.dut, args.usb) {
