@@ -26,6 +26,9 @@ let halt = false;
 
 let currentData = undefined;
 function updateGraph(data: Array<Array<Date|number>>) {
+  if (data !== undefined && data.length > 0) {
+    document.querySelector('#tooltip').classList.add("hidden");
+  }
   currentData = data;
   g.updateOptions(
       {
@@ -79,8 +82,6 @@ function kickWriteLoop(writeFn: (s: string) => Promise<void>) {
       } else {
         inProgress = true;
       }
-
-      document.querySelector('#tooltip').classList.add("hidden")
 
       // ina 0 and 1 seems to be the same
       // ina 2 is something but not useful
