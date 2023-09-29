@@ -101,7 +101,29 @@ async function readLoop(readFn: () => Promise<string>) {
     pushOutput(s);
   }
 }
+
 let device: USBDevice;
+function closeUSBPort() {
+  try {
+    device.close();
+  } catch (e) {
+    console.error(e);
+  }
+  requestUSBButton.disabled = false;
+}
+
+let port;
+let reader: ReadableStreamDefaultReader;
+function closeSerialPort() {
+  reader.cancel();
+  reader.releaseLock();
+  try {
+    port.close();
+  } catch (e) {
+    console.error(e);
+  }
+  requestSerialButton.disabled = false;
+}
 
 function setupStartUSBButton() {
   let usb_interface = 0;
@@ -165,9 +187,6 @@ function setupStartUSBButton() {
 };
 setupStartUSBButton();
 
-let port;
-let reader: ReadableStreamDefaultReader;
-
 requestSerialButton.addEventListener('click', async () => {
   halt = false;
   port = await navigator.serial
@@ -210,9 +229,9 @@ requestSerialButton.addEventListener('click', async () => {
 
 // event when you disconnect USB port
 navigator.usb.addEventListener("disconnect", () => {
-  if (requestUSBButton) {
+  if (requestUSBButton.disabled) {
     halt = true;
-    requestUSBButton.disabled = false;
+    closeUSBPort();
   }
 })
 
@@ -220,7 +239,7 @@ navigator.usb.addEventListener("disconnect", () => {
 navigator.serial.addEventListener("disconnect", () => {
   if (requestSerialButton.disabled) {
     halt = true;
-    requestSerialButton.disabled = false;
+    closeSerialPort();
   }
 })
 
@@ -237,18 +256,10 @@ let haltButton = document.getElementById('haltButton') as HTMLButtonElement;
 haltButton.addEventListener('click', () => {
   halt = true;
   if (requestUSBButton.disabled) {
-    // device.close
-    requestUSBButton.disabled = false;
+    closeUSBPort();
   }
   if (requestSerialButton.disabled) {
-    reader.cancel();
-    reader.releaseLock();
-    try {
-      port.close();
-    } catch (e) {
-      console.error(e);
-    }
-    requestSerialButton.disabled = false;
+    closeSerialPort();
   }
 });
 
