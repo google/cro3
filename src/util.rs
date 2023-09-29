@@ -34,8 +34,8 @@ pub fn has_root_privilege() -> Result<bool> {
         .context("Failed to get current uid")?;
     Ok(get_stdout(&output).trim() == "0")
 }
-/// Usage of this should be minimized, to avoid environment variable related issues.
-/// Current use cases are:
+/// Usage of this should be minimized, to avoid environment variable related
+/// issues. Current use cases are:
 /// - Resetting servo by writing to sysfs
 pub fn run_lium_with_sudo(args: &[&str]) -> Result<()> {
     let mut c = Command::new("sudo");

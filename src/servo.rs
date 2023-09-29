@@ -388,7 +388,10 @@ impl LocalServo {
         let socat_path = run_bash_command("which socat", None)?;
         let socat_path = get_stdout(&socat_path);
         if socat_path.trim().is_empty() {
-            return Err(anyhow!("socat not found. Please install socat with something like: `sudo apt install socat`"));
+            return Err(anyhow!(
+                "socat not found. Please install socat with something like: `sudo apt install \
+                 socat`"
+            ));
         }
         if !fs::metadata(tty_path)?.file_type().is_char_device() {
             return Err(anyhow!("{tty_path} is not a char device"));
@@ -617,7 +620,14 @@ pub struct ServodConnection {
 }
 impl ServodConnection {
     pub fn from_serial(serial: &str) -> Result<Self> {
-        let output = run_bash_command(&format!("ps ax | grep /servod | grep -e '-s {}' | grep -E -o -e '-p [0-9]+' | cut -d ' ' -f 2", serial), None);
+        let output = run_bash_command(
+            &format!(
+                "ps ax | grep /servod | grep -e '-s {}' | grep -E -o -e '-p [0-9]+' | cut -d ' ' \
+                 -f 2",
+                serial
+            ),
+            None,
+        );
         if let Ok(output) = output {
             let stdout = get_stdout(&output);
             let port = stdout.parse::<u16>()?;
