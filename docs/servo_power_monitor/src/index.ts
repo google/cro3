@@ -210,7 +210,7 @@ requestSerialButton.addEventListener('click', async () => {
 });
 
 // event when you disconnect USB port
-navigator.serial.addEventListener("disconnect", () => {
+navigator.usb.addEventListener("disconnect", () => {
   halt = true;
   requestUSBButton.disabled = false;
 })
