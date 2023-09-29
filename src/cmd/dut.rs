@@ -211,7 +211,8 @@ struct ArgsDutShell {
     #[argh(switch)]
     autologin: bool,
 
-    /// if specified, run the command on dut and exit. if not, it will open an interactive shell.
+    /// if specified, run the command on dut and exit. if not, it will open an
+    /// interactive shell.
     #[argh(positional)]
     args: Vec<String>,
 }
@@ -334,7 +335,8 @@ fn is_ccd_opened(cr50: &LocalServo) -> Result<bool> {
 fn do_rma_auth(cr50: &LocalServo) -> Result<()> {
     // Get rma_auth_challenge first, to get the code correctly
     let rma_auth_challenge = cr50.run_cmd("Shell", "rma_auth")?;
-    // Try ccd open first since pre-MP devices may be able to open ccd without rma_auth
+    // Try ccd open first since pre-MP devices may be able to open ccd without
+    // rma_auth
     cr50.run_cmd("Shell", "ccd open")?;
     for _ in 0..3 {
         // Generate rma_auth URL to unlock and abort
@@ -432,9 +434,13 @@ fn set_dev_gbb_flags(repo: &str, cr50: &LocalServo) -> Result<()> {
     )?;
     chroot.run_bash_script_in_chroot(
         "write gbb flags",
-        &format!("sudo flashrom -p raiden_debug_spi:target=AP,serial={} -w -i GBB:/tmp/gbb2.bin --noverify-all", cr50.serial()),
-        None
-        )?;
+        &format!(
+            "sudo flashrom -p raiden_debug_spi:target=AP,serial={} -w -i GBB:/tmp/gbb2.bin \
+             --noverify-all",
+            cr50.serial()
+        ),
+        None,
+    )?;
     Ok(())
 }
 
@@ -455,9 +461,13 @@ fn reset_gbb_flags(repo: &str, cr50: &LocalServo) -> Result<()> {
     )?;
     chroot.run_bash_script_in_chroot(
         "write gbb flags",
-        &format!("sudo flashrom -p raiden_debug_spi:target=AP,serial={} -w -i GBB:/tmp/gbb2.bin --noverify-all", cr50.serial()),
-        None
-        )?;
+        &format!(
+            "sudo flashrom -p raiden_debug_spi:target=AP,serial={} -w -i GBB:/tmp/gbb2.bin \
+             --noverify-all",
+            cr50.serial()
+        ),
+        None,
+    )?;
     Ok(())
 }
 fn is_ccd_testlab_enabled(cr50: &LocalServo) -> Result<bool> {
@@ -478,7 +488,11 @@ fn enable_ccd_testlab(servo: &LocalServo) -> Result<()> {
         .run_cmd("Shell", "ccd testlab")
         .context(anyhow!("Failed to run `ccd testlab` command"))?;
     if !result.trim().contains("CCD test lab mode enabled") {
-        return Err(anyhow!("CCD testlab mode is disabled. Please run `minicom -w -D {}` and run `ccd testlab enable` on it and follow the instructions.", cr50.tty_path("Shell")?));
+        return Err(anyhow!(
+            "CCD testlab mode is disabled. Please run `minicom -w -D {}` and run `ccd testlab \
+             enable` on it and follow the instructions.",
+            cr50.tty_path("Shell")?
+        ));
     }
     Ok(())
 }
@@ -516,7 +530,8 @@ fn check_dev_gbb_flags(dut: &DutInfo) -> Result<()> {
 /// "Ready for development" means:
 /// - CCD (Closed Case Debugging) is in "Open" state
 /// - A Servo is attached correctly
-/// - At least one Ethernet connection is available (so MAC addr and an IP address is known)
+/// - At least one Ethernet connection is available (so MAC addr and an IP
+///   address is known)
 /// - GBB flags are set to 0x19
 /// - CCD testlab mode is enabled
 #[argh(subcommand, name = "setup")]
@@ -553,11 +568,16 @@ fn run_setup(args: &ArgsSetup) -> Result<()> {
     let repo = get_repo_dir(&args.repo)?;
     let servo = if let Some(serial) = &args.serial {
         let list = ServoList::discover()?;
-        list.find_by_serial(serial).context(format!("
+        list.find_by_serial(serial)
+            .context(format!(
+                "
         Servo {serial} not found.
-        Please check the servo connection, try another side of USB port, attach servo directly with a host instead of via hub, etc...
+        Please check the servo connection, try another side of USB port, attach servo directly \
+                 with a host instead of via hub, etc...
         `lium servo list` may be helpful.
-        "))?.clone()
+        "
+            ))?
+            .clone()
     } else {
         let list = ServoList::discover()?;
         let list: Vec<LocalServo> = list
@@ -567,7 +587,10 @@ fn run_setup(args: &ArgsSetup) -> Result<()> {
             .cloned()
             .collect();
         if list.len() != 1 {
-            return Err(anyhow!("Please specify --serial when multiple Servo is connected. `lium servo list` may be helpful."));
+            return Err(anyhow!(
+                "Please specify --serial when multiple Servo is connected. `lium servo list` may \
+                 be helpful."
+            ));
         }
         list.first()
             .context(
@@ -636,7 +659,8 @@ fn run_dut_do(args: &ArgsDutDo) -> Result<()> {
         .collect();
     if !unknown_actions.is_empty() || args.actions.is_empty() {
         return Err(anyhow!(
-            "Unknown action: {unknown_actions:?}. See `lium dut do --list-actions` for available actions."
+            "Unknown action: {unknown_actions:?}. See `lium dut do --list-actions` for available \
+             actions."
         ));
     }
     let dut = &SshInfo::new(args.dut.as_ref().context(anyhow!("Please specify --dut"))?)?;
@@ -771,10 +795,12 @@ fn run_dut_list(args: &ArgsDutList) -> Result<()> {
 /// show DUT info
 #[argh(subcommand, name = "info")]
 struct ArgsDutInfo {
-    /// DUT identifiers (e.g. 127.0.0.1, localhost:2222, droid_NXHKDSJ003138124257611)
+    /// DUT identifiers (e.g. 127.0.0.1, localhost:2222,
+    /// droid_NXHKDSJ003138124257611)
     #[argh(option)]
     dut: String,
-    /// comma-separated list of attribute names. to show the full list, try `lium dut info --keys ?`
+    /// comma-separated list of attribute names. to show the full list, try
+    /// `lium dut info --keys ?`
     #[argh(positional)]
     keys: Vec<String>,
 }
@@ -808,7 +834,8 @@ pub struct ArgsDiscover {
     /// if not specified, the first interface in the routing table will be used.
     #[argh(option)]
     interface: Option<String>,
-    /// remote machine to do the scan. If not specified, run the discovery locally.
+    /// remote machine to do the scan. If not specified, run the discovery
+    /// locally.
     #[argh(option)]
     remote: Option<String>,
     /// path to a list of DUT_IDs to scan.

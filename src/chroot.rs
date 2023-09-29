@@ -81,7 +81,8 @@ impl Chroot {
     ///
     /// # Arguments
     ///
-    /// * `name` - A filename-capable identifier for the script (this file will be created automatically)
+    /// * `name` - A filename-capable identifier for the script (this file will
+    ///   be created automatically)
     /// * `script` - One or more lines of bash script
     /// * `args` - args to be passed to the script
     pub fn run_bash_script_in_chroot(
