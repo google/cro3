@@ -68311,7 +68311,10 @@ function pushOutput(s) {
     }
 }
 function kickWriteLoop(writeFn) {
+    console.log("in write loop1");
     const f = (_) => __awaiter(this, void 0, void 0, function* () {
+        console.log(halt);
+        console.log("ok");
         while (!halt) {
             if (inProgress) {
                 console.error('previous request is in progress! skip...');
@@ -68322,6 +68325,7 @@ function kickWriteLoop(writeFn) {
             // ina 0 and 1 seems to be the same
             // ina 2 is something but not useful
             const cmd = `ina 0\n`;
+            console.log("in write loop2");
             yield writeFn(cmd);
             yield new Promise(r => setTimeout(r, intervalMs));
         }
@@ -68339,14 +68343,13 @@ function readLoop(readFn) {
         }
     });
 }
+let device;
 function setupStartUSBButton() {
-    let device;
     let usb_interface = 0;
     let ep = usb_interface + 1;
     requestUSBButton.addEventListener('click', () => __awaiter(this, void 0, void 0, function* () {
         halt = false;
         device = null;
-        requestUSBButton.disabled = true;
         try {
             device = yield navigator.usb.requestDevice({
                 filters: [{
@@ -68360,11 +68363,12 @@ function setupStartUSBButton() {
         }
         if (!device) {
             device = null;
-            requestUSBButton.disabled = false;
+            console.log("device not found");
             return;
         }
         try {
             yield device.open();
+            requestUSBButton.disabled = true;
             yield device.selectConfiguration(1);
             yield device.claimInterface(usb_interface);
             kickWriteLoop((s) => __awaiter(this, void 0, void 0, function* () {
@@ -68372,6 +68376,8 @@ function setupStartUSBButton() {
                 yield device.transferOut(ep, data);
             }));
             readLoop(() => __awaiter(this, void 0, void 0, function* () {
+                console.log("read");
+                console.log(halt);
                 let result = yield device.transferIn(ep, 64);
                 if (result.status === 'stall') {
                     yield device.clearHalt('in', ep);
@@ -68449,14 +68455,18 @@ requestSerialButton.addEventListener('click', () => __awaiter(void 0, void 0, vo
     }));
 }));
 // event when you disconnect USB port
-navigator.serial.addEventListener("disconnect", () => {
+navigator.usb.addEventListener("disconnect", () => {
+    console.log("usb disconnect");
     halt = true;
     requestUSBButton.disabled = false;
 });
 // event when you disconnect serial port
 navigator.serial.addEventListener("disconnect", () => {
-    halt = true;
-    requestSerialButton.disabled = false;
+    if (requestSerialButton.disabled) {
+        console.log("serial disconnect");
+        halt = true;
+        requestSerialButton.disabled = false;
+    }
 });
 downloadButton.addEventListener('click', () => __awaiter(void 0, void 0, void 0, function* () {
     const dataStr = 'data:text/json;charset=utf-8,' +
@@ -68467,16 +68477,25 @@ downloadButton.addEventListener('click', () => __awaiter(void 0, void 0, void 0,
     dlAnchorElem.click();
 }));
 let haltButton = document.getElementById('haltButton');
-haltButton.addEventListener('click', () => __awaiter(void 0, void 0, void 0, function* () {
+haltButton.addEventListener('click', () => {
+    console.log("haltbutton");
     halt = true;
-    requestUSBButton.disabled = false;
+    if (requestUSBButton.disabled) {
+        // device.close
+        requestUSBButton.disabled = false;
+    }
     if (requestSerialButton.disabled) {
         reader.cancel();
         reader.releaseLock();
-        yield port.close();
+        try {
+            port.close();
+        }
+        catch (e) {
+            console.error(e);
+        }
         requestSerialButton.disabled = false;
     }
-}));
+});
 let ranges = [];
 function paintHistogram(t0, t1) {
     // constants

@@ -101,15 +101,14 @@ async function readLoop(readFn: () => Promise<string>) {
     pushOutput(s);
   }
 }
+let device: USBDevice;
 
 function setupStartUSBButton() {
-  let device: USBDevice;
   let usb_interface = 0;
   let ep = usb_interface + 1;
   requestUSBButton.addEventListener('click', async () => {
     halt = false;
     device = null;
-    requestUSBButton.disabled = true;
     try {
       device = await navigator.usb.requestDevice({
         filters: [{
@@ -122,12 +121,12 @@ function setupStartUSBButton() {
     }
     if (!device) {
       device = null;
-      requestUSBButton.disabled = false;
       return;
     }
-
+    
     try {
       await device.open();
+      requestUSBButton.disabled = true;
       await device.selectConfiguration(1);
       await device.claimInterface(usb_interface);
       kickWriteLoop(async (s) => {
@@ -211,14 +210,18 @@ requestSerialButton.addEventListener('click', async () => {
 
 // event when you disconnect USB port
 navigator.usb.addEventListener("disconnect", () => {
-  halt = true;
-  requestUSBButton.disabled = false;
+  if (requestUSBButton) {
+    halt = true;
+    requestUSBButton.disabled = false;
+  }
 })
 
 // event when you disconnect serial port
 navigator.serial.addEventListener("disconnect", () => {
-  halt = true;
-  requestSerialButton.disabled = false;
+  if (requestSerialButton.disabled) {
+    halt = true;
+    requestSerialButton.disabled = false;
+  }
 })
 
 downloadButton.addEventListener('click', async () => {
@@ -231,13 +234,20 @@ downloadButton.addEventListener('click', async () => {
 });
 
 let haltButton = document.getElementById('haltButton') as HTMLButtonElement;
-haltButton.addEventListener('click', async () => {
+haltButton.addEventListener('click', () => {
   halt = true;
-  requestUSBButton.disabled = false;
+  if (requestUSBButton.disabled) {
+    // device.close
+    requestUSBButton.disabled = false;
+  }
   if (requestSerialButton.disabled) {
     reader.cancel();
     reader.releaseLock();
-    await port.close();
+    try {
+      port.close();
+    } catch (e) {
+      console.error(e);
+    }
     requestSerialButton.disabled = false;
   }
 });
