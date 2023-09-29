@@ -171,13 +171,13 @@ let reader: ReadableStreamDefaultReader;
 
 requestSerialButton.addEventListener('click', async () => {
   halt = false;
-  requestSerialButton.disabled = true;
   port = await navigator.serial
   .requestPort({filters: [{usbVendorId: 0x18d1, usbProductId: 0x520d}]})
   .catch((e) => {
     console.error(e);
   });
   await port.open({baudRate: 115200});
+  requestSerialButton.disabled = true;
   const encoder = new TextEncoder();
   const writer = port.writable.getWriter();
   await writer.write(encoder.encode('help\n'));

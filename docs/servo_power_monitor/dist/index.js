@@ -68410,13 +68410,13 @@ let port;
 let reader;
 requestSerialButton.addEventListener('click', () => __awaiter(void 0, void 0, void 0, function* () {
     halt = false;
-    requestSerialButton.disabled = true;
     port = yield navigator.serial
         .requestPort({ filters: [{ usbVendorId: 0x18d1, usbProductId: 0x520d }] })
         .catch((e) => {
         console.error(e);
     });
     yield port.open({ baudRate: 115200 });
+    requestSerialButton.disabled = true;
     const encoder = new TextEncoder();
     const writer = port.writable.getWriter();
     yield writer.write(encoder.encode('help\n'));
