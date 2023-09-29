@@ -68448,8 +68448,14 @@ requestSerialButton.addEventListener('click', () => __awaiter(void 0, void 0, vo
         }
     }));
 }));
-// event when you disconnect servo
+// event when you disconnect USB port
 navigator.serial.addEventListener("disconnect", () => {
+    halt = true;
+    requestUSBButton.disabled = false;
+});
+// event when you disconnect serial port
+navigator.serial.addEventListener("disconnect", () => {
+    halt = true;
     requestSerialButton.disabled = false;
 });
 downloadButton.addEventListener('click', () => __awaiter(void 0, void 0, void 0, function* () {

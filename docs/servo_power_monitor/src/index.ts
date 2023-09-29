@@ -209,8 +209,15 @@ requestSerialButton.addEventListener('click', async () => {
   });
 });
 
-// event when you disconnect servo
+// event when you disconnect USB port
 navigator.serial.addEventListener("disconnect", () => {
+  halt = true;
+  requestUSBButton.disabled = false;
+})
+
+// event when you disconnect serial port
+navigator.serial.addEventListener("disconnect", () => {
+  halt = true;
   requestSerialButton.disabled = false;
 })
 
