@@ -68406,49 +68406,48 @@ function setupStartUSBButton() {
 }
 ;
 setupStartUSBButton();
-requestSerialButton.addEventListener('click', () => {
+var port;
+var reader;
+requestSerialButton.addEventListener('click', () => __awaiter(void 0, void 0, void 0, function* () {
     halt = false;
-    navigator.serial
+    requestSerialButton.disabled = true;
+    port = yield navigator.serial
         .requestPort({ filters: [{ usbVendorId: 0x18d1, usbProductId: 0x520d }] })
-        .then((port) => __awaiter(void 0, void 0, void 0, function* () {
-        // Connect to `port` or add it to the list of available ports.
-        yield port.open({ baudRate: 115200 });
-        const encoder = new TextEncoder();
-        const writer = port.writable.getWriter();
-        yield writer.write(encoder.encode('help\n'));
-        writer.releaseLock();
-        kickWriteLoop((s) => __awaiter(void 0, void 0, void 0, function* () {
-            let data = new TextEncoder().encode(s);
-            const writer = port.writable.getWriter();
-            yield writer.write(data);
-            writer.releaseLock();
-        }));
-        readLoop(() => __awaiter(void 0, void 0, void 0, function* () {
-            const reader = port.readable.getReader();
-            try {
-                while (true) {
-                    const { value, done } = yield reader.read();
-                    if (done) {
-                        // |reader| has been canceled.
-                        break;
-                    }
-                    return utf8decoder.decode(value);
-                }
-            }
-            catch (error) {
-                console.error(error);
-                throw error;
-            }
-            finally {
-                reader.releaseLock();
-            }
-        }));
-    }))
         .catch((e) => {
-        // The user didn't select a port.
         console.error(e);
     });
-});
+    yield port.open({ baudRate: 115200 });
+    const encoder = new TextEncoder();
+    const writer = port.writable.getWriter();
+    yield writer.write(encoder.encode('help\n'));
+    writer.releaseLock();
+    kickWriteLoop((s) => __awaiter(void 0, void 0, void 0, function* () {
+        let data = new TextEncoder().encode(s);
+        const writer = port.writable.getWriter();
+        yield writer.write(data);
+        writer.releaseLock();
+    }));
+    readLoop(() => __awaiter(void 0, void 0, void 0, function* () {
+        reader = port.readable.getReader();
+        try {
+            while (true) {
+                const { value, done } = yield reader.read();
+                if (done) {
+                    // |reader| has been canceled.
+                    break;
+                }
+                return utf8decoder.decode(value);
+            }
+        }
+        catch (error) {
+            console.error(error);
+            throw error;
+        }
+        finally {
+            reader.releaseLock();
+        }
+    }));
+}));
 downloadButton.addEventListener('click', () => __awaiter(void 0, void 0, void 0, function* () {
     const dataStr = 'data:text/json;charset=utf-8,' +
         encodeURIComponent(JSON.stringify({ power: powerData }));
@@ -68458,11 +68457,16 @@ downloadButton.addEventListener('click', () => __awaiter(void 0, void 0, void 0,
     dlAnchorElem.click();
 }));
 let haltButton = document.getElementById('haltButton');
-haltButton.addEventListener('click', () => {
+haltButton.addEventListener('click', () => __awaiter(void 0, void 0, void 0, function* () {
     halt = true;
     requestUSBButton.disabled = false;
-    requestSerialButton.disabled = false;
-});
+    if (requestSerialButton.disabled) {
+        reader.cancel();
+        reader.releaseLock();
+        yield port.close();
+        requestSerialButton.disabled = false;
+    }
+}));
 let ranges = [];
 function paintHistogram(t0, t1) {
     // constants
