@@ -103,6 +103,15 @@ to make a commit after running various checks.
 
 Once your commit is ready, please file a pull request on GitHub, as described in [CONTRIBUTING.md](./CONTRIBUTING.md).
 
+Try to keep commits small and
+[stacked](https://engineering.uptechstudio.com/blog/how-we-should-be-using-git/).
+A series of small changes that each work in isolation and are easy to review
+are better than one large one.  To help do this, we have created some hooks
+using [git-ps](https://book.git-ps.sh/introduction), but you can easily use
+something like [ghstack](https://github.com/ezyang/ghstack) or even meta's
+[sapling](https://sapling-scm.com) to help you cut these into chains of Pull
+Requests.
+
 Happy hacking!
 
 ## Disclaimer
