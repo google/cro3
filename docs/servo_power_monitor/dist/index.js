@@ -68406,8 +68406,8 @@ function setupStartUSBButton() {
 }
 ;
 setupStartUSBButton();
-var port;
-var reader;
+let port;
+let reader;
 requestSerialButton.addEventListener('click', () => __awaiter(void 0, void 0, void 0, function* () {
     halt = false;
     requestSerialButton.disabled = true;
