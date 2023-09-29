@@ -15,8 +15,9 @@ use regex::Regex;
 use std::process::Command;
 
 /// Determine a BOARD to flash, based on the parameters.
-/// If arg_dut is specified, this function will check if the board given via args is
-/// compatible with the BOARD of an image which is currently installed on the DUT.
+/// If arg_dut is specified, this function will check if the board given via
+/// args is compatible with the BOARD of an image which is currently installed
+/// on the DUT.
 fn determine_board_to_flash(
     arg_dut: &Option<String>,
     arg_board: &Option<String>,
@@ -53,7 +54,12 @@ fn determine_board_to_flash(
             };
             let cap_dut = re.captures(&board_from_dut).unwrap();
             if cap_arg[1] != cap_dut[1] {
-                return Err(anyhow!("Given BOARD does not match with DUT: {} is given but {} is installed on the DUT", board_from_arg, board_from_dut));
+                return Err(anyhow!(
+                    "Given BOARD does not match with DUT: {} is given but {} is installed on the \
+                     DUT",
+                    board_from_arg,
+                    board_from_dut
+                ));
             }
             Ok(board_from_arg)
         }
@@ -101,7 +107,8 @@ pub struct Args {
     enable_rootfs_verification: bool,
 }
 pub fn run(args: &Args) -> Result<()> {
-    // repo path is needed since cros flash outside chroot only works within the cros checkout
+    // repo path is needed since cros flash outside chroot only works within the
+    // cros checkout
     let repo = &get_repo_dir(&args.repo)?;
 
     let image_path = if let Some(image) = &args.image {
@@ -116,7 +123,8 @@ pub fn run(args: &Args) -> Result<()> {
         } else {
             "remote"
         };
-        // if version is not specified on the command line, it will be set to "latest" by argh
+        // if version is not specified on the command line, it will be set to "latest"
+        // by argh
         let version = if &args.version == "latest"
             || &args.version == "latest-dev"
             || &args.version == "latest-official"
