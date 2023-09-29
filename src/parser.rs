@@ -4,8 +4,8 @@
 // license that can be found in the LICENSE file or at
 // https://developers.google.com/open-source/licenses/bsd
 
-//! This module is used to get Linux System Base (LSB) release information on Chrome OS systems, as
-//! usually located in `/etc/lsb-release`.
+//! This module is used to get Linux System Base (LSB) release information on
+//! Chrome OS systems, as usually located in `/etc/lsb-release`.
 
 //! This file is a fork of:
 //! https://source.chromium.org/chromium/chromiumos/platform2/+/main:vm_tools/crostini_client/lsb_release.rs;drc=41a92137d3e795ad6a51c5dec90dfa142af8c7c3
@@ -39,7 +39,8 @@ impl Error for LsbReleaseError {}
 /// A result from gathering resource information.
 pub type LsbReleaseResult<T> = Result<T, LsbReleaseError>;
 
-/// Release information typically gathered from the environment or from `/etc/lsb-release`.
+/// Release information typically gathered from the environment or from
+/// `/etc/lsb-release`.
 #[derive(Debug)]
 pub struct LsbRelease {
     info: BTreeMap<String, String>,
@@ -51,8 +52,8 @@ impl LsbRelease {
         self.info.get(k.as_ref()).map(|s| s.as_str())
     }
 
-    /// Gets the type of release channel this release information corresponds to,
-    /// or none if this
+    /// Gets the type of release channel this release information corresponds
+    /// to, or none if this
     /// information was not indicated.
     pub fn release_channel(&self) -> Option<ReleaseChannel> {
         self.get(CHROMEOS_RELEASE_TRACK_KEY).map(|c| c.into())
@@ -93,8 +94,8 @@ impl FromStr for LsbRelease {
     }
 }
 
-/// A channel of OS releases. Channels are distinguished by their relative stability and frequency
-/// of release.
+/// A channel of OS releases. Channels are distinguished by their relative
+/// stability and frequency of release.
 #[derive(PartialEq, Eq, Debug)]
 pub enum ReleaseChannel<'a> {
     Lts,

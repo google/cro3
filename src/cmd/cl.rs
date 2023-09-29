@@ -42,7 +42,8 @@ pub struct ArgsPick {
     #[argh(option)]
     repo: Option<String>,
 
-    /// dir to run git commands, relative to cros checkout (e.g. src/platform/crosvm)
+    /// dir to run git commands, relative to cros checkout (e.g.
+    /// src/platform/crosvm)
     #[argh(option)]
     dir: String,
 

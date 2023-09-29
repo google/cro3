@@ -1,0 +1,6 @@
+tab_spaces = 4
+fn_args_layout = "Tall"
+format_strings = true
+use_try_shorthand = true
+wrap_comments = true
+max_width = 100

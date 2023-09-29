@@ -72,7 +72,8 @@ pub fn get_repo_dir(dir: &Option<String>) -> Result<String> {
 
 pub fn get_current_synced_version(repo: &str) -> Result<String> {
     ensure_if_cros_dir(repo)?;
-    let cmd = "./src/third_party/chromiumos-overlay/chromeos/config/chromeos_version.sh | grep -e VERSION_STRING -e CHROME_BRANCH | cut -d '=' -f 2 | cut -d '-' -f 1";
+    let cmd = "./src/third_party/chromiumos-overlay/chromeos/config/chromeos_version.sh | grep -e \
+               VERSION_STRING -e CHROME_BRANCH | cut -d '=' -f 2 | cut -d '-' -f 1";
     let output = run_bash_command(cmd, Some(repo))?;
     let binding = get_stdout(&output);
     let output: Vec<&str> = binding.split('\n').collect();
@@ -87,7 +88,8 @@ pub fn get_current_synced_version(repo: &str) -> Result<String> {
 
 pub fn get_current_synced_arc_version(repo: &str) -> Result<String> {
     // TODO: Are there any better way to do?
-    let cmd = "cd .repo/manifests && git branch -r --contains HEAD | xargs -n 1 | grep m/ | sed -E 's@m/(.*)-arc@\\1@g'";
+    let cmd = "cd .repo/manifests && git branch -r --contains HEAD | xargs -n 1 | grep m/ | sed \
+               -E 's@m/(.*)-arc@\\1@g'";
     let output = run_bash_command(cmd, Some(repo))?;
     Ok(get_stdout(&output))
 }

@@ -357,7 +357,10 @@ impl DutInfo {
                 }
             }
         }
-        let cmds = format!("function lium_get_default_iface {{ {CMD_GET_DEFAULT_IFACE} ; }} && export -f lium_get_default_iface && ");
+        let cmds = format!(
+            "function lium_get_default_iface {{ {CMD_GET_DEFAULT_IFACE} ; }} && export -f \
+             lium_get_default_iface && "
+        );
         let cmds = cmds
             + &keys_from_dut
                 .iter()
@@ -686,10 +689,11 @@ impl SshInfo {
         return Err(anyhow!("Could not find a port available for forwarding"));
     }
     /// Keep forwarding in background.
-    /// The execution will be blocked until the first attemp succeeds, and the return value
-    /// represents which port is used for this forwarding, or an error.
-    /// Forwarding port on this side will be automatically determined by start_ssh_forwarding,
-    /// and the same port will be used for reconnecting while this lium instance is running.
+    /// The execution will be blocked until the first attemp succeeds, and the
+    /// return value represents which port is used for this forwarding, or an
+    /// error. Forwarding port on this side will be automatically determined by
+    /// start_ssh_forwarding, and the same port will be used for reconnecting
+    /// while this lium instance is running.
     pub fn start_ssh_forwarding_range_background(&self, port_range: Range<u16>) -> Result<u16> {
         let (mut child, port) = block_on(self.start_ssh_forwarding_range(port_range))?;
         let ssh = self.clone();
@@ -891,8 +895,11 @@ pub fn discover_local_nodes(iface: Option<String>) -> Result<Vec<String>> {
         })
         .context("Failed to determine interface to scan")?;
     eprintln!("Using {iface} to scan...");
-    let output = run_bash_command(&format!(
-        "ping6 -c 3 -I {iface} ff02::1 | grep 'bytes from' | cut -d ' ' -f 4 | tr -d ',' | sort | uniq"),
+    let output = run_bash_command(
+        &format!(
+            "ping6 -c 3 -I {iface} ff02::1 | grep 'bytes from' | cut -d ' ' -f 4 | tr -d ',' | \
+             sort | uniq"
+        ),
         None,
     )?;
     let stdout = get_stdout(&output);

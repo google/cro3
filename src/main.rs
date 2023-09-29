@@ -24,11 +24,10 @@ static VERSION_TO_MILESTONE_CACHE: KvCache<String> = KvCache::new("version_cache
 fn list_gs_files(pattern: &str) -> Result<String> {
     let cmd = format!("gsutil.py ls {}", pattern.trim());
     println!("{:?}", cmd);
-    let output = Command::new("bash")
-        .arg("-c")
-        .arg(cmd)
-        .output()
-        .context("Failed to execute gsutil ls (maybe you need depot_tools and/or `gsutil.py config` with 'chromeos-swarming' project)")?;
+    let output = Command::new("bash").arg("-c").arg(cmd).output().context(
+        "Failed to execute gsutil ls (maybe you need depot_tools and/or `gsutil.py config` with \
+         'chromeos-swarming' project)",
+    )?;
     Ok(String::from_utf8_lossy(&output.stdout)
         .to_string()
         .trim()
@@ -47,10 +46,12 @@ fn lookup_full_version(input: &str, board: &str) -> Result<String> {
         VERSION_TO_MILESTONE_CACHE.get_or_else(input, &|key| {
             let output = list_gs_files(&format!(
                 "gs://chromeos-image-archive/{}-release/R*-{}/chromiumos_test_image.tar.xz",
-                board,
-                key
+                board, key
             ))
-            .context("gsutil command failed (maybe you need depot_tools and/or `gsutil.py config` with 'chromeos-swarming' project)")?;
+            .context(
+                "gsutil command failed (maybe you need depot_tools and/or `gsutil.py config` with \
+                 'chromeos-swarming' project)",
+            )?;
             let output = re_cros_version
                 .captures(output.trim())
                 .context("Invalid gsutil output")?;
