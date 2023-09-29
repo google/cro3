@@ -209,6 +209,11 @@ requestSerialButton.addEventListener('click', async () => {
   });
 });
 
+// event when you disconnect servo
+navigator.serial.addEventListener("disconnect", () => {
+  requestSerialButton.disabled = false;
+})
+
 downloadButton.addEventListener('click', async () => {
   const dataStr = 'data:text/json;charset=utf-8,' +
       encodeURIComponent(JSON.stringify({power: powerData}));
