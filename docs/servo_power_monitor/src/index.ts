@@ -246,7 +246,7 @@ navigator.usb.addEventListener("disconnect", () => {
     inProgress = false;
     // USB port is closed by specification when device is disconnected
   }
-})
+});
 
 // event when you disconnect serial port
 navigator.serial.addEventListener("disconnect", () => {
@@ -255,7 +255,7 @@ navigator.serial.addEventListener("disconnect", () => {
     inProgress = false;
     closeSerialPort();
   }
-})
+});
 
 downloadButton.addEventListener('click', async () => {
   const dataStr = 'data:text/json;charset=utf-8,' +
