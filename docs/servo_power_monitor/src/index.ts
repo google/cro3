@@ -30,28 +30,27 @@ function updateGraph(data: Array<Array<Date|number>>) {
     document.querySelector('#tooltip').classList.add("hidden");
   }
   currentData = data;
-  g.updateOptions(
-      {
-        file: data,
-        labels: ['t', 'ina0'],
-        showRoller: true,
-        ylabel: 'Power (mW)',
-        legend: 'always',
-        showRangeSelector: true,
-        connectSeparatedPoints: true,
-        underlayCallback: function(canvas, area, g) {
-          canvas.fillStyle = 'rgba(255, 255, 102, 1.0)';
+  g.updateOptions({
+    file : data,
+    labels : [ 't', 'ina0' ],
+    showRoller : true,
+    ylabel : 'Power (mW)',
+    legend : 'always',
+    showRangeSelector : true,
+    connectSeparatedPoints : true,
+    underlayCallback : function(canvas, area, g) {
+      canvas.fillStyle = 'rgba(255, 255, 102, 1.0)';
 
-          function highlight_period(x_start: number, x_end: number) {
-            const canvas_left_x = g.toDomXCoord(x_start);
-            const canvas_right_x = g.toDomXCoord(x_end);
-            const canvas_width = canvas_right_x - canvas_left_x;
-            canvas.fillRect(canvas_left_x, area.y, canvas_width, area.h);
-          }
-          highlight_period(10, 10);
-        }
-      },
-      false);
+      function highlight_period(x_start: number, x_end: number) {
+        const canvas_left_x = g.toDomXCoord(x_start);
+        const canvas_right_x = g.toDomXCoord(x_end);
+        const canvas_width = canvas_right_x - canvas_left_x;
+        canvas.fillRect(canvas_left_x, area.y, canvas_width, area.h);
+      }
+      highlight_period(10, 10);
+    }
+  },
+                  false);
 }
 
 let inProgress = false;
@@ -65,7 +64,7 @@ function pushOutput(s: string) {
                              .split('=>')[1]
                              .trim()
                              .split(' ')[0]);
-    let e: Array<Date|Number> = [new Date(), power];
+    let e: Array<Date|Number> = [ new Date(), power ];
     powerData.push(e);
     updateGraph(powerData);
     serial_output.innerText = output;
@@ -138,10 +137,10 @@ function setupStartUSBButton() {
     device = null;
     try {
       device = await navigator.usb.requestDevice({
-        filters: [{
-          vendorId: 0x18d1,  /* Google */
-          productId: 0x520d, /* Servo v4p1 */
-        }]
+        filters : [ {
+          vendorId : 0x18d1,  /* Google */
+          productId : 0x520d, /* Servo v4p1 */
+        } ]
       });
     } catch (err) {
       console.error(`Error: ${err}`);
@@ -150,7 +149,7 @@ function setupStartUSBButton() {
       device = null;
       return;
     }
-    
+
     try {
       await device.open();
       requestUSBButton.disabled = true;
@@ -174,7 +173,8 @@ function setupStartUSBButton() {
             console.error(e);
             throw e;
           }
-          // If halt is true, it's when the stop button is pressed. Therefore, we can ignore the error.
+          // If halt is true, it's when the stop button is pressed. Therefore,
+          // we can ignore the error.
         }
       });
     } catch (err) {
@@ -189,9 +189,9 @@ function setupStartUSBButton() {
     }
     let data: any;
     if (event.key.length === 1) {
-      data = new Int8Array([event.key.charCodeAt(0)]);
+      data = new Int8Array([ event.key.charCodeAt(0) ]);
     } else if (event.code === 'Enter') {
-      data = new Uint8Array([0x0a]);
+      data = new Uint8Array([ 0x0a ]);
     } else {
       return;
     }
@@ -203,11 +203,10 @@ setupStartUSBButton();
 requestSerialButton.addEventListener('click', async () => {
   halt = false;
   port = await navigator.serial
-  .requestPort({filters: [{usbVendorId: 0x18d1, usbProductId: 0x520d}]})
-  .catch((e) => {
-    console.error(e);
-  });
-  await port.open({baudRate: 115200});
+             .requestPort(
+                 {filters : [ {usbVendorId : 0x18d1, usbProductId : 0x520d} ]})
+             .catch((e) => { console.error(e); });
+  await port.open({baudRate : 115200});
   requestSerialButton.disabled = true;
   const encoder = new TextEncoder();
   const writer = port.writable.getWriter();
@@ -261,7 +260,7 @@ navigator.serial.addEventListener("disconnect", () => {
 
 downloadButton.addEventListener('click', async () => {
   const dataStr = 'data:text/json;charset=utf-8,' +
-      encodeURIComponent(JSON.stringify({power: powerData}));
+                  encodeURIComponent(JSON.stringify({power : powerData}));
   const dlAnchorElem = document.getElementById('downloadAnchorElem');
   dlAnchorElem.setAttribute('href', dataStr);
   dlAnchorElem.setAttribute('download', `power_${moment().format()}.json`);
@@ -286,27 +285,28 @@ function paintHistogram(t0: number, t1: number) {
   const boxWidth = 10;
 
   // setup a graph (drop if exists)
-  const margin = {top: 60, right: 200, bottom: 0, left: 200};
+  const margin = {top : 60, right : 200, bottom : 0, left : 200};
   const area = d3.select('#d3area');
-  var targetWidth = (area.node() as HTMLElement).getBoundingClientRect().width * 0.98;
-  var targetHeight = 10000; // (area.node() as HTMLElement).getBoundingClientRect().height;
+  var targetWidth =
+      (area.node() as HTMLElement).getBoundingClientRect().width * 0.98;
+  var targetHeight =
+      10000; // (area.node() as HTMLElement).getBoundingClientRect().height;
   const width = targetWidth - margin.left - margin.right;
   const height = targetHeight - margin.top - margin.bottom;
-  const svg = area
-          .html('')
-          .append('svg')
-          .attr('height', targetHeight)
-          .attr('width', targetWidth)
-          .append('g')
-          .attr(
-              'transform', 'translate(' + margin.left + ',' + margin.top + ')');
+  const svg = area.html('')
+                  .append('svg')
+                  .attr('height', targetHeight)
+                  .attr('width', targetWidth)
+                  .append('g')
+                  .attr('transform',
+                        'translate(' + margin.left + ',' + margin.top + ')');
 
   // y axis and its label
   const dataAll: Array<number> =
       currentData.map((e: (Date|number)) => e[1] as number);
   const ymin = d3.min(dataAll) - 1000;
   const ymax = d3.max(dataAll) + 1000;
-  const y = d3.scaleLinear().domain([ymin, ymax]).range([0, width]);
+  const y = d3.scaleLinear().domain([ ymin, ymax ]).range([ 0, width ]);
   svg.append('g').call(d3.axisTop(y));
   svg.append('text')
       .attr('text-anchor', 'end')
@@ -315,15 +315,15 @@ function paintHistogram(t0: number, t1: number) {
       .attr('stroke', '#fff')
       .text('Power (mW)');
 
-  ranges.push([t0, t1]);
+  ranges.push([ t0, t1 ]);
 
   for (let i = 0; i < ranges.length; i++) {
     // compute data and place of i-th series
     const left = ranges[i][0];
     const right = ranges[i][1];
-    let points = currentData.filter(
-        (e: (Date|String)) =>
-            (left <= e[0].getTime() && e[0].getTime() <= right));
+    let points =
+        currentData.filter((e: (Date|String)) => (left <= e[0].getTime() &&
+                                                  e[0].getTime() <= right));
     let data: Array<number> = points.map((e: (Date|number)) => e[1] as number);
     const center = xtick * (i + 1);
 
@@ -339,7 +339,6 @@ function paintHistogram(t0: number, t1: number) {
     const maxValue = d3.max(data);
     const mean = d3.mean(data);
 
-
     // min, mean, max
     svg.append('line')
         .attr('y1', center)
@@ -349,21 +348,13 @@ function paintHistogram(t0: number, t1: number) {
         .style('stroke-dasharray', '3, 3')
         .attr('stroke', '#aaa')
     svg.selectAll('toto')
-        .data([minValue, mean, maxValue])
+        .data([ minValue, mean, maxValue ])
         .enter()
         .append('line')
         .attr('y1', center - boxWidth)
         .attr('y2', center + boxWidth)
-        .attr(
-            'x1',
-            function(d) {
-              return (y(d))
-            })
-        .attr(
-            'x2',
-            function(d) {
-              return (y(d))
-            })
+        .attr('x1', function(d) { return (y(d)) })
+        .attr('x2', function(d) { return (y(d)) })
         .style('stroke-dasharray', '3, 3')
         .attr('stroke', '#aaa');
 
@@ -382,21 +373,13 @@ function paintHistogram(t0: number, t1: number) {
         .attr('stroke', '#fff')
         .style('fill', '#69b3a2')
     svg.selectAll('toto')
-        .data([lowerFence, median, upperFence])
+        .data([ lowerFence, median, upperFence ])
         .enter()
         .append('line')
         .attr('y1', center - boxWidth / 2)
         .attr('y2', center + boxWidth / 2)
-        .attr(
-            'x1',
-            function(d) {
-              return (y(d))
-            })
-        .attr(
-            'x2',
-            function(d) {
-              return (y(d))
-            })
+        .attr('x1', function(d) { return (y(d)) })
+        .attr('x2', function(d) { return (y(d)) })
         .attr('stroke', '#fff');
 
     svg.append('text')
@@ -480,7 +463,7 @@ function setupDataLoad() {
   const handleDragOver = (evt: DragEvent) => {
     evt.stopPropagation();
     evt.preventDefault();
-    evt.dataTransfer.dropEffect = 'copy';  // Explicitly show this is a copy.
+    evt.dataTransfer.dropEffect = 'copy'; // Explicitly show this is a copy.
   };
   const dropZone = document.getElementById('dropZone');
   dropZone.innerText = 'Drop .json here';
