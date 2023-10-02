@@ -68340,6 +68340,7 @@ function readLoop(readFn) {
             }
             catch (e) {
                 break;
+                // break the loop to call disconnect event
             }
         }
     });
@@ -68412,6 +68413,7 @@ function setupStartUSBButton() {
                         console.error(e);
                         throw e;
                     }
+                    // If halt is true, it's when the stop button is pressed. Therefore, we can ignore the error.
                 }
             }));
         }
