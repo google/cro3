@@ -68340,7 +68340,9 @@ function readLoop(readFn) {
             }
             catch (e) {
                 break;
-                // break the loop to call disconnect event
+                // break the loop here because `disconnect` event is not called in Chrome
+                // for some reason when the loop continues. And no need to throw error
+                // here because it is thrown in readFn.
             }
         }
     });
@@ -68413,7 +68415,8 @@ function setupStartUSBButton() {
                         console.error(e);
                         throw e;
                     }
-                    // If halt is true, it's when the stop button is pressed. Therefore, we can ignore the error.
+                    // If halt is true, it's when the stop button is pressed. Therefore,
+                    // we can ignore the error.
                 }
             }));
         }
@@ -68446,9 +68449,7 @@ requestSerialButton.addEventListener('click', () => __awaiter(void 0, void 0, vo
     halt = false;
     port = yield navigator.serial
         .requestPort({ filters: [{ usbVendorId: 0x18d1, usbProductId: 0x520d }] })
-        .catch((e) => {
-        console.error(e);
-    });
+        .catch((e) => { console.error(e); });
     yield port.open({ baudRate: 115200 });
     requestSerialButton.disabled = true;
     const encoder = new TextEncoder();
@@ -68482,13 +68483,16 @@ requestSerialButton.addEventListener('click', () => __awaiter(void 0, void 0, vo
         }
     }));
 }));
-// event when you disconnect USB port
+// `disconnect` event is fired when a USB device is disconnected.
+// c.f. https://wicg.github.io/webusb/#disconnect (5.1. Events)
 navigator.usb.addEventListener("disconnect", () => {
     if (requestUSBButton.disabled) {
         halt = true;
         requestUSBButton.disabled = false;
         inProgress = false;
-        // USB port is closed by specification when device is disconnected
+        //  No need to call close() for the USB port here because the specification
+        //  says that
+        // the port will be closed automatically when a device is disconnected.
     }
 });
 // event when you disconnect serial port
@@ -68529,8 +68533,7 @@ function paintHistogram(t0, t1) {
     var targetHeight = 10000; // (area.node() as HTMLElement).getBoundingClientRect().height;
     const width = targetWidth - margin.left - margin.right;
     const height = targetHeight - margin.top - margin.bottom;
-    const svg = area
-        .html('')
+    const svg = area.html('')
         .append('svg')
         .attr('height', targetHeight)
         .attr('width', targetWidth)
@@ -68553,7 +68556,8 @@ function paintHistogram(t0, t1) {
         // compute data and place of i-th series
         const left = ranges[i][0];
         const right = ranges[i][1];
-        let points = currentData.filter((e) => (left <= e[0].getTime() && e[0].getTime() <= right));
+        let points = currentData.filter((e) => (left <= e[0].getTime() &&
+            e[0].getTime() <= right));
         let data = points.map((e) => e[1]);
         const center = xtick * (i + 1);
         // Compute statistics
@@ -68581,12 +68585,8 @@ function paintHistogram(t0, t1) {
             .append('line')
             .attr('y1', center - boxWidth)
             .attr('y2', center + boxWidth)
-            .attr('x1', function (d) {
-            return (y(d));
-        })
-            .attr('x2', function (d) {
-            return (y(d));
-        })
+            .attr('x1', function (d) { return (y(d)); })
+            .attr('x2', function (d) { return (y(d)); })
             .style('stroke-dasharray', '3, 3')
             .attr('stroke', '#aaa');
         // box and line
@@ -68609,12 +68609,8 @@ function paintHistogram(t0, t1) {
             .append('line')
             .attr('y1', center - boxWidth / 2)
             .attr('y2', center + boxWidth / 2)
-            .attr('x1', function (d) {
-            return (y(d));
-        })
-            .attr('x2', function (d) {
-            return (y(d));
-        })
+            .attr('x1', function (d) { return (y(d)); })
+            .attr('x2', function (d) { return (y(d)); })
             .attr('stroke', '#fff');
         svg.append('text')
             .attr('text-anchor', 'end')

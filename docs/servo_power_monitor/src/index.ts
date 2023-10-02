@@ -101,7 +101,9 @@ async function readLoop(readFn: () => Promise<string>) {
       pushOutput(s);
     } catch (e) {
       break;
-      // break the loop to call disconnect event
+      // break the loop here because `disconnect` event is not called in Chrome
+      // for some reason when the loop continues. And no need to throw error
+      // here because it is thrown in readFn.
     }
   }
 }
@@ -239,13 +241,16 @@ requestSerialButton.addEventListener('click', async () => {
   });
 });
 
-// event when you disconnect USB port
+// `disconnect` event is fired when a USB device is disconnected.
+// c.f. https://wicg.github.io/webusb/#disconnect (5.1. Events)
 navigator.usb.addEventListener("disconnect", () => {
   if (requestUSBButton.disabled) {
     halt = true;
     requestUSBButton.disabled = false;
     inProgress = false;
-    // USB port is closed by specification when device is disconnected
+    //  No need to call close() for the USB port here because the specification
+    //  says that
+    // the port will be closed automatically when a device is disconnected.
   }
 });
 
