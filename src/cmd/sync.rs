@@ -12,13 +12,12 @@ use anyhow::Result;
 use argh::FromArgs;
 use lium::arc::lookup_arc_version;
 use lium::arc::setup_arc_repo;
+use lium::cros::lookup_full_version;
 use lium::cros::setup_cros_repo;
 use lium::repo::get_cros_dir_unchecked;
 use lium::repo::get_current_synced_arc_version;
 use lium::repo::get_current_synced_version;
 use lium::repo::repo_sync;
-
-use crate::lookup_full_version;
 
 #[derive(FromArgs, PartialEq, Debug)]
 /// synchronize repository
