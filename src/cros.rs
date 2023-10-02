@@ -11,7 +11,42 @@ use anyhow::Context;
 use anyhow::Result;
 use regex_macro::regex;
 
+use crate::cache::KvCache;
+use crate::google_storage;
 use crate::util::run_bash_command;
+
+static VERSION_TO_MILESTONE_CACHE: KvCache<String> = KvCache::new("version_cache");
+
+// TODO #83 create an enum to represent board that can be converted to string
+// (adds some type safety)
+pub fn lookup_full_version(input: &str, board: &str) -> Result<String> {
+    let input = input.trim();
+    let re_cros_version_without_milestone = regex!(r"^\d+\.\d+\.\d+$");
+    let re_cros_version = regex!(r"/(R\d+\-\d+\.\d+\.\d+)/");
+    let re_full_cros_version = regex!(r"(R\d+\-\d+\.\d+\.\d+)");
+    if let Some(captures) = re_full_cros_version.captures(input) {
+        let captures = captures.get(1).context("No match found")?;
+        Ok(captures.as_str().to_string())
+    } else if re_cros_version_without_milestone.is_match(input) {
+        VERSION_TO_MILESTONE_CACHE.get_or_else(input, &|key| {
+            let output = google_storage::list_gs_files(&format!(
+                "gs://chromeos-image-archive/{}-release/R*-{}/chromiumos_test_image.tar.xz",
+                board, key
+            ))
+            .context(
+                "gsutil command failed (maybe you need depot_tools and/or `gsutil.py config` with \
+                 'chromeos-swarming' project)",
+            )?;
+            let output = re_cros_version
+                .captures(output.trim())
+                .context("Invalid gsutil output")?;
+            let output = output.get(1).context("No match found")?;
+            Ok(output.as_str().to_string())
+        })
+    } else {
+        Err(anyhow!("Invalid version format: {}", input))
+    }
+}
 
 pub fn ensure_testing_rsa_is_there() -> Result<()> {
     let cmd = "
