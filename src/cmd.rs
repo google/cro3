@@ -24,7 +24,7 @@ pub mod version;
 
 #[derive(FromArgs, PartialEq, Debug)]
 /// yet another wrapper for CrOS developers.
-/// For more information, see: https://chromium.googlesource.com/chromiumos/platform/dev-util/+/refs/heads/main/contrib/lium/ .
+/// For more information, see: https://github.com/google/lium
 /// For Googlers, see go/lium and go/lium-bug
 pub struct TopLevel {
     #[argh(subcommand)]
@@ -33,7 +33,7 @@ pub struct TopLevel {
 
 #[derive(FromArgs, PartialEq, Debug)]
 #[argh(subcommand)]
-/// hikalium's ChromiumOS dev commands
+/// lium's ChromiumOS dev commands
 pub enum Args {
     Arc(arc::Args),
     Build(build::Args),
