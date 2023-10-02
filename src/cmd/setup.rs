@@ -4,6 +4,8 @@
 // license that can be found in the LICENSE file or at
 // https://developers.google.com/open-source/licenses/bsd
 
+use std::fs;
+
 use anyhow::anyhow;
 use anyhow::Context;
 use anyhow::Error;
@@ -12,7 +14,6 @@ use argh::FromArgs;
 use lium::util::gen_path_in_lium_dir;
 use lium::util::get_stdout;
 use lium::util::run_bash_command;
-use std::fs;
 
 #[derive(FromArgs, PartialEq, Debug)]
 /// setup development environment

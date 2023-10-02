@@ -4,7 +4,8 @@
 // license that can be found in the LICENSE file or at
 // https://developers.google.com/open-source/licenses/bsd
 
-use crate::lookup_full_version;
+use std::process::Command;
+
 use anyhow::anyhow;
 use anyhow::Result;
 use argh::FromArgs;
@@ -12,7 +13,8 @@ use lium::cros::ensure_testing_rsa_is_there;
 use lium::dut::DutInfo;
 use lium::repo::get_repo_dir;
 use regex::Regex;
-use std::process::Command;
+
+use crate::lookup_full_version;
 
 /// Determine a BOARD to flash, based on the parameters.
 /// If arg_dut is specified, this function will check if the board given via

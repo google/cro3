@@ -4,13 +4,17 @@
 // license that can be found in the LICENSE file or at
 // https://developers.google.com/open-source/licenses/bsd
 
-use crate::cache::KvCache;
-use crate::config::Config;
-use crate::cros::ensure_testing_rsa_is_there;
-use crate::util::get_async_lines;
-use crate::util::get_stderr;
-use crate::util::get_stdout;
-use crate::util::run_bash_command;
+use std::collections::HashMap;
+use std::collections::HashSet;
+use std::ffi::OsStr;
+use std::ops::Range;
+use std::process::Command;
+use std::process::Output;
+use std::process::Stdio;
+use std::str::FromStr;
+use std::thread;
+use std::time::Duration;
+
 use anyhow::anyhow;
 use anyhow::Context;
 use anyhow::Result;
@@ -27,17 +31,15 @@ use rand::thread_rng;
 use rayon::prelude::*;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::collections::HashSet;
-use std::ffi::OsStr;
-use std::ops::Range;
-use std::process::Command;
-use std::process::Output;
-use std::process::Stdio;
-use std::str::FromStr;
-use std::thread;
-use std::time::Duration;
 use url::Url;
+
+use crate::cache::KvCache;
+use crate::config::Config;
+use crate::cros::ensure_testing_rsa_is_there;
+use crate::util::get_async_lines;
+use crate::util::get_stderr;
+use crate::util::get_stdout;
+use crate::util::run_bash_command;
 
 const COMMON_SSH_OPTIONS: [&str; 16] = [
     // Do not read ~/.ssh/config to avoid effects comes from ssh_config

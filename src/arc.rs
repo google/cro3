@@ -4,10 +4,11 @@
 // license that can be found in the LICENSE file or at
 // https://developers.google.com/open-source/licenses/bsd
 
+use std::process::Command;
+
 use anyhow::anyhow;
 use anyhow::Context;
 use anyhow::Result;
-use std::process::Command;
 
 use crate::config::Config;
 
