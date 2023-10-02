@@ -447,7 +447,7 @@ impl LocalServo {
     pub fn start_servod(&self, chroot: &Chroot) -> Result<ServodConnection> {
         block_on(async {
             eprintln!("Starting servod...");
-            let mut ports = (9000..9099).into_iter().collect::<Vec<u16>>();
+            let mut ports = (9000..9099).collect::<Vec<u16>>();
             let mut rng = thread_rng();
             ports.shuffle(&mut rng);
             for port in ports {
@@ -484,7 +484,8 @@ impl LocalServo {
                         }
                 }
             }
-            return Err(anyhow!("servod failed unexpectedly"));
+
+            Err(anyhow!("servod failed unexpectedly"))
         })?;
         ServodConnection::from_serial(&self.serial)
     }
