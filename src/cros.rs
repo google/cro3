@@ -4,12 +4,14 @@
 // license that can be found in the LICENSE file or at
 // https://developers.google.com/open-source/licenses/bsd
 
-use crate::util::run_bash_command;
+use std::process::Command;
+
 use anyhow::anyhow;
 use anyhow::Context;
 use anyhow::Result;
 use regex_macro::regex;
-use std::process::Command;
+
+use crate::util::run_bash_command;
 
 pub fn ensure_testing_rsa_is_there() -> Result<()> {
     let cmd = "

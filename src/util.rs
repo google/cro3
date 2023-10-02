@@ -4,6 +4,16 @@
 // license that can be found in the LICENSE file or at
 // https://developers.google.com/open-source/licenses/bsd
 
+use std::env::current_exe;
+use std::fs::create_dir_all;
+use std::io::ErrorKind;
+use std::io::Read;
+use std::path::Path;
+use std::path::PathBuf;
+use std::process::Command;
+use std::process::Output;
+use std::time::Duration;
+
 use anyhow::anyhow;
 use anyhow::Context;
 use anyhow::Result;
@@ -15,15 +25,6 @@ use dirs::home_dir;
 use futures::io::BufReader;
 use futures::io::Lines;
 use futures::AsyncBufReadExt;
-use std::env::current_exe;
-use std::fs::create_dir_all;
-use std::io::ErrorKind;
-use std::io::Read;
-use std::path::Path;
-use std::path::PathBuf;
-use std::process::Command;
-use std::process::Output;
-use std::time::Duration;
 use wait_timeout::ChildExt;
 
 pub fn has_root_privilege() -> Result<bool> {

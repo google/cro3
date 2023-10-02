@@ -4,19 +4,23 @@
 // license that can be found in the LICENSE file or at
 // https://developers.google.com/open-source/licenses/bsd
 
-use crate::chroot::Chroot;
-use crate::config::Config;
-use crate::util::get_async_lines;
-use crate::util::get_stdout;
-use crate::util::has_root_privilege;
-use crate::util::run_bash_command;
-use crate::util::run_bash_command_with_timeout;
-use crate::util::run_lium_with_sudo;
+use core::str::FromStr;
+use std::cmp::Ordering;
+use std::collections::BTreeMap;
+use std::collections::HashSet;
+use std::fmt;
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::fs;
+use std::iter::FromIterator;
+use std::os::unix::fs::FileTypeExt;
+use std::path::Path;
+use std::time::Duration;
+
 use anyhow::anyhow;
 use anyhow::Context;
 use anyhow::Result;
 use async_process::Child;
-use core::str::FromStr;
 use futures::executor::block_on;
 use futures::select;
 use futures::FutureExt;
@@ -31,17 +35,15 @@ use retry::delay;
 use retry::retry;
 use serde::Deserialize;
 use serde::Serialize;
-use std::cmp::Ordering;
-use std::collections::BTreeMap;
-use std::collections::HashSet;
-use std::fmt;
-use std::fmt::Display;
-use std::fmt::Formatter;
-use std::fs;
-use std::iter::FromIterator;
-use std::os::unix::fs::FileTypeExt;
-use std::path::Path;
-use std::time::Duration;
+
+use crate::chroot::Chroot;
+use crate::config::Config;
+use crate::util::get_async_lines;
+use crate::util::get_stdout;
+use crate::util::has_root_privilege;
+use crate::util::run_bash_command;
+use crate::util::run_bash_command_with_timeout;
+use crate::util::run_lium_with_sudo;
 
 lazy_static! {
     static ref RE_MAC_ADDR: Regex =
@@ -52,8 +54,9 @@ lazy_static! {
 }
 #[cfg(test)]
 mod tests {
-    use super::*;
     use pretty_assertions::assert_eq;
+
+    use super::*;
     #[test]
     fn regex() {
         assert!(RE_MAC_ADDR.is_match("FF:FF:FF:FF:FF:FF"));

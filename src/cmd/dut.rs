@@ -4,6 +4,15 @@
 // license that can be found in the LICENSE file or at
 // https://developers.google.com/open-source/licenses/bsd
 
+use std::collections::HashMap;
+use std::env::current_exe;
+use std::fs::read_to_string;
+use std::io::stdout;
+use std::io::Read;
+use std::io::Write;
+use std::thread;
+use std::time;
+
 use anyhow::anyhow;
 use anyhow::Context;
 use anyhow::Result;
@@ -22,14 +31,6 @@ use lium::servo::get_cr50_attached_to_servo;
 use lium::servo::LocalServo;
 use lium::servo::ServoList;
 use rayon::prelude::*;
-use std::collections::HashMap;
-use std::env::current_exe;
-use std::fs::read_to_string;
-use std::io::stdout;
-use std::io::Read;
-use std::io::Write;
-use std::thread;
-use std::time;
 use termion::screen::IntoAlternateScreen;
 
 #[derive(FromArgs, PartialEq, Debug)]

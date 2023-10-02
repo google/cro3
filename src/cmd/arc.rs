@@ -4,13 +4,14 @@
 // license that can be found in the LICENSE file or at
 // https://developers.google.com/open-source/licenses/bsd
 
+use std::process::Command;
+
 use anyhow::Result;
 use argh::FromArgs;
 use lium::chroot::Chroot;
 use lium::cros::ensure_testing_rsa_is_there;
 use lium::dut::SshInfo;
 use lium::repo::get_repo_dir;
-use std::process::Command;
 
 #[derive(FromArgs, PartialEq, Debug)]
 /// control ARC

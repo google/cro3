@@ -4,18 +4,20 @@
 // license that can be found in the LICENSE file or at
 // https://developers.google.com/open-source/licenses/bsd
 
-use crate::config::Config;
-use crate::util::get_stdout;
-use crate::util::run_bash_command;
-use anyhow::anyhow;
-use anyhow::Context;
-use anyhow::Result;
-use regex_macro::regex;
 use std::env;
 use std::path::PathBuf;
 use std::process::exit;
 use std::process::Command;
 use std::process::Stdio;
+
+use anyhow::anyhow;
+use anyhow::Context;
+use anyhow::Result;
+use regex_macro::regex;
+
+use crate::config::Config;
+use crate::util::get_stdout;
+use crate::util::run_bash_command;
 
 fn is_cros_dir(dir: &str) -> bool {
     let path = PathBuf::from(dir);

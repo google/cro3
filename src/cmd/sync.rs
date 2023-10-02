@@ -4,7 +4,9 @@
 // license that can be found in the LICENSE file or at
 // https://developers.google.com/open-source/licenses/bsd
 
-use crate::lookup_full_version;
+use std::fs;
+use std::path::Path;
+
 use anyhow::anyhow;
 use anyhow::Result;
 use argh::FromArgs;
@@ -15,8 +17,8 @@ use lium::repo::get_cros_dir_unchecked;
 use lium::repo::get_current_synced_arc_version;
 use lium::repo::get_current_synced_version;
 use lium::repo::repo_sync;
-use std::fs;
-use std::path::Path;
+
+use crate::lookup_full_version;
 
 #[derive(FromArgs, PartialEq, Debug)]
 /// synchronize repository

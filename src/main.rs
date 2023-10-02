@@ -7,13 +7,13 @@
 #![feature(exit_status_error)]
 #![feature(result_option_inspect)]
 
+use std::process::Command;
+
 use anyhow::anyhow;
 use anyhow::Context;
 use anyhow::Result;
-use regex_macro::regex;
-use std::process::Command;
-
 use lium::cache::KvCache;
+use regex_macro::regex;
 
 extern crate lazy_static;
 

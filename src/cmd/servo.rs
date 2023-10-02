@@ -4,6 +4,9 @@
 // license that can be found in the LICENSE file or at
 // https://developers.google.com/open-source/licenses/bsd
 
+use std::fs::read_to_string;
+use std::process;
+
 use anyhow::anyhow;
 use anyhow::Context;
 use anyhow::Result;
@@ -17,8 +20,6 @@ use lium::servo::ServodConnection;
 use lium::util::gen_path_in_lium_dir;
 use lium::util::lium_dir;
 use lium::util::run_bash_command;
-use std::fs::read_to_string;
-use std::process;
 
 #[derive(FromArgs, PartialEq, Debug)]
 /// control Servo
