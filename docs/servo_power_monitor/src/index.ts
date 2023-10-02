@@ -244,7 +244,7 @@ navigator.usb.addEventListener("disconnect", () => {
     halt = true;
     requestUSBButton.disabled = false;
     inProgress = false;
-    // USB port is closed by specification when device is diconnected
+    // USB port is closed by specification when device is disconnected
   }
 })
 
