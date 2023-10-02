@@ -153,7 +153,7 @@ pub fn run_bash_command_with_timeout(
             .context("read_to_string failed")?;
         Ok(stdout)
     } else {
-        return Err(anyhow!("Command returned {status:?}: {script}"));
+        Err(anyhow!("Command returned {status:?}: {script}"))
     }
 }
 

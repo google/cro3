@@ -5,4 +5,4 @@
 # https://developers.google.com/open-source/licenses/bsd
 
 [toolchain]
-channel = "nightly-2022-11-30"
+channel = "nightly-2023-10-02"

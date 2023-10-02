@@ -688,7 +688,8 @@ impl SshInfo {
                 }
             }
         }
-        return Err(anyhow!("Could not find a port available for forwarding"));
+
+        Err(anyhow!("Could not find a port available for forwarding"))
     }
     /// Keep forwarding in background.
     /// The execution will be blocked until the first attemp succeeds, and the
