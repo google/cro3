@@ -68331,11 +68331,16 @@ function kickWriteLoop(writeFn) {
 function readLoop(readFn) {
     return __awaiter(this, void 0, void 0, function* () {
         while (!halt) {
-            const s = yield readFn();
-            if (s === undefined || !s.length) {
-                continue;
+            try {
+                const s = yield readFn();
+                if (s === undefined || !s.length) {
+                    continue;
+                }
+                pushOutput(s);
             }
-            pushOutput(s);
+            catch (e) {
+                break;
+            }
         }
     });
 }
@@ -68393,13 +68398,21 @@ function setupStartUSBButton() {
                 yield device.transferOut(ep, data);
             }));
             readLoop(() => __awaiter(this, void 0, void 0, function* () {
-                let result = yield device.transferIn(ep, 64);
-                if (result.status === 'stall') {
-                    yield device.clearHalt('in', ep);
-                    throw result;
+                try {
+                    let result = yield device.transferIn(ep, 64);
+                    if (result.status === 'stall') {
+                        yield device.clearHalt('in', ep);
+                        throw result;
+                    }
+                    const result_array = new Int8Array(result.data.buffer);
+                    return utf8decoder.decode(result_array);
                 }
-                const result_array = new Int8Array(result.data.buffer);
-                return utf8decoder.decode(result_array);
+                catch (e) {
+                    if (!halt) {
+                        console.error(e);
+                        throw e;
+                    }
+                }
             }));
         }
         catch (err) {
@@ -68471,7 +68484,8 @@ requestSerialButton.addEventListener('click', () => __awaiter(void 0, void 0, vo
 navigator.usb.addEventListener("disconnect", () => {
     if (requestUSBButton.disabled) {
         halt = true;
-        closeUSBPort();
+        requestUSBButton.disabled = false;
+        // USB port is closed by specification when device is diconnected
     }
 });
 // event when you disconnect serial port

@@ -94,11 +94,15 @@ function kickWriteLoop(writeFn: (s: string) => Promise<void>) {
 }
 async function readLoop(readFn: () => Promise<string>) {
   while (!halt) {
-    const s = await readFn();
-    if (s === undefined || !s.length) {
-      continue;
+    try {
+      const s = await readFn();
+      if (s === undefined || !s.length) {
+        continue;
+      }
+      pushOutput(s);
+    } catch (e) {
+      break;
     }
-    pushOutput(s);
   }
 }
 
@@ -156,13 +160,20 @@ function setupStartUSBButton() {
         await device.transferOut(ep, data);
       })
       readLoop(async () => {
-        let result = await device.transferIn(ep, 64);
-        if (result.status === 'stall') {
-          await device.clearHalt('in', ep);
-          throw result;
+        try {
+          let result = await device.transferIn(ep, 64);
+          if (result.status === 'stall') {
+            await device.clearHalt('in', ep);
+            throw result;
+          }
+          const result_array = new Int8Array(result.data.buffer);
+          return utf8decoder.decode(result_array);
+        } catch (e) {
+          if (!halt) {
+            console.error(e);
+            throw e;
+          }
         }
-        const result_array = new Int8Array(result.data.buffer);
-        return utf8decoder.decode(result_array);
       });
     } catch (err) {
       console.error(`Disconnected: ${err}`);
@@ -231,7 +242,8 @@ requestSerialButton.addEventListener('click', async () => {
 navigator.usb.addEventListener("disconnect", () => {
   if (requestUSBButton.disabled) {
     halt = true;
-    closeUSBPort();
+    requestUSBButton.disabled = false;
+    // USB port is closed by specification when device is diconnected
   }
 })
 
