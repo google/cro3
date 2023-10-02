@@ -68485,6 +68485,7 @@ navigator.usb.addEventListener("disconnect", () => {
     if (requestUSBButton.disabled) {
         halt = true;
         requestUSBButton.disabled = false;
+        inProgress = false;
         // USB port is closed by specification when device is diconnected
     }
 });
@@ -68492,6 +68493,7 @@ navigator.usb.addEventListener("disconnect", () => {
 navigator.serial.addEventListener("disconnect", () => {
     if (requestSerialButton.disabled) {
         halt = true;
+        inProgress = false;
         closeSerialPort();
     }
 });
