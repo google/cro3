@@ -27,11 +27,13 @@ pub struct Args {
 enum SubCommand {
     Env(ArgsEnv),
     BashCompletion(ArgsBashCompletion),
+    ZshCompletion(ArgsZshCompletion),
 }
 pub fn run(args: &Args) -> Result<()> {
     match &args.nested {
         SubCommand::Env(args) => run_env(args),
         SubCommand::BashCompletion(args) => run_bash_completion(args),
+        SubCommand::ZshCompletion(args) => run_zsh_completion(args),
     }
 }
 
@@ -60,12 +62,7 @@ fn check_gsutil() -> Result<()> {
     Ok(())
 }
 
-#[derive(FromArgs, PartialEq, Debug)]
-/// Install bash completion for lium
-#[argh(subcommand, name = "bash-completion")]
-pub struct ArgsBashCompletion {}
-fn run_bash_completion(_args: &ArgsBashCompletion) -> Result<()> {
-    eprintln!("Installing bash completion...");
+fn shell_shared_setup() -> Result<(), Error> {
     fs::write(
         gen_path_in_lium_dir("lium.bash")?,
         include_bytes!("lium.bash"),
@@ -76,9 +73,39 @@ fn run_bash_completion(_args: &ArgsBashCompletion) -> Result<()> {
     )?
     .status
     .exit_ok()?;
+    Ok(())
+}
+
+#[derive(FromArgs, PartialEq, Debug)]
+/// Install bash completion for lium
+#[argh(subcommand, name = "bash-completion")]
+pub struct ArgsBashCompletion {}
+fn run_bash_completion(_args: &ArgsBashCompletion) -> Result<()> {
+    eprintln!("Installing bash completion...");
+
+    shell_shared_setup()?;
+
     eprintln!(
         "Installed ~/.lium/lium.bash and an entry in ~/.bash_completion. Please run `source \
          ~/.bash_completion` for the current shell."
     );
+
+    Ok(())
+}
+
+#[derive(FromArgs, PartialEq, Debug)]
+/// Print zsh completion instructions for lium
+#[argh(subcommand, name = "zsh-completion")]
+pub struct ArgsZshCompletion {}
+fn run_zsh_completion(_args: &ArgsZshCompletion) -> Result<()> {
+    eprintln!("Installing zsh completion via bash compat...");
+
+    shell_shared_setup()?;
+
+    eprintln!("add the following to your zshrc: ");
+    eprintln!("autoload -U +X compinit && compinit");
+    eprintln!("autoload -U +X bashcompinit && bashcompinit");
+    eprintln!("source ~/.bash_completion");
+
     Ok(())
 }
