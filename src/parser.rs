@@ -8,7 +8,7 @@
 //! Chrome OS systems, as usually located in `/etc/lsb-release`.
 
 //! This file is a fork of:
-//! https://source.chromium.org/chromium/chromiumos/platform2/+/main:vm_tools/crostini_client/lsb_release.rs;drc=41a92137d3e795ad6a51c5dec90dfa142af8c7c3
+//! <https://source.chromium.org/chromium/chromiumos/platform2/+/main:vm_tools/crostini_client/lsb_release.rs;drc=41a92137d3e795ad6a51c5dec90dfa142af8c7c3>
 
 use std::collections::BTreeMap;
 use std::error::Error;
