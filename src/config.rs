@@ -17,7 +17,7 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use crate::util::gen_path_in_lium_dir;
-use crate::util::run_bash_command;
+use crate::util::shell_helpers::run_bash_command;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct SshOverride {

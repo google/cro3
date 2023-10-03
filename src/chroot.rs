@@ -13,10 +13,10 @@ use anyhow::Context;
 use anyhow::Result;
 
 use crate::util::gen_path_in_lium_dir;
-use crate::util::get_stderr;
-use crate::util::get_stdout;
 use crate::util::lium_dir;
-use crate::util::run_bash_command;
+use crate::util::shell_helpers::get_stderr;
+use crate::util::shell_helpers::get_stdout;
+use crate::util::shell_helpers::run_bash_command;
 
 pub struct Chroot {
     repo_path: String,
