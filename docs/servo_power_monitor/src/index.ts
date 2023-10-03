@@ -100,10 +100,10 @@ async function readLoop(readFn: () => Promise<string>) {
       }
       pushOutput(s);
     } catch (e) {
-      break;
       // break the loop here because `disconnect` event is not called in Chrome
       // for some reason when the loop continues. And no need to throw error
       // here because it is thrown in readFn.
+      break;
     }
   }
 }
@@ -171,12 +171,12 @@ function setupStartUSBButton() {
           const result_array = new Int8Array(result.data.buffer);
           return utf8decoder.decode(result_array);
         } catch (e) {
+          // If halt is true, it's when the stop button is pressed. Therefore,
+          // we can ignore the error.
           if (!halt) {
             console.error(e);
             throw e;
           }
-          // If halt is true, it's when the stop button is pressed. Therefore,
-          // we can ignore the error.
         }
       });
     } catch (err) {
@@ -245,12 +245,12 @@ requestSerialButton.addEventListener('click', async () => {
 // c.f. https://wicg.github.io/webusb/#disconnect (5.1. Events)
 navigator.usb.addEventListener("disconnect", () => {
   if (requestUSBButton.disabled) {
-    halt = true;
-    requestUSBButton.disabled = false;
-    inProgress = false;
     //  No need to call close() for the USB port here because the specification
     //  says that
     // the port will be closed automatically when a device is disconnected.
+    halt = true;
+    requestUSBButton.disabled = false;
+    inProgress = false;
   }
 });
 
