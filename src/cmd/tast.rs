@@ -5,6 +5,7 @@
 // https://developers.google.com/open-source/licenses/bsd
 
 use anyhow::anyhow;
+use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
 use argh::FromArgs;
@@ -70,7 +71,7 @@ fn print_cached_tests_in_bundle(filter: &Pattern, bundle: &str) -> Result<()> {
         }
         return Ok(());
     }
-    Err(anyhow!("No cache found"))
+    bail!("No cache found")
 }
 
 fn print_cached_tests(filter: &Pattern, bundles: &Vec<&str>) -> Result<()> {
@@ -80,7 +81,7 @@ fn print_cached_tests(filter: &Pattern, bundles: &Vec<&str>) -> Result<()> {
         // Ensure all bundles are cached.
         for b in bundles {
             if TEST_CACHE.get(b)?.is_none() {
-                return Err(anyhow!("No cache found for {b}."));
+                bail!("No cache found for {b}.");
             }
         }
         for b in bundles {

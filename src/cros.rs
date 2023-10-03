@@ -6,7 +6,7 @@
 
 use std::process::Command;
 
-use anyhow::anyhow;
+use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
 use regex_macro::regex;
@@ -44,7 +44,7 @@ pub fn lookup_full_version(input: &str, board: &str) -> Result<String> {
             Ok(output.as_str().to_string())
         })
     } else {
-        Err(anyhow!("Invalid version format: {}", input))
+        bail!("Invalid version format: {}", input)
     }
 }
 
@@ -59,7 +59,7 @@ fi
     if output.status.success() {
         Ok(())
     } else {
-        Err(anyhow!("Downloading testing_rsa failed"))
+        bail!("Downloading testing_rsa failed")
     }
 }
 

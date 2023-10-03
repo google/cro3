@@ -15,6 +15,7 @@ use std::process::Output;
 use std::time::Duration;
 
 use anyhow::anyhow;
+use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
 use async_process::Child;
@@ -141,7 +142,7 @@ pub fn run_bash_command_with_timeout(
         None => {
             child.kill().context("Failed to kill")?;
             child.wait().context("Failed to wait after kill")?;
-            return Err(anyhow!("Command timeout: {script}"));
+            bail!("Command timeout: {script}");
         }
     };
     if status.success() {
@@ -153,7 +154,7 @@ pub fn run_bash_command_with_timeout(
             .context("read_to_string failed")?;
         Ok(stdout)
     } else {
-        Err(anyhow!("Command returned {status:?}: {script}"))
+        bail!("Command returned {status:?}: {script}")
     }
 }
 

@@ -14,6 +14,7 @@ use std::thread;
 use std::time;
 
 use anyhow::anyhow;
+use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
 use argh::FromArgs;
@@ -269,7 +270,7 @@ fn switch_partition_set(s: &SshInfo, target: PartitionSet) -> Result<()> {
         } else if rootdev.ends_with(root_b) {
             ("B", kern_b, root_b, "A", kern_a, root_a)
         } else {
-            return Err(anyhow!("unsupported partition layout"));
+            bail!("unsupported partition layout");
         };
     let cmd = match target {
         PartitionSet::Primary => {
@@ -295,7 +296,7 @@ fn do_wait_online(s: &SshInfo) -> Result<()> {
             return Ok(());
         }
     }
-    Err(anyhow!("do_wait_online timed out"))
+    bail!("do_wait_online timed out")
 }
 fn do_login(s: &SshInfo) -> Result<()> {
     s.run_autologin()
@@ -329,7 +330,7 @@ fn is_ccd_opened(cr50: &LocalServo) -> Result<bool> {
     } else if ccd_state == "State: Opened" {
         Ok(true)
     } else {
-        Err(anyhow!("Unexpected ccd state: {}", ccd_state))
+        bail!("Unexpected ccd state: {}", ccd_state)
     }
 }
 
@@ -376,13 +377,13 @@ fn do_rma_auth(cr50: &LocalServo) -> Result<()> {
                     ),
                 )
                 .context("Failed to run rma_auth command")?;
-            return Err(anyhow!("response: {response}"));
+            bail!("response: {response}");
         }
         eprintln!("Failed: {rma_auth_challenge}");
         eprintln!("retrying in 3 sec...");
         std::thread::sleep(std::time::Duration::from_secs(3));
     }
-    Err(anyhow!("Failed to get rma_auth code."))
+    bail!("Failed to get rma_auth code.")
 }
 
 fn open_ccd(cr50: &LocalServo) -> Result<()> {
@@ -412,7 +413,7 @@ fn get_ccd_status(cr50: &LocalServo) -> Result<()> {
     // Lookup cr50 again, since its usb path can be changed after resetting Servo
     let cr50 = list.find_by_serial(cr50.serial())?;
     if !is_ccd_opened(cr50)? {
-        return Err(anyhow!("CCD is Closed ({})", cr50.tty_path("Shell")?));
+        bail!("CCD is Closed ({})", cr50.tty_path("Shell")?);
     }
     eprintln!("CCD is Opened ({})", cr50.tty_path("Shell")?);
     Ok(())
