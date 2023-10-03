@@ -106,7 +106,7 @@ pub fn repo_sync(repo: &str, force: bool) -> Result<()> {
             .current_dir(repo)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
-            .args(["sync", "-j", "16"])
+            .args(["sync", "-j", &num_cpus::get().to_string()])
             .spawn()
             .context("Failed to execute repo sync")?;
         let result = cmd
