@@ -17,64 +17,39 @@ use anyhow::Result;
 use regex_macro::regex;
 
 use crate::config::Config;
-use crate::util::get_stdout;
-use crate::util::run_bash_command;
+use crate::util::shell_helpers::get_stdout;
+use crate::util::shell_helpers::run_bash_command;
 
-fn is_cros_dir(dir: &str) -> bool {
-    let path = PathBuf::from(dir);
-    path.is_dir() && path.join(".repo").is_dir() && path.join("chromite").join("bin").is_dir()
-}
-
-fn ensure_if_cros_dir(path: &str) -> Result<()> {
-    if is_cros_dir(path) {
-        Ok(())
-    } else {
-        Err(anyhow!(
-            "{path} is not a Chromium OS checkout. Please consider specifying --repo option."
-        ))
-    }
-}
-
-fn find_cros_dir_from_cwd() -> Result<String> {
-    let mut path = env::current_dir()?;
-    let mut dir = path.to_string_lossy().to_string();
-
-    while !is_cros_dir(&dir) {
-        match path.parent() {
-            Some(p) => path = p.to_path_buf(),
-            None => bail!("Failed to find Cros SDK dir"),
-        }
-        dir = path.to_string_lossy().to_string();
-    }
-    Ok(dir)
-}
-
+/// This tries to get ChromeOS checkout directory in the following order
+/// 1. user specified directory via a given command line argument
+/// 2. CROS_DIR environmental variables
+/// 3. default_cros_checkout config setting
+/// 4. current directory
 pub fn get_cros_dir_unchecked(dir: &Option<String>) -> Result<String> {
-    // This tries to get ChromeOS checkout directory in the following order
-    // 1. user specified directory via a given command line argument
-    // 2. CROS_DIR environmental variables
-    // 3. default_cros_checkout config setting
-    // 4. current directory
-    let crosdir = if let Some(crosdir) = dir {
-        crosdir.to_string()
-    } else if let Ok(crosdir) = env::var("CROS_DIR") {
-        crosdir
-    } else if let Some(crosdir) = Config::read()?.default_cros_checkout() {
-        crosdir
-    } else {
-        find_cros_dir_from_cwd()?
-    };
-    Ok(crosdir)
+    if let Some(crosdir) = dir {
+        return Ok(crosdir.to_string());
+    }
+
+    if let Ok(crosdir) = env::var("CROS_DIR") {
+        return Ok(crosdir);
+    }
+
+    if let Some(crosdir) = Config::read()?.default_cros_checkout() {
+        return Ok(crosdir);
+    }
+
+    find_cros_dir_from_cwd()
 }
 
 pub fn get_repo_dir(dir: &Option<String>) -> Result<String> {
     let repo = get_cros_dir_unchecked(dir)?;
-    ensure_if_cros_dir(&repo)?;
+    ensure_is_cros_dir(&repo)?;
     Ok(repo)
 }
 
 pub fn get_current_synced_version(repo: &str) -> Result<String> {
-    ensure_if_cros_dir(repo)?;
+    ensure_is_cros_dir(repo)?;
+
     let cmd = "./src/third_party/chromiumos-overlay/chromeos/config/chromeos_version.sh | grep -e \
                VERSION_STRING -e CHROME_BRANCH | cut -d '=' -f 2 | cut -d '-' -f 1";
     let output = run_bash_command(cmd, Some(repo))?;
@@ -155,4 +130,33 @@ pub fn repo_sync(repo: &str, force: bool) -> Result<()> {
     }
     println!("repo sync done!");
     Ok(())
+}
+
+fn is_cros_dir(dir: &str) -> bool {
+    let path = PathBuf::from(dir);
+    path.is_dir() && path.join(".repo").is_dir() && path.join("chromite").join("bin").is_dir()
+}
+
+fn ensure_is_cros_dir(path: &str) -> Result<()> {
+    if is_cros_dir(path) {
+        return Ok(());
+    }
+
+    Err(anyhow!(
+        "{path} is not a Chrom(e|ium) OS checkout. Please consider specifying --repo option."
+    ))
+}
+
+fn find_cros_dir_from_cwd() -> Result<String> {
+    let mut path = env::current_dir()?;
+    let mut dir = path.to_string_lossy().to_string();
+
+    while !is_cros_dir(&dir) {
+        match path.parent() {
+            Some(p) => path = p.to_path_buf(),
+            None => bail!("Failed to find Cros SDK dir"),
+        }
+        dir = path.to_string_lossy().to_string();
+    }
+    Ok(dir)
 }

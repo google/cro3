@@ -37,10 +37,10 @@ use url::Url;
 use crate::cache::KvCache;
 use crate::config::Config;
 use crate::cros::ensure_testing_rsa_is_there;
-use crate::util::get_async_lines;
-use crate::util::get_stderr;
-use crate::util::get_stdout;
-use crate::util::run_bash_command;
+use crate::util::shell_helpers::get_async_lines;
+use crate::util::shell_helpers::get_stderr;
+use crate::util::shell_helpers::get_stdout;
+use crate::util::shell_helpers::run_bash_command;
 
 const COMMON_SSH_OPTIONS: [&str; 16] = [
     // Do not read ~/.ssh/config to avoid effects comes from ssh_config
@@ -723,7 +723,7 @@ impl SshInfo {
     pub fn run_cmd_stdio(&self, cmd: &str) -> Result<String> {
         let output = self.run_cmd_captured(cmd)?;
         if output.status.success() {
-            Ok(crate::util::get_stdout(&output))
+            Ok(get_stdout(&output))
         } else {
             Err(anyhow!(
                 "run_cmd_stdio failed: {} {}",

@@ -19,7 +19,7 @@ use lium::servo::ServoList;
 use lium::servo::ServodConnection;
 use lium::util::gen_path_in_lium_dir;
 use lium::util::lium_dir;
-use lium::util::run_bash_command;
+use lium::util::shell_helpers::run_bash_command;
 
 #[derive(FromArgs, PartialEq, Debug)]
 /// control Servo

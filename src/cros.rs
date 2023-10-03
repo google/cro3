@@ -13,7 +13,7 @@ use regex_macro::regex;
 
 use crate::cache::KvCache;
 use crate::google_storage;
-use crate::util::run_bash_command;
+use crate::util::shell_helpers::run_bash_command;
 
 static VERSION_TO_MILESTONE_CACHE: KvCache<String> = KvCache::new("version_cache");
 
