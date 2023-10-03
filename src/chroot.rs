@@ -12,8 +12,8 @@ use anyhow::anyhow;
 use anyhow::Context;
 use anyhow::Result;
 
-use crate::util::gen_path_in_lium_dir;
-use crate::util::lium_dir;
+use crate::util::lium_paths::gen_path_in_lium_dir;
+use crate::util::lium_paths::lium_dir;
 use crate::util::shell_helpers::get_stderr;
 use crate::util::shell_helpers::get_stdout;
 use crate::util::shell_helpers::run_bash_command;

@@ -17,8 +17,8 @@ use lium::servo::reset_devices;
 use lium::servo::LocalServo;
 use lium::servo::ServoList;
 use lium::servo::ServodConnection;
-use lium::util::gen_path_in_lium_dir;
-use lium::util::lium_dir;
+use lium::util::lium_paths::gen_path_in_lium_dir;
+use lium::util::lium_paths::lium_dir;
 use lium::util::shell_helpers::run_bash_command;
 
 #[derive(FromArgs, PartialEq, Debug)]

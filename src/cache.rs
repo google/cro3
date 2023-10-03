@@ -20,7 +20,7 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 use serde_json::{Map, Value};
 
-use crate::util::gen_path_in_lium_dir;
+use crate::util::lium_paths::gen_path_in_lium_dir;
 
 pub struct KvCache<T: Serialize + DeserializeOwned + Sized + Clone + Debug> {
     name: &'static str,
