@@ -30,28 +30,27 @@ function updateGraph(data: Array<Array<Date|number>>) {
     document.querySelector('#tooltip').classList.add("hidden");
   }
   currentData = data;
-  g.updateOptions(
-      {
-        file: data,
-        labels: ['t', 'ina0'],
-        showRoller: true,
-        ylabel: 'Power (mW)',
-        legend: 'always',
-        showRangeSelector: true,
-        connectSeparatedPoints: true,
-        underlayCallback: function(canvas, area, g) {
-          canvas.fillStyle = 'rgba(255, 255, 102, 1.0)';
+  g.updateOptions({
+    file : data,
+    labels : [ 't', 'ina0' ],
+    showRoller : true,
+    ylabel : 'Power (mW)',
+    legend : 'always',
+    showRangeSelector : true,
+    connectSeparatedPoints : true,
+    underlayCallback : function(canvas, area, g) {
+      canvas.fillStyle = 'rgba(255, 255, 102, 1.0)';
 
-          function highlight_period(x_start: number, x_end: number) {
-            const canvas_left_x = g.toDomXCoord(x_start);
-            const canvas_right_x = g.toDomXCoord(x_end);
-            const canvas_width = canvas_right_x - canvas_left_x;
-            canvas.fillRect(canvas_left_x, area.y, canvas_width, area.h);
-          }
-          highlight_period(10, 10);
-        }
-      },
-      false);
+      function highlight_period(x_start: number, x_end: number) {
+        const canvas_left_x = g.toDomXCoord(x_start);
+        const canvas_right_x = g.toDomXCoord(x_end);
+        const canvas_width = canvas_right_x - canvas_left_x;
+        canvas.fillRect(canvas_left_x, area.y, canvas_width, area.h);
+      }
+      highlight_period(10, 10);
+    }
+  },
+                  false);
 }
 
 let inProgress = false;
@@ -65,7 +64,7 @@ function pushOutput(s: string) {
                              .split('=>')[1]
                              .trim()
                              .split(' ')[0]);
-    let e: Array<Date|Number> = [new Date(), power];
+    let e: Array<Date|Number> = [ new Date(), power ];
     powerData.push(e);
     updateGraph(powerData);
     serial_output.innerText = output;
@@ -94,40 +93,68 @@ function kickWriteLoop(writeFn: (s: string) => Promise<void>) {
 }
 async function readLoop(readFn: () => Promise<string>) {
   while (!halt) {
-    const s = await readFn();
-    if (s === undefined || !s.length) {
-      continue;
+    try {
+      const s = await readFn();
+      if (s === undefined || !s.length) {
+        continue;
+      }
+      pushOutput(s);
+    } catch (e) {
+      // break the loop here because `disconnect` event is not called in Chrome
+      // for some reason when the loop continues. And no need to throw error
+      // here because it is thrown in readFn.
+      break;
     }
-    pushOutput(s);
   }
 }
 
+let device: USBDevice;
+function closeUSBPort() {
+  try {
+    device.close();
+  } catch (e) {
+    console.error(e);
+  }
+  requestUSBButton.disabled = false;
+}
+
+let port;
+let reader: ReadableStreamDefaultReader;
+function closeSerialPort() {
+  reader.cancel();
+  reader.releaseLock();
+  try {
+    port.close();
+  } catch (e) {
+    console.error(e);
+  }
+  requestSerialButton.disabled = false;
+}
+
 function setupStartUSBButton() {
-  let device: USBDevice;
   let usb_interface = 0;
   let ep = usb_interface + 1;
   requestUSBButton.addEventListener('click', async () => {
     halt = false;
     device = null;
-    requestUSBButton.disabled = true;
     try {
       device = await navigator.usb.requestDevice({
-        filters: [{
-          vendorId: 0x18d1,  /* Google */
-          productId: 0x520d, /* Servo v4p1 */
-        }]
+        filters : [ {
+          vendorId : 0x18d1,  /* Google */
+          productId : 0x520d, /* Servo v4p1 */
+        } ]
       });
     } catch (err) {
       console.error(`Error: ${err}`);
     }
     if (!device) {
       device = null;
-      requestUSBButton.disabled = false;
       return;
     }
 
     try {
       await device.open();
+      requestUSBButton.disabled = true;
       await device.selectConfiguration(1);
       await device.claimInterface(usb_interface);
       kickWriteLoop(async (s) => {
@@ -135,13 +162,22 @@ function setupStartUSBButton() {
         await device.transferOut(ep, data);
       })
       readLoop(async () => {
-        let result = await device.transferIn(ep, 64);
-        if (result.status === 'stall') {
-          await device.clearHalt('in', ep);
-          throw result;
+        try {
+          let result = await device.transferIn(ep, 64);
+          if (result.status === 'stall') {
+            await device.clearHalt('in', ep);
+            throw result;
+          }
+          const result_array = new Int8Array(result.data.buffer);
+          return utf8decoder.decode(result_array);
+        } catch (e) {
+          // If halt is true, it's when the stop button is pressed. Therefore,
+          // we can ignore the error.
+          if (!halt) {
+            console.error(e);
+            throw e;
+          }
         }
-        const result_array = new Int8Array(result.data.buffer);
-        return utf8decoder.decode(result_array);
       });
     } catch (err) {
       console.error(`Disconnected: ${err}`);
@@ -155,9 +191,9 @@ function setupStartUSBButton() {
     }
     let data: any;
     if (event.key.length === 1) {
-      data = new Int8Array([event.key.charCodeAt(0)]);
+      data = new Int8Array([ event.key.charCodeAt(0) ]);
     } else if (event.code === 'Enter') {
-      data = new Uint8Array([0x0a]);
+      data = new Uint8Array([ 0x0a ]);
     } else {
       return;
     }
@@ -166,52 +202,70 @@ function setupStartUSBButton() {
 };
 setupStartUSBButton();
 
-requestSerialButton.addEventListener('click', () => {
+requestSerialButton.addEventListener('click', async () => {
   halt = false;
-  navigator.serial
-      .requestPort({filters: [{usbVendorId: 0x18d1, usbProductId: 0x520d}]})
-      .then(async (port) => {
-        // Connect to `port` or add it to the list of available ports.
-        await port.open({baudRate: 115200});
-        const encoder = new TextEncoder();
-        const writer = port.writable.getWriter();
-        await writer.write(encoder.encode('help\n'));
-        writer.releaseLock();
+  port = await navigator.serial
+             .requestPort(
+                 {filters : [ {usbVendorId : 0x18d1, usbProductId : 0x520d} ]})
+             .catch((e) => { console.error(e); });
+  await port.open({baudRate : 115200});
+  requestSerialButton.disabled = true;
+  const encoder = new TextEncoder();
+  const writer = port.writable.getWriter();
+  await writer.write(encoder.encode('help\n'));
+  writer.releaseLock();
 
-        kickWriteLoop(async (s) => {
-          let data = new TextEncoder().encode(s);
-          const writer = port.writable.getWriter();
-          await writer.write(data);
-          writer.releaseLock();
-        })
-        readLoop(async () => {
-          const reader = port.readable.getReader();
-          try {
-            while (true) {
-              const {value, done} = await reader.read();
-              if (done) {
-                // |reader| has been canceled.
-                break;
-              }
-              return utf8decoder.decode(value);
-            }
-          } catch (error) {
-            console.error(error);
-            throw error;
-          } finally {
-            reader.releaseLock();
-          }
-        });
-      })
-      .catch((e) => {
-        // The user didn't select a port.
-        console.error(e);
-      });
+  kickWriteLoop(async (s) => {
+    let data = new TextEncoder().encode(s);
+    const writer = port.writable.getWriter();
+    await writer.write(data);
+    writer.releaseLock();
+  })
+  readLoop(async () => {
+    reader = port.readable.getReader();
+    try {
+      while (true) {
+        const {value, done} = await reader.read();
+        if (done) {
+          // |reader| has been canceled.
+          break;
+        }
+        return utf8decoder.decode(value);
+      }
+    } catch (error) {
+      console.error(error);
+      throw error;
+    } finally {
+      reader.releaseLock();
+    }
+  });
+});
+
+// `disconnect` event is fired when a USB device is disconnected.
+// c.f. https://wicg.github.io/webusb/#disconnect (5.1. Events)
+navigator.usb.addEventListener("disconnect", () => {
+  if (requestUSBButton.disabled) {
+    //  No need to call close() for the USB port here because the specification
+    //  says that
+    // the port will be closed automatically when a device is disconnected.
+    halt = true;
+    requestUSBButton.disabled = false;
+    inProgress = false;
+  }
+});
+
+// event when you disconnect serial port
+navigator.serial.addEventListener("disconnect", () => {
+  if (requestSerialButton.disabled) {
+    halt = true;
+    inProgress = false;
+    closeSerialPort();
+  }
 });
 
 downloadButton.addEventListener('click', async () => {
   const dataStr = 'data:text/json;charset=utf-8,' +
-      encodeURIComponent(JSON.stringify({power: powerData}));
+                  encodeURIComponent(JSON.stringify({power : powerData}));
   const dlAnchorElem = document.getElementById('downloadAnchorElem');
   dlAnchorElem.setAttribute('href', dataStr);
   dlAnchorElem.setAttribute('download', `power_${moment().format()}.json`);
@@ -221,8 +275,12 @@ downloadButton.addEventListener('click', async () => {
 let haltButton = document.getElementById('haltButton') as HTMLButtonElement;
 haltButton.addEventListener('click', () => {
   halt = true;
-  requestUSBButton.disabled = false;
-  requestSerialButton.disabled = false;
+  if (requestUSBButton.disabled) {
+    closeUSBPort();
+  }
+  if (requestSerialButton.disabled) {
+    closeSerialPort();
+  }
 });
 
 let ranges = [];
@@ -232,27 +290,28 @@ function paintHistogram(t0: number, t1: number) {
   const boxWidth = 10;
 
   // setup a graph (drop if exists)
-  const margin = {top: 60, right: 200, bottom: 0, left: 200};
+  const margin = {top : 60, right : 200, bottom : 0, left : 200};
   const area = d3.select('#d3area');
-  var targetWidth = (area.node() as HTMLElement).getBoundingClientRect().width * 0.98;
-  var targetHeight = 10000; // (area.node() as HTMLElement).getBoundingClientRect().height;
+  var targetWidth =
+      (area.node() as HTMLElement).getBoundingClientRect().width * 0.98;
+  var targetHeight =
+      10000; // (area.node() as HTMLElement).getBoundingClientRect().height;
   const width = targetWidth - margin.left - margin.right;
   const height = targetHeight - margin.top - margin.bottom;
-  const svg = area
-          .html('')
-          .append('svg')
-          .attr('height', targetHeight)
-          .attr('width', targetWidth)
-          .append('g')
-          .attr(
-              'transform', 'translate(' + margin.left + ',' + margin.top + ')');
+  const svg = area.html('')
+                  .append('svg')
+                  .attr('height', targetHeight)
+                  .attr('width', targetWidth)
+                  .append('g')
+                  .attr('transform',
+                        'translate(' + margin.left + ',' + margin.top + ')');
 
   // y axis and its label
   const dataAll: Array<number> =
       currentData.map((e: (Date|number)) => e[1] as number);
   const ymin = d3.min(dataAll) - 1000;
   const ymax = d3.max(dataAll) + 1000;
-  const y = d3.scaleLinear().domain([ymin, ymax]).range([0, width]);
+  const y = d3.scaleLinear().domain([ ymin, ymax ]).range([ 0, width ]);
   svg.append('g').call(d3.axisTop(y));
   svg.append('text')
       .attr('text-anchor', 'end')
@@ -261,15 +320,15 @@ function paintHistogram(t0: number, t1: number) {
       .attr('stroke', '#fff')
       .text('Power (mW)');
 
-  ranges.push([t0, t1]);
+  ranges.push([ t0, t1 ]);
 
   for (let i = 0; i < ranges.length; i++) {
     // compute data and place of i-th series
     const left = ranges[i][0];
     const right = ranges[i][1];
-    let points = currentData.filter(
-        (e: (Date|String)) =>
-            (left <= e[0].getTime() && e[0].getTime() <= right));
+    let points =
+        currentData.filter((e: (Date|String)) => (left <= e[0].getTime() &&
+                                                  e[0].getTime() <= right));
     let data: Array<number> = points.map((e: (Date|number)) => e[1] as number);
     const center = xtick * (i + 1);
 
@@ -285,7 +344,6 @@ function paintHistogram(t0: number, t1: number) {
     const maxValue = d3.max(data);
     const mean = d3.mean(data);
 
-
     // min, mean, max
     svg.append('line')
         .attr('y1', center)
@@ -295,21 +353,13 @@ function paintHistogram(t0: number, t1: number) {
         .style('stroke-dasharray', '3, 3')
         .attr('stroke', '#aaa')
     svg.selectAll('toto')
-        .data([minValue, mean, maxValue])
+        .data([ minValue, mean, maxValue ])
         .enter()
         .append('line')
         .attr('y1', center - boxWidth)
         .attr('y2', center + boxWidth)
-        .attr(
-            'x1',
-            function(d) {
-              return (y(d))
-            })
-        .attr(
-            'x2',
-            function(d) {
-              return (y(d))
-            })
+        .attr('x1', function(d) { return (y(d)) })
+        .attr('x2', function(d) { return (y(d)) })
         .style('stroke-dasharray', '3, 3')
         .attr('stroke', '#aaa');
 
@@ -328,21 +378,13 @@ function paintHistogram(t0: number, t1: number) {
         .attr('stroke', '#fff')
         .style('fill', '#69b3a2')
     svg.selectAll('toto')
-        .data([lowerFence, median, upperFence])
+        .data([ lowerFence, median, upperFence ])
         .enter()
         .append('line')
         .attr('y1', center - boxWidth / 2)
         .attr('y2', center + boxWidth / 2)
-        .attr(
-            'x1',
-            function(d) {
-              return (y(d))
-            })
-        .attr(
-            'x2',
-            function(d) {
-              return (y(d))
-            })
+        .attr('x1', function(d) { return (y(d)) })
+        .attr('x2', function(d) { return (y(d)) })
         .attr('stroke', '#fff');
 
     svg.append('text')
@@ -426,7 +468,7 @@ function setupDataLoad() {
   const handleDragOver = (evt: DragEvent) => {
     evt.stopPropagation();
     evt.preventDefault();
-    evt.dataTransfer.dropEffect = 'copy';  // Explicitly show this is a copy.
+    evt.dataTransfer.dropEffect = 'copy'; // Explicitly show this is a copy.
   };
   const dropZone = document.getElementById('dropZone');
   dropZone.innerText = 'Drop .json here';

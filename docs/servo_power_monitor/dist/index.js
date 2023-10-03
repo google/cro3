@@ -68331,22 +68331,51 @@ function kickWriteLoop(writeFn) {
 function readLoop(readFn) {
     return __awaiter(this, void 0, void 0, function* () {
         while (!halt) {
-            const s = yield readFn();
-            if (s === undefined || !s.length) {
-                continue;
+            try {
+                const s = yield readFn();
+                if (s === undefined || !s.length) {
+                    continue;
+                }
+                pushOutput(s);
             }
-            pushOutput(s);
+            catch (e) {
+                // break the loop here because `disconnect` event is not called in Chrome
+                // for some reason when the loop continues. And no need to throw error
+                // here because it is thrown in readFn.
+                break;
+            }
         }
     });
 }
+let device;
+function closeUSBPort() {
+    try {
+        device.close();
+    }
+    catch (e) {
+        console.error(e);
+    }
+    requestUSBButton.disabled = false;
+}
+let port;
+let reader;
+function closeSerialPort() {
+    reader.cancel();
+    reader.releaseLock();
+    try {
+        port.close();
+    }
+    catch (e) {
+        console.error(e);
+    }
+    requestSerialButton.disabled = false;
+}
 function setupStartUSBButton() {
-    let device;
     let usb_interface = 0;
     let ep = usb_interface + 1;
     requestUSBButton.addEventListener('click', () => __awaiter(this, void 0, void 0, function* () {
         halt = false;
         device = null;
-        requestUSBButton.disabled = true;
         try {
             device = yield navigator.usb.requestDevice({
                 filters: [{
@@ -68360,11 +68389,11 @@ function setupStartUSBButton() {
         }
         if (!device) {
             device = null;
-            requestUSBButton.disabled = false;
             return;
         }
         try {
             yield device.open();
+            requestUSBButton.disabled = true;
             yield device.selectConfiguration(1);
             yield device.claimInterface(usb_interface);
             kickWriteLoop((s) => __awaiter(this, void 0, void 0, function* () {
@@ -68372,13 +68401,23 @@ function setupStartUSBButton() {
                 yield device.transferOut(ep, data);
             }));
             readLoop(() => __awaiter(this, void 0, void 0, function* () {
-                let result = yield device.transferIn(ep, 64);
-                if (result.status === 'stall') {
-                    yield device.clearHalt('in', ep);
-                    throw result;
+                try {
+                    let result = yield device.transferIn(ep, 64);
+                    if (result.status === 'stall') {
+                        yield device.clearHalt('in', ep);
+                        throw result;
+                    }
+                    const result_array = new Int8Array(result.data.buffer);
+                    return utf8decoder.decode(result_array);
                 }
-                const result_array = new Int8Array(result.data.buffer);
-                return utf8decoder.decode(result_array);
+                catch (e) {
+                    // If halt is true, it's when the stop button is pressed. Therefore,
+                    // we can ignore the error.
+                    if (!halt) {
+                        console.error(e);
+                        throw e;
+                    }
+                }
             }));
         }
         catch (err) {
@@ -68406,48 +68445,63 @@ function setupStartUSBButton() {
 }
 ;
 setupStartUSBButton();
-requestSerialButton.addEventListener('click', () => {
+requestSerialButton.addEventListener('click', () => __awaiter(void 0, void 0, void 0, function* () {
     halt = false;
-    navigator.serial
+    port = yield navigator.serial
         .requestPort({ filters: [{ usbVendorId: 0x18d1, usbProductId: 0x520d }] })
-        .then((port) => __awaiter(void 0, void 0, void 0, function* () {
-        // Connect to `port` or add it to the list of available ports.
-        yield port.open({ baudRate: 115200 });
-        const encoder = new TextEncoder();
+        .catch((e) => { console.error(e); });
+    yield port.open({ baudRate: 115200 });
+    requestSerialButton.disabled = true;
+    const encoder = new TextEncoder();
+    const writer = port.writable.getWriter();
+    yield writer.write(encoder.encode('help\n'));
+    writer.releaseLock();
+    kickWriteLoop((s) => __awaiter(void 0, void 0, void 0, function* () {
+        let data = new TextEncoder().encode(s);
         const writer = port.writable.getWriter();
-        yield writer.write(encoder.encode('help\n'));
+        yield writer.write(data);
         writer.releaseLock();
-        kickWriteLoop((s) => __awaiter(void 0, void 0, void 0, function* () {
-            let data = new TextEncoder().encode(s);
-            const writer = port.writable.getWriter();
-            yield writer.write(data);
-            writer.releaseLock();
-        }));
-        readLoop(() => __awaiter(void 0, void 0, void 0, function* () {
-            const reader = port.readable.getReader();
-            try {
-                while (true) {
-                    const { value, done } = yield reader.read();
-                    if (done) {
-                        // |reader| has been canceled.
-                        break;
-                    }
-                    return utf8decoder.decode(value);
+    }));
+    readLoop(() => __awaiter(void 0, void 0, void 0, function* () {
+        reader = port.readable.getReader();
+        try {
+            while (true) {
+                const { value, done } = yield reader.read();
+                if (done) {
+                    // |reader| has been canceled.
+                    break;
                 }
+                return utf8decoder.decode(value);
             }
-            catch (error) {
-                console.error(error);
-                throw error;
-            }
-            finally {
-                reader.releaseLock();
-            }
-        }));
-    }))
-        .catch((e) => {
-        // The user didn't select a port.
-        console.error(e);
-    });
+        }
+        catch (error) {
+            console.error(error);
+            throw error;
+        }
+        finally {
+            reader.releaseLock();
+        }
+    }));
+}));
+// `disconnect` event is fired when a USB device is disconnected.
+// c.f. https://wicg.github.io/webusb/#disconnect (5.1. Events)
+navigator.usb.addEventListener("disconnect", () => {
+    if (requestUSBButton.disabled) {
+        //  No need to call close() for the USB port here because the specification
+        //  says that
+        // the port will be closed automatically when a device is disconnected.
+        halt = true;
+        requestUSBButton.disabled = false;
+        inProgress = false;
+    }
+});
+// event when you disconnect serial port
+navigator.serial.addEventListener("disconnect", () => {
+    if (requestSerialButton.disabled) {
+        halt = true;
+        inProgress = false;
+        closeSerialPort();
+    }
 });
 downloadButton.addEventListener('click', () => __awaiter(void 0, void 0, void 0, function* () {
     const dataStr = 'data:text/json;charset=utf-8,' +
@@ -68460,8 +68514,12 @@ downloadButton.addEventListener('click', () => __awaiter(void 0, void 0, void 0,
 let haltButton = document.getElementById('haltButton');
 haltButton.addEventListener('click', () => {
     halt = true;
-    requestUSBButton.disabled = false;
-    requestSerialButton.disabled = false;
+    if (requestUSBButton.disabled) {
+        closeUSBPort();
+    }
+    if (requestSerialButton.disabled) {
+        closeSerialPort();
+    }
 });
 let ranges = [];
 function paintHistogram(t0, t1) {
@@ -68475,8 +68533,7 @@ function paintHistogram(t0, t1) {
     var targetHeight = 10000; // (area.node() as HTMLElement).getBoundingClientRect().height;
     const width = targetWidth - margin.left - margin.right;
     const height = targetHeight - margin.top - margin.bottom;
-    const svg = area
-        .html('')
+    const svg = area.html('')
         .append('svg')
         .attr('height', targetHeight)
         .attr('width', targetWidth)
@@ -68499,7 +68556,8 @@ function paintHistogram(t0, t1) {
         // compute data and place of i-th series
         const left = ranges[i][0];
         const right = ranges[i][1];
-        let points = currentData.filter((e) => (left <= e[0].getTime() && e[0].getTime() <= right));
+        let points = currentData.filter((e) => (left <= e[0].getTime() &&
+            e[0].getTime() <= right));
         let data = points.map((e) => e[1]);
         const center = xtick * (i + 1);
         // Compute statistics
@@ -68527,12 +68585,8 @@ function paintHistogram(t0, t1) {
             .append('line')
             .attr('y1', center - boxWidth)
             .attr('y2', center + boxWidth)
-            .attr('x1', function (d) {
-            return (y(d));
-        })
-            .attr('x2', function (d) {
-            return (y(d));
-        })
+            .attr('x1', function (d) { return (y(d)); })
+            .attr('x2', function (d) { return (y(d)); })
             .style('stroke-dasharray', '3, 3')
             .attr('stroke', '#aaa');
         // box and line
@@ -68555,12 +68609,8 @@ function paintHistogram(t0, t1) {
             .append('line')
             .attr('y1', center - boxWidth / 2)
             .attr('y2', center + boxWidth / 2)
-            .attr('x1', function (d) {
-            return (y(d));
-        })
-            .attr('x2', function (d) {
-            return (y(d));
-        })
+            .attr('x1', function (d) { return (y(d)); })
+            .attr('x2', function (d) { return (y(d)); })
             .attr('stroke', '#fff');
         svg.append('text')
             .attr('text-anchor', 'end')
