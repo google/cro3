@@ -16,6 +16,7 @@ use std::thread;
 use std::time::Duration;
 
 use anyhow::anyhow;
+use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
 use base64::engine::general_purpose::STANDARD;
@@ -248,7 +249,7 @@ impl DutInfo {
     fn decode_result_line(s: &str, key: &str) -> Result<String> {
         let s = s.split(',').collect::<Vec<&str>>();
         if s.len() != 4 {
-            return Err(anyhow!("4 elements are expected in a row but got: {s:?}"));
+            bail!("4 elements are expected in a row but got: {s:?}");
         }
         if s[0] == key {
             let key = s[0].to_string();
@@ -264,12 +265,12 @@ impl DutInfo {
                     "Command for key {key} exited with code {exit_code}"
                 ))
             } else if value.is_empty() {
-                Err(anyhow!("key {key} found but was empty. stderr: {stderr}"))
+                bail!("key {key} found but was empty. stderr: {stderr}")
             } else {
                 Ok(value)
             }
         } else {
-            Err(anyhow!("key {key} did not found. stderr"))
+            bail!("key {key} did not found. stderr")
         }
     }
     fn parse_values(
@@ -286,14 +287,14 @@ impl DutInfo {
             } else if let Some(Ok(model)) = values.get("model_from_mosys") {
                 values.insert("model".to_string(), Ok(model.clone()));
             } else {
-                return Err(anyhow!("Failed to get model"));
+                bail!("Failed to get model");
             }
         }
         if keys.contains(&"gbb_flags") {
             let gbb_flags = if let Some(Ok(v)) = values.get("gbb_flags") {
                 v
             } else {
-                return Err(anyhow!("Failed to get model"));
+                bail!("Failed to get model");
             };
             if let Some(gbb_flags) = RE_GBB_FLAGS.find(gbb_flags) {
                 values.insert("gbb_flags".to_string(), Ok(gbb_flags.as_str().to_string()));
@@ -323,7 +324,7 @@ impl DutInfo {
                 let dut_id = format!("{model}_{serial}");
                 values.insert("dut_id".to_string(), Ok(dut_id));
             } else {
-                return Err(anyhow!("Failed to get model. {:?}", values.get("model")));
+                bail!("Failed to get model. {:?}", values.get("model"));
             }
         }
         // Collect all values for given keys
@@ -333,7 +334,7 @@ impl DutInfo {
                 if let Some(Ok(v)) = v {
                     Ok((k.to_string(), v.clone()))
                 } else {
-                    Err(anyhow!("failed to get key {k}: {v:?}"))
+                    bail!("failed to get key {k}: {v:?}")
                 }
             })
             .collect()
@@ -598,7 +599,7 @@ impl SshInfo {
         } else {
             let stdout = get_stdout(&output);
             let stderr = get_stderr(&output);
-            Err(anyhow!("run_cmd_captured failed: {} {}", stdout, stderr))
+            bail!("run_cmd_captured failed: {} {}", stdout, stderr)
         }
     }
     pub fn open_ssh(&self) -> Result<()> {
@@ -683,13 +684,13 @@ impl SshInfo {
                             // stdout is closed unexpectedly since ssh process is terminated.
                             // stderr may contain some info and will be closed as well,
                             // so do nothing here and wait for activities on stderr stream.
-                        return Err(anyhow!("SSH process streams are closed"));
+                        bail!("SSH process streams are closed");
                     }
                 }
             }
         }
 
-        Err(anyhow!("Could not find a port available for forwarding"))
+        bail!("Could not find a port available for forwarding")
     }
     /// Keep forwarding in background.
     /// The execution will be blocked until the first attemp succeeds, and the

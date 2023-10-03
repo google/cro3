@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use anyhow::anyhow;
+use anyhow::bail;
 use anyhow::Result;
 use argh::FromArgs;
 use glob::Pattern;
@@ -62,7 +62,7 @@ fn print_cached_packages(filter: &Pattern, board: &str) -> Result<()> {
         }
         return Ok(());
     }
-    Err(anyhow!("No cache found"))
+    bail!("No cache found")
 }
 
 fn update_cached_packages(repodir: &str, board: &str) -> Result<()> {

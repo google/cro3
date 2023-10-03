@@ -7,6 +7,7 @@
 use std::process::Command;
 
 use anyhow::anyhow;
+use anyhow::bail;
 use anyhow::Result;
 use argh::FromArgs;
 use lium::cros::ensure_testing_rsa_is_there;
@@ -38,7 +39,7 @@ fn determine_board_to_flash(
         .ok_or("--board is not specified")
         .cloned();
     match (board_from_dut, board_from_arg) {
-        (Err(_), Err(_)) => Err(anyhow!("Please specify --board or --dut")),
+        (Err(_), Err(_)) => bail!("Please specify --board or --dut"),
         (Ok(board_from_dut), Err(_)) => Ok(board_from_dut),
         (Err(_), Ok(board_from_arg)) => Ok(board_from_arg),
         (Ok(board_from_dut), Ok(board_from_arg)) => {
@@ -151,7 +152,7 @@ pub fn run(args: &Args) -> Result<()> {
             dut.ssh().host_and_port()
         }
         (None, true) => "usb://".to_string(),
-        _ => return Err(anyhow!("Please specify either --dut or --usb")),
+        _ => bail!("Please specify either --dut or --usb"),
     };
 
     let mut cmd_args: Vec<&str> =

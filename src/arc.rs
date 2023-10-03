@@ -6,7 +6,7 @@
 
 use std::process::Command;
 
-use anyhow::anyhow;
+use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
 
@@ -17,7 +17,7 @@ pub fn lookup_arc_version(input: &str) -> Result<String> {
     if input == "tm" || input == "rvc" {
         Ok(input.to_string())
     } else {
-        Err(anyhow!("Invalid ARC version : {}", input))
+        bail!("Invalid ARC version : {}", input)
     }
 }
 

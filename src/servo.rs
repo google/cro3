@@ -18,6 +18,7 @@ use std::path::Path;
 use std::time::Duration;
 
 use anyhow::anyhow;
+use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
 use async_process::Child;
@@ -273,7 +274,7 @@ fn discover() -> Result<Vec<LocalServo>> {
                     ..Default::default()
                 })
             } else {
-                Err(anyhow!("Not a servo"))
+                bail!("Not a servo")
             }
         })
         .collect())
@@ -397,7 +398,7 @@ impl LocalServo {
             ));
         }
         if !fs::metadata(tty_path)?.file_type().is_char_device() {
-            return Err(anyhow!("{tty_path} is not a char device"));
+            bail!("{tty_path} is not a char device");
         }
         let output = run_bash_command_with_timeout(
             &format!("echo {cmd} | socat - {tty_path},echo=0,crtscts=1 2>&1"),
@@ -467,7 +468,7 @@ impl LocalServo {
                                         break;
                                     }
                                 } else {
-                    return Err(anyhow!("servod failed unexpectedly"));
+                    bail!("servod failed unexpectedly");
                                 }
                             }
                             line = servod_stdout => {
@@ -478,14 +479,14 @@ impl LocalServo {
                                         return Result::Ok(servod);
                                     }
                                 } else {
-                    return Err(anyhow!("servod failed unexpectedly"));
+                    bail!("servod failed unexpectedly");
                                 }
                             }
                         }
                 }
             }
 
-            Err(anyhow!("servod failed unexpectedly"))
+            bail!("servod failed unexpectedly")
         })?;
         ServodConnection::from_serial(&self.serial)
     }
@@ -641,7 +642,7 @@ impl ServodConnection {
                 port,
             })
         } else {
-            Err(anyhow!("Servod for {serial} is not running"))
+            bail!("Servod for {serial} is not running")
         }
     }
     pub fn serial(&self) -> &str {

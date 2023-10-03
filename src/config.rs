@@ -9,6 +9,7 @@ use std::fs::read_to_string;
 use std::fs::write;
 
 use anyhow::anyhow;
+use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
 use regex::Regex;
@@ -79,7 +80,7 @@ impl Config {
                 eprintln!("INFO: config file created at {:?}", path);
                 Ok(config)
             }
-            e => Err(anyhow!("Failed to create a new config: {:?}", e)),
+            e => bail!("Failed to create a new config: {:?}", e),
         }
     }
     // This is private since write should happen on every updates transparently
@@ -92,25 +93,25 @@ impl Config {
         match key {
             "android_manifest_url" => {
                 if values.len() != 1 {
-                    return Err(anyhow!("{key} only takes 1 params"));
+                    bail!("{key} only takes 1 params");
                 }
                 self.android_manifest_url = Some(values[0].as_ref().to_string());
             }
             "default_cros_checkout" => {
                 if values.len() != 1 {
-                    return Err(anyhow!("{key} only takes 1 params"));
+                    bail!("{key} only takes 1 params");
                 }
                 self.default_cros_checkout = Some(values[0].as_ref().to_string());
             }
             "default_cros_mirror" => {
                 if values.len() != 1 {
-                    return Err(anyhow!("{key} only takes 1 params"));
+                    bail!("{key} only takes 1 params");
                 }
                 self.default_cros_mirror = Some(values[0].as_ref().to_string());
             }
             "ssh_override" => {
                 if values.len() < 3 {
-                    return Err(anyhow!("{key} takes 3+ parameters"));
+                    bail!("{key} takes 3+ parameters");
                 }
                 let host_regex = values[0].as_ref().to_string();
                 Regex::new(&host_regex).context("Invalid regex is provided as a host_pattern")?;
@@ -132,17 +133,17 @@ impl Config {
             }
             "ssh_port_search_timeout" => {
                 if values.len() != 1 {
-                    return Err(anyhow!("{key} only takes 1 params"));
+                    bail!("{key} only takes 1 params");
                 }
                 self.ssh_port_search_timeout = Some(values[0].as_ref().parse().unwrap());
             }
             "default_ipv6_prefix" => {
                 if values.len() != 1 {
-                    return Err(anyhow!("{key} only takes 1 params"));
+                    bail!("{key} only takes 1 params");
                 }
                 self.default_ipv6_prefix = Some(values[0].as_ref().parse().unwrap());
             }
-            _ => return Err(anyhow!("config key {key} is not valid")),
+            _ => bail!("config key {key} is not valid"),
         }
         self.write()
     }
@@ -172,7 +173,7 @@ impl Config {
             "default_ipv6_prefix" => {
                 self.default_ipv6_prefix = None;
             }
-            _ => return Err(anyhow!("lium config clear for '{key}' is not implemented")),
+            _ => bail!("lium config clear for '{key}' is not implemented"),
         }
         self.write()?;
         Ok(())

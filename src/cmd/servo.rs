@@ -7,7 +7,7 @@
 use std::fs::read_to_string;
 use std::process;
 
-use anyhow::anyhow;
+use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
 use argh::FromArgs;
@@ -94,7 +94,7 @@ pub fn run_get(args: &ArgsGet) -> Result<()> {
             println!("{:#X}", s.read_gbb_flags(&repo)?);
         }
         key => {
-            return Err(anyhow!("attribute {key} is not defined"));
+            bail!("attribute {key} is not defined");
         }
     }
     Ok(())
@@ -225,7 +225,7 @@ fn run_shell(args: &ArgsShell) -> Result<()> {
         eprintln!("{}", ccd_state);
         Ok(())
     } else {
-        Err(anyhow!("invalid args. please check --help."))
+        bail!("invalid args. please check --help.")
     }
 }
 

@@ -11,6 +11,7 @@ use std::process::Command;
 use std::process::Stdio;
 
 use anyhow::anyhow;
+use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
 use regex_macro::regex;
@@ -41,7 +42,7 @@ fn find_cros_dir_from_cwd() -> Result<String> {
     while !is_cros_dir(&dir) {
         match path.parent() {
             Some(p) => path = p.to_path_buf(),
-            None => return Err(anyhow!("Failed to find Cros SDK dir")),
+            None => bail!("Failed to find Cros SDK dir"),
         }
         dir = path.to_string_lossy().to_string();
     }
@@ -84,7 +85,7 @@ pub fn get_current_synced_version(repo: &str) -> Result<String> {
     if re_cros_version.is_match(&version) {
         Ok(version)
     } else {
-        Err(anyhow!("Invalid version format: {}", version))
+        bail!("Invalid version format: {}", version)
     }
 }
 
@@ -123,7 +124,7 @@ pub fn repo_sync(repo: &str, force: bool) -> Result<()> {
             let repos: Vec<String> = it.map(|e| e.to_string()).collect();
             if repos.is_empty() {
                 println!("{stderr}");
-                return Err(anyhow!("repo sync failed (please check the above message)"));
+                bail!("repo sync failed (please check the above message)");
             }
             let repos = repos[1..=repos.len() - 2].to_owned();
             println!("Failed repos: {:?}", &repos);
@@ -144,7 +145,7 @@ pub fn repo_sync(repo: &str, force: bool) -> Result<()> {
                 if result.status.success() {
                     println!("repo {} was deleted", dir);
                 } else {
-                    return Err(anyhow!("rm exited with {:?}", result.status));
+                    bail!("rm exited with {:?}", result.status);
                 }
             }
             last_failed_repos = Some(repos.to_owned());
