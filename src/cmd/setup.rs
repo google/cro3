@@ -11,7 +11,7 @@ use anyhow::Context;
 use anyhow::Error;
 use anyhow::Result;
 use argh::FromArgs;
-use lium::util::gen_path_in_lium_dir;
+use lium::util::lium_paths::gen_path_in_lium_dir;
 use lium::util::shell_helpers::get_stdout;
 use lium::util::shell_helpers::run_bash_command;
 
