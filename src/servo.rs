@@ -39,12 +39,12 @@ use serde::Serialize;
 
 use crate::chroot::Chroot;
 use crate::config::Config;
-use crate::util::has_root_privilege;
-use crate::util::run_lium_with_sudo;
 use crate::util::shell_helpers::get_async_lines;
 use crate::util::shell_helpers::get_stdout;
 use crate::util::shell_helpers::run_bash_command;
 use crate::util::shell_helpers::run_bash_command_with_timeout;
+use crate::util::super_user_helpers::has_root_privilege;
+use crate::util::super_user_helpers::run_lium_with_sudo;
 
 lazy_static! {
     static ref RE_MAC_ADDR: Regex =
