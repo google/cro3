@@ -4,6 +4,24 @@
 // license that can be found in the LICENSE file or at
 // https://developers.google.com/open-source/licenses/bsd
 
+/// Servo is a special USB device that is used for debugging Chromebook
+/// hardware. For more details, please check:
+/// https://chromium.googlesource.com/chromiumos/third_party/hdctools/+/HEAD/docs/servo_v4.md
+
+/// # Servo v4p1 Tips
+/// - Servo has three major ports: HOST, DUT_POWER, SERVO_POWER
+///   - HOST should be connected to your workstation / development machine
+///   - DUT_POWER should be connected to a USB-C Charger
+///     - Without DUT_POWER, some devices does not expose EC reliably
+///     - Also, some USB-C chargers does not work well with Servo
+///       - If it's not working well, try another type of chargers
+///   - SERVO_POWER also should be connected to a USB-C Charger
+///     - Sometimes (especially when using Chromebook as a HOST) Servo keeps
+///       rebooting after connecting HOST. In that case, connecting SERVO_POWER
+///       to a charger and HOST to a charger (not the host machine!), then
+///       unplug the charger from HOST port and reconnect it to actual host
+///       machine may work. (By following the steps, Servo will be kept on even
+///       when HOST is not connected)
 use core::str::FromStr;
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
