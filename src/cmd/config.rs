@@ -22,6 +22,7 @@ enum SubCommand {
     Show(ArgsShow),
     Clear(ArgsClear),
 }
+#[tracing::instrument(level = "trace")]
 pub fn run(args: &Args) -> Result<()> {
     match &args.nested {
         SubCommand::Clear(args) => run_clear(args),

@@ -36,6 +36,10 @@ use retry::delay;
 use retry::retry;
 use serde::Deserialize;
 use serde::Serialize;
+use tracing::error;
+use tracing::info;
+use tracing::trace;
+use tracing::warn;
 
 use crate::chroot::Chroot;
 use crate::config::Config;
@@ -283,7 +287,7 @@ fn discover() -> Result<Vec<LocalServo>> {
 fn discover_slow() -> Result<Vec<LocalServo>> {
     let mut servos = discover()?;
     servos.iter_mut().for_each(|s| {
-        eprintln!("Checking {}", s.serial);
+        info!("Checking {}", s.serial);
         let mac_addr = s.read_mac_addr().ok();
         let ec_version = s.read_ec_version().ok();
         s.slow_info = Some(SlowServoInfo {
@@ -413,12 +417,12 @@ impl LocalServo {
     }
     pub fn reset(&self) -> Result<()> {
         if has_root_privilege()? {
-            eprintln!("Resetting servo device: {}", self.serial);
+            info!("Resetting servo device: {}", self.serial);
             let path = Path::new(&self.usb_sysfs_path).join("authorized");
             fs::write(&path, b"0").context(anyhow!("Failed to set authorized = 0 {path:?}"))?;
             if let Err(e) = fs::write(&path, b"1") {
                 // sometimes writing to `authorized` fails with EPIPE, but it can be ignored.
-                eprintln!("Warning: Failed to set authorized = 1 {path:?} ({e:?})");
+                warn!("Warning: Failed to set authorized = 1 {path:?} ({e:?})");
             }
             Ok(())
         } else {
@@ -447,7 +451,7 @@ impl LocalServo {
     }
     pub fn start_servod(&self, chroot: &Chroot) -> Result<ServodConnection> {
         block_on(async {
-            eprintln!("Starting servod...");
+            info!("Starting servod...");
             let mut ports = (9000..9099).collect::<Vec<u16>>();
             let mut rng = thread_rng();
             ports.shuffle(&mut rng);
@@ -463,7 +467,7 @@ impl LocalServo {
                             line = servod_stderr => {
                                 if let Some(line) = line {
                                     let line = line?;
-                                eprintln!("{}", line);
+                                trace!("{}", line);
                                     if line.contains("is busy") {
                                         break;
                                     }
@@ -474,7 +478,7 @@ impl LocalServo {
                             line = servod_stdout => {
                                 if let Some(line) = line {
                                     let line = line?;
-                                    eprintln!("{}", line);
+                                    trace!("{}", line);
                                     if line.contains("Listening on localhost port") {
                                         return Result::Ok(servod);
                                     }
@@ -506,14 +510,14 @@ impl LocalServo {
         }
         retry(delay::Fixed::from_millis(500).take(2), || {
             let output = self.run_cmd("EC", "version").inspect_err(|e| {
-                eprintln!("version command on EC failed: {e}");
+                error!("version command on EC failed: {e}");
             })?;
             RE_EC_VERSION
                 .captures(&output)
                 .map(|c| c["version"].trim().to_lowercase())
                 .context(anyhow!("Failed to get EC version"))
                 .inspect_err(|e| {
-                    eprintln!("{:#?}: {output}", e);
+                    error!("{:#?}: {output}", e);
                 })
         })
         .or(Err(anyhow!("Failed to get EC version after retries")))
@@ -529,12 +533,12 @@ impl LocalServo {
         retry(delay::Fixed::from_millis(1000).take(10), || {
             let output = &self
                 .run_cmd("Servo EC Shell", "macaddr")
-                .inspect_err(|_| eprintln!("macaddr cmd failed. retrying..."))?;
+                .inspect_err(|_| error!("macaddr cmd failed. retrying..."))?;
             RE_MAC_ADDR
                 .captures(output)
                 .map(|c| c["addr"].to_lowercase())
                 .ok_or(anyhow!("macaddr not found in the output. retrying..."))
-                .inspect_err(|e| eprintln!("{e}"))
+                .inspect_err(|e| error!("{e}"))
         })
         .or(Err(anyhow!("Failed to get mac_addr after retries")))
     }
@@ -573,7 +577,7 @@ impl LocalServo {
             return get_cr50_attached_to_servo(self)?.read_gbb_flags(repo);
         }
         let chroot = Chroot::new(repo)?;
-        eprintln!("Reading gbb flags via Cr50...");
+        info!("Reading gbb flags via Cr50...");
         chroot.exec_in_chroot(&[
             "sudo",
             "flashrom",
@@ -583,7 +587,7 @@ impl LocalServo {
             "-i",
             "GBB:/tmp/gbb.bin",
         ])?;
-        eprintln!("Extracting gbb flags...");
+        info!("Extracting gbb flags...");
         let flags =
             chroot.exec_in_chroot(&["sudo", "futility", "gbb", "-g", "--flags", "/tmp/gbb.bin"])?;
         let flags = &RE_GBB_FLAGS
@@ -655,7 +659,7 @@ impl ServodConnection {
         self.port
     }
     pub fn run_dut_control<T: AsRef<str>>(&self, chroot: &Chroot, args: &[T]) -> Result<String> {
-        eprintln!("Using servod port {:?}", self.port);
+        info!("Using servod port {:?}", self.port);
         let output = chroot.exec_in_chroot(
             &[
                 ["dut-control", "-p", &self.port.to_string()].as_slice(),

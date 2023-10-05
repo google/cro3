@@ -27,6 +27,7 @@ enum SubCommand {
     Flash(ArgsArcFlash),
     Logcat(ArgsLogcat),
 }
+#[tracing::instrument(level = "trace")]
 pub fn run(args: &Args) -> Result<()> {
     match &args.nested {
         SubCommand::GuestKernelUprev(args) => run_guest_kernel_uprev(args),

@@ -37,6 +37,7 @@ pub struct Args {
     #[argh(switch)]
     ab_update: bool,
 }
+#[tracing::instrument(level = "trace")]
 pub fn run(args: &Args) -> Result<()> {
     ensure_testing_rsa_is_there()?;
     let target = SshInfo::new(&args.dut)?;

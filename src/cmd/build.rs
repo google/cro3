@@ -9,6 +9,7 @@ use anyhow::Result;
 use argh::FromArgs;
 use lium::chroot::Chroot;
 use lium::repo::get_repo_dir;
+use tracing::info;
 
 #[derive(FromArgs, PartialEq, Debug)]
 /// build package(s)
@@ -45,6 +46,7 @@ pub struct Args {
     #[argh(switch)]
     full: bool,
 }
+#[tracing::instrument(level = "trace")]
 pub fn run(args: &Args) -> Result<()> {
     let board = &args.board;
     let use_flags = &args.use_flags;
@@ -85,7 +87,7 @@ cros-workon-{board} start {package_list}
         )?;
     }
     if args.full {
-        eprintln!("building a full image...");
+        info!("building a full image...");
         chroot.run_bash_script_in_chroot(
             "build_packages",
             &format!(
@@ -97,10 +99,10 @@ build_image --board={board} --noenable_rootfs_verification test
             ),
             None,
         )?;
-        eprintln!("Succesfully built a test image!");
+        info!("Succesfully built a test image!");
     } else if !args.packages.is_empty() {
         let package_list = args.packages.join(" ");
-        eprintln!("Building {package_list}...");
+        info!("Building {package_list}...");
         chroot.run_bash_script_in_chroot(
             "emerge_packages",
             &format!(
@@ -111,7 +113,7 @@ emerge-{board} {package_list}
             ),
             None,
         )?;
-        eprintln!("Succesfully built {package_list}!");
+        info!("Succesfully built {package_list}!");
     } else {
         return Err(anyhow!(
             "Please specify --full or --packages. `lium build --help` for more details."

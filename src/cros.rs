@@ -10,6 +10,7 @@ use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
 use regex_macro::regex;
+use tracing::info;
 
 use crate::cache::KvCache;
 use crate::google_storage;
@@ -81,7 +82,7 @@ pub fn setup_cros_repo(repo: &str, version: &str, reference: &Option<String>) ->
         .arg("main");
 
     if let Some(reference) = reference {
-        eprintln!("Using {reference} as a local mirror.");
+        info!("Using {reference} as a local mirror.");
         cmd.args(["--reference", reference]);
     }
 

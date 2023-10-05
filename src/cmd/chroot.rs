@@ -27,6 +27,7 @@ pub struct Args {
     #[argh(option)]
     cmd: Option<String>,
 }
+#[tracing::instrument(level = "trace")]
 pub fn run(args: &Args) -> Result<()> {
     let repo = get_repo_dir(&args.repo)?;
     let mut additional_args = Vec::new();
