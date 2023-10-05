@@ -112,11 +112,12 @@
         e.preventDefault();
         if (port === undefined) {
             window.alert("serial port is not selected");
+        } else {
+            const writer = port.writable.getWriter();
+            await writer.write(encoder.encode(input.value + '\n'));
+            input.value = "";
+            writer.releaseLock();
         }
-        const writer = port.writable.getWriter();
-        await writer.write(encoder.encode(input.value + '\n'));
-        input.value = "";
-        writer.releaseLock();
     });
 </script>
 
