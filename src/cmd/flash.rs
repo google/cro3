@@ -108,6 +108,7 @@ pub struct Args {
     #[argh(switch)]
     enable_rootfs_verification: bool,
 }
+#[tracing::instrument(level = "trace")]
 pub fn run(args: &Args) -> Result<()> {
     // repo path is needed since cros flash outside chroot only works within the
     // cros checkout

@@ -15,6 +15,7 @@ use anyhow::Result;
 use regex::Regex;
 use serde::Deserialize;
 use serde::Serialize;
+use tracing::warn;
 
 use crate::util::lium_paths::gen_path_in_lium_dir;
 use crate::util::shell_helpers::run_bash_command;
@@ -77,7 +78,7 @@ impl Config {
                 // Just create a default config
                 let config = Self::default();
                 config.write()?;
-                eprintln!("INFO: config file created at {:?}", path);
+                warn!("config file created at {:?}", path);
                 Ok(config)
             }
             e => bail!("Failed to create a new config: {:?}", e),

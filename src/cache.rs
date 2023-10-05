@@ -19,6 +19,7 @@ use anyhow::Result;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use serde_json::{Map, Value};
+use tracing::error;
 
 use crate::util::lium_paths::gen_path_in_lium_dir;
 
@@ -85,8 +86,8 @@ impl<T: Serialize + DeserializeOwned + Sized + Clone + Debug> KvCache<T> {
                 Ok(())
             }
             Err(e) => {
-                eprintln!("Failed to parse the cache: {e:?}");
-                eprintln!("Creating a cache file again...");
+                error!("Failed to parse the cache: {e:?}");
+                error!("Creating a cache file again...");
                 self.create_file(true)?;
                 *self.map.lock().unwrap() = Some(HashMap::new());
                 Ok(())

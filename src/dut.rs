@@ -32,6 +32,8 @@ use rand::thread_rng;
 use rayon::prelude::*;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+use tracing::error;
+use tracing::info;
 use url::Url;
 
 use crate::cache::KvCache;
@@ -107,7 +109,7 @@ impl MonitoredDut {
     fn reconnect(&mut self) -> Result<String> {
         let new_child = block_on(self.ssh.start_ssh_forwarding(self.port));
         if let Err(e) = &new_child {
-            eprintln!("Failed to reconnect: {e:?}");
+            error!("Failed to reconnect: {e:?}");
         };
         self.child = new_child.ok();
         self.reconnecting = true;
@@ -371,7 +373,7 @@ impl DutInfo {
                 .collect::<Result<Vec<String>>>()?
                 .join(" && ");
 
-        eprintln!("Fetching info for {:?}...", ssh);
+        info!("Fetching info for {:?}...", ssh);
         let result = ssh.run_cmd_stdio(&cmds)?;
         let values: HashMap<String, Result<String>> = result
             .split('\n')
@@ -670,10 +672,10 @@ impl SshInfo {
                     line = merged_stream => {
                         if let Some(Ok(line)) = line {
                             if line.contains(COMMON_PORT_FORWARD_TOKEN) {
-                                eprintln!("lium: Established SSH port forwarding for {self:?} on {port}");
+                                info!("lium: Established SSH port forwarding for {self:?} on {port}");
                                 return Ok((child, port));
                             }
-                            eprintln!("{line}");
+                            info!("{line}");
                             if line.contains("cannot listen to port") {
                                 // Try next port
                                 break;
@@ -705,9 +707,9 @@ impl SshInfo {
             block_on(async move {
                 loop {
                     let status = child.status().await;
-                    eprintln!("lium: SSH forwarding process exited with {status:?}");
+                    info!("lium: SSH forwarding process exited with {status:?}");
                     loop {
-                        eprintln!("lium: Reconnecting to {ssh:?}...");
+                        info!("lium: Reconnecting to {ssh:?}...");
                         if let Ok(new_child) = ssh.start_ssh_forwarding(port).await {
                             child = new_child;
                             break;
@@ -875,10 +877,10 @@ pub fn fetch_dut_info_in_parallel(
             let dut = block_on(DutInfo::from_ssh(&ssh, extra_attr));
             match &dut {
                 Ok(_) => {
-                    eprintln!("{} is a DUT :)", addr)
+                    info!("{} is a DUT :)", addr)
                 }
                 Err(e) => {
-                    eprintln!("{} is not a DUT...(ToT) : {:#}", addr, e)
+                    info!("{} is not a DUT...(ToT) : {:#}", addr, e)
                 }
             }
             dut
@@ -888,7 +890,7 @@ pub fn fetch_dut_info_in_parallel(
 
 pub fn discover_local_nodes(iface: Option<String>) -> Result<Vec<String>> {
     ensure_testing_rsa_is_there()?;
-    eprintln!("Detecting DUTs on the same network...");
+    info!("Detecting DUTs on the same network...");
     let iface = iface
         .ok_or(())
         .or_else(|_| -> Result<String, anyhow::Error> {
@@ -898,7 +900,7 @@ pub fn discover_local_nodes(iface: Option<String>) -> Result<Vec<String>> {
             Ok(get_stdout(&r).trim().to_string())
         })
         .context("Failed to determine interface to scan")?;
-    eprintln!("Using {iface} to scan...");
+    info!("Using {iface} to scan...");
     let output = run_bash_command(
         &format!(
             "ping6 -c 3 -I {iface} ff02::1 | grep 'bytes from' | cut -d ' ' -f 4 | tr -d ',' | \
@@ -915,7 +917,7 @@ pub fn discover_local_nodes(iface: Option<String>) -> Result<Vec<String>> {
 }
 
 pub fn register_dut(dut: &str) -> Result<DutInfo> {
-    eprintln!("Checking: {dut:?}...");
+    info!("Checking: {dut:?}...");
     let info = DutInfo::new(dut)?;
     let id = info.id();
     let ssh = info.ssh();
