@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <title>Socket.IO chat</title>
+    <style>
+        body {
+            margin: 0;
+            padding-bottom: 3rem;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        #form {
+            background: rgba(0, 0, 0, 0.15);
+            padding: 0.25rem;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            display: flex;
+            height: 3rem;
+            box-sizing: border-box;
+            backdrop-filter: blur(10px);
+        }
+
+        #input {
+            border: none;
+            padding: 0 1rem;
+            flex-grow: 1;
+            border-radius: 2rem;
+            margin: 0.25rem;
+        }
+
+        #input:focus {
+            outline: none;
+        }
+
+        #form>button {
+            background: #333;
+            border: none;
+            padding: 0 1rem;
+            margin: 0.25rem;
+            border-radius: 3px;
+            outline: none;
+            color: #fff;
+        }
+
+        #messages {
+            list-style-type: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        #messages>li {
+            padding: 0.5rem 1rem;
+        }
+
+        #messages>li:nth-child(odd) {
+            background: #efefef;
+        }
+    </style>
+</head>
+
+
+<body>
+    <ul id="messages"></ul>
+    <button id="select">select serial</button>
+    <form id="form" action="">
+        <input id="input" autocomplete="off" /><button>Send</button>
+    </form>
+</body>
+<script>
+    const selectButton = document.getElementById('select');
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+    let port;
+    selectButton.addEventListener('click', async () => {
+        port = await navigator.serial
+            .requestPort()
+            .catch((e) => { console.error(e); });
+        await port.open({ baudRate: 115200 });
+        let listItem = document.createElement("li");
+        listItem.textContent = "port is selected";
+        messages.appendChild(listItem);
+
+        const reader = port.readable.getReader();
+
+        listItem = document.createElement("li");
+        messages.appendChild(listItem);
+        reader.read().then(function processText({ done, value }) {
+            if (done) {
+                console.log("Stream complete");
+                return;
+            }
+
+            const chunk = decoder.decode(value, { stream: true });
+            chunk_split_list = chunk.split("\n");
+
+            for (let i = 0; i < chunk_split_list.length - 1; i++) {
+                listItem.textContent += chunk_split_list[i];
+                listItem = document.createElement("li");
+                messages.appendChild(listItem);
+            }
+            listItem.textContent += chunk_split_list[chunk_split_list.length - 1];
+
+            return reader.read().then(processText);
+        });
+    });
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (port.state === "closed") {
+            window.alert("serial port is not selected");
+        }
+        const writer = port.writable.getWriter();
+        await writer.write(encoder.encode(input.value + '\n'));
+        input.value = "";
+        writer.releaseLock();
+    });
+</script>
+
+</html>
