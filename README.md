@@ -1,12 +1,26 @@
-# lium - Abstraction Layer of ChromiumOS development
+# lium - Make ChromiumOS development extreamely easy
 
-`lium` is an abstruction layer of ChromiumOS development environment and workflows.
+`lium` is an extreamely user-friendly tool for ChromiumOS developers.
 
-It provides a simple interface for common tasks for ChromiumOS developers,
-with plenty of automatic error recovery mechanisms to avoid keep sticking your eyes on the display(s),
-give you some time for a nap and/or coffee, or other tasks ;)
+It provides a simple way to do common development tasks and make the bareer for contributing to ChromiumOS and lium itself low as much as possible.
+
+It also comes with plenty of automatic error recovery mechanisms to avoid keep sticking your eyes on displays.
 
 Also, it manages local development hardware including DUTs and Servos, and act as working examples of commands to interact with them.
+
+We hope lium gives you some time for a nap and/or coffee, or other tasks by making your work more effective ;)
+
+## Core principles
+
+- P0: Make the basic ChromiumOS development workflow extremely easy as like as a usual software on GitHub
+  - Background: There have been a high barrier to get started with the ChromiumOS development. It terrifies new comers sometimes, and such environment is not sustainable nor efficient. This tool aims to solve such problems at a top priority.
+  - Basic workflows include: checkout the source code, build images / deploying packages / run tests with / without modifications.
+- P1: Make it extreamely easy to start using lium
+  - Background: As stated in the above, our goal is lowering the barrier for people who are about to start contribution to ChromiumOS. To achive that, a tool that aids the goal should be extremely easy as well to start using it.
+  - How: Follow best practices and common ways to do things. Prefer defaults always if there is no clear reason to change that.
+- P2: Be a working example compiled from knowledge in the documentations
+  - Background: Documentations can be rotten sirently. Code rots as well, but it will stop working sooner. People often prefer coding than documentation.
+  - How: Put enough background information in the code as comments. Put links to the documentations. Put anything useful with code, and wrap them with logics. It gives better understanding on the things than only using natural languages.
 
 ## Build and install
 
@@ -16,15 +30,20 @@ Also, it manages local development hardware including DUTs and Servos, and act a
 make install
 ```
 
-### Bash completion
+### Shell completions
 
-You can install the bash completion file by running this at any time:
-
+You can install the shell completion by running this at any time:
 ```
-lium setup bash-completion && source ~/.bash_completion
+# Bash
+lium setup bash-completion
+
+# Zsh
+lium setup zsh-completion
 ```
 
-This will be done automatically after `make install` if your default shell is bash.
+Please don't forget following instructions printed after running the command above and reload your shell!
+
+This will be done automatically after `make install` if your default shell is supported by lium.
 
 ...are you using other shells? We appreciate your pull-requests!
 
