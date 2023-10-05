@@ -110,7 +110,7 @@
 
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
-        if (port.state === "closed") {
+        if (port === undefined) {
             window.alert("serial port is not selected");
         }
         const writer = port.writable.getWriter();
