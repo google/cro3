@@ -24,10 +24,13 @@ const utf8decoder = new TextDecoder('utf-8');
 let output = '';
 let halt = false;
 
-let currentData: Array<Array<Date|number>> = undefined;
+let currentData: Array<Array<Date|number>>;
 function updateGraph(data: Array<Array<Date|number>>) {
   if (data !== undefined && data.length > 0) {
-    document.querySelector('#tooltip').classList.add("hidden");
+    const toolTip = document.querySelector('#tooltip');
+    if (toolTip !== null) {
+      toolTip.classList.add("hidden");
+    }
   }
   currentData = data;
   g.updateOptions({
@@ -60,10 +63,10 @@ function pushOutput(s: string) {
   let splitted = output.split('\n').filter((s) => s.trim().length > 10);
   if (splitted.length > 0 &&
       splitted[splitted.length - 1].indexOf('Alert limit') >= 0) {
-    let power = parseInt(splitted.find((s) => s.startsWith('Power'))
-                             .split('=>')[1]
-                             .trim()
-                             .split(' ')[0]);
+    const powerString = splitted.find((s) => s.startsWith('Power'));
+    if (powerString === undefined)
+      return;
+    let power = parseInt(powerString.split('=>')[1].trim().split(' ')[0]);
     let e: Array<Date|number> = [ new Date(), power ];
     powerData.push(e);
     updateGraph(powerData);
@@ -136,7 +139,7 @@ function setupStartUSBButton() {
   let ep = usb_interface + 1;
   requestUSBButton.addEventListener('click', async () => {
     halt = false;
-    device = null;
+    // device = null;
     try {
       device = await navigator.usb.requestDevice({
         filters : [ {
@@ -148,7 +151,7 @@ function setupStartUSBButton() {
       console.error(`Error: ${err}`);
     }
     if (!device) {
-      device = null;
+      // device = null;
       return;
     }
 
@@ -168,7 +171,10 @@ function setupStartUSBButton() {
             await device.clearHalt('in', ep);
             throw result;
           }
-          const result_array = new Int8Array(result.data.buffer);
+          const resultData = result.data;
+          if (resultData === undefined)
+            return;
+          const result_array = new Int8Array(resultData.buffer);
           return utf8decoder.decode(result_array);
         } catch (e) {
           // If halt is true, it's when the stop button is pressed. Therefore,
@@ -181,7 +187,7 @@ function setupStartUSBButton() {
       });
     } catch (err) {
       console.error(`Disconnected: ${err}`);
-      device = null;
+      // device = null;
       requestUSBButton.disabled = false;
     }
   });
@@ -207,22 +213,32 @@ requestSerialButton.addEventListener('click', async () => {
   port = await navigator.serial
              .requestPort(
                  {filters : [ {usbVendorId : 0x18d1, usbProductId : 0x520d} ]})
-             .catch((e) => { console.error(e); });
+             .catch((e) => {
+               console.error(e);
+               throw e;
+             });
   await port.open({baudRate : 115200});
   requestSerialButton.disabled = true;
   const encoder = new TextEncoder();
-  const writer = port.writable.getWriter();
+  const writable = port.writable;
+  if (writable === null)
+    return;
+  const readable = port.readable;
+  if (readable === null)
+    return;
+
+  const writer = writable.getWriter();
   await writer.write(encoder.encode('help\n'));
   writer.releaseLock();
 
+  reader = readable.getReader();
+
   kickWriteLoop(async (s) => {
     let data = new TextEncoder().encode(s);
-    const writer = port.writable.getWriter();
     await writer.write(data);
     writer.releaseLock();
   })
   readLoop(async () => {
-    reader = port.readable.getReader();
     try {
       while (true) {
         const {value, done} = await reader.read();
@@ -267,6 +283,8 @@ downloadButton.addEventListener('click', async () => {
   const dataStr = 'data:text/json;charset=utf-8,' +
                   encodeURIComponent(JSON.stringify({power : powerData}));
   const dlAnchorElem = document.getElementById('downloadAnchorElem');
+  if (dlAnchorElem === null)
+    return;
   dlAnchorElem.setAttribute('href', dataStr);
   dlAnchorElem.setAttribute('download', `power_${moment().format()}.json`);
   dlAnchorElem.click();
@@ -283,7 +301,7 @@ haltButton.addEventListener('click', () => {
   }
 });
 
-let ranges = [];
+let ranges: Array<Array<number>> = [];
 function paintHistogram(t0: number, t1: number) {
   // constants
   const xtick = 40;
@@ -308,9 +326,13 @@ function paintHistogram(t0: number, t1: number) {
 
   // y axis and its label
   const dataAll: Array<number> =
-      currentData.map((e: (Date|number)) => e[1] as number);
-  const ymin = d3.min(dataAll) - 1000;
-  const ymax = d3.max(dataAll) + 1000;
+      currentData.map((e: Array<Date|number>) => e[1] as number);
+  const dataMin = d3.min(dataAll);
+  const dataMax = d3.max(dataAll);
+  if (dataMin === undefined || dataMax === undefined)
+    return;
+  const ymin = dataMin - 1000;
+  const ymax = dataMax + 1000;
   const y = d3.scaleLinear().domain([ ymin, ymax ]).range([ 0, width ]);
   svg.append('g').call(d3.axisTop(y));
   svg.append('text')
@@ -327,9 +349,10 @@ function paintHistogram(t0: number, t1: number) {
     const left = ranges[i][0];
     const right = ranges[i][1];
     let points =
-        currentData.filter((e: (Date|String)) => (left <= e[0].getTime() &&
+        currentData.filter((e: Array<Date|number>) => (typeof(e[0]) !== 'number' && left <= e[0].getTime() &&
                                                   e[0].getTime() <= right));
-    let data: Array<number> = points.map((e: (Date|number)) => e[1] as number);
+
+    let data: Array<number> = points.map((e: Array<Date|number>) => e[1] as number);
     const center = xtick * (i + 1);
 
     // Compute statistics
@@ -337,12 +360,18 @@ function paintHistogram(t0: number, t1: number) {
     const q1 = d3.quantile(data_sorted, .25);
     const median = d3.quantile(data_sorted, .5);
     const q3 = d3.quantile(data_sorted, .75);
+    if (q1 === undefined || q3 === undefined)
+      return;
+    if (median === undefined)
+      return;
     const interQuantileRange = q3 - q1;
     const lowerFence = q1 - 1.5 * interQuantileRange;
     const upperFence = q3 + 1.5 * interQuantileRange;
     const minValue = d3.min(data);
     const maxValue = d3.max(data);
     const mean = d3.mean(data);
+    if (minValue === undefined || maxValue === undefined || mean === undefined)
+      return;
 
     // min, mean, max
     svg.append('line')
@@ -452,7 +481,10 @@ function setupDataLoad() {
   const handleFileSelect = (evt: DragEvent) => {
     evt.stopPropagation();
     evt.preventDefault();
-    const file = evt.dataTransfer.files[0];
+    const eventDataTransfer = evt.dataTransfer;
+    if (eventDataTransfer === null)
+      return;
+    const file = eventDataTransfer.files[0];
     if (file === undefined) {
       return;
     }
@@ -468,9 +500,14 @@ function setupDataLoad() {
   const handleDragOver = (evt: DragEvent) => {
     evt.stopPropagation();
     evt.preventDefault();
-    evt.dataTransfer.dropEffect = 'copy'; // Explicitly show this is a copy.
+    const eventDataTransfer = evt.dataTransfer;
+    if (eventDataTransfer === null)
+      return;
+    eventDataTransfer.dropEffect = 'copy'; // Explicitly show this is a copy.
   };
   const dropZone = document.getElementById('dropZone');
+  if (dropZone === null)
+    return;
   dropZone.innerText = 'Drop .json here';
   dropZone.addEventListener('dragover', handleDragOver, false);
   dropZone.addEventListener('drop', handleFileSelect, false);
