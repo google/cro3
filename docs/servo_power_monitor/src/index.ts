@@ -18,13 +18,13 @@ const serial_output =
     document.getElementById('serial_output') as HTMLDivElement;
 const controlDiv = document.getElementById('controlDiv') as HTMLDivElement;
 
-let powerData = [];
+let powerData: Array<Array<Date|number>> = [];
 const g = new Dygraph('graph', powerData, {});
 const utf8decoder = new TextDecoder('utf-8');
 let output = '';
 let halt = false;
 
-let currentData = undefined;
+let currentData: Array<Array<Date|number>> = undefined;
 function updateGraph(data: Array<Array<Date|number>>) {
   if (data !== undefined && data.length > 0) {
     document.querySelector('#tooltip').classList.add("hidden");
@@ -64,7 +64,7 @@ function pushOutput(s: string) {
                              .split('=>')[1]
                              .trim()
                              .split(' ')[0]);
-    let e: Array<Date|Number> = [ new Date(), power ];
+    let e: Array<Date|number> = [ new Date(), power ];
     powerData.push(e);
     updateGraph(powerData);
     serial_output.innerText = output;
@@ -118,7 +118,7 @@ function closeUSBPort() {
   requestUSBButton.disabled = false;
 }
 
-let port;
+let port: SerialPort;
 let reader: ReadableStreamDefaultReader;
 function closeSerialPort() {
   reader.cancel();
