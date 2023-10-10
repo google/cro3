@@ -11,6 +11,10 @@
             font-family: monospace;
         }
 
+        #full {
+            height: 100vh;
+        }
+
         #form {
             background: rgba(0, 0, 0, 0.15);
             padding: 0.25rem;
@@ -50,6 +54,9 @@
             list-style-type: none;
             margin: 0;
             padding: 0;
+            height: 100%;
+            box-sizing: border-box;
+            overflow-y: scroll;
         }
 
         #messages>li {
@@ -64,17 +71,27 @@
 
 
 <body>
-    <button id="select">select serial</button>
-    <ul id="messages"></ul>
-    <form id="form" action="">
-        <input id="input" autocomplete="off" /><button>Send</button>
-    </form>
+    <div id="full">
+        <button id="select">select serial</button>
+        <ul id="messages"></ul>
+        <form id="form" action="">
+            <input id="input" autocomplete="off" /><button>Send</button>
+        </form>
+    </div>
 </body>
 <script>
     const selectButton = document.getElementById('select');
+    const messages = document.getElementById('messages');
     const encoder = new TextEncoder();
     const decoder = new TextDecoder();
     let port;
+
+    function addListItem(listItem) {
+        const messages = document.getElementById('messages');
+        messages.appendChild(listItem);
+        messages.scrollTo(0, messages.scrollHeight);
+    }
+
     selectButton.addEventListener('click', async () => {
         port = await navigator.serial
             .requestPort()
@@ -82,12 +99,12 @@
         await port.open({ baudRate: 115200 });
         let listItem = document.createElement("li");
         listItem.textContent = "port is selected";
-        messages.appendChild(listItem);
+        addListItem(listItem);
 
         const reader = port.readable.getReader();
 
         listItem = document.createElement("li");
-        messages.appendChild(listItem);
+        addListItem(listItem);
         reader.read().then(function processText({ done, value }) {
             if (done) {
                 console.log("Stream complete");
@@ -100,7 +117,7 @@
             for (let i = 0; i < chunk_split_list.length - 1; i++) {
                 listItem.textContent += chunk_split_list[i];
                 listItem = document.createElement("li");
-                messages.appendChild(listItem);
+                addListItem(listItem);
             }
             listItem.textContent += chunk_split_list[chunk_split_list.length - 1];
 
