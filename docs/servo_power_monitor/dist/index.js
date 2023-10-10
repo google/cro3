@@ -68261,6 +68261,54 @@ let requestUSBButton = document.getElementById('request-device');
 const requestSerialButton = document.getElementById('requestSerialButton');
 const serial_output = document.getElementById('serial_output');
 const controlDiv = document.getElementById('controlDiv');
+const selectButton = document.getElementById('select');
+const encoder = new TextEncoder();
+const decoder = new TextDecoder();
+let DUTPort;
+function addListItem(listItem) {
+    const messages = document.getElementById('messages');
+    messages.appendChild(listItem);
+    messages.scrollTo(0, messages.scrollHeight);
+}
+selectButton.addEventListener('click', () => __awaiter(void 0, void 0, void 0, function* () {
+    DUTPort =
+        yield navigator.serial.requestPort().catch((e) => { console.error(e); });
+    yield DUTPort.open({ baudRate: 115200 });
+    let listItem = document.createElement("li");
+    listItem.textContent = "DUTPort is selected";
+    addListItem(listItem);
+    const reader = DUTPort.readable.getReader();
+    listItem = document.createElement("li");
+    addListItem(listItem);
+    reader.read().then(function processText({ done, value }) {
+        if (done) {
+            console.log("Stream complete");
+            return;
+        }
+        const chunk = decoder.decode(value, { stream: true });
+        const chunk_split_list = chunk.split("\n");
+        for (let i = 0; i < chunk_split_list.length - 1; i++) {
+            listItem.textContent += chunk_split_list[i];
+            listItem = document.createElement("li");
+            addListItem(listItem);
+        }
+        listItem.textContent += chunk_split_list[chunk_split_list.length - 1];
+        return reader.read().then(processText);
+    });
+}));
+// const form = document.getElementById("form");
+// form.addEventListener('submit', async (e) => {
+//   e.preventDefault();
+//   if (DUTPort === undefined) {
+//     window.alert("serial DUTPort is not selected");
+//   } else {
+//     const writer = DUTPort.writable.getWriter();
+//     const input = document.getElementById("input") as HTMLInputElement | null;
+//     await writer.write(encoder.encode(input.value + '\n'));
+//     input.value = "";
+//     writer.releaseLock();
+//   }
+// });
 let powerData = [];
 const g = new dygraphs__WEBPACK_IMPORTED_MODULE_1__["default"]('graph', powerData, {});
 const utf8decoder = new TextDecoder('utf-8');
@@ -68357,13 +68405,13 @@ function closeUSBPort() {
     }
     requestUSBButton.disabled = false;
 }
-let port;
+let servoPort;
 let reader;
 function closeSerialPort() {
     reader.cancel();
     reader.releaseLock();
     try {
-        port.close();
+        servoPort.close();
     }
     catch (e) {
         console.error(e);
@@ -68447,23 +68495,27 @@ function setupStartUSBButton() {
 setupStartUSBButton();
 requestSerialButton.addEventListener('click', () => __awaiter(void 0, void 0, void 0, function* () {
     halt = false;
-    port = yield navigator.serial
-        .requestPort({ filters: [{ usbVendorId: 0x18d1, usbProductId: 0x520d }] })
-        .catch((e) => { console.error(e); });
-    yield port.open({ baudRate: 115200 });
+    servoPort =
+        yield navigator.serial
+            .requestPort({ filters: [{ usbVendorId: 0x18d1, usbProductId: 0x520d }] })
+            .catch((e) => { console.error(e); });
+    yield servoPort.open({ baudRate: 115200 });
     requestSerialButton.disabled = true;
     const encoder = new TextEncoder();
-    const writer = port.writable.getWriter();
+    const writer = servoPort.writable.getWriter();
     yield writer.write(encoder.encode('help\n'));
     writer.releaseLock();
+    const DUTWriter = DUTPort.writable.getWriter();
+    yield DUTWriter.write(encoder.encode('cat /var/log/messages\n'));
+    DUTWriter.releaseLock();
     kickWriteLoop((s) => __awaiter(void 0, void 0, void 0, function* () {
         let data = new TextEncoder().encode(s);
-        const writer = port.writable.getWriter();
+        const writer = servoPort.writable.getWriter();
         yield writer.write(data);
         writer.releaseLock();
     }));
     readLoop(() => __awaiter(void 0, void 0, void 0, function* () {
-        reader = port.readable.getReader();
+        reader = servoPort.readable.getReader();
         try {
             while (true) {
                 const { value, done } = yield reader.read();
@@ -68487,15 +68539,15 @@ requestSerialButton.addEventListener('click', () => __awaiter(void 0, void 0, vo
 // c.f. https://wicg.github.io/webusb/#disconnect (5.1. Events)
 navigator.usb.addEventListener("disconnect", () => {
     if (requestUSBButton.disabled) {
-        //  No need to call close() for the USB port here because the specification
-        //  says that
-        // the port will be closed automatically when a device is disconnected.
+        //  No need to call close() for the USB servoPort here because the
+        //  specification says that
+        // the servoPort will be closed automatically when a device is disconnected.
         halt = true;
         requestUSBButton.disabled = false;
         inProgress = false;
     }
 });
-// event when you disconnect serial port
+// event when you disconnect serial servoPort
 navigator.serial.addEventListener("disconnect", () => {
     if (requestSerialButton.disabled) {
         halt = true;

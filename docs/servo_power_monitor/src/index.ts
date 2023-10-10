@@ -19,6 +19,61 @@ const serial_output =
 const controlDiv = document.getElementById('controlDiv') as HTMLDivElement;
 const selectButton = document.getElementById('select');
 
+const encoder = new TextEncoder();
+const decoder = new TextDecoder();
+let DUTPort;
+
+function addListItem(listItem) {
+  const messages = document.getElementById('messages');
+  messages.appendChild(listItem);
+  messages.scrollTo(0, messages.scrollHeight);
+}
+
+selectButton.addEventListener('click', async () => {
+  DUTPort =
+      await navigator.serial.requestPort().catch((e) => { console.error(e); });
+  await DUTPort.open({baudRate : 115200});
+  let listItem = document.createElement("li");
+  listItem.textContent = "DUTPort is selected";
+  addListItem(listItem);
+
+  const reader = DUTPort.readable.getReader();
+
+  listItem = document.createElement("li");
+  addListItem(listItem);
+  reader.read().then(function processText({done, value}) {
+    if (done) {
+      console.log("Stream complete");
+      return;
+    }
+
+    const chunk = decoder.decode(value, {stream : true});
+    const chunk_split_list = chunk.split("\n");
+
+    for (let i = 0; i < chunk_split_list.length - 1; i++) {
+      listItem.textContent += chunk_split_list[i];
+      listItem = document.createElement("li");
+      addListItem(listItem);
+    }
+    listItem.textContent += chunk_split_list[chunk_split_list.length - 1];
+
+    return reader.read().then(processText);
+  });
+});
+
+// const form = document.getElementById("form");
+// form.addEventListener('submit', async (e) => {
+//   e.preventDefault();
+//   if (DUTPort === undefined) {
+//     window.alert("serial DUTPort is not selected");
+//   } else {
+//     const writer = DUTPort.writable.getWriter();
+//     const input = document.getElementById("input") as HTMLInputElement | null;
+//     await writer.write(encoder.encode(input.value + '\n'));
+//     input.value = "";
+//     writer.releaseLock();
+//   }
+// });
 let powerData = [];
 const g = new Dygraph('graph', powerData, {});
 const utf8decoder = new TextDecoder('utf-8');
@@ -119,13 +174,13 @@ function closeUSBPort() {
   requestUSBButton.disabled = false;
 }
 
-let serve_port;
+let servoPort;
 let reader: ReadableStreamDefaultReader;
 function closeSerialPort() {
   reader.cancel();
   reader.releaseLock();
   try {
-    serve_port.close();
+    servoPort.close();
   } catch (e) {
     console.error(e);
   }
@@ -205,25 +260,30 @@ setupStartUSBButton();
 
 requestSerialButton.addEventListener('click', async () => {
   halt = false;
-  serve_port = await navigator.serial
-             .requestPort(
-                 {filters : [ {usbVendorId : 0x18d1, usbProductId : 0x520d} ]})
-             .catch((e) => { console.error(e); });
-  await serve_port.open({baudRate : 115200});
+  servoPort =
+      await navigator.serial
+          .requestPort(
+              {filters : [ {usbVendorId : 0x18d1, usbProductId : 0x520d} ]})
+          .catch((e) => { console.error(e); });
+  await servoPort.open({baudRate : 115200});
   requestSerialButton.disabled = true;
   const encoder = new TextEncoder();
-  const writer = serve_port.writable.getWriter();
+  const writer = servoPort.writable.getWriter();
   await writer.write(encoder.encode('help\n'));
   writer.releaseLock();
 
+  const DUTWriter = DUTPort.writable.getWriter();
+  await DUTWriter.write(encoder.encode('cat /var/log/messages\n'));
+  DUTWriter.releaseLock();
+
   kickWriteLoop(async (s) => {
     let data = new TextEncoder().encode(s);
-    const writer = serve_port.writable.getWriter();
+    const writer = servoPort.writable.getWriter();
     await writer.write(data);
     writer.releaseLock();
   })
   readLoop(async () => {
-    reader = serve_port.readable.getReader();
+    reader = servoPort.readable.getReader();
     try {
       while (true) {
         const {value, done} = await reader.read();
@@ -246,16 +306,16 @@ requestSerialButton.addEventListener('click', async () => {
 // c.f. https://wicg.github.io/webusb/#disconnect (5.1. Events)
 navigator.usb.addEventListener("disconnect", () => {
   if (requestUSBButton.disabled) {
-    //  No need to call close() for the USB serve_port here because the specification
-    //  says that
-    // the serve_port will be closed automatically when a device is disconnected.
+    //  No need to call close() for the USB servoPort here because the
+    //  specification says that
+    // the servoPort will be closed automatically when a device is disconnected.
     halt = true;
     requestUSBButton.disabled = false;
     inProgress = false;
   }
 });
 
-// event when you disconnect serial serve_port
+// event when you disconnect serial servoPort
 navigator.serial.addEventListener("disconnect", () => {
   if (requestSerialButton.disabled) {
     halt = true;
