@@ -17,6 +17,7 @@ const requestSerialButton =
 const serial_output =
     document.getElementById('serial_output') as HTMLDivElement;
 const controlDiv = document.getElementById('controlDiv') as HTMLDivElement;
+const selectButton = document.getElementById('select');
 
 let powerData = [];
 const g = new Dygraph('graph', powerData, {});
@@ -118,13 +119,13 @@ function closeUSBPort() {
   requestUSBButton.disabled = false;
 }
 
-let port;
+let serve_port;
 let reader: ReadableStreamDefaultReader;
 function closeSerialPort() {
   reader.cancel();
   reader.releaseLock();
   try {
-    port.close();
+    serve_port.close();
   } catch (e) {
     console.error(e);
   }
@@ -204,25 +205,25 @@ setupStartUSBButton();
 
 requestSerialButton.addEventListener('click', async () => {
   halt = false;
-  port = await navigator.serial
+  serve_port = await navigator.serial
              .requestPort(
                  {filters : [ {usbVendorId : 0x18d1, usbProductId : 0x520d} ]})
              .catch((e) => { console.error(e); });
-  await port.open({baudRate : 115200});
+  await serve_port.open({baudRate : 115200});
   requestSerialButton.disabled = true;
   const encoder = new TextEncoder();
-  const writer = port.writable.getWriter();
+  const writer = serve_port.writable.getWriter();
   await writer.write(encoder.encode('help\n'));
   writer.releaseLock();
 
   kickWriteLoop(async (s) => {
     let data = new TextEncoder().encode(s);
-    const writer = port.writable.getWriter();
+    const writer = serve_port.writable.getWriter();
     await writer.write(data);
     writer.releaseLock();
   })
   readLoop(async () => {
-    reader = port.readable.getReader();
+    reader = serve_port.readable.getReader();
     try {
       while (true) {
         const {value, done} = await reader.read();
@@ -245,16 +246,16 @@ requestSerialButton.addEventListener('click', async () => {
 // c.f. https://wicg.github.io/webusb/#disconnect (5.1. Events)
 navigator.usb.addEventListener("disconnect", () => {
   if (requestUSBButton.disabled) {
-    //  No need to call close() for the USB port here because the specification
+    //  No need to call close() for the USB serve_port here because the specification
     //  says that
-    // the port will be closed automatically when a device is disconnected.
+    // the serve_port will be closed automatically when a device is disconnected.
     halt = true;
     requestUSBButton.disabled = false;
     inProgress = false;
   }
 });
 
-// event when you disconnect serial port
+// event when you disconnect serial serve_port
 navigator.serial.addEventListener("disconnect", () => {
   if (requestSerialButton.disabled) {
     halt = true;
