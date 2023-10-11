@@ -232,10 +232,10 @@ requestSerialButton.addEventListener('click', async () => {
       console.log("Stream complete");
       return;
     }
-    
+
     const chunk = decoder.decode(value, {stream : true});
     const chunk_split_list = chunk.split("\n");
-    
+
     for (let i = 0; i < chunk_split_list.length - 1; i++) {
       listItem.textContent += chunk_split_list[i];
       listItem = document.createElement("li");
@@ -246,18 +246,19 @@ requestSerialButton.addEventListener('click', async () => {
     return DUTReader.read().then(processText);
   });
   servoPort =
-  await navigator.serial
-  .requestPort(
-    {filters : [ {usbVendorId : 0x18d1, usbProductId : 0x520d} ]})
-    .catch((e) => { console.error(e); });
-    await servoPort.open({baudRate : 115200});
-    requestSerialButton.disabled = true;
-    const encoder = new TextEncoder();
-    const writer = servoPort.writable.getWriter();
-    await writer.write(encoder.encode('help\n'));
-    writer.releaseLock();
-    
-    const scripts = `#!/bin/bash -e
+      await navigator.serial
+          .requestPort(
+              {filters : [ {usbVendorId : 0x18d1, usbProductId : 0x520d} ]})
+          .catch((e) => { console.error(e); });
+  await servoPort.open({baudRate : 115200});
+  requestSerialButton.disabled = true;
+  const encoder = new TextEncoder();
+  const writer = servoPort.writable.getWriter();
+  await writer.write(encoder.encode('help\n'));
+  writer.releaseLock();
+
+  const scripts =
+      `#!/bin/bash -e
 function bench_run_cpu \{
   CPU=\\\$1
   TOTAL_SIZE=\\\$(echo "4 * 1024 * 1024" | bc)
@@ -272,12 +273,12 @@ for ((CPU_IDX=0; CPU_IDX<\\\$(nproc); CPU_IDX++))
 do
   bench_run_cpu \\\$\{CPU_IDX\}
 done\n`
-    // await DUTWriter.write(encoder.encode("\n"));
-    await DUTWriter.write(encoder.encode("cat > ./example.sh << EOF\n"));
-    await DUTWriter.write(encoder.encode(scripts));
-    await DUTWriter.write(encoder.encode("EOF\n"));
-    await DUTWriter.write(encoder.encode("bash ./example.sh\n"));
-    DUTWriter.releaseLock();
+      // await DUTWriter.write(encoder.encode("\n"));
+      await DUTWriter.write(encoder.encode("cat > ./example.sh << EOF\n"));
+  await DUTWriter.write(encoder.encode(scripts));
+  await DUTWriter.write(encoder.encode("EOF\n"));
+  await DUTWriter.write(encoder.encode("bash ./example.sh\n"));
+  DUTWriter.releaseLock();
 
   kickWriteLoop(async (s) => {
     let data = new TextEncoder().encode(s);
