@@ -18,11 +18,12 @@ const serial_output =
     document.getElementById('serial_output') as HTMLDivElement;
 const controlDiv = document.getElementById('controlDiv') as HTMLDivElement;
 const executeScriptButton = document.getElementById('executeScriptButton');
+const messages = document.getElementById('messages');
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
+
 let DUTPort;
-// let DUTWriter: WritableStreamDefaultWriter;
 
 const form = document.getElementById("form");
 form.addEventListener('submit', async (e) => {
@@ -41,8 +42,7 @@ form.addEventListener('submit', async (e) => {
 
 executeScriptButton.addEventListener('click', async () => {
   // shell script
-  const scripts =
-  `#!/bin/bash -e
+  const scripts = `#!/bin/bash -e
   function bench_run_cpu \{
     CPU=\\\$1
     TOTAL_SIZE=\\\$(echo "4 * 1024 * 1024" | bc)
@@ -57,9 +57,9 @@ executeScriptButton.addEventListener('click', async () => {
   do
 bench_run_cpu \\\$\{CPU_IDX\}
 done\n`
-const DUTWriter = DUTPort.writable.getWriter();
-await DUTWriter.write(encoder.encode("cat > ./example.sh << EOF\n"));
-await DUTWriter.write(encoder.encode(scripts));
+  const DUTWriter = DUTPort.writable.getWriter();
+  await DUTWriter.write(encoder.encode("cat > ./example.sh << EOF\n"));
+  await DUTWriter.write(encoder.encode(scripts));
   await DUTWriter.write(encoder.encode("EOF\n"));
   await DUTWriter.write(encoder.encode("bash ./example.sh\n"));
   DUTWriter.releaseLock();
@@ -263,11 +263,11 @@ requestSerialButton.addEventListener('click', async () => {
   await DUTPort.open({baudRate : 115200});
   let listItem = document.createElement("li");
   listItem.textContent = "DUTPort is selected";
-  addListItem(listItem);
+  messages.appendChild(listItem);
 
   const DUTReader = DUTPort.readable.getReader();
   listItem = document.createElement("li");
-  addListItem(listItem);
+  messages.appendChild(listItem);
   DUTReader.read().then(function processText({done, value}) {
     if (done) {
       console.log("Stream complete");
@@ -280,9 +280,10 @@ requestSerialButton.addEventListener('click', async () => {
     for (let i = 0; i < chunk_split_list.length - 1; i++) {
       listItem.textContent += chunk_split_list[i];
       listItem = document.createElement("li");
-      addListItem(listItem);
+      messages.appendChild(listItem);
     }
     listItem.textContent += chunk_split_list[chunk_split_list.length - 1];
+    messages.scrollTo(0, messages.scrollHeight);
 
     return DUTReader.read().then(processText);
   });
@@ -293,12 +294,9 @@ requestSerialButton.addEventListener('click', async () => {
           .catch((e) => { console.error(e); });
   await servoPort.open({baudRate : 115200});
   requestSerialButton.disabled = true;
-  const encoder = new TextEncoder();
   const writer = servoPort.writable.getWriter();
   await writer.write(encoder.encode('help\n'));
   writer.releaseLock();
-
-
 
   kickWriteLoop(async (s) => {
     let data = new TextEncoder().encode(s);
