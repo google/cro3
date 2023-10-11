@@ -27,6 +27,12 @@ pub mod version;
 /// For more information, see: https://github.com/google/lium
 /// For Googlers, see go/lium and go/lium-bug
 pub struct TopLevel {
+    #[argh(option, short = 'v')]
+    /// set the verbosity level for the entire program, can also be controlled
+    /// with LIUM_LOG env var as described in the rust tracing crate docs
+    /// https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html
+    pub verbosity: Option<String>,
+
     #[argh(subcommand)]
     nested: Args,
 }
@@ -51,6 +57,7 @@ pub enum Args {
     Version(version::Args),
 }
 
+#[tracing::instrument(level = "trace")]
 pub fn run(args: &TopLevel) -> Result<()> {
     match &args.nested {
         Args::Arc(args) => arc::run(args),

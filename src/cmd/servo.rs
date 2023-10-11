@@ -20,6 +20,7 @@ use lium::servo::ServodConnection;
 use lium::util::lium_paths::gen_path_in_lium_dir;
 use lium::util::lium_paths::lium_dir;
 use lium::util::shell_helpers::run_bash_command;
+use tracing::info;
 
 #[derive(FromArgs, PartialEq, Debug)]
 /// control Servo
@@ -39,6 +40,7 @@ enum SubCommand {
     Shell(ArgsShell),
     Show(ArgsShow),
 }
+#[tracing::instrument(level = "trace")]
 pub fn run(args: &Args) -> Result<()> {
     match &args.nested {
         SubCommand::Control(args) => run_control(args),
@@ -188,7 +190,7 @@ pub fn run_control(args: &ArgsControl) -> Result<()> {
 #[argh(subcommand, name = "kill")]
 pub struct ArgsKill {}
 pub fn run_kill(_args: &ArgsKill) -> Result<()> {
-    eprintln!("Killing old servod instances...");
+    info!("Killing old servod instances...");
     process::Command::new("sudo")
         .args(["pkill", "-f", "servod"])
         .spawn()?
@@ -218,11 +220,11 @@ fn run_shell(args: &ArgsShell) -> Result<()> {
     let list = ServoList::discover()?;
     let s = list.find_by_serial(&args.serial)?;
     if args.print_tty_path {
-        eprintln!("{}", s.tty_path(&args.tty_type)?);
+        info!("{}", s.tty_path(&args.tty_type)?);
         Ok(())
     } else if let Some(cmd) = &args.cmd {
         let ccd_state = s.run_cmd(&args.tty_type, cmd)?;
-        eprintln!("{}", ccd_state);
+        info!("{}", ccd_state);
         Ok(())
     } else {
         bail!("invalid args. please check --help.")

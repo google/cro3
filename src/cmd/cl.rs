@@ -28,6 +28,7 @@ pub struct Args {
 enum SubCommand {
     Pick(ArgsPick),
 }
+#[tracing::instrument(level = "trace")]
 pub fn run(args: &Args) -> Result<()> {
     match &args.nested {
         SubCommand::Pick(args) => run_pick(args),

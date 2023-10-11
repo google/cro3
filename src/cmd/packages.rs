@@ -26,6 +26,7 @@ static DEFAULT_BOARD: &str = "host";
 enum SubCommand {
     List(ArgsList),
 }
+#[tracing::instrument(level = "trace")]
 pub fn run(args: &Args) -> Result<()> {
     match &args.nested {
         SubCommand::List(args) => run_packages_list(args),
