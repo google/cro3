@@ -172,10 +172,10 @@ function closeUSBPort() {
 }
 
 let servoPort;
-let reader: ReadableStreamDefaultReader;
+let servoReader: ReadableStreamDefaultReader;
 function closeSerialPort() {
-  reader.cancel();
-  reader.releaseLock();
+  servoReader.cancel();
+  servoReader.releaseLock();
   try {
     servoPort.close();
   } catch (e) {
@@ -294,23 +294,23 @@ requestSerialButton.addEventListener('click', async () => {
           .catch((e) => { console.error(e); });
   await servoPort.open({baudRate : 115200});
   requestSerialButton.disabled = true;
-  const writer = servoPort.writable.getWriter();
-  await writer.write(encoder.encode('help\n'));
-  writer.releaseLock();
+  const servoWriter = servoPort.writable.getWriter();
+  await servoWriter.write(encoder.encode('help\n'));
+  servoWriter.releaseLock();
 
   kickWriteLoop(async (s) => {
     let data = new TextEncoder().encode(s);
-    const writer = servoPort.writable.getWriter();
-    await writer.write(data);
-    writer.releaseLock();
+    const servoWriter = servoPort.writable.getWriter();
+    await servoWriter.write(data);
+    servoWriter.releaseLock();
   })
   readLoop(async () => {
-    reader = servoPort.readable.getReader();
+    servoReader = servoPort.readable.getReader();
     try {
       while (true) {
-        const {value, done} = await reader.read();
+        const {value, done} = await servoReader.read();
         if (done) {
-          // |reader| has been canceled.
+          // |servoReader| has been canceled.
           break;
         }
         return utf8decoder.decode(value);
@@ -319,7 +319,7 @@ requestSerialButton.addEventListener('click', async () => {
       console.error(error);
       throw error;
     } finally {
-      reader.releaseLock();
+      servoReader.releaseLock();
     }
   });
 });

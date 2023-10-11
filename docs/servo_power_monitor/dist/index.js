@@ -68406,10 +68406,10 @@ function closeUSBPort() {
     requestUSBButton.disabled = false;
 }
 let servoPort;
-let reader;
+let servoReader;
 function closeSerialPort() {
-    reader.cancel();
-    reader.releaseLock();
+    servoReader.cancel();
+    servoReader.releaseLock();
     try {
         servoPort.close();
     }
@@ -68526,22 +68526,22 @@ requestSerialButton.addEventListener('click', () => __awaiter(void 0, void 0, vo
             .catch((e) => { console.error(e); });
     yield servoPort.open({ baudRate: 115200 });
     requestSerialButton.disabled = true;
-    const writer = servoPort.writable.getWriter();
-    yield writer.write(encoder.encode('help\n'));
-    writer.releaseLock();
+    const servoWriter = servoPort.writable.getWriter();
+    yield servoWriter.write(encoder.encode('help\n'));
+    servoWriter.releaseLock();
     kickWriteLoop((s) => __awaiter(void 0, void 0, void 0, function* () {
         let data = new TextEncoder().encode(s);
-        const writer = servoPort.writable.getWriter();
-        yield writer.write(data);
-        writer.releaseLock();
+        const servoWriter = servoPort.writable.getWriter();
+        yield servoWriter.write(data);
+        servoWriter.releaseLock();
     }));
     readLoop(() => __awaiter(void 0, void 0, void 0, function* () {
-        reader = servoPort.readable.getReader();
+        servoReader = servoPort.readable.getReader();
         try {
             while (true) {
-                const { value, done } = yield reader.read();
+                const { value, done } = yield servoReader.read();
                 if (done) {
-                    // |reader| has been canceled.
+                    // |servoReader| has been canceled.
                     break;
                 }
                 return utf8decoder.decode(value);
@@ -68552,7 +68552,7 @@ requestSerialButton.addEventListener('click', () => __awaiter(void 0, void 0, vo
             throw error;
         }
         finally {
-            reader.releaseLock();
+            servoReader.releaseLock();
         }
     }));
 }));
