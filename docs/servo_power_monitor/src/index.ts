@@ -17,11 +17,53 @@ const requestSerialButton =
 const serial_output =
     document.getElementById('serial_output') as HTMLDivElement;
 const controlDiv = document.getElementById('controlDiv') as HTMLDivElement;
-const selectButton = document.getElementById('select');
+const executeScriptButton = document.getElementById('executeScriptButton');
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 let DUTPort;
+// let DUTWriter: WritableStreamDefaultWriter;
+
+const form = document.getElementById("form");
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  if (DUTPort === undefined) {
+    window.alert("serial DUTPort is not selected");
+  } else {
+    const input = document.getElementById("input") as HTMLInputElement | null;
+    const DUTWriter = DUTPort.writable.getWriter();
+    await DUTWriter.write(encoder.encode(input.value + '\n'));
+    input.value = "";
+    await DUTWriter.releaseLock();
+  }
+});
+
+executeScriptButton.addEventListener('click', async () => {
+  // shell script
+  const scripts =
+  `#!/bin/bash -e
+  function bench_run_cpu \{
+    CPU=\\\$1
+    TOTAL_SIZE=\\\$(echo "4 * 1024 * 1024" | bc)
+    BLOCK_SIZE=2
+    COUNT=\\\$(echo "\\\$\{TOTAL_SIZE\} / \\\$\{BLOCK_SIZE\}" | bc)
+    CMD="dd if=/dev/urandom bs=\\\$\{BLOCK_SIZE\} count=\\\$\{COUNT\} | wc -c"
+  RESULT=\\\$(taskset -c \\\$\{CPU\} /bin/bash -c "\\\$\{CMD\}" 2>&1 | grep copied)
+  REALTIME=\\\$(echo "\\\$\{RESULT\}" | cut -d ',' -f 3 | cut -d ' ' -f 2)
+  echo "\\\$\{CPU\},\\\$\{TOTAL_SIZE\},\\\$\{BLOCK_SIZE\},\\\$\{COUNT\},\\\$\{REALTIME\}"
+  \}
+  for ((CPU_IDX=0; CPU_IDX<\\\$(nproc); CPU_IDX++))
+  do
+bench_run_cpu \\\$\{CPU_IDX\}
+done\n`
+const DUTWriter = DUTPort.writable.getWriter();
+await DUTWriter.write(encoder.encode("cat > ./example.sh << EOF\n"));
+await DUTWriter.write(encoder.encode(scripts));
+  await DUTWriter.write(encoder.encode("EOF\n"));
+  await DUTWriter.write(encoder.encode("bash ./example.sh\n"));
+  DUTWriter.releaseLock();
+})
 
 function addListItem(listItem) {
   const messages = document.getElementById('messages');
@@ -224,7 +266,6 @@ requestSerialButton.addEventListener('click', async () => {
   addListItem(listItem);
 
   const DUTReader = DUTPort.readable.getReader();
-  const DUTWriter = DUTPort.writable.getWriter();
   listItem = document.createElement("li");
   addListItem(listItem);
   DUTReader.read().then(function processText({done, value}) {
@@ -257,28 +298,7 @@ requestSerialButton.addEventListener('click', async () => {
   await writer.write(encoder.encode('help\n'));
   writer.releaseLock();
 
-  const scripts =
-      `#!/bin/bash -e
-function bench_run_cpu \{
-  CPU=\\\$1
-  TOTAL_SIZE=\\\$(echo "4 * 1024 * 1024" | bc)
-  BLOCK_SIZE=2
-  COUNT=\\\$(echo "\\\$\{TOTAL_SIZE\} / \\\$\{BLOCK_SIZE\}" | bc)
-  CMD="dd if=/dev/urandom bs=\\\$\{BLOCK_SIZE\} count=\\\$\{COUNT\} | wc -c"
-  RESULT=\\\$(taskset -c \\\$\{CPU\} /bin/bash -c "\\\$\{CMD\}" 2>&1 | grep copied)
-  REALTIME=\\\$(echo "\\\$\{RESULT\}" | cut -d ',' -f 3 | cut -d ' ' -f 2)
-  echo "\\\$\{CPU\},\\\$\{TOTAL_SIZE\},\\\$\{BLOCK_SIZE\},\\\$\{COUNT\},\\\$\{REALTIME\}"
-\}
-for ((CPU_IDX=0; CPU_IDX<\\\$(nproc); CPU_IDX++))
-do
-  bench_run_cpu \\\$\{CPU_IDX\}
-done\n`
-      // await DUTWriter.write(encoder.encode("\n"));
-      await DUTWriter.write(encoder.encode("cat > ./example.sh << EOF\n"));
-  await DUTWriter.write(encoder.encode(scripts));
-  await DUTWriter.write(encoder.encode("EOF\n"));
-  await DUTWriter.write(encoder.encode("bash ./example.sh\n"));
-  DUTWriter.releaseLock();
+
 
   kickWriteLoop(async (s) => {
     let data = new TextEncoder().encode(s);
