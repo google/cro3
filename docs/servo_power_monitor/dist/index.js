@@ -68265,50 +68265,22 @@ const selectButton = document.getElementById('select');
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 let DUTPort;
+function DUTLogin(DUTWriter, listItemText) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const loginMessage = "localhost login:";
+        console.log(listItemText);
+        if (listItemText.includes(loginMessage)) {
+            yield DUTWriter.write("root\n");
+            yield DUTWriter.write("test0000\n");
+            yield DUTWriter.releaseLock();
+        }
+    });
+}
 function addListItem(listItem) {
     const messages = document.getElementById('messages');
     messages.appendChild(listItem);
     messages.scrollTo(0, messages.scrollHeight);
 }
-selectButton.addEventListener('click', () => __awaiter(void 0, void 0, void 0, function* () {
-    DUTPort =
-        yield navigator.serial.requestPort().catch((e) => { console.error(e); });
-    yield DUTPort.open({ baudRate: 115200 });
-    let listItem = document.createElement("li");
-    listItem.textContent = "DUTPort is selected";
-    addListItem(listItem);
-    const reader = DUTPort.readable.getReader();
-    listItem = document.createElement("li");
-    addListItem(listItem);
-    reader.read().then(function processText({ done, value }) {
-        if (done) {
-            console.log("Stream complete");
-            return;
-        }
-        const chunk = decoder.decode(value, { stream: true });
-        const chunk_split_list = chunk.split("\n");
-        for (let i = 0; i < chunk_split_list.length - 1; i++) {
-            listItem.textContent += chunk_split_list[i];
-            listItem = document.createElement("li");
-            addListItem(listItem);
-        }
-        listItem.textContent += chunk_split_list[chunk_split_list.length - 1];
-        return reader.read().then(processText);
-    });
-}));
-// const form = document.getElementById("form");
-// form.addEventListener('submit', async (e) => {
-//   e.preventDefault();
-//   if (DUTPort === undefined) {
-//     window.alert("serial DUTPort is not selected");
-//   } else {
-//     const writer = DUTPort.writable.getWriter();
-//     const input = document.getElementById("input") as HTMLInputElement | null;
-//     await writer.write(encoder.encode(input.value + '\n'));
-//     input.value = "";
-//     writer.releaseLock();
-//   }
-// });
 let powerData = [];
 const g = new dygraphs__WEBPACK_IMPORTED_MODULE_1__["default"]('graph', powerData, {});
 const utf8decoder = new TextDecoder('utf-8');
@@ -68495,6 +68467,31 @@ function setupStartUSBButton() {
 setupStartUSBButton();
 requestSerialButton.addEventListener('click', () => __awaiter(void 0, void 0, void 0, function* () {
     halt = false;
+    DUTPort =
+        yield navigator.serial.requestPort().catch((e) => { console.error(e); });
+    yield DUTPort.open({ baudRate: 115200 });
+    let listItem = document.createElement("li");
+    listItem.textContent = "DUTPort is selected";
+    addListItem(listItem);
+    const DUTReader = DUTPort.readable.getReader();
+    const DUTWriter = DUTPort.writable.getWriter();
+    listItem = document.createElement("li");
+    addListItem(listItem);
+    DUTReader.read().then(function processText({ done, value }) {
+        if (done) {
+            console.log("Stream complete");
+            return;
+        }
+        const chunk = decoder.decode(value, { stream: true });
+        const chunk_split_list = chunk.split("\n");
+        for (let i = 0; i < chunk_split_list.length - 1; i++) {
+            listItem.textContent += chunk_split_list[i];
+            listItem = document.createElement("li");
+            addListItem(listItem);
+        }
+        listItem.textContent += chunk_split_list[chunk_split_list.length - 1];
+        return DUTReader.read().then(processText);
+    });
     servoPort =
         yield navigator.serial
             .requestPort({ filters: [{ usbVendorId: 0x18d1, usbProductId: 0x520d }] })
@@ -68505,8 +68502,26 @@ requestSerialButton.addEventListener('click', () => __awaiter(void 0, void 0, vo
     const writer = servoPort.writable.getWriter();
     yield writer.write(encoder.encode('help\n'));
     writer.releaseLock();
-    const DUTWriter = DUTPort.writable.getWriter();
-    yield DUTWriter.write(encoder.encode('cat /var/log/messages\n'));
+    const scripts = `#!/bin/bash -e
+    function bench_run_cpu \{
+      CPU=\$1
+      TOTAL_SIZE=\$(echo "4 * 1024 * 1024" | bc)
+      BLOCK_SIZE=2
+      COUNT=\$(echo "\$\{TOTAL_SIZE\} / \$\{BLOCK_SIZE\}" | bc)
+      CMD="dd if=/dev/urandom bs=\$\{BLOCK_SIZE\} count=\$\{COUNT\} | wc -c"
+      RESULT=\$(taskset -c \$\{CPU\} /bin/bash -c "\$\{CMD\}" 2>&1 | grep copied)
+      REALTIME=\$(echo "\$\{RESULT\}" | cut -d ',' -f 3 | cut -d ' ' -f 2)
+      echo "\$\{CPU\},\$\{TOTAL_SIZE\},\$\{BLOCK_SIZE\},\$\{COUNT\},\$\{REALTIME\}"
+    \}
+    for ((CPU_IDX=0; CPU_IDX<\$(nproc); CPU_IDX++))
+    do
+      bench_run_cpu \$\{CPU_IDX\}
+    done\n`;
+    // await DUTWriter.write(encoder.encode("\n"));
+    yield DUTWriter.write(encoder.encode("cat > ./example.sh << EOF\n"));
+    yield DUTWriter.write(encoder.encode(scripts));
+    yield DUTWriter.write(encoder.encode("EOF\n"));
+    // await DUTWriter.write(encoder.encode("cat ./example.sh\n"));
     DUTWriter.releaseLock();
     kickWriteLoop((s) => __awaiter(void 0, void 0, void 0, function* () {
         let data = new TextEncoder().encode(s);

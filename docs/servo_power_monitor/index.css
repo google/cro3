@@ -178,6 +178,7 @@ body {
   list-style-type: none;
   height: 80%;
   box-sizing: border-box;
+  overflow-x: scroll;
   overflow-y: scroll;
   padding: 4px;
   margin: 4px;
@@ -185,9 +186,9 @@ body {
 
 }
 
-#messages>li {
+/* #messages>li {
   padding: 0.5rem 1rem;
-}
+} */
 
 #dropZone {
   position: absolute;
