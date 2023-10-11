@@ -68265,17 +68265,6 @@ const selectButton = document.getElementById('select');
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 let DUTPort;
-function DUTLogin(DUTWriter, listItemText) {
-    return __awaiter(this, void 0, void 0, function* () {
-        const loginMessage = "localhost login:";
-        console.log(listItemText);
-        if (listItemText.includes(loginMessage)) {
-            yield DUTWriter.write("root\n");
-            yield DUTWriter.write("test0000\n");
-            yield DUTWriter.releaseLock();
-        }
-    });
-}
 function addListItem(listItem) {
     const messages = document.getElementById('messages');
     messages.appendChild(listItem);
@@ -68503,25 +68492,25 @@ requestSerialButton.addEventListener('click', () => __awaiter(void 0, void 0, vo
     yield writer.write(encoder.encode('help\n'));
     writer.releaseLock();
     const scripts = `#!/bin/bash -e
-    function bench_run_cpu \{
-      CPU=\$1
-      TOTAL_SIZE=\$(echo "4 * 1024 * 1024" | bc)
-      BLOCK_SIZE=2
-      COUNT=\$(echo "\$\{TOTAL_SIZE\} / \$\{BLOCK_SIZE\}" | bc)
-      CMD="dd if=/dev/urandom bs=\$\{BLOCK_SIZE\} count=\$\{COUNT\} | wc -c"
-      RESULT=\$(taskset -c \$\{CPU\} /bin/bash -c "\$\{CMD\}" 2>&1 | grep copied)
-      REALTIME=\$(echo "\$\{RESULT\}" | cut -d ',' -f 3 | cut -d ' ' -f 2)
-      echo "\$\{CPU\},\$\{TOTAL_SIZE\},\$\{BLOCK_SIZE\},\$\{COUNT\},\$\{REALTIME\}"
-    \}
-    for ((CPU_IDX=0; CPU_IDX<\$(nproc); CPU_IDX++))
-    do
-      bench_run_cpu \$\{CPU_IDX\}
-    done\n`;
+function bench_run_cpu \{
+  CPU=\\\$1
+  TOTAL_SIZE=\\\$(echo "4 * 1024 * 1024" | bc)
+  BLOCK_SIZE=2
+  COUNT=\\\$(echo "\\\$\{TOTAL_SIZE\} / \\\$\{BLOCK_SIZE\}" | bc)
+  CMD="dd if=/dev/urandom bs=\\\$\{BLOCK_SIZE\} count=\\\$\{COUNT\} | wc -c"
+  RESULT=\\\$(taskset -c \\\$\{CPU\} /bin/bash -c "\\\$\{CMD\}" 2>&1 | grep copied)
+  REALTIME=\\\$(echo "\\\$\{RESULT\}" | cut -d ',' -f 3 | cut -d ' ' -f 2)
+  echo "\\\$\{CPU\},\\\$\{TOTAL_SIZE\},\\\$\{BLOCK_SIZE\},\\\$\{COUNT\},\\\$\{REALTIME\}"
+\}
+for ((CPU_IDX=0; CPU_IDX<\\\$(nproc); CPU_IDX++))
+do
+  bench_run_cpu \\\$\{CPU_IDX\}
+done\n`;
     // await DUTWriter.write(encoder.encode("\n"));
     yield DUTWriter.write(encoder.encode("cat > ./example.sh << EOF\n"));
     yield DUTWriter.write(encoder.encode(scripts));
     yield DUTWriter.write(encoder.encode("EOF\n"));
-    // await DUTWriter.write(encoder.encode("cat ./example.sh\n"));
+    yield DUTWriter.write(encoder.encode("bash ./example.sh\n"));
     DUTWriter.releaseLock();
     kickWriteLoop((s) => __awaiter(void 0, void 0, void 0, function* () {
         let data = new TextEncoder().encode(s);

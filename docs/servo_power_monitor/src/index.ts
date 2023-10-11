@@ -23,16 +23,6 @@ const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 let DUTPort;
 
-async function DUTLogin(DUTWriter: WritableStreamDefaultWriter, listItemText: string) {
-  const loginMessage = "localhost login:"
-  console.log(listItemText);
-  if (listItemText.includes(loginMessage)) {
-    await DUTWriter.write("root\n");
-    await DUTWriter.write("test0000\n");
-    await DUTWriter.releaseLock();
-  }
-}
-
 function addListItem(listItem) {
   const messages = document.getElementById('messages');
   messages.appendChild(listItem);
@@ -268,25 +258,25 @@ requestSerialButton.addEventListener('click', async () => {
     writer.releaseLock();
     
     const scripts = `#!/bin/bash -e
-    function bench_run_cpu \{
-      CPU=\$1
-      TOTAL_SIZE=\$(echo "4 * 1024 * 1024" | bc)
-      BLOCK_SIZE=2
-      COUNT=\$(echo "\$\{TOTAL_SIZE\} / \$\{BLOCK_SIZE\}" | bc)
-      CMD="dd if=/dev/urandom bs=\$\{BLOCK_SIZE\} count=\$\{COUNT\} | wc -c"
-      RESULT=\$(taskset -c \$\{CPU\} /bin/bash -c "\$\{CMD\}" 2>&1 | grep copied)
-      REALTIME=\$(echo "\$\{RESULT\}" | cut -d ',' -f 3 | cut -d ' ' -f 2)
-      echo "\$\{CPU\},\$\{TOTAL_SIZE\},\$\{BLOCK_SIZE\},\$\{COUNT\},\$\{REALTIME\}"
-    \}
-    for ((CPU_IDX=0; CPU_IDX<\$(nproc); CPU_IDX++))
-    do
-      bench_run_cpu \$\{CPU_IDX\}
-    done\n`
+function bench_run_cpu \{
+  CPU=\\\$1
+  TOTAL_SIZE=\\\$(echo "4 * 1024 * 1024" | bc)
+  BLOCK_SIZE=2
+  COUNT=\\\$(echo "\\\$\{TOTAL_SIZE\} / \\\$\{BLOCK_SIZE\}" | bc)
+  CMD="dd if=/dev/urandom bs=\\\$\{BLOCK_SIZE\} count=\\\$\{COUNT\} | wc -c"
+  RESULT=\\\$(taskset -c \\\$\{CPU\} /bin/bash -c "\\\$\{CMD\}" 2>&1 | grep copied)
+  REALTIME=\\\$(echo "\\\$\{RESULT\}" | cut -d ',' -f 3 | cut -d ' ' -f 2)
+  echo "\\\$\{CPU\},\\\$\{TOTAL_SIZE\},\\\$\{BLOCK_SIZE\},\\\$\{COUNT\},\\\$\{REALTIME\}"
+\}
+for ((CPU_IDX=0; CPU_IDX<\\\$(nproc); CPU_IDX++))
+do
+  bench_run_cpu \\\$\{CPU_IDX\}
+done\n`
     // await DUTWriter.write(encoder.encode("\n"));
     await DUTWriter.write(encoder.encode("cat > ./example.sh << EOF\n"));
     await DUTWriter.write(encoder.encode(scripts));
     await DUTWriter.write(encoder.encode("EOF\n"));
-    // await DUTWriter.write(encoder.encode("cat ./example.sh\n"));
+    await DUTWriter.write(encoder.encode("bash ./example.sh\n"));
     DUTWriter.releaseLock();
 
   kickWriteLoop(async (s) => {
