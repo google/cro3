@@ -11,8 +11,9 @@
             font-family: monospace;
         }
 
-        #full {
-            height: 100vh;
+
+        #select {
+            height: 2rem;
         }
 
         #form {
@@ -54,7 +55,7 @@
             list-style-type: none;
             margin: 0;
             padding: 0;
-            height: 100%;
+            height: calc(100vh - 5rem);
             box-sizing: border-box;
             overflow-y: scroll;
         }
@@ -71,13 +72,11 @@
 
 
 <body>
-    <div id="full">
-        <button id="select">select serial</button>
-        <ul id="messages"></ul>
-        <form id="form" action="">
-            <input id="input" autocomplete="off" /><button>Send</button>
-        </form>
-    </div>
+    <button id="select">select serial</button>
+    <ul id="messages"></ul>
+    <form id="form" action="">
+        <input id="input" autocomplete="off" /><button>Send</button>
+    </form>
 </body>
 <script>
     const selectButton = document.getElementById('select');
@@ -87,7 +86,6 @@
     let port;
 
     function addListItem(listItem) {
-        const messages = document.getElementById('messages');
         messages.appendChild(listItem);
         messages.scrollTo(0, messages.scrollHeight);
     }
@@ -99,12 +97,12 @@
         await port.open({ baudRate: 115200 });
         let listItem = document.createElement("li");
         listItem.textContent = "port is selected";
-        addListItem(listItem);
+        messages.appendChild(listItem);
 
         const reader = port.readable.getReader();
 
         listItem = document.createElement("li");
-        addListItem(listItem);
+        messages.appendChild(listItem);
         reader.read().then(function processText({ done, value }) {
             if (done) {
                 console.log("Stream complete");
@@ -117,9 +115,10 @@
             for (let i = 0; i < chunk_split_list.length - 1; i++) {
                 listItem.textContent += chunk_split_list[i];
                 listItem = document.createElement("li");
-                addListItem(listItem);
+                messages.appendChild(listItem);
             }
             listItem.textContent += chunk_split_list[chunk_split_list.length - 1];
+            messages.scrollTo(0, messages.scrollHeight);
 
             return reader.read().then(processText);
         });
