@@ -26,9 +26,9 @@
   "devDependencies": {
     "@types/d3": "^7.4.0",
     "@types/dygraphs": "^2.1.4",
-    "webpack-cli": "^5.1.4",
+    "@types/node": "20.8.2",
     "gts": "^5.2.0",
     "typescript": "~5.2.0",
-    "@types/node": "20.8.2"
+    "webpack-cli": "^5.1.4"
   }
 }
