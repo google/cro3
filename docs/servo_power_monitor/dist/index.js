@@ -68314,7 +68314,7 @@ function pushOutput(s) {
     }
 }
 function kickWriteLoop(writeFn) {
-    const f = (_) => __awaiter(this, void 0, void 0, function* () {
+    const f = () => __awaiter(this, void 0, void 0, function* () {
         while (!halt) {
             if (inProgress) {
                 console.error('previous request is in progress! skip...');
@@ -68324,7 +68324,7 @@ function kickWriteLoop(writeFn) {
             }
             // ina 0 and 1 seems to be the same
             // ina 2 is something but not useful
-            const cmd = `ina 0\n`;
+            const cmd = 'ina 0\n';
             yield writeFn(cmd);
             yield new Promise(r => setTimeout(r, intervalMs));
         }
@@ -68551,7 +68551,6 @@ function paintHistogram(t0, t1) {
     const targetWidth = area.node().getBoundingClientRect().width * 0.98;
     const targetHeight = 10000; // (area.node() as HTMLElement).getBoundingClientRect().height;
     const width = targetWidth - margin.left - margin.right;
-    const height = targetHeight - margin.top - margin.bottom;
     const svg = area
         .html('')
         .append('svg')

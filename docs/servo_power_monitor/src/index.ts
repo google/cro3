@@ -84,7 +84,7 @@ function pushOutput(s: string) {
 }
 
 function kickWriteLoop(writeFn: (s: string) => Promise<void>) {
-  const f = async (_: any) => {
+  const f = async () => {
     while (!halt) {
       if (inProgress) {
         console.error('previous request is in progress! skip...');
@@ -94,7 +94,7 @@ function kickWriteLoop(writeFn: (s: string) => Promise<void>) {
 
       // ina 0 and 1 seems to be the same
       // ina 2 is something but not useful
-      const cmd = `ina 0\n`;
+      const cmd = 'ina 0\n';
       await writeFn(cmd);
       await new Promise(r => setTimeout(r, intervalMs));
     }
@@ -206,7 +206,7 @@ function setupStartUSBButton() {
       if (!device) {
         return;
       }
-      let data: any;
+      let data;
       if (event.key.length === 1) {
         data = new Int8Array([event.key.charCodeAt(0)]);
       } else if (event.code === 'Enter') {
@@ -326,7 +326,6 @@ function paintHistogram(t0: number, t1: number) {
     (area.node() as HTMLElement).getBoundingClientRect().width * 0.98;
   const targetHeight = 10000; // (area.node() as HTMLElement).getBoundingClientRect().height;
   const width = targetWidth - margin.left - margin.right;
-  const height = targetHeight - margin.top - margin.bottom;
   const svg = area
     .html('')
     .append('svg')
