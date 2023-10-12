@@ -68482,7 +68482,7 @@ requestSerialButton.addEventListener('click', () => __awaiter(void 0, void 0, vo
     }));
     readLoop(() => __awaiter(void 0, void 0, void 0, function* () {
         try {
-            while (true) {
+            for (;;) {
                 const { value, done } = yield reader.read();
                 if (done) {
                     // |reader| has been canceled.
@@ -68619,10 +68619,10 @@ function paintHistogram(t0, t1) {
             .append('line')
             .attr('y1', center - boxWidth)
             .attr('y2', center + boxWidth)
-            .attr('x1', function (d) {
+            .attr('x1', d => {
             return y(d);
         })
-            .attr('x2', function (d) {
+            .attr('x2', d => {
             return y(d);
         })
             .style('stroke-dasharray', '3, 3')
@@ -68650,10 +68650,10 @@ function paintHistogram(t0, t1) {
             .append('line')
             .attr('y1', center - boxWidth / 2)
             .attr('y2', center + boxWidth / 2)
-            .attr('x1', function (d) {
+            .attr('x1', d => {
             return y(d);
         })
-            .attr('x2', function (d) {
+            .attr('x2', d => {
             return y(d);
         })
             .attr('stroke', '#fff');
