@@ -164,7 +164,6 @@ body {
 }
 
 #d3area {
-  /* position: absolute; */
   width: 50%;
   overflow-y: scroll;
 }
@@ -185,10 +184,6 @@ body {
   border: 1px solid #aaa;
 
 }
-
-/* #messages>li {
-  padding: 0.5rem 1rem;
-} */
 
 #dropZone {
   position: absolute;
