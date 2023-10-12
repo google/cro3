@@ -68264,6 +68264,10 @@ const controlDiv = document.getElementById('controlDiv');
 const selectDUTSerialButton = document.getElementById('selectDUTSerialButton');
 const executeScriptButton = document.getElementById('executeScriptButton');
 const messages = document.getElementById('messages');
+const popupCloseButton = document.getElementById("popup-close");
+popupCloseButton.addEventListener('click', () => {
+    document.querySelector('#popup-overlay').classList.add("closed");
+});
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 let DUTPort;
@@ -68298,7 +68302,7 @@ const form = document.getElementById("form");
 form.addEventListener('submit', (e) => __awaiter(void 0, void 0, void 0, function* () {
     e.preventDefault();
     if (DUTPort === undefined) {
-        window.alert("serial DUTPort is not selected");
+        document.querySelector('#popup-overlay').classList.remove("closed");
     }
     else {
         const input = document.getElementById("input");
