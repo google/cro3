@@ -68261,11 +68261,39 @@ let requestUSBButton = document.getElementById('request-device');
 const requestSerialButton = document.getElementById('requestSerialButton');
 const serial_output = document.getElementById('serial_output');
 const controlDiv = document.getElementById('controlDiv');
+const selectDUTSerialButton = document.getElementById('selectDUTSerialButton');
 const executeScriptButton = document.getElementById('executeScriptButton');
 const messages = document.getElementById('messages');
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 let DUTPort;
+selectDUTSerialButton.addEventListener('click', () => __awaiter(void 0, void 0, void 0, function* () {
+    DUTPort =
+        yield navigator.serial.requestPort().catch((e) => { console.error(e); });
+    yield DUTPort.open({ baudRate: 115200 });
+    let listItem = document.createElement("li");
+    listItem.textContent = "DUTPort is selected";
+    messages.appendChild(listItem);
+    const DUTReader = DUTPort.readable.getReader();
+    listItem = document.createElement("li");
+    messages.appendChild(listItem);
+    DUTReader.read().then(function processText({ done, value }) {
+        if (done) {
+            console.log("Stream complete");
+            return;
+        }
+        const chunk = decoder.decode(value, { stream: true });
+        const chunk_split_list = chunk.split("\n");
+        for (let i = 0; i < chunk_split_list.length - 1; i++) {
+            listItem.textContent += chunk_split_list[i];
+            listItem = document.createElement("li");
+            messages.appendChild(listItem);
+        }
+        listItem.textContent += chunk_split_list[chunk_split_list.length - 1];
+        messages.scrollTo(0, messages.scrollHeight);
+        return DUTReader.read().then(processText);
+    });
+}));
 const form = document.getElementById("form");
 form.addEventListener('submit', (e) => __awaiter(void 0, void 0, void 0, function* () {
     e.preventDefault();
@@ -68495,31 +68523,6 @@ function setupStartUSBButton() {
 setupStartUSBButton();
 requestSerialButton.addEventListener('click', () => __awaiter(void 0, void 0, void 0, function* () {
     halt = false;
-    DUTPort =
-        yield navigator.serial.requestPort().catch((e) => { console.error(e); });
-    yield DUTPort.open({ baudRate: 115200 });
-    let listItem = document.createElement("li");
-    listItem.textContent = "DUTPort is selected";
-    messages.appendChild(listItem);
-    const DUTReader = DUTPort.readable.getReader();
-    listItem = document.createElement("li");
-    messages.appendChild(listItem);
-    DUTReader.read().then(function processText({ done, value }) {
-        if (done) {
-            console.log("Stream complete");
-            return;
-        }
-        const chunk = decoder.decode(value, { stream: true });
-        const chunk_split_list = chunk.split("\n");
-        for (let i = 0; i < chunk_split_list.length - 1; i++) {
-            listItem.textContent += chunk_split_list[i];
-            listItem = document.createElement("li");
-            messages.appendChild(listItem);
-        }
-        listItem.textContent += chunk_split_list[chunk_split_list.length - 1];
-        messages.scrollTo(0, messages.scrollHeight);
-        return DUTReader.read().then(processText);
-    });
     servoPort =
         yield navigator.serial
             .requestPort({ filters: [{ usbVendorId: 0x18d1, usbProductId: 0x520d }] })
