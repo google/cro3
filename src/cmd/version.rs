@@ -14,6 +14,7 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 #[argh(subcommand, name = "version")]
 pub struct Args {}
 
+#[tracing::instrument(level = "trace")]
 pub fn run(_args: &Args) -> Result<()> {
     println!("lium v{VERSION}");
     Ok(())

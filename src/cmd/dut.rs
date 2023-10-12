@@ -33,6 +33,9 @@ use lium::servo::LocalServo;
 use lium::servo::ServoList;
 use rayon::prelude::*;
 use termion::screen::IntoAlternateScreen;
+use tracing::error;
+use tracing::info;
+use tracing::warn;
 
 #[derive(FromArgs, PartialEq, Debug)]
 /// control DUT
@@ -57,6 +60,7 @@ enum SubCommand {
     Setup(ArgsSetup),
     Vnc(ArgsVnc),
 }
+#[tracing::instrument(level = "trace")]
 pub fn run(args: &Args) -> Result<()> {
     match &args.nested {
         SubCommand::ArcInfo(args) => run_arc_info(args),
@@ -142,16 +146,16 @@ fn run_dut_vnc(args: &ArgsVnc) -> Result<()> {
     let web_port = args.vnc_port.unwrap_or(6080);
 
     if let Err(e) = target.run_cmd_piped(&["kill -9 $(pgrep --full vnc)"]) {
-        eprintln!("Failed to kill previous vnc instance: {e}")
+        error!("Failed to kill previous vnc instance: {e}")
     }
 
     let mut child_kmsvnc = target.start_port_forwarding(vnc_port, 5900, "kmsvnc")?;
     let mut child_novnc = target.start_port_forwarding(web_port, 6080, "novnc")?;
 
-    eprintln!("To use VNC via web browser, please open:");
-    eprintln!("  http://localhost:{web_port}/vnc.html");
-    eprintln!("To connect via VNC client directly, use:");
-    eprintln!("  xtightvncviewer -encodings raw localhost:{vnc_port}");
+    warn!("To use VNC via web browser, please open:");
+    warn!("  http://localhost:{web_port}/vnc.html");
+    warn!("To connect via VNC client directly, use:");
+    warn!("  xtightvncviewer -encodings raw localhost:{vnc_port}");
 
     loop {
         if let Some(status) = child_kmsvnc.try_status()? {
@@ -347,18 +351,18 @@ fn do_rma_auth(cr50: &LocalServo) -> Result<()> {
             .map(|s| s.trim())
             .filter(|s| !s.is_empty())
             .collect();
-        eprintln!("{:?}", rma_auth_challenge);
+        info!("{:?}", rma_auth_challenge);
         let rma_auth_challenge = rma_auth_challenge
             .iter()
             .skip_while(|s| *s != &"generated challenge:")
             .nth(1)
             .context("Could not get rma_auth challenge")?;
         if !rma_auth_challenge.starts_with("RMA Auth error") {
-            eprintln!("CCD unlock is required.");
-            eprintln!(
+            error!("CCD unlock is required.");
+            error!(
                 r#"If you are eligible, visit https://chromeos.google.com/partner/console/cr50reset?challenge={rma_auth_challenge} to get the unlock code and paste the output below. ( For Googlers, go/rma-auth has more details. )"#,
             );
-            eprintln!("If not, follow https://chromium.googlesource.com/chromiumos/platform/ec/+/cr50_stab/docs/case_closed_debugging_cr50.md#ccd-open to do this manually.");
+            error!("If not, follow https://chromium.googlesource.com/chromiumos/platform/ec/+/cr50_stab/docs/case_closed_debugging_cr50.md#ccd-open to do this manually.");
             let mut input = String::new();
             std::io::stdin()
                 .read_line(&mut input)
@@ -379,8 +383,8 @@ fn do_rma_auth(cr50: &LocalServo) -> Result<()> {
                 .context("Failed to run rma_auth command")?;
             bail!("response: {response}");
         }
-        eprintln!("Failed: {rma_auth_challenge}");
-        eprintln!("retrying in 3 sec...");
+        error!("Failed: {rma_auth_challenge}");
+        error!("retrying in 3 sec...");
         std::thread::sleep(std::time::Duration::from_secs(3));
     }
     bail!("Failed to get rma_auth code.")
@@ -394,7 +398,7 @@ fn open_ccd(cr50: &LocalServo) -> Result<()> {
     ccd |= is_ccd_opened(cr50)?;
     ccd |= is_ccd_opened(cr50)?;
     if ccd {
-        eprintln!("CCD is Opened already ({})", cr50.tty_path("Shell")?);
+        info!("CCD is Opened already ({})", cr50.tty_path("Shell")?);
         return Ok(());
     }
     do_rma_auth(cr50)?;
@@ -404,7 +408,7 @@ fn open_ccd(cr50: &LocalServo) -> Result<()> {
             cr50.tty_path("Shell")?
         ));
     }
-    eprintln!("CCD is Opened successfully ({})", cr50.tty_path("Shell")?);
+    info!("CCD is Opened successfully ({})", cr50.tty_path("Shell")?);
     Ok(())
 }
 
@@ -415,7 +419,7 @@ fn get_ccd_status(cr50: &LocalServo) -> Result<()> {
     if !is_ccd_opened(cr50)? {
         bail!("CCD is Closed ({})", cr50.tty_path("Shell")?);
     }
-    eprintln!("CCD is Opened ({})", cr50.tty_path("Shell")?);
+    info!("CCD is Opened ({})", cr50.tty_path("Shell")?);
     Ok(())
 }
 
@@ -480,10 +484,10 @@ fn is_ccd_testlab_enabled(cr50: &LocalServo) -> Result<bool> {
 }
 fn enable_ccd_testlab(servo: &LocalServo) -> Result<()> {
     let cr50 = get_cr50_attached_to_servo(servo)?;
-    eprintln!("Enabling CCD testlab mode of DUT: {}", cr50.serial());
+    info!("Enabling CCD testlab mode of DUT: {}", cr50.serial());
     open_ccd(&cr50)?;
     if is_ccd_testlab_enabled(&cr50)? {
-        eprintln!("CCD testlab mode is already enabled");
+        info!("CCD testlab mode is already enabled");
         return Ok(());
     }
     let result = cr50
@@ -500,9 +504,9 @@ fn enable_ccd_testlab(servo: &LocalServo) -> Result<()> {
 }
 fn check_ssh(servo: &LocalServo) -> Result<DutInfo> {
     let addr = servo.read_ipv6_addr()?;
-    eprintln!("IP address: {addr}");
+    info!("IP address: {addr}");
     let dut = DutInfo::new(&addr)?;
-    eprintln!("PASS: {} @ {} is reachable via SSH", dut.id(), addr);
+    info!("PASS: {} @ {} is reachable via SSH", dut.id(), addr);
     Ok(dut)
 }
 
@@ -514,7 +518,7 @@ fn check_dev_gbb_flags(dut: &DutInfo) -> Result<()> {
         .context("gbb_flags is not set")?
         .replace(r"0x", "");
     let gbb_flags = u64::from_str_radix(&gbb_flags, 16).context("failed to parse gbb_flags")?;
-    eprintln!("GBB flags: {gbb_flags:#10X}");
+    info!("GBB flags: {gbb_flags:#10X}");
     if !gbb_flags & 0x19 != 0 {
         return Err(anyhow!(
             "GBB flags are not set properly for development. Please run:
@@ -523,7 +527,7 @@ fn check_dev_gbb_flags(dut: &DutInfo) -> Result<()> {
             info.get("ipv6_addr").context("Failed to get ipv6_addr")?
         ));
     }
-    eprintln!("PASS: GBB flags are set for dev");
+    info!("PASS: GBB flags are set for dev");
     Ok(())
 }
 
@@ -600,9 +604,9 @@ fn run_setup(args: &ArgsSetup) -> Result<()> {
             )?
             .clone()
     };
-    eprintln!("Using {} {} as Servo", servo.product(), servo.serial());
+    info!("Using {} {} as Servo", servo.product(), servo.serial());
     let cr50 = get_cr50_attached_to_servo(&servo)?;
-    eprintln!("Using {} {} as Cr50", cr50.product(), cr50.serial());
+    info!("Using {} {} as Cr50", cr50.product(), cr50.serial());
     if args.open_ccd {
         open_ccd(&cr50)?;
     } else if args.get_ccd_status {
@@ -725,7 +729,7 @@ fn run_dut_list(args: &ArgsDutList) -> Result<()> {
         return Ok(());
     }
     if let Some(dut_to_add) = &args.add {
-        eprintln!("Checking DutInfo of {dut_to_add}...");
+        info!("Checking DutInfo of {dut_to_add}...");
         let info = DutInfo::new(dut_to_add)?;
         let id = info.id();
         let ssh = info.ssh();
@@ -735,11 +739,11 @@ fn run_dut_list(args: &ArgsDutList) -> Result<()> {
     }
     if let Some(dut_to_remove) = &args.remove {
         SSH_CACHE.remove(dut_to_remove)?;
-        eprintln!("Removed: {dut_to_remove}",);
+        info!("Removed: {dut_to_remove}",);
         return Ok(());
     }
     if args.status || args.update {
-        eprintln!(
+        warn!(
             "Checking status of {} DUTs. It will take a minute...",
             duts.len()
         );
@@ -849,9 +853,9 @@ pub struct ArgsDiscover {
 }
 pub fn run_discover(args: &ArgsDiscover) -> Result<()> {
     if let Some(remote) = &args.remote {
-        eprintln!("Using remote machine: {}", remote);
+        info!("Using remote machine: {}", remote);
         let lium_path = current_exe()?;
-        eprintln!("lium executable path: {:?}", lium_path);
+        info!("lium executable path: {:?}", lium_path);
         let remote = SshInfo::new(remote)?;
         remote.send_files(
             &[lium_path.to_string_lossy().to_string()],
@@ -883,9 +887,9 @@ pub fn run_discover(args: &ArgsDiscover) -> Result<()> {
     } else {
         discover_local_nodes(args.interface.to_owned())
     }?;
-    eprintln!("Found {} candidates. Checking...", addrs.len());
+    info!("Found {} candidates. Checking...", addrs.len());
     let duts = fetch_dut_info_in_parallel(&addrs, &args.extra_attr)?;
-    eprintln!("Discovery completed with {} DUTs", duts.len());
+    info!("Discovery completed with {} DUTs", duts.len());
     let duts: Vec<HashMap<String, String>> = duts.iter().map(|e| e.info().to_owned()).collect();
     let dut_list = serde_json::to_string_pretty(&duts)?;
     println!("{}", dut_list);

@@ -31,3 +31,5 @@ retry = "2.0.0"
 pretty_assertions = "1.4.0"
 wait-timeout = "0.2.0"
 num_cpus = "1.16.0"
+tracing = "0.1.37"
+tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }

@@ -18,6 +18,8 @@ use lium::repo::get_cros_dir_unchecked;
 use lium::repo::get_current_synced_arc_version;
 use lium::repo::get_current_synced_version;
 use lium::repo::repo_sync;
+use tracing::info;
+use tracing::warn;
 
 #[derive(FromArgs, PartialEq, Debug)]
 /// synchronize cros or android/arc repositories
@@ -46,17 +48,18 @@ pub struct Args {
     force: bool,
 }
 
+#[tracing::instrument(level = "trace")]
 pub fn run(args: &Args) -> Result<()> {
     let version = extract_version(args)?;
     let repo = get_cros_dir_unchecked(&args.repo)?;
 
     // Inform user of sync information.
-    eprint!("Syncing {} to {} ", &repo, version);
-    if args.force {
-        eprintln!("forcibly...");
-    } else {
-        eprintln!("...");
-    }
+    info!(
+        "Syncing {} to {} {}",
+        &repo,
+        version,
+        if args.force { "forcibly..." } else { "..." }
+    );
 
     // Prepare paths and determine if this is an arc or cros repo.
     let is_arc = prepare_repo_paths(&repo)?.unwrap_or(args.arc);
@@ -64,7 +67,7 @@ pub fn run(args: &Args) -> Result<()> {
     // If we are using another repo as reference for rapid cloning, so make sure
     // that one is synced.
     if let Some(reference) = &args.reference {
-        eprintln!("Updating the mirror at {reference}...");
+        warn!("Updating the mirror at {reference}...");
         repo_sync(reference, args.force)?;
     }
 
@@ -99,20 +102,20 @@ fn extract_version(args: &Args) -> Result<String> {
 /// returns an option of whether arc was detected.
 fn prepare_repo_paths(repo: &str) -> Result<Option<bool>> {
     if !Path::new(repo).is_dir() {
-        eprintln!("Creating {repo} ...");
+        info!("Creating {repo} ...");
         fs::create_dir_all(repo)?;
         return Ok(None);
     }
 
     if Path::new(&format!("{}/Android.bp", repo)).exists() {
-        eprintln!("Arc repo detected...");
+        warn!("Arc repo detected...");
         let prev_version = get_current_synced_arc_version(repo)?;
-        eprintln!("Previous ARC version was: {}", prev_version);
+        info!("Previous ARC version was: {}", prev_version);
         return Ok(true.into());
     }
 
     if let Ok(prev_version) = get_current_synced_version(repo) {
-        eprintln!("Previous CROS version was: {}", prev_version);
+        info!("Previous CROS version was: {}", prev_version);
         return Ok(false.into());
     }
 

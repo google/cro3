@@ -14,6 +14,9 @@ use argh::FromArgs;
 use lium::util::lium_paths::gen_path_in_lium_dir;
 use lium::util::shell_helpers::get_stdout;
 use lium::util::shell_helpers::run_bash_command;
+use tracing::error;
+use tracing::info;
+use tracing::warn;
 
 #[derive(FromArgs, PartialEq, Debug)]
 /// setup development environment
@@ -29,6 +32,7 @@ enum SubCommand {
     BashCompletion(ArgsBashCompletion),
     ZshCompletion(ArgsZshCompletion),
 }
+#[tracing::instrument(level = "trace")]
 pub fn run(args: &Args) -> Result<()> {
     match &args.nested {
         SubCommand::Env(args) => run_env(args),
@@ -42,9 +46,9 @@ pub fn run(args: &Args) -> Result<()> {
 #[argh(subcommand, name = "env")]
 pub struct ArgsEnv {}
 fn run_env(_args: &ArgsEnv) -> Result<()> {
-    eprintln!("Checking the environment...");
+    info!("Checking the environment...");
     let print_err_and_ignore = |e: Error| -> Result<()> {
-        eprintln!("FAIL: {}", e);
+        error!("FAIL: {}", e);
         Ok(())
     };
     check_gsutil().or_else(print_err_and_ignore)?;
@@ -58,7 +62,7 @@ fn check_gsutil() -> Result<()> {
         .exit_ok()
         .context(anyhow!("Failed to run `which gsutil`"))?;
     let result = get_stdout(&result);
-    eprintln!("{}", result);
+    info!("{}", result);
     Ok(())
 }
 
@@ -81,11 +85,11 @@ fn shell_shared_setup() -> Result<(), Error> {
 #[argh(subcommand, name = "bash-completion")]
 pub struct ArgsBashCompletion {}
 fn run_bash_completion(_args: &ArgsBashCompletion) -> Result<()> {
-    eprintln!("Installing bash completion...");
+    warn!("Installing bash completion...");
 
     shell_shared_setup()?;
 
-    eprintln!(
+    warn!(
         "Installed ~/.lium/lium.bash and an entry in ~/.bash_completion. Please run `source \
          ~/.bash_completion` for the current shell."
     );
@@ -98,14 +102,14 @@ fn run_bash_completion(_args: &ArgsBashCompletion) -> Result<()> {
 #[argh(subcommand, name = "zsh-completion")]
 pub struct ArgsZshCompletion {}
 fn run_zsh_completion(_args: &ArgsZshCompletion) -> Result<()> {
-    eprintln!("Installing zsh completion via bash compat...");
+    warn!("Installing zsh completion via bash compat...");
 
     shell_shared_setup()?;
 
-    eprintln!("add the following to your zshrc: ");
-    eprintln!("autoload -U +X compinit && compinit");
-    eprintln!("autoload -U +X bashcompinit && bashcompinit");
-    eprintln!("source ~/.bash_completion");
+    warn!("add the following to your zshrc: ");
+    warn!("autoload -U +X compinit && compinit");
+    warn!("autoload -U +X bashcompinit && bashcompinit");
+    warn!("source ~/.bash_completion");
 
     Ok(())
 }

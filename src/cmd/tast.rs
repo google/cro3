@@ -34,6 +34,7 @@ enum SubCommand {
     List(ArgsList),
     Run(ArgsRun),
 }
+#[tracing::instrument(level = "trace")]
 pub fn run(args: &Args) -> Result<()> {
     match &args.nested {
         SubCommand::List(args) => run_tast_list(args),

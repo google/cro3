@@ -11,6 +11,7 @@ use std::process::Stdio;
 use anyhow::anyhow;
 use anyhow::Context;
 use anyhow::Result;
+use tracing::info;
 
 use crate::util::lium_paths::gen_path_in_lium_dir;
 use crate::util::lium_paths::lium_dir;
@@ -27,7 +28,7 @@ impl Chroot {
             repo_path: repo_path.to_string(),
         };
         let lium_dir_path = lium_dir()?;
-        eprintln!("Using Chromium OS checkout at {}", repo_path);
+        info!("Using Chromium OS checkout at {}", repo_path);
         run_bash_command(
             &format!(
                 "echo {0} /lium > {1} && cat {1}",
@@ -51,7 +52,7 @@ impl Chroot {
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
-        eprintln!("in chroot: {:?}", cmd);
+        info!("in chroot: {:?}", cmd);
         let cmd = cmd.spawn()?;
         let result = cmd.wait_with_output()?;
         result
@@ -71,7 +72,7 @@ impl Chroot {
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
-        eprintln!("Executing: {cmd:?}");
+        info!("Executing: {cmd:?} async");
         cmd.spawn().context("exec_in_chroot_async failed")
     }
     pub fn write_bash_script_for_chroot(&self, name: &str, script: &str) -> Result<()> {
@@ -107,7 +108,7 @@ impl Chroot {
         if let Some(args) = args {
             cmd.args(args);
         }
-        eprintln!("Running {name} in chroot...");
+        info!("Running {name} in chroot...");
         let run = cmd
             .spawn()
             .context(anyhow!("spawn failed. cmd = {cmd:?}"))?;
