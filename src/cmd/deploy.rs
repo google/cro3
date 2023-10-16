@@ -4,14 +4,19 @@
 // license that can be found in the LICENSE file or at
 // https://developers.google.com/open-source/licenses/bsd
 
-use anyhow::anyhow;
+use std::cmp::Ordering;
+
+use anyhow::bail;
 use anyhow::Result;
 use argh::FromArgs;
 use lium::chroot::Chroot;
 use lium::cros::ensure_testing_rsa_is_there;
 use lium::dut::SshInfo;
 use lium::repo::get_repo_dir;
-use regex_macro::regex;
+use once_cell::sync::Lazy;
+use regex::Regex;
+
+static RE_CROS_KERNEL: Lazy<Regex> = Lazy::new(|| Regex::new("chromeos-kernel-").unwrap());
 
 #[derive(FromArgs, PartialEq, Debug)]
 /// deploy package(s)
@@ -37,6 +42,7 @@ pub struct Args {
     #[argh(switch)]
     ab_update: bool,
 }
+
 #[tracing::instrument(level = "trace")]
 pub fn run(args: &Args) -> Result<()> {
     ensure_testing_rsa_is_there()?;
@@ -53,46 +59,19 @@ pub fn run(args: &Args) -> Result<()> {
     println!("Target DUT is {:?}", target);
 
     let board = target.get_board()?;
-    let packages = args.packages.join(" ");
-    let re_cros_kernel = regex!(r"chromeos-kernel-");
+    let packages_str = args.packages.join(" ");
     let chroot = Chroot::new(&get_repo_dir(&args.repo)?)?;
 
-    let mut iter = args.packages.iter().filter(|&s| re_cros_kernel.is_match(s));
-    if iter.clone().count() > 1 {
-        return Err(anyhow!(
-            "There are more than 2 kernel packages. Please specify one of them."
-        ));
-    }
-    let kernel_pkg = iter.next();
+    let kernel_pkg = extract_kernel_pkg(&args.packages)?;
 
-    let mut user_pkgs = String::new();
-    args.packages.iter().for_each(|s| {
-        if !re_cros_kernel.is_match(s) {
-            user_pkgs.push_str(&format!("{s} "))
-        }
-    });
-    if !user_pkgs.is_empty() {
-        chroot.run_bash_script_in_chroot(
-            "deploy",
-            &format!(
-                r"cros-workon-{board} start {packages} && cros deploy {} {user_pkgs}",
-                target.host_and_port()
-            ),
-            None,
-        )?;
-    }
+    cros_workon_user_packages(&chroot, &board, &args.packages, &packages_str, &target)?;
 
     if kernel_pkg.is_some() {
-        if iter.next().is_some() {
-            return Err(anyhow!(
-                "There are more than 2 kernel packages. Please specify one of them."
-            ));
-        }
         chroot.run_bash_script_in_chroot(
             "update_kernel",
             &format!(
                 r###"
-cros-workon-{board} start {packages}
+cros-workon-{board} start {packages_str}
 ~/trunk/src/scripts/update_kernel.sh {} --remote={} --ssh_port {} --remote_bootargs
 "###,
                 if args.ab_update { "--ab_update" } else { "" },
@@ -101,9 +80,58 @@ cros-workon-{board} start {packages}
             ),
             None,
         )?;
-    } else if !args.skip_reboot {
+
+        return Ok(());
+    }
+
+    if !args.skip_reboot {
         println!("Rebooting DUT...");
         target.run_cmd_piped(&["reboot; exit"])?;
     }
+
+    Ok(())
+}
+
+fn extract_kernel_pkg(packages: &[String]) -> Result<Option<String>> {
+    let kernel_packages: Vec<_> = packages
+        .iter()
+        .filter(|&s| RE_CROS_KERNEL.is_match(s))
+        .collect();
+
+    match kernel_packages.len().cmp(&1) {
+        Ordering::Greater => {
+            bail!("There are more than 2 kernel packages. Please specify one of them.");
+        }
+        Ordering::Equal => Ok(Some(kernel_packages[0].to_string())),
+        _ => Ok(None),
+    }
+}
+
+fn cros_workon_user_packages(
+    chroot: &Chroot,
+    board: &str,
+    packages: &[String],
+    packages_str: &str,
+    target: &SshInfo,
+) -> Result<()> {
+    // Filter out all kernel packages and join them into a space seperated list.
+    let user_pkgs: String = packages
+        .iter()
+        .filter(|&s| !RE_CROS_KERNEL.is_match(s))
+        .map(|s| s.to_string())
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    if !user_pkgs.is_empty() {
+        chroot.run_bash_script_in_chroot(
+            "deploy",
+            &format!(
+                r"cros-workon-{board} start {packages_str} && cros deploy {} {user_pkgs}",
+                target.host_and_port()
+            ),
+            None,
+        )?;
+    }
+
     Ok(())
 }
