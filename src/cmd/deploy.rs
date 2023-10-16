@@ -40,18 +40,21 @@ pub struct Args {
 #[tracing::instrument(level = "trace")]
 pub fn run(args: &Args) -> Result<()> {
     ensure_testing_rsa_is_there()?;
-    let target = SshInfo::new(&args.dut)?;
+
+    let target = {
+        let t = SshInfo::new(&args.dut)?;
+        if t.needs_port_forwarding_in_chroot() {
+            let port = t.start_ssh_forwarding_range_background(4100..4200)?;
+            SshInfo::new_host_and_port("localhost", port)?
+        } else {
+            t
+        }
+    };
     println!("Target DUT is {:?}", target);
+
     let board = target.get_board()?;
     let packages = args.packages.join(" ");
     let re_cros_kernel = regex!(r"chromeos-kernel-");
-    let target = SshInfo::new(&args.dut)?;
-    let target = if target.needs_port_forwarding_in_chroot() {
-        let port = target.start_ssh_forwarding_range_background(4100..4200)?;
-        SshInfo::new_host_and_port("localhost", port)?
-    } else {
-        target
-    };
     let chroot = Chroot::new(&get_repo_dir(&args.repo)?)?;
 
     let mut iter = args.packages.iter().filter(|&s| re_cros_kernel.is_match(s));
