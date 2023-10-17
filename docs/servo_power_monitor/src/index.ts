@@ -77,8 +77,11 @@ form.addEventListener('submit', async (e) => {
 });
 
 executeScriptButton.addEventListener('click', async () => {
-  // shell script
-const scripts = `#!/bin/bash -e
+  if (DUTPort === undefined) {
+    document.querySelector('#popup-overlay').classList.remove("closed");
+  } else {
+    // shell script
+    const scripts = `#!/bin/bash -e
 function workload () {
     ectool chargecontrol idle
     stress-ng -c 1 -t \\\$1
@@ -87,12 +90,13 @@ function workload () {
 echo "start"
 workload 10 1> ./test_out.log 2> ./test_err.log
 echo "end"\n`
-  const DUTWriter = DUTPort.writable.getWriter();
-  await DUTWriter.write(encoder.encode("cat > ./example.sh << EOF\n"));
-  await DUTWriter.write(encoder.encode(scripts));
-  await DUTWriter.write(encoder.encode("EOF\n"));
-  await DUTWriter.write(encoder.encode("bash ./example.sh\n"));
-  DUTWriter.releaseLock();
+    const DUTWriter = DUTPort.writable.getWriter();
+    await DUTWriter.write(encoder.encode("cat > ./example.sh << EOF\n"));
+    await DUTWriter.write(encoder.encode(scripts));
+    await DUTWriter.write(encoder.encode("EOF\n"));
+    await DUTWriter.write(encoder.encode("bash ./example.sh\n"));
+    DUTWriter.releaseLock();
+  }
 })
 
 let powerData = [];
