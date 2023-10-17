@@ -196,7 +196,7 @@ function setupStartUSBButton() {
       });
     } catch (err) {
       console.error(`Disconnected: ${err}`);
-      // device = null;
+      device = null;
       requestUSBButton.disabled = false;
     }
   });
