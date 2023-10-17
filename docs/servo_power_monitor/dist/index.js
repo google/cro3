@@ -68262,7 +68262,7 @@ const requestSerialButton = document.getElementById('requestSerialButton');
 const serial_output = document.getElementById('serial_output');
 const controlDiv = document.getElementById('controlDiv');
 let powerData = [];
-const g = new dygraphs__WEBPACK_IMPORTED_MODULE_1__["default"]('graph', powerData, {});
+let g = new dygraphs__WEBPACK_IMPORTED_MODULE_1__["default"]('graph1', powerData, {});
 const utf8decoder = new TextDecoder('utf-8');
 let output = '';
 let halt = false;
@@ -68668,6 +68668,7 @@ function setupAnalyze() {
     });
 }
 setupAnalyze();
+let noGraph = true;
 function setupDataLoad() {
     const handleFileSelect = (evt) => {
         evt.stopPropagation();
@@ -68677,11 +68678,22 @@ function setupDataLoad() {
             return;
         }
         const r = new FileReader();
+        if (!noGraph) {
+            const graphList = document.getElementById("graphList");
+            const graphNum = graphList.getElementsByTagName("li").length;
+            const graphListItem = document.createElement("li");
+            const graphContent = document.createElement("div");
+            graphContent.id = "graph" + String(graphNum + 1);
+            graphListItem.appendChild(graphContent);
+            graphList.appendChild(graphListItem);
+            g = new dygraphs__WEBPACK_IMPORTED_MODULE_1__["default"](graphContent.id, powerData, {});
+        }
         r.addEventListener('load', () => {
             const data = JSON.parse(r.result);
             const powerData = data.power.map((d) => [new Date(d[0]), d[1]]);
             updateGraph(powerData);
         });
+        noGraph = false;
         r.readAsText(file);
     };
     const handleDragOver = (evt) => {

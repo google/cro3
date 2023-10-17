@@ -19,7 +19,7 @@ const serial_output =
 const controlDiv = document.getElementById('controlDiv') as HTMLDivElement;
 
 let powerData = [];
-const g = new Dygraph('graph', powerData, {});
+let g = new Dygraph('graph1', powerData, {});
 const utf8decoder = new TextDecoder('utf-8');
 let output = '';
 let halt = false;
@@ -447,7 +447,7 @@ function setupAnalyze() {
   });
 }
 setupAnalyze();
-
+let noGraph = true;
 function setupDataLoad() {
   const handleFileSelect = (evt: DragEvent) => {
     evt.stopPropagation();
@@ -457,11 +457,23 @@ function setupDataLoad() {
       return;
     }
     const r = new FileReader();
+    if (!noGraph) {
+      const graphList = document.getElementById("graphList")
+      const graphNum = graphList.getElementsByTagName("li").length
+      const graphListItem = document.createElement("li");
+      const graphContent = document.createElement("div");
+      graphContent.id = "graph" + String(graphNum+1);
+      graphListItem.appendChild(graphContent);
+      graphList.appendChild(graphListItem);
+      g = new Dygraph(graphContent.id, powerData, {});
+
+    }
     r.addEventListener('load', () => {
       const data = JSON.parse(r.result as string);
       const powerData = data.power.map((d: string) => [new Date(d[0]), d[1]])
       updateGraph(powerData);
     })
+    noGraph = false;
     r.readAsText(file);
   };
 
