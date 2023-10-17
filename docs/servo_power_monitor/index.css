@@ -3,14 +3,16 @@ body {
   color: #fff;
   font-family: sans-serif;
 }
+
 button {
   color: #fff;
   background-color: #333;
   padding: 4px;
   padding-left: 0.7em;
   padding-right: 0.7em;
-  
+
 }
+
 .dygraph-legend {
   font-size: 14px;
   z-index: 10;
@@ -77,17 +79,15 @@ button {
   z-index: 10;
   line-height: normal;
   overflow: hidden;
-  color: #fff;  /* replaces old axisLabelColor option */
+  color: #fff;
+  /* replaces old axisLabelColor option */
 }
 
-.dygraph-axis-label-x {
-}
+.dygraph-axis-label-x {}
 
-.dygraph-axis-label-y {
-}
+.dygraph-axis-label-y {}
 
-.dygraph-axis-label-y2 {
-}
+.dygraph-axis-label-y2 {}
 
 .dygraph-title {
   font-weight: bold;
@@ -122,9 +122,11 @@ button {
   -o-transform: rotate(-90deg);
   -ms-transform: rotate(-90deg);
 }
+
 body {
   position: relative;
 }
+
 #tooltip {
   position: fixed;
   top: 50%;
@@ -134,14 +136,17 @@ body {
   padding: 1rem;
   z-index: 2;
 }
+
 #tooltip.hidden {
   display: none;
 }
+
 #backlog {
   margin-top: 1rem;
   width: auto;
   padding: 0;
 }
+
 #backlog span {
   display: inline-block;
   border: 1px solid #aaa;
@@ -149,16 +154,19 @@ body {
   min-height: 100px;
   height: 300px;
 }
+
 .log {
   font-family: monospace;
   border: none;
   width: 26%;
 }
+
 #d3area {
   position: absolute;
   width: 70%;
   overflow-y: scroll;
 }
+
 #dropZone {
   position: absolute;
   float: right;
@@ -169,11 +177,18 @@ body {
   height: 20px;
   padding: 8px;
   margin: 0px;
-  width: 20%;;
+  width: 20%;
+  ;
   top: 0;
   right: 0;
 }
-#graph {
+
+#graphList {
+  list-style: none;
+  padding: 0px;
+}
+
+#graphList>li>div {
   height: 500px;
   width: auto;
   left: 0;

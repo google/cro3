@@ -68678,8 +68678,8 @@ function setupDataLoad() {
             return;
         }
         const r = new FileReader();
+        const graphList = document.getElementById("graphList");
         if (!noGraph) {
-            const graphList = document.getElementById("graphList");
             const graphNum = graphList.getElementsByTagName("li").length;
             const graphListItem = document.createElement("li");
             const graphContent = document.createElement("div");
