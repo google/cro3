@@ -32,7 +32,9 @@ const decoder = new TextDecoder();
 let DUTPort;
 selectDUTSerialButton.addEventListener('click', async () => {
   DUTPort =
-      await navigator.serial.requestPort().catch((e) => { console.error(e); });
+      await navigator.serial.
+        requestPort({filters : [ {usbVendorId : 0x18d1, usbProductId : 0x504a} ]})
+        .catch((e) => { console.error(e); });
   await DUTPort.open({baudRate : 115200});
   let listItem = document.createElement("li");
   listItem.textContent = "DUTPort is selected";

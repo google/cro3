@@ -68273,7 +68273,9 @@ const decoder = new TextDecoder();
 let DUTPort;
 selectDUTSerialButton.addEventListener('click', () => __awaiter(void 0, void 0, void 0, function* () {
     DUTPort =
-        yield navigator.serial.requestPort().catch((e) => { console.error(e); });
+        yield navigator.serial.
+            requestPort({ filters: [{ usbVendorId: 0x18d1, usbProductId: 0x504a }] })
+            .catch((e) => { console.error(e); });
     yield DUTPort.open({ baudRate: 115200 });
     let listItem = document.createElement("li");
     listItem.textContent = "DUTPort is selected";
