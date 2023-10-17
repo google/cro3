@@ -146,7 +146,6 @@ function setupStartUSBButton() {
   const ep = usb_interface + 1;
   requestUSBButton.addEventListener('click', async () => {
     halt = false;
-    // device = null;
     try {
       device = await navigator.usb.requestDevice({
         filters: [
@@ -196,7 +195,6 @@ function setupStartUSBButton() {
       });
     } catch (err) {
       console.error(`Disconnected: ${err}`);
-      device = null;
       requestUSBButton.disabled = false;
     }
   });
@@ -257,7 +255,6 @@ requestSerialButton.addEventListener('click', async () => {
           // |reader| has been canceled.
           reader.releaseLock();
           return '';
-          // break;
         }
         return utf8decoder.decode(value);
       }

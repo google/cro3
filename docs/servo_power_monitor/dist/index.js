@@ -68378,7 +68378,6 @@ function setupStartUSBButton() {
     const ep = usb_interface + 1;
     requestUSBButton.addEventListener('click', () => __awaiter(this, void 0, void 0, function* () {
         halt = false;
-        // device = null;
         try {
             device = yield navigator.usb.requestDevice({
                 filters: [
@@ -68431,7 +68430,6 @@ function setupStartUSBButton() {
         }
         catch (err) {
             console.error(`Disconnected: ${err}`);
-            // device = null;
             requestUSBButton.disabled = false;
         }
     }));
@@ -68488,7 +68486,6 @@ requestSerialButton.addEventListener('click', () => __awaiter(void 0, void 0, vo
                     // |reader| has been canceled.
                     reader.releaseLock();
                     return '';
-                    // break;
                 }
                 return utf8decoder.decode(value);
             }
