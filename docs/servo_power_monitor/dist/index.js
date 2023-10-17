@@ -68315,20 +68315,14 @@ form.addEventListener('submit', (e) => __awaiter(void 0, void 0, void 0, functio
 executeScriptButton.addEventListener('click', () => __awaiter(void 0, void 0, void 0, function* () {
     // shell script
     const scripts = `#!/bin/bash -e
-  function bench_run_cpu \{
-    CPU=\\\$1
-    TOTAL_SIZE=\\\$(echo "4 * 1024 * 1024" | bc)
-    BLOCK_SIZE=2
-    COUNT=\\\$(echo "\\\$\{TOTAL_SIZE\} / \\\$\{BLOCK_SIZE\}" | bc)
-    CMD="dd if=/dev/urandom bs=\\\$\{BLOCK_SIZE\} count=\\\$\{COUNT\} | wc -c"
-  RESULT=\\\$(taskset -c \\\$\{CPU\} /bin/bash -c "\\\$\{CMD\}" 2>&1 | grep copied)
-  REALTIME=\\\$(echo "\\\$\{RESULT\}" | cut -d ',' -f 3 | cut -d ' ' -f 2)
-  echo "\\\$\{CPU\},\\\$\{TOTAL_SIZE\},\\\$\{BLOCK_SIZE\},\\\$\{COUNT\},\\\$\{REALTIME\}"
-  \}
-  for ((CPU_IDX=0; CPU_IDX<\\\$(nproc); CPU_IDX++))
-  do
-bench_run_cpu \\\$\{CPU_IDX\}
-done\n`;
+function workload () {
+    ectool chargecontrol idle
+    stress-ng -c 1 -t \\\$1
+    echo "workload"
+}
+echo "start"
+workload 10 1> ./test_out.log 2> ./test_err.log
+echo "end"\n`;
     const DUTWriter = DUTPort.writable.getWriter();
     yield DUTWriter.write(encoder.encode("cat > ./example.sh << EOF\n"));
     yield DUTWriter.write(encoder.encode(scripts));
