@@ -95,12 +95,6 @@ echo "end"\n`
   DUTWriter.releaseLock();
 })
 
-function addListItem(listItem) {
-  const messages = document.getElementById('messages');
-  messages.appendChild(listItem);
-  messages.scrollTo(0, messages.scrollHeight);
-}
-
 let powerData = [];
 const g = new Dygraph('graph', powerData, {});
 const utf8decoder = new TextDecoder('utf-8');

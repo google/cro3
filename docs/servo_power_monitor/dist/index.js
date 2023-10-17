@@ -68330,11 +68330,6 @@ echo "end"\n`;
     yield DUTWriter.write(encoder.encode("bash ./example.sh\n"));
     DUTWriter.releaseLock();
 }));
-function addListItem(listItem) {
-    const messages = document.getElementById('messages');
-    messages.appendChild(listItem);
-    messages.scrollTo(0, messages.scrollHeight);
-}
 let powerData = [];
 const g = new dygraphs__WEBPACK_IMPORTED_MODULE_1__["default"]('graph', powerData, {});
 const utf8decoder = new TextDecoder('utf-8');
