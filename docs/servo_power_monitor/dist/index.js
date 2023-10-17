@@ -68678,8 +68678,8 @@ function setupDataLoad() {
             return;
         }
         const r = new FileReader();
-        const graphList = document.getElementById("graphList");
         if (!noGraph) {
+            const graphList = document.getElementById("graphList");
             const graphNum = graphList.getElementsByTagName("li").length;
             const graphListItem = document.createElement("li");
             const graphContent = document.createElement("div");
@@ -68687,6 +68687,7 @@ function setupDataLoad() {
             graphListItem.appendChild(graphContent);
             graphList.appendChild(graphListItem);
             g = new dygraphs__WEBPACK_IMPORTED_MODULE_1__["default"](graphContent.id, powerData, {});
+            window.scrollTo(0, graphList.scrollHeight);
         }
         r.addEventListener('load', () => {
             const data = JSON.parse(r.result);
