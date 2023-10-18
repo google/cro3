@@ -21,89 +21,105 @@ const serial_output = document.getElementById(
   'serial_output'
 ) as HTMLDivElement;
 const controlDiv = document.getElementById('controlDiv') as HTMLDivElement;
-const selectDUTSerialButton = document.getElementById('selectDUTSerialButton');
-const executeScriptButton = document.getElementById('executeScriptButton');
-const messages = document.getElementById('messages');
-const popupCloseButton = document.getElementById("popup-close");
+const selectDUTSerialButton = document.getElementById(
+  'selectDUTSerialButton'
+) as HTMLButtonElement;
+const executeScriptButton = document.getElementById(
+  'executeScriptButton'
+) as HTMLButtonElement;
+const messages = document.getElementById('messages') as HTMLUListElement;
+const popupCloseButton = document.getElementById(
+  'popup-close'
+) as HTMLButtonElement;
+const overlay = document.querySelector('#popup-overlay') as HTMLDivElement;
 
 popupCloseButton.addEventListener('click', () => {
-  document.querySelector('#popup-overlay').classList.add("closed");
-})
+  overlay.classList.add('closed');
+});
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
-let DUTPort;
+let DUTPort: SerialPort;
 selectDUTSerialButton.addEventListener('click', async () => {
-  DUTPort =
-      await navigator.serial.
-        requestPort({filters : [ {usbVendorId : 0x18d1, usbProductId : 0x504a} ]})
-        .catch((e) => { console.error(e); });
-  await DUTPort.open({baudRate : 115200});
-  let listItem = document.createElement("li");
-  listItem.textContent = "DUTPort is selected";
+  DUTPort = await navigator.serial
+    .requestPort({filters: [{usbVendorId: 0x18d1, usbProductId: 0x504a}]})
+    .catch(e => {
+      console.error(e);
+      throw e;
+    });
+  await DUTPort.open({baudRate: 115200});
+  let listItem = document.createElement('li');
+  listItem.textContent = 'DUTPort is selected';
   messages.appendChild(listItem);
-  const DUTReader = DUTPort.readable.getReader();
-  listItem = document.createElement("li");
+  const DUTReadable = DUTPort.readable;
+  if (DUTReadable === null) return;
+  const DUTReader = DUTReadable.getReader();
+  listItem = document.createElement('li');
   messages.appendChild(listItem);
-  DUTReader.read().then(function processText({done, value}) {
+  DUTReader.read().then(function processText({done, value}): void {
     if (done) {
-      console.log("Stream complete");
+      console.log('Stream complete');
       return;
     }
 
-    const chunk = decoder.decode(value, {stream : true});
-    const chunk_split_list = chunk.split("\n");
+    const chunk = decoder.decode(value, {stream: true});
+    const chunk_split_list = chunk.split('\n');
 
     for (let i = 0; i < chunk_split_list.length - 1; i++) {
       listItem.textContent += chunk_split_list[i];
-      listItem = document.createElement("li");
+      listItem = document.createElement('li');
       messages.appendChild(listItem);
     }
     listItem.textContent += chunk_split_list[chunk_split_list.length - 1];
     messages.scrollTo(0, messages.scrollHeight);
 
-    return DUTReader.read().then(processText);
+    DUTReader.read().then(processText);
   });
-})
+});
 
-const form = document.getElementById("form");
-form.addEventListener('submit', async (e) => {
+const form = document.getElementById('form') as HTMLFormElement;
+form.addEventListener('submit', async e => {
   e.preventDefault();
 
   if (DUTPort === undefined) {
-    document.querySelector('#popup-overlay').classList.remove("closed");
+    overlay.classList.remove('closed');
   } else {
-    const input = document.getElementById("input") as HTMLInputElement | null;
-    const DUTWriter = DUTPort.writable.getWriter();
+    const input = document.getElementById('input') as HTMLInputElement | null;
+    if (input === null) return;
+    const DUTWritable = DUTPort.writable;
+    if (DUTWritable === null) return;
+    const DUTWriter = DUTWritable.getWriter();
     await DUTWriter.write(encoder.encode(input.value + '\n'));
-    input.value = "";
+    input.value = '';
     await DUTWriter.releaseLock();
   }
 });
 
 executeScriptButton.addEventListener('click', async () => {
   if (DUTPort === undefined) {
-    document.querySelector('#popup-overlay').classList.remove("closed");
+    overlay.classList.remove('closed');
   } else {
     // shell script
     const scripts = `#!/bin/bash -e
 function workload () {
     ectool chargecontrol idle
-    stress-ng -c 1 -t \\\$1
+    stress-ng -c 1 -t \\$1
     echo "workload"
 }
 echo "start"
 workload 10 1> ./test_out.log 2> ./test_err.log
-echo "end"\n`
-    const DUTWriter = DUTPort.writable.getWriter();
-    await DUTWriter.write(encoder.encode("cat > ./example.sh << EOF\n"));
+echo "end"\n`;
+    const DUTWritable = DUTPort.writable;
+    if (DUTWritable === null) return;
+    const DUTWriter = DUTWritable.getWriter();
+    await DUTWriter.write(encoder.encode('cat > ./example.sh << EOF\n'));
     await DUTWriter.write(encoder.encode(scripts));
-    await DUTWriter.write(encoder.encode("EOF\n"));
-    await DUTWriter.write(encoder.encode("bash ./example.sh\n"));
+    await DUTWriter.write(encoder.encode('EOF\n'));
+    await DUTWriter.write(encoder.encode('bash ./example.sh\n'));
     DUTWriter.releaseLock();
   }
-})
+});
 
 const powerData: Array<Array<Date | number>> = [];
 const g = new Dygraph('graph', powerData, {});
@@ -305,36 +321,44 @@ setupStartUSBButton();
 requestSerialButton.addEventListener('click', async () => {
   halt = false;
 
-  servoPort =
-      await navigator.serial
-          .requestPort(
-              {filters : [ {usbVendorId : 0x18d1, usbProductId : 0x520d} ]})
-          .catch((e) => { console.error(e); });
-  await servoPort.open({baudRate : 115200});
+  servoPort = await navigator.serial
+    .requestPort({filters: [{usbVendorId: 0x18d1, usbProductId: 0x520d}]})
+    .catch(e => {
+      console.error(e);
+      throw e;
+    });
+  await servoPort.open({baudRate: 115200});
   requestSerialButton.disabled = true;
-  const servoWriter = servoPort.writable.getWriter();
+  const servoWritable = servoPort.writable;
+  if (servoWritable === null) return;
+  const servoWriter = servoWritable.getWriter();
   await servoWriter.write(encoder.encode('help\n'));
   servoWriter.releaseLock();
 
-  kickWriteLoop(async (s) => {
-    let data = new TextEncoder().encode(s);
-    const servoWriter = servoPort.writable.getWriter();
+  kickWriteLoop(async s => {
+    const data = new TextEncoder().encode(s);
+    const servoWritable = servoPort.writable;
+    if (servoWritable === null) return;
+    const servoWriter = servoWritable.getWriter();
     await servoWriter.write(data);
     servoWriter.releaseLock();
-  })
+  });
   readLoop(async () => {
-    servoReader = servoPort.readable.getReader();
+    const servoReadable = servoPort.readable;
+    if (servoReadable === null) return '';
+    servoReader = servoReadable.getReader();
     try {
-      while (true) {
+      for (;;) {
         const {value, done} = await servoReader.read();
         if (done) {
           // |servoReader| has been canceled.
-          break;
+          servoReader.releaseLock();
+          return '';
         }
         return utf8decoder.decode(value);
       }
     } catch (error) {
-      reader.releaseLock();
+      servoReader.releaseLock();
       console.error(error);
       throw error;
     } finally {
@@ -357,7 +381,7 @@ navigator.usb.addEventListener('disconnect', () => {
 });
 
 // event when you disconnect serial servoPort
-navigator.serial.addEventListener("disconnect", () => {
+navigator.serial.addEventListener('disconnect', () => {
   if (requestSerialButton.disabled) {
     halt = true;
     inProgress = false;
