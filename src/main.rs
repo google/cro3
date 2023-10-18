@@ -11,7 +11,10 @@ use std::str::FromStr;
 
 use anyhow::Result;
 use tracing::trace;
-use tracing_subscriber::{filter::LevelFilter, EnvFilter};
+use tracing_subscriber::filter::LevelFilter;
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
+use tracing_subscriber::EnvFilter;
 
 extern crate lazy_static;
 
@@ -31,13 +34,15 @@ fn main() -> Result<()> {
         .with_env_var("LIUM_LOG")
         .with_default_directive(command_line_log_level.unwrap_or(LevelFilter::INFO).into())
         .from_env_lossy();
-    tracing_subscriber::fmt()
-        .with_env_filter(lium_logging_env_filter)
+    let tracing_subscriber = tracing_subscriber::fmt::layer()
         .with_file(true)
         .with_line_number(true)
         .with_thread_ids(true)
         .with_level(true)
-        .with_writer(std::io::stderr)
+        .with_writer(std::io::stderr);
+    tracing_subscriber::registry()
+        .with(tracing_subscriber)
+        .with(lium_logging_env_filter)
         .init();
 
     let args_log = &std::env::args().skip(1).collect::<Vec<_>>();

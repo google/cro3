@@ -11,6 +11,7 @@ use anyhow::Context;
 use anyhow::Result;
 
 use crate::config::Config;
+use crate::util::shell_helpers::launch_command_with_stdout_label;
 
 const MASTER_ARC_DEV: &str = "master";
 const RVC: &str = "rvc";
@@ -40,9 +41,8 @@ pub fn setup_arc_repo(repo: &str, version: &str) -> Result<()> {
         .context("Please configure android_manifest_url")?;
     let branch = arc_version_to_branch_name(version)?;
 
-    let cmd = Command::new("repo")
-        .current_dir(repo)
-        .args([
+    launch_command_with_stdout_label(
+        Command::new("repo").current_dir(repo).args([
             "init",
             "-c",
             "-u",
@@ -53,12 +53,9 @@ pub fn setup_arc_repo(repo: &str, version: &str) -> Result<()> {
             "--partial-clone",
             "--partial-clone-exclude=platform/frameworks/base",
             "--clone-filter=blob:limit=10M",
-        ])
-        .spawn()
-        .context("Failed to execute repo init")?;
-
-    cmd.wait_with_output()
-        .context("Failed to wait for repo init")?;
+        ]),
+        "repo init".to_string().into(),
+    )?;
 
     Ok(())
 }

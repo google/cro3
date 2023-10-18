@@ -17,7 +17,9 @@ use crate::util::lium_paths::gen_path_in_lium_dir;
 use crate::util::lium_paths::lium_dir;
 use crate::util::shell_helpers::get_stderr;
 use crate::util::shell_helpers::get_stdout;
+use crate::util::shell_helpers::launch_command_with_stdout_label_and_process;
 use crate::util::shell_helpers::run_bash_command;
+use crate::util::shell_helpers::CommandOutputReciever;
 
 pub struct Chroot {
     repo_path: String,
@@ -108,20 +110,23 @@ impl Chroot {
         if let Some(args) = args {
             cmd.args(args);
         }
+
         info!("Running {name} in chroot...");
-        let run = cmd
-            .spawn()
-            .context(anyhow!("spawn failed. cmd = {cmd:?}"))?;
-        let result = run
-            .wait_with_output()
-            .context(anyhow!("wait_with_output_failed. cmd = {cmd:?}"))?;
-        result
-            .status
-            .exit_ok()
-            .context(anyhow!("run_in_chroot failed. cmd = {cmd:?}"))?;
-        let result = get_stdout(&result);
+
+        let mut result = String::new();
+        launch_command_with_stdout_label_and_process(
+            &mut cmd,
+            format!("chroot command: {name}").into(),
+            Some(|stdout: CommandOutputReciever, _| {
+                result = stdout.collect::<Vec<String>>().join("\n");
+                Ok(())
+            }),
+        )
+        .context(anyhow!("wait_with_output_failed. cmd = {cmd:?}"))?;
+
         Ok(result)
     }
+
     pub fn run_in_chroot_async(&self, script: &str) -> Result<async_process::Child> {
         async_process::Command::new("cros_sdk")
             .args(["--no-ns-pid", "--", "bash", "-xe", "-c", script])
@@ -133,6 +138,7 @@ impl Chroot {
             .spawn()
             .context("Failed to launch servod")
     }
+
     pub fn open_chroot(&self, additional_args: &[String]) -> Result<()> {
         let cmd = Command::new("cros_sdk")
             .arg("--no-color")

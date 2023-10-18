@@ -1,7 +1,9 @@
 <!DOCTYPE html>
+
 <head>
   <link rel="stylesheet" href="index.css">
 </head>
+
 <body>
   <div id="tooltip">
     <ol>
@@ -14,13 +16,27 @@
     <a id="downloadAnchorElem" style="display:none"></a>
     <button id='requestSerialButton'>Start(WebSerial)</button>
     <button id='request-device'>Start(WebUSB)</button>
+    <button id='selectDUTSerialButton'>Select DUT Port</button>
+    <button id='executeScriptButton'>Execute scripts</button>
     <button id='haltButton'>Stop</button>
     <button id='downloadButton'>Download</button>
     <button id='downloadButton'>Mark</button>
   </div>
   <div id="backlog">
     <span id="serial_output" class="log"></span>
-    <span id="d3area"></span>  
+    <span id="d3area"></span>
+    <span id="console">
+      <ul id="messages"></ul>
+      <form id="form" action="">
+        <input id="input" autocomplete="off" /><button>Send</button>
+      </form>
+    </span>
+  </div>
+  <div id="popup-overlay" class="closed">
+    <div id="popup-window">
+      <p id="popup-text">DUT serial port is not selected</p>
+      <button id="popup-close">close</button>
+    </div>
   </div>
   <div id="graph"></div>
   <span id="dropZone"></span>
