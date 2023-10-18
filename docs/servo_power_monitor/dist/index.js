@@ -68668,8 +68668,8 @@ function setupAnalyze() {
     });
 }
 setupAnalyze();
-let noGraph = true;
 function setupDataLoad() {
+    let noGraph = true;
     const handleFileSelect = (evt) => {
         evt.stopPropagation();
         evt.preventDefault();

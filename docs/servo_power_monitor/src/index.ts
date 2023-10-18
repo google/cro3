@@ -447,8 +447,9 @@ function setupAnalyze() {
   });
 }
 setupAnalyze();
-let noGraph = true;
+
 function setupDataLoad() {
+  let noGraph = true;
   const handleFileSelect = (evt: DragEvent) => {
     evt.stopPropagation();
     evt.preventDefault();
