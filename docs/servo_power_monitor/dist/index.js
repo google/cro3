@@ -13,6 +13,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   closeUSBPort: () => (/* binding */ closeUSBPort),
 /* harmony export */   openSerialPort: () => (/* binding */ openSerialPort),
 /* harmony export */   openUSBPort: () => (/* binding */ openUSBPort),
+/* harmony export */   readSerialPort: () => (/* binding */ readSerialPort),
 /* harmony export */   writeSerialPort: () => (/* binding */ writeSerialPort),
 /* harmony export */   writeUSBPort: () => (/* binding */ writeUSBPort)
 /* harmony export */ });
@@ -51,6 +52,33 @@ function writeSerialPort(port, s) {
         const writer = writable.getWriter();
         yield writer.write(encoder.encode(s));
         writer.releaseLock();
+    });
+}
+function readSerialPort(port) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const readable = port.readable;
+        if (readable === null)
+            return '';
+        const reader = readable.getReader();
+        try {
+            for (;;) {
+                const { value, done } = yield reader.read();
+                if (done) {
+                    // |reader| has been canceled.
+                    reader.releaseLock();
+                    return '';
+                }
+                return utf8decoder.decode(value);
+            }
+        }
+        catch (error) {
+            reader.releaseLock();
+            console.error(error);
+            throw error;
+        }
+        finally {
+            reader.releaseLock();
+        }
     });
 }
 // export async function openServoSerialPort() {
@@ -68680,9 +68708,7 @@ requestSerialButton.addEventListener('click', () => __awaiter(void 0, void 0, vo
     servoPort = yield (0,_main__WEBPACK_IMPORTED_MODULE_3__.openSerialPort)(0x18d1, 0x520d);
     requestSerialButton.disabled = true;
     (0,_main__WEBPACK_IMPORTED_MODULE_3__.writeSerialPort)(servoPort, 'help\n');
-    kickWriteLoop((s) => __awaiter(void 0, void 0, void 0, function* () {
-        (0,_main__WEBPACK_IMPORTED_MODULE_3__.writeSerialPort)(servoPort, s);
-    }));
+    kickWriteLoop((s) => __awaiter(void 0, void 0, void 0, function* () { return (0,_main__WEBPACK_IMPORTED_MODULE_3__.writeSerialPort)(servoPort, s); }));
     readLoop(() => __awaiter(void 0, void 0, void 0, function* () {
         const servoReadable = servoPort.readable;
         if (servoReadable === null)

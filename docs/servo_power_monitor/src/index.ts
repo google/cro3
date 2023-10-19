@@ -289,9 +289,7 @@ requestSerialButton.addEventListener('click', async () => {
   requestSerialButton.disabled = true;
   writeSerialPort(servoPort, 'help\n');
 
-  kickWriteLoop(async s => {
-    writeSerialPort(servoPort, s);
-  });
+  kickWriteLoop(async s => writeSerialPort(servoPort, s));
   readLoop(async () => {
     const servoReadable = servoPort.readable;
     if (servoReadable === null) return '';
