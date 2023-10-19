@@ -12,6 +12,7 @@ import {
   writeSerialPort,
   writeUSBPort,
 } from './main';
+import {handleDragOver} from './ui';
 
 const intervalMs = 100;
 
@@ -574,13 +575,6 @@ function setupDataLoad() {
     r.readAsText(file);
   };
 
-  const handleDragOver = (evt: DragEvent) => {
-    evt.stopPropagation();
-    evt.preventDefault();
-    const eventDataTransfer = evt.dataTransfer;
-    if (eventDataTransfer === null) return;
-    eventDataTransfer.dropEffect = 'copy'; // Explicitly show this is a copy.
-  };
   const dropZone = document.getElementById('dropZone');
   if (dropZone === null) return;
   dropZone.innerText = 'Drop .json here';

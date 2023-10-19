@@ -13,7 +13,6 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   closeUSBPort: () => (/* binding */ closeUSBPort),
 /* harmony export */   openSerialPort: () => (/* binding */ openSerialPort),
 /* harmony export */   openUSBPort: () => (/* binding */ openUSBPort),
-/* harmony export */   readSerialPort: () => (/* binding */ readSerialPort),
 /* harmony export */   writeSerialPort: () => (/* binding */ writeSerialPort),
 /* harmony export */   writeUSBPort: () => (/* binding */ writeUSBPort)
 /* harmony export */ });
@@ -52,33 +51,6 @@ function writeSerialPort(port, s) {
         const writer = writable.getWriter();
         yield writer.write(encoder.encode(s));
         writer.releaseLock();
-    });
-}
-function readSerialPort(port) {
-    return __awaiter(this, void 0, void 0, function* () {
-        const readable = port.readable;
-        if (readable === null)
-            return '';
-        const reader = readable.getReader();
-        try {
-            for (;;) {
-                const { value, done } = yield reader.read();
-                if (done) {
-                    // |reader| has been canceled.
-                    reader.releaseLock();
-                    return '';
-                }
-                return utf8decoder.decode(value);
-            }
-        }
-        catch (error) {
-            reader.releaseLock();
-            console.error(error);
-            throw error;
-        }
-        finally {
-            reader.releaseLock();
-        }
     });
 }
 // export async function openServoSerialPort() {
@@ -206,6 +178,91 @@ function writeUSBPort(device, s) {
 //   });
 // }
 //# sourceMappingURL=main.js.map
+
+/***/ }),
+
+/***/ "./generated/ui.js":
+/*!*************************!*\
+  !*** ./generated/ui.js ***!
+  \*************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   addEventForm: () => (/* binding */ addEventForm),
+/* harmony export */   addEventSelectDUTSerial: () => (/* binding */ addEventSelectDUTSerial),
+/* harmony export */   addEventSerial: () => (/* binding */ addEventSerial),
+/* harmony export */   addListItem: () => (/* binding */ addListItem),
+/* harmony export */   handleDragOver: () => (/* binding */ handleDragOver),
+/* harmony export */   toggleSerialButton: () => (/* binding */ toggleSerialButton)
+/* harmony export */ });
+var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+const downloadButton = document.getElementById('downloadButton');
+const requestUSBButton = document.getElementById('request-device');
+const requestSerialButton = document.getElementById('requestSerialButton');
+const serial_output = document.getElementById('serial_output');
+const controlDiv = document.getElementById('controlDiv');
+const selectDUTSerialButton = document.getElementById('selectDUTSerialButton');
+const executeScriptButton = document.getElementById('executeScriptButton');
+const messages = document.getElementById('messages');
+const popupCloseButton = document.getElementById('popup-close');
+const overlay = document.querySelector('#popup-overlay');
+const form = document.getElementById('form');
+function addEventSelectDUTSerial(Fn) {
+    selectDUTSerialButton.addEventListener('click', Fn);
+}
+function toggleSerialButton() {
+    requestSerialButton.disabled = !requestSerialButton.disabled;
+}
+function addEventSerial(Fn) {
+    requestSerialButton.addEventListener('click', Fn);
+}
+function addListItem(s) {
+    const listItem = document.createElement('li');
+    messages.appendChild(listItem);
+    listItem.textContent = s;
+}
+function addEventForm(Fn) {
+    form.addEventListener('submit', (e) => __awaiter(this, void 0, void 0, function* () {
+        e.preventDefault();
+        yield Fn();
+    }));
+}
+// export function handleFileSelect(evt: DragEvent) {
+//   evt.stopPropagation();
+//   evt.preventDefault();
+//   const eventDataTransfer = evt.dataTransfer;
+//   if (eventDataTransfer === null) return;
+//   const file = eventDataTransfer.files[0];
+//   if (file === undefined) {
+//     return;
+//   }
+//   const r = new FileReader();
+//   r.addEventListener('load', () => {
+//     const data = JSON.parse(r.result as string);
+//     const powerData = data.power.map((d: string) => [new Date(d[0]), d[1]]);
+//     updateGraph(powerData);
+//   });
+//   r.readAsText(file);
+// }
+function handleDragOver(evt) {
+    evt.stopPropagation();
+    evt.preventDefault();
+    const eventDataTransfer = evt.dataTransfer;
+    if (eventDataTransfer === null)
+        return;
+    eventDataTransfer.dropEffect = 'copy'; // Explicitly show this is a copy.
+}
+//# sourceMappingURL=ui.js.map
 
 /***/ }),
 
@@ -68449,6 +68506,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var moment__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! moment */ "./node_modules/moment/moment.js");
 /* harmony import */ var moment__WEBPACK_IMPORTED_MODULE_2___default = /*#__PURE__*/__webpack_require__.n(moment__WEBPACK_IMPORTED_MODULE_2__);
 /* harmony import */ var _main__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./main */ "./generated/main.js");
+/* harmony import */ var _ui__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./ui */ "./generated/ui.js");
 // while true ; do { echo "do nothing for 5 sec" ; sleep 5 ; echo "yes for 5 sec
 // without displaying" ; timeout 5 yes > /dev/null ; } ; done ectool
 // chargecontrol idle ectool chargecontrol normal
@@ -68461,6 +68519,7 @@ var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _argume
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+
 
 
 
@@ -68972,19 +69031,11 @@ function setupDataLoad() {
         });
         r.readAsText(file);
     };
-    const handleDragOver = (evt) => {
-        evt.stopPropagation();
-        evt.preventDefault();
-        const eventDataTransfer = evt.dataTransfer;
-        if (eventDataTransfer === null)
-            return;
-        eventDataTransfer.dropEffect = 'copy'; // Explicitly show this is a copy.
-    };
     const dropZone = document.getElementById('dropZone');
     if (dropZone === null)
         return;
     dropZone.innerText = 'Drop .json here';
-    dropZone.addEventListener('dragover', handleDragOver, false);
+    dropZone.addEventListener('dragover', _ui__WEBPACK_IMPORTED_MODULE_4__.handleDragOver, false);
     dropZone.addEventListener('drop', handleFileSelect, false);
 }
 setupDataLoad();

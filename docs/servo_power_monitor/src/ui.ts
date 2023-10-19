@@ -48,3 +48,29 @@ export function addEventForm(Fn: () => Promise<void>) {
     await Fn();
   });
 }
+
+// export function handleFileSelect(evt: DragEvent) {
+//   evt.stopPropagation();
+//   evt.preventDefault();
+//   const eventDataTransfer = evt.dataTransfer;
+//   if (eventDataTransfer === null) return;
+//   const file = eventDataTransfer.files[0];
+//   if (file === undefined) {
+//     return;
+//   }
+//   const r = new FileReader();
+//   r.addEventListener('load', () => {
+//     const data = JSON.parse(r.result as string);
+//     const powerData = data.power.map((d: string) => [new Date(d[0]), d[1]]);
+//     updateGraph(powerData);
+//   });
+//   r.readAsText(file);
+// }
+
+export function handleDragOver(evt: DragEvent) {
+  evt.stopPropagation();
+  evt.preventDefault();
+  const eventDataTransfer = evt.dataTransfer;
+  if (eventDataTransfer === null) return;
+  eventDataTransfer.dropEffect = 'copy'; // Explicitly show this is a copy.
+}
