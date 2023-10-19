@@ -69003,20 +69003,15 @@ haltButton.addEventListener('click', () => {
         closeSerialPort();
     }
 });
-function setupAnalyze() {
-    const button = document.createElement('button');
-    button.innerText = 'Analyze displayed range';
-    controlDiv.appendChild(button);
-    button.addEventListener('click', () => {
-        // https://dygraphs.com/jsdoc/symbols/Dygraph.html#xAxisRange
-        const xrange = g.xAxisRange();
-        console.log(g.xAxisExtremes());
-        const left = xrange[0];
-        const right = xrange[1];
-        (0,_main__WEBPACK_IMPORTED_MODULE_2__.paintHistogram)(left, right);
-    });
-}
-setupAnalyze();
+const analyzeButton = document.getElementById('analyzeButton');
+analyzeButton.addEventListener('click', () => {
+    // https://dygraphs.com/jsdoc/symbols/Dygraph.html#xAxisRange
+    const xrange = g.xAxisRange();
+    console.log(g.xAxisExtremes());
+    const left = xrange[0];
+    const right = xrange[1];
+    (0,_main__WEBPACK_IMPORTED_MODULE_2__.paintHistogram)(left, right);
+});
 function setupDataLoad() {
     const handleFileSelect = (evt) => {
         evt.stopPropagation();
