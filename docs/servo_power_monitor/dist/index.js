@@ -10,8 +10,11 @@
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   closeUSBPort: () => (/* binding */ closeUSBPort),
 /* harmony export */   openSerialPort: () => (/* binding */ openSerialPort),
-/* harmony export */   writeSerialPort: () => (/* binding */ writeSerialPort)
+/* harmony export */   openUSBPort: () => (/* binding */ openUSBPort),
+/* harmony export */   writeSerialPort: () => (/* binding */ writeSerialPort),
+/* harmony export */   writeUSBPort: () => (/* binding */ writeUSBPort)
 /* harmony export */ });
 var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
@@ -24,8 +27,8 @@ var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _argume
 };
 const encoder = new TextEncoder();
 const utf8decoder = new TextDecoder('utf-8');
-let servoPort;
-let servoReader;
+// let servoPort: SerialPort;
+// let servoReader: ReadableStreamDefaultReader;
 function openSerialPort(usbVendorId, usbProductId) {
     return __awaiter(this, void 0, void 0, function* () {
         const port = yield navigator.serial
@@ -92,29 +95,35 @@ function writeSerialPort(port, s) {
 //   }
 // }
 // let device: USBDevice;
-// const usb_interface = 0;
-// const ep = usb_interface + 1;
-// export async function openUSBPort() {
-//   device = await navigator.usb
-//     .requestDevice({filters: [{vendorId: 0x18d1, productId: 0x520d}]})
-//     .catch(e => {
-//       console.error(e);
-//       throw e;
-//     });
-//   await device.open();
-//   await device.selectConfiguration(1);
-//   await device.claimInterface(usb_interface);
-// }
-// export function closeUSBPort() {
-//   try {
-//     device.close();
-//   } catch (e) {
-//     console.error(e);
-//   }
-// }
-// export async function writeUSBPort(s: Uint8Array) {
-//   await device.transferOut(ep, s);
-// }
+const usb_interface = 0;
+const ep = usb_interface + 1;
+function openUSBPort() {
+    return __awaiter(this, void 0, void 0, function* () {
+        const device = yield navigator.usb
+            .requestDevice({ filters: [{ vendorId: 0x18d1, productId: 0x520d }] })
+            .catch(e => {
+            console.error(e);
+            throw e;
+        });
+        yield device.open();
+        yield device.selectConfiguration(1);
+        yield device.claimInterface(usb_interface);
+        return device;
+    });
+}
+function closeUSBPort(device) {
+    try {
+        device.close();
+    }
+    catch (e) {
+        console.error(e);
+    }
+}
+function writeUSBPort(device, s) {
+    return __awaiter(this, void 0, void 0, function* () {
+        yield device.transferOut(ep, encoder.encode(s));
+    });
+}
 // export async function readUSBPort() {
 //   try {
 //     const result = await device.transferIn(ep, 64);
@@ -68597,15 +68606,6 @@ function readLoop(readFn) {
     });
 }
 let device;
-function closeUSBPort() {
-    try {
-        device.close();
-    }
-    catch (e) {
-        console.error(e);
-    }
-    requestUSBButton.disabled = false;
-}
 let servoPort;
 let servoReader;
 function closeSerialPort() {
@@ -68624,32 +68624,10 @@ function setupStartUSBButton() {
     const ep = usb_interface + 1;
     requestUSBButton.addEventListener('click', () => __awaiter(this, void 0, void 0, function* () {
         halt = false;
+        device = yield (0,_main__WEBPACK_IMPORTED_MODULE_3__.openUSBPort)();
+        requestUSBButton.disabled = true;
         try {
-            device = yield navigator.usb.requestDevice({
-                filters: [
-                    {
-                        vendorId: 0x18d1 /* Google */,
-                        productId: 0x520d /* Servo v4p1 */,
-                    },
-                ],
-            });
-        }
-        catch (err) {
-            console.error(`Error: ${err}`);
-        }
-        if (!device) {
-            // device = null;
-            return;
-        }
-        try {
-            yield device.open();
-            requestUSBButton.disabled = true;
-            yield device.selectConfiguration(1);
-            yield device.claimInterface(usb_interface);
-            kickWriteLoop((s) => __awaiter(this, void 0, void 0, function* () {
-                const data = new TextEncoder().encode(s);
-                yield device.transferOut(ep, data);
-            }));
+            kickWriteLoop((s) => __awaiter(this, void 0, void 0, function* () { return (0,_main__WEBPACK_IMPORTED_MODULE_3__.writeUSBPort)(device, s); }));
             readLoop(() => __awaiter(this, void 0, void 0, function* () {
                 try {
                     const result = yield device.transferIn(ep, 64);
@@ -68765,7 +68743,8 @@ const haltButton = document.getElementById('haltButton');
 haltButton.addEventListener('click', () => {
     halt = true;
     if (requestUSBButton.disabled) {
-        closeUSBPort();
+        (0,_main__WEBPACK_IMPORTED_MODULE_3__.closeUSBPort)(device);
+        requestUSBButton.disabled = false;
     }
     if (requestSerialButton.disabled) {
         closeSerialPort();

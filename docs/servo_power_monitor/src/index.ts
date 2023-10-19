@@ -5,7 +5,13 @@
 import * as d3 from 'd3';
 import Dygraph from 'dygraphs';
 import moment from 'moment';
-import {openSerialPort, writeSerialPort} from './main';
+import {
+  closeUSBPort,
+  openSerialPort,
+  openUSBPort,
+  writeSerialPort,
+  writeUSBPort,
+} from './main';
 
 const intervalMs = 100;
 
@@ -205,14 +211,6 @@ async function readLoop(readFn: () => Promise<string>) {
 }
 
 let device: USBDevice;
-function closeUSBPort() {
-  try {
-    device.close();
-  } catch (e) {
-    console.error(e);
-  }
-  requestUSBButton.disabled = false;
-}
 
 let servoPort: SerialPort;
 let servoReader: ReadableStreamDefaultReader;
@@ -232,32 +230,11 @@ function setupStartUSBButton() {
   const ep = usb_interface + 1;
   requestUSBButton.addEventListener('click', async () => {
     halt = false;
-    try {
-      device = await navigator.usb.requestDevice({
-        filters: [
-          {
-            vendorId: 0x18d1 /* Google */,
-            productId: 0x520d /* Servo v4p1 */,
-          },
-        ],
-      });
-    } catch (err) {
-      console.error(`Error: ${err}`);
-    }
-    if (!device) {
-      // device = null;
-      return;
-    }
+    device = await openUSBPort();
+    requestUSBButton.disabled = true;
 
     try {
-      await device.open();
-      requestUSBButton.disabled = true;
-      await device.selectConfiguration(1);
-      await device.claimInterface(usb_interface);
-      kickWriteLoop(async s => {
-        const data = new TextEncoder().encode(s);
-        await device.transferOut(ep, data);
-      });
+      kickWriteLoop(async s => writeUSBPort(device, s));
       readLoop(async () => {
         try {
           const result = await device.transferIn(ep, 64);
@@ -376,7 +353,8 @@ const haltButton = document.getElementById('haltButton') as HTMLButtonElement;
 haltButton.addEventListener('click', () => {
   halt = true;
   if (requestUSBButton.disabled) {
-    closeUSBPort();
+    closeUSBPort(device);
+    requestUSBButton.disabled = false;
   }
   if (requestSerialButton.disabled) {
     closeSerialPort();

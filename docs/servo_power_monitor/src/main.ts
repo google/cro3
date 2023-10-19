@@ -1,8 +1,8 @@
 const encoder = new TextEncoder();
 const utf8decoder = new TextDecoder('utf-8');
 
-let servoPort: SerialPort;
-let servoReader: ReadableStreamDefaultReader;
+// let servoPort: SerialPort;
+// let servoReader: ReadableStreamDefaultReader;
 
 export async function openSerialPort(
   usbVendorId: number,
@@ -74,32 +74,33 @@ export async function writeSerialPort(port: SerialPort, s: string) {
 // }
 
 // let device: USBDevice;
-// const usb_interface = 0;
-// const ep = usb_interface + 1;
+const usb_interface = 0;
+const ep = usb_interface + 1;
 
-// export async function openUSBPort() {
-//   device = await navigator.usb
-//     .requestDevice({filters: [{vendorId: 0x18d1, productId: 0x520d}]})
-//     .catch(e => {
-//       console.error(e);
-//       throw e;
-//     });
-//   await device.open();
-//   await device.selectConfiguration(1);
-//   await device.claimInterface(usb_interface);
-// }
+export async function openUSBPort() {
+  const device = await navigator.usb
+    .requestDevice({filters: [{vendorId: 0x18d1, productId: 0x520d}]})
+    .catch(e => {
+      console.error(e);
+      throw e;
+    });
+  await device.open();
+  await device.selectConfiguration(1);
+  await device.claimInterface(usb_interface);
+  return device;
+}
 
-// export function closeUSBPort() {
-//   try {
-//     device.close();
-//   } catch (e) {
-//     console.error(e);
-//   }
-// }
+export function closeUSBPort(device: USBDevice) {
+  try {
+    device.close();
+  } catch (e) {
+    console.error(e);
+  }
+}
 
-// export async function writeUSBPort(s: Uint8Array) {
-//   await device.transferOut(ep, s);
-// }
+export async function writeUSBPort(device: USBDevice, s: string) {
+  await device.transferOut(ep, encoder.encode(s));
+}
 
 // export async function readUSBPort() {
 //   try {
