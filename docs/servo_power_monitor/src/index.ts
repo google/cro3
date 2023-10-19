@@ -2,21 +2,23 @@
 // without displaying" ; timeout 5 yes > /dev/null ; } ; done ectool
 // chargecontrol idle ectool chargecontrol normal
 
-import * as d3 from 'd3';
-import Dygraph from 'dygraphs';
-import moment from 'moment';
 import {
+  analyzePowerData,
   closeUSBPort,
+  handleFileSelect,
   openSerialPort,
   openUSBPort,
-  paintHistogram,
-  updateGraph,
+  savePowerDataToJSON,
   writeSerialPort,
   writeUSBPort,
+  handleDragOver,
+  kickWriteLoop,
+  readLoop,
+  stopMeasurement,
+  startMeasurement,
+  isHalt,
 } from './main';
-import {handleDragOver} from './ui';
-
-const intervalMs = 100;
+import {setDownloadAnchor} from './ui';
 
 const downloadButton = document.getElementById(
   'downloadButton'
@@ -27,10 +29,6 @@ const requestUSBButton = document.getElementById(
 const requestSerialButton = document.getElementById(
   'requestSerialButton'
 ) as HTMLButtonElement;
-const serial_output = document.getElementById(
-  'serial_output'
-) as HTMLDivElement;
-const controlDiv = document.getElementById('controlDiv') as HTMLDivElement;
 const selectDUTSerialButton = document.getElementById(
   'selectDUTSerialButton'
 ) as HTMLButtonElement;
@@ -117,67 +115,7 @@ echo "end"\n`;
   }
 });
 
-const powerData: Array<Array<Date | number>> = [];
-const g = new Dygraph('graph', powerData, {});
 const utf8decoder = new TextDecoder('utf-8');
-let output = '';
-let halt = false;
-
-let inProgress = false;
-function pushOutput(s: string) {
-  output += s;
-
-  const splitted = output.split('\n').filter(s => s.trim().length > 10);
-  if (
-    splitted.length > 0 &&
-    splitted[splitted.length - 1].indexOf('Alert limit') >= 0
-  ) {
-    const powerString = splitted.find(s => s.startsWith('Power'));
-    if (powerString === undefined) return;
-    const power = parseInt(powerString.split('=>')[1].trim().split(' ')[0]);
-    const e: Array<Date | number> = [new Date(), power];
-    powerData.push(e);
-    updateGraph(g, powerData);
-    serial_output.innerText = output;
-    output = '';
-    inProgress = false;
-  }
-}
-
-function kickWriteLoop(writeFn: (s: string) => Promise<void>) {
-  const f = async () => {
-    while (!halt) {
-      if (inProgress) {
-        console.error('previous request is in progress! skip...');
-      } else {
-        inProgress = true;
-      }
-
-      // ina 0 and 1 seems to be the same
-      // ina 2 is something but not useful
-      const cmd = 'ina 0\n';
-      await writeFn(cmd);
-      await new Promise(r => setTimeout(r, intervalMs));
-    }
-  };
-  setTimeout(f, intervalMs);
-}
-async function readLoop(readFn: () => Promise<string>) {
-  while (!halt) {
-    try {
-      const s = await readFn();
-      if (s === '' || !s.length) {
-        continue;
-      }
-      pushOutput(s);
-    } catch (e) {
-      // break the loop here because `disconnect` event is not called in Chrome
-      // for some reason when the loop continues. And no need to throw error
-      // here because it is thrown in readFn.
-      break;
-    }
-  }
-}
 
 let device: USBDevice;
 
@@ -198,7 +136,7 @@ function setupStartUSBButton() {
   const usb_interface = 0;
   const ep = usb_interface + 1;
   requestUSBButton.addEventListener('click', async () => {
-    halt = false;
+    startMeasurement();
     device = await openUSBPort();
     requestUSBButton.disabled = true;
 
@@ -218,7 +156,7 @@ function setupStartUSBButton() {
         } catch (e) {
           // If halt is true, it's when the stop button is pressed. Therefore,
           // we can ignore the error.
-          if (!halt) {
+          if (!isHalt()) {
             console.error(e);
             throw e;
           }
@@ -252,7 +190,7 @@ function setupStartUSBButton() {
 setupStartUSBButton();
 
 requestSerialButton.addEventListener('click', async () => {
-  halt = false;
+  startMeasurement();
 
   servoPort = await openSerialPort(0x18d1, 0x520d);
   requestSerialButton.disabled = true;
@@ -290,35 +228,27 @@ navigator.usb.addEventListener('disconnect', () => {
     //  No need to call close() for the USB servoPort here because the
     //  specification says that
     // the servoPort will be closed automatically when a device is disconnected.
-    halt = true;
     requestUSBButton.disabled = false;
-    inProgress = false;
+    stopMeasurement();
   }
 });
 
 // event when you disconnect serial servoPort
 navigator.serial.addEventListener('disconnect', () => {
   if (requestSerialButton.disabled) {
-    halt = true;
-    inProgress = false;
     closeSerialPort();
+    stopMeasurement();
   }
 });
 
 downloadButton.addEventListener('click', async () => {
-  const dataStr =
-    'data:text/json;charset=utf-8,' +
-    encodeURIComponent(JSON.stringify({power: powerData}));
-  const dlAnchorElem = document.getElementById('downloadAnchorElem');
-  if (dlAnchorElem === null) return;
-  dlAnchorElem.setAttribute('href', dataStr);
-  dlAnchorElem.setAttribute('download', `power_${moment().format()}.json`);
-  dlAnchorElem.click();
+  const dataStr = savePowerDataToJSON();
+  setDownloadAnchor(dataStr);
 });
 
 const haltButton = document.getElementById('haltButton') as HTMLButtonElement;
 haltButton.addEventListener('click', () => {
-  halt = true;
+  stopMeasurement();
   if (requestUSBButton.disabled) {
     closeUSBPort(device);
     requestUSBButton.disabled = false;
@@ -331,38 +261,8 @@ haltButton.addEventListener('click', () => {
 const analyzeButton = document.getElementById(
   'analyzeButton'
 ) as HTMLButtonElement;
-analyzeButton.addEventListener('click', () => {
-  // https://dygraphs.com/jsdoc/symbols/Dygraph.html#xAxisRange
-  const xrange = g.xAxisRange();
-  console.log(g.xAxisExtremes());
-  const left = xrange[0];
-  const right = xrange[1];
-  paintHistogram(left, right);
-});
+analyzeButton.addEventListener('click', analyzePowerData);
 
-function setupDataLoad() {
-  const handleFileSelect = (evt: DragEvent) => {
-    evt.stopPropagation();
-    evt.preventDefault();
-    const eventDataTransfer = evt.dataTransfer;
-    if (eventDataTransfer === null) return;
-    const file = eventDataTransfer.files[0];
-    if (file === undefined) {
-      return;
-    }
-    const r = new FileReader();
-    r.addEventListener('load', () => {
-      const data = JSON.parse(r.result as string);
-      const powerData = data.power.map((d: string) => [new Date(d[0]), d[1]]);
-      updateGraph(g, powerData);
-    });
-    r.readAsText(file);
-  };
-
-  const dropZone = document.getElementById('dropZone');
-  if (dropZone === null) return;
-  dropZone.innerText = 'Drop .json here';
-  dropZone.addEventListener('dragover', handleDragOver, false);
-  dropZone.addEventListener('drop', handleFileSelect, false);
-}
-setupDataLoad();
+const dropZone = document.getElementById('dropZone') as HTMLSpanElement;
+dropZone.addEventListener('dragover', handleDragOver, false);
+dropZone.addEventListener('drop', handleFileSelect, false);
