@@ -5,6 +5,7 @@
 import * as d3 from 'd3';
 import Dygraph from 'dygraphs';
 import moment from 'moment';
+import {openSerialPort, writeSerialPort} from './main';
 
 const intervalMs = 100;
 
@@ -37,18 +38,11 @@ popupCloseButton.addEventListener('click', () => {
   overlay.classList.add('closed');
 });
 
-const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
 let DUTPort: SerialPort;
 selectDUTSerialButton.addEventListener('click', async () => {
-  DUTPort = await navigator.serial
-    .requestPort({filters: [{usbVendorId: 0x18d1, usbProductId: 0x504a}]})
-    .catch(e => {
-      console.error(e);
-      throw e;
-    });
-  await DUTPort.open({baudRate: 115200});
+  DUTPort = await openSerialPort(0x18d1, 0x504a);
   let listItem = document.createElement('li');
   listItem.textContent = 'DUTPort is selected';
   messages.appendChild(listItem);
@@ -87,12 +81,8 @@ form.addEventListener('submit', async e => {
   } else {
     const input = document.getElementById('input') as HTMLInputElement | null;
     if (input === null) return;
-    const DUTWritable = DUTPort.writable;
-    if (DUTWritable === null) return;
-    const DUTWriter = DUTWritable.getWriter();
-    await DUTWriter.write(encoder.encode(input.value + '\n'));
+    await writeSerialPort(DUTPort, input.value + '\n');
     input.value = '';
-    await DUTWriter.releaseLock();
   }
 });
 
@@ -110,14 +100,11 @@ function workload () {
 echo "start"
 workload 10 1> ./test_out.log 2> ./test_err.log
 echo "end"\n`;
-    const DUTWritable = DUTPort.writable;
-    if (DUTWritable === null) return;
-    const DUTWriter = DUTWritable.getWriter();
-    await DUTWriter.write(encoder.encode('cat > ./example.sh << EOF\n'));
-    await DUTWriter.write(encoder.encode(scripts));
-    await DUTWriter.write(encoder.encode('EOF\n'));
-    await DUTWriter.write(encoder.encode('bash ./example.sh\n'));
-    DUTWriter.releaseLock();
+
+    writeSerialPort(DUTPort, 'cat > ./example.sh << EOF\n');
+    writeSerialPort(DUTPort, scripts);
+    writeSerialPort(DUTPort, 'EOF\n');
+    writeSerialPort(DUTPort, 'bash ./example.sh\n');
   }
 });
 
@@ -321,27 +308,12 @@ setupStartUSBButton();
 requestSerialButton.addEventListener('click', async () => {
   halt = false;
 
-  servoPort = await navigator.serial
-    .requestPort({filters: [{usbVendorId: 0x18d1, usbProductId: 0x520d}]})
-    .catch(e => {
-      console.error(e);
-      throw e;
-    });
-  await servoPort.open({baudRate: 115200});
+  servoPort = await openSerialPort(0x18d1, 0x520d);
   requestSerialButton.disabled = true;
-  const servoWritable = servoPort.writable;
-  if (servoWritable === null) return;
-  const servoWriter = servoWritable.getWriter();
-  await servoWriter.write(encoder.encode('help\n'));
-  servoWriter.releaseLock();
+  writeSerialPort(servoPort, 'help\n');
 
   kickWriteLoop(async s => {
-    const data = new TextEncoder().encode(s);
-    const servoWritable = servoPort.writable;
-    if (servoWritable === null) return;
-    const servoWriter = servoWritable.getWriter();
-    await servoWriter.write(data);
-    servoWriter.releaseLock();
+    writeSerialPort(servoPort, s);
   });
   readLoop(async () => {
     const servoReadable = servoPort.readable;

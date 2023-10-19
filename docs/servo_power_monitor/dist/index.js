@@ -1,6 +1,177 @@
 /******/ (() => { // webpackBootstrap
 /******/ 	var __webpack_modules__ = ({
 
+/***/ "./generated/main.js":
+/*!***************************!*\
+  !*** ./generated/main.js ***!
+  \***************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   openSerialPort: () => (/* binding */ openSerialPort),
+/* harmony export */   writeSerialPort: () => (/* binding */ writeSerialPort)
+/* harmony export */ });
+var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+const encoder = new TextEncoder();
+const utf8decoder = new TextDecoder('utf-8');
+let servoPort;
+let servoReader;
+function openSerialPort(usbVendorId, usbProductId) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const port = yield navigator.serial
+            .requestPort({
+            filters: [{ usbVendorId: usbVendorId, usbProductId: usbProductId }],
+        })
+            .catch(e => {
+            console.error(e);
+            throw e;
+        });
+        yield port.open({ baudRate: 115200 });
+        return port;
+    });
+}
+function writeSerialPort(port, s) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const writable = port.writable;
+        if (writable === null)
+            return;
+        const writer = writable.getWriter();
+        yield writer.write(encoder.encode(s));
+        writer.releaseLock();
+    });
+}
+// export async function openServoSerialPort() {
+//   servoPort = await openSerialPort(0x18d1, 0x520d);
+// }
+// export function closeServoSerialPort() {
+//   servoReader.cancel();
+//   servoReader.releaseLock();
+//   try {
+//     servoPort.close();
+//   } catch (e) {
+//     console.error(e);
+//   }
+// }
+// export async function writeServoSerialPort(s: string) {
+//   const servoWritable = servoPort.writable;
+//   if (servoWritable === null) return;
+//   const servoWriter = servoWritable.getWriter();
+//   await servoWriter.write(encoder.encode(s));
+//   servoWriter.releaseLock();
+// }
+// export async function readServoSerialPort() {
+//   const servoReadable = servoPort.readable;
+//   if (servoReadable === null) return '';
+//   servoReader = servoReadable.getReader();
+//   try {
+//     for (;;) {
+//       const {value, done} = await servoReader.read();
+//       if (done) {
+//         // |servoReader| has been canceled.
+//         servoReader.releaseLock();
+//         return '';
+//       }
+//       return utf8decoder.decode(value);
+//     }
+//   } catch (error) {
+//     servoReader.releaseLock();
+//     console.error(error);
+//     throw error;
+//   } finally {
+//     servoReader.releaseLock();
+//   }
+// }
+// let device: USBDevice;
+// const usb_interface = 0;
+// const ep = usb_interface + 1;
+// export async function openUSBPort() {
+//   device = await navigator.usb
+//     .requestDevice({filters: [{vendorId: 0x18d1, productId: 0x520d}]})
+//     .catch(e => {
+//       console.error(e);
+//       throw e;
+//     });
+//   await device.open();
+//   await device.selectConfiguration(1);
+//   await device.claimInterface(usb_interface);
+// }
+// export function closeUSBPort() {
+//   try {
+//     device.close();
+//   } catch (e) {
+//     console.error(e);
+//   }
+// }
+// export async function writeUSBPort(s: Uint8Array) {
+//   await device.transferOut(ep, s);
+// }
+// export async function readUSBPort() {
+//   try {
+//     const result = await device.transferIn(ep, 64);
+//     if (result.status === 'stall') {
+//       await device.clearHalt('in', ep);
+//       throw result;
+//     }
+//     const resultData = result.data;
+//     if (resultData === undefined) return '';
+//     const result_array = new Int8Array(resultData.buffer);
+//     return utf8decoder.decode(result_array);
+//   } catch (e) {
+//     // If halt is true, it's when the stop button is pressed. Therefore,
+//     // we can ignore the error.
+//     if (!halt) {
+//       console.error(e);
+//       throw e;
+//     }
+//     return '';
+//   }
+// }
+// let DUTPort: SerialPort;
+// export async function openDUTSerialPort() {
+//   DUTPort = await openSerialPort(0x18d1, 0x504a);
+// }
+// export async function writeDUTPort(s: string) {
+//   const DUTWritable = DUTPort.writable;
+//   if (DUTWritable === null) return;
+//   const DUTWriter = DUTWritable.getWriter();
+//   await DUTWriter.write(encoder.encode(s));
+//   await DUTWriter.releaseLock();
+// }
+// export async function readDUTSerialPort() {
+//   const DUTReadable = DUTPort.readable;
+//   if (DUTReadable === null) return;
+//   const DUTReader = DUTReadable.getReader();
+//   DUTReader.read().then(function processText({done, value}): void {
+//     if (done) {
+//       console.log('Stream complete');
+//       return;
+//     }
+//     const chunk = decoder.decode(value, {stream: true});
+//     const chunk_split_list = chunk.split('\n');
+//     for (let i = 0; i < chunk_split_list.length - 1; i++) {
+//       listItem.textContent += chunk_split_list[i];
+//       listItem = document.createElement('li');
+//       messages.appendChild(listItem);
+//     }
+//     listItem.textContent += chunk_split_list[chunk_split_list.length - 1];
+//     messages.scrollTo(0, messages.scrollHeight);
+//     DUTReader.read().then(processText);
+//   });
+// }
+//# sourceMappingURL=main.js.map
+
+/***/ }),
+
 /***/ "./node_modules/dygraphs/index.js":
 /*!****************************************!*\
   !*** ./node_modules/dygraphs/index.js ***!
@@ -68240,6 +68411,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var dygraphs__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! dygraphs */ "./node_modules/dygraphs/index.js");
 /* harmony import */ var moment__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! moment */ "./node_modules/moment/moment.js");
 /* harmony import */ var moment__WEBPACK_IMPORTED_MODULE_2___default = /*#__PURE__*/__webpack_require__.n(moment__WEBPACK_IMPORTED_MODULE_2__);
+/* harmony import */ var _main__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./main */ "./generated/main.js");
 // while true ; do { echo "do nothing for 5 sec" ; sleep 5 ; echo "yes for 5 sec
 // without displaying" ; timeout 5 yes > /dev/null ; } ; done ectool
 // chargecontrol idle ectool chargecontrol normal
@@ -68252,6 +68424,7 @@ var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _argume
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+
 
 
 
@@ -68269,17 +68442,10 @@ const overlay = document.querySelector('#popup-overlay');
 popupCloseButton.addEventListener('click', () => {
     overlay.classList.add('closed');
 });
-const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 let DUTPort;
 selectDUTSerialButton.addEventListener('click', () => __awaiter(void 0, void 0, void 0, function* () {
-    DUTPort = yield navigator.serial
-        .requestPort({ filters: [{ usbVendorId: 0x18d1, usbProductId: 0x504a }] })
-        .catch(e => {
-        console.error(e);
-        throw e;
-    });
-    yield DUTPort.open({ baudRate: 115200 });
+    DUTPort = yield (0,_main__WEBPACK_IMPORTED_MODULE_3__.openSerialPort)(0x18d1, 0x504a);
     let listItem = document.createElement('li');
     listItem.textContent = 'DUTPort is selected';
     messages.appendChild(listItem);
@@ -68316,13 +68482,8 @@ form.addEventListener('submit', (e) => __awaiter(void 0, void 0, void 0, functio
         const input = document.getElementById('input');
         if (input === null)
             return;
-        const DUTWritable = DUTPort.writable;
-        if (DUTWritable === null)
-            return;
-        const DUTWriter = DUTWritable.getWriter();
-        yield DUTWriter.write(encoder.encode(input.value + '\n'));
+        yield (0,_main__WEBPACK_IMPORTED_MODULE_3__.writeSerialPort)(DUTPort, input.value + '\n');
         input.value = '';
-        yield DUTWriter.releaseLock();
     }
 }));
 executeScriptButton.addEventListener('click', () => __awaiter(void 0, void 0, void 0, function* () {
@@ -68340,15 +68501,10 @@ function workload () {
 echo "start"
 workload 10 1> ./test_out.log 2> ./test_err.log
 echo "end"\n`;
-        const DUTWritable = DUTPort.writable;
-        if (DUTWritable === null)
-            return;
-        const DUTWriter = DUTWritable.getWriter();
-        yield DUTWriter.write(encoder.encode('cat > ./example.sh << EOF\n'));
-        yield DUTWriter.write(encoder.encode(scripts));
-        yield DUTWriter.write(encoder.encode('EOF\n'));
-        yield DUTWriter.write(encoder.encode('bash ./example.sh\n'));
-        DUTWriter.releaseLock();
+        (0,_main__WEBPACK_IMPORTED_MODULE_3__.writeSerialPort)(DUTPort, 'cat > ./example.sh << EOF\n');
+        (0,_main__WEBPACK_IMPORTED_MODULE_3__.writeSerialPort)(DUTPort, scripts);
+        (0,_main__WEBPACK_IMPORTED_MODULE_3__.writeSerialPort)(DUTPort, 'EOF\n');
+        (0,_main__WEBPACK_IMPORTED_MODULE_3__.writeSerialPort)(DUTPort, 'bash ./example.sh\n');
     }
 }));
 const powerData = [];
@@ -68543,28 +68699,11 @@ function setupStartUSBButton() {
 setupStartUSBButton();
 requestSerialButton.addEventListener('click', () => __awaiter(void 0, void 0, void 0, function* () {
     halt = false;
-    servoPort = yield navigator.serial
-        .requestPort({ filters: [{ usbVendorId: 0x18d1, usbProductId: 0x520d }] })
-        .catch(e => {
-        console.error(e);
-        throw e;
-    });
-    yield servoPort.open({ baudRate: 115200 });
+    servoPort = yield (0,_main__WEBPACK_IMPORTED_MODULE_3__.openSerialPort)(0x18d1, 0x520d);
     requestSerialButton.disabled = true;
-    const servoWritable = servoPort.writable;
-    if (servoWritable === null)
-        return;
-    const servoWriter = servoWritable.getWriter();
-    yield servoWriter.write(encoder.encode('help\n'));
-    servoWriter.releaseLock();
+    (0,_main__WEBPACK_IMPORTED_MODULE_3__.writeSerialPort)(servoPort, 'help\n');
     kickWriteLoop((s) => __awaiter(void 0, void 0, void 0, function* () {
-        const data = new TextEncoder().encode(s);
-        const servoWritable = servoPort.writable;
-        if (servoWritable === null)
-            return;
-        const servoWriter = servoWritable.getWriter();
-        yield servoWriter.write(data);
-        servoWriter.releaseLock();
+        (0,_main__WEBPACK_IMPORTED_MODULE_3__.writeSerialPort)(servoPort, s);
     }));
     readLoop(() => __awaiter(void 0, void 0, void 0, function* () {
         const servoReadable = servoPort.readable;
