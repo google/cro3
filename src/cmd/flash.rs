@@ -14,7 +14,6 @@ use lium::cros::ensure_testing_rsa_is_there;
 use lium::cros::lookup_full_version;
 use lium::dut::DutInfo;
 use lium::repo::get_repo_dir;
-use lium::util::shell_helpers::launch_command_with_stdout_label;
 use regex::Regex;
 
 /// Determine a BOARD to flash, based on the parameters.
@@ -165,12 +164,12 @@ pub fn run(args: &Args) -> Result<()> {
     cmd_args.push(&destination);
     cmd_args.push(&image_path);
 
-    let cmd_result = launch_command_with_stdout_label(
-        Command::new("cros").current_dir(repo).args(cmd_args),
-        "cros flash".to_string().into(),
-    )?;
-
-    if !cmd_result.success() {
+    let cmd = Command::new("cros")
+        .current_dir(repo)
+        .args(cmd_args)
+        .spawn()?;
+    let result = cmd.wait_with_output()?;
+    if !result.status.success() {
         println!("cros sdk failed");
     }
     Ok(())

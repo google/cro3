@@ -12,7 +12,6 @@ use lium::chroot::Chroot;
 use lium::cros::ensure_testing_rsa_is_there;
 use lium::dut::SshInfo;
 use lium::repo::get_repo_dir;
-use lium::util::shell_helpers::launch_command_with_stdout_label;
 
 #[derive(FromArgs, PartialEq, Debug)]
 /// control ARC
@@ -141,19 +140,19 @@ fn run_arc_flash(args: &ArgsArcFlash) -> Result<()> {
         }
     }
 
-    let cmd_result = launch_command_with_stdout_label(
-        Command::new("python").current_dir(repo).args([
+    let cmd = Command::new("python")
+        .current_dir(repo)
+        .args([
             "src/private-overlays/project-cheets-private/scripts/deploy_prebuilt_android.py",
             "--bid",
             &version,
             "--target",
             &format!("{device}_{arch}-{itype}"),
             &target.host_and_port(),
-        ]),
-        "deploy_preboot_android".to_string().into(),
-    )?;
-
-    if !cmd_result.success() {
+        ])
+        .spawn()?;
+    let result = cmd.wait_with_output()?;
+    if !result.status.success() {
         println!("prebuilt ARC flash failed");
     }
 
