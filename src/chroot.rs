@@ -114,18 +114,15 @@ impl Chroot {
         info!("Running {name} in chroot...");
 
         let mut result = String::new();
-        let status = launch_command_with_stdout_label_and_process(
+        launch_command_with_stdout_label_and_process(
             &mut cmd,
             format!("chroot command: {name}").into(),
-            Some(|outputs: CommandOutputReciever| {
-                let stdout = outputs.stdout_only();
+            Some(|stdout: CommandOutputReciever, _| {
                 result = stdout.collect::<Vec<String>>().join("\n");
                 Ok(())
             }),
         )
         .context(anyhow!("wait_with_output_failed. cmd = {cmd:?}"))?;
-
-        info!("chroot process exited with exit code: {status}");
 
         Ok(result)
     }
