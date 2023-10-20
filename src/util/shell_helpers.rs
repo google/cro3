@@ -172,14 +172,15 @@ where
         .into_iter()
         .flatten();
 
-    // Create channels to copy the stdout and stderr to.
-    let (stdout_snd, stdout_rcv) = std::sync::mpsc::sync_channel(1);
-    let (stderr_snd, stderr_rcv) = std::sync::mpsc::sync_channel(1);
-    let join = spawn_output_reader_thread(stdout_iter, stderr_iter, stdout_snd, stderr_snd);
+    let join = if let Some(process) = process {
+        // Create channels to copy the stdout and stderr to.
+        let (stdout_snd, stdout_rcv) = std::sync::mpsc::sync_channel(1);
+        let (stderr_snd, stderr_rcv) = std::sync::mpsc::sync_channel(1);
+        let join =
+            spawn_output_reader_thread(stdout_iter, stderr_iter, Some((stdout_snd, stderr_snd)));
 
-    // Read the recieving ends of the channels and pass them to the process
-    // function's input.
-    if let Some(process) = process {
+        // Read the recieving ends of the channels and pass them to the process
+        // function's input.
         // create a tracing span for the process function.
         let _process_span = tracing::trace_span!("process stdout/err").entered();
 
@@ -187,22 +188,31 @@ where
             stdout_rcv.into_iter(),
             stderr_rcv.into_iter(),
         ))?;
-    }
+
+        join
+    } else {
+        spawn_output_reader_thread(stdout_iter, stderr_iter, None)
+    };
 
     // Wait for the process to finish, then wait for the thread to finish reading
     // stdout/err.
     let r = child.wait()?;
     info!("Subprocess {executable} finished with exit code {r}");
 
-    join.join()
-        .map_err(|e| anyhow!("could not join stdout/err logging and copy thread: {e:?}"))?;
-    trace!("stdout/err logging and copy thread joined");
+    if join.is_some() {
+        join.unwrap()
+            .join()
+            .map_err(|e| anyhow!("could not join stdout/err logging and copy thread: {e:?}"))?;
+        trace!("stdout/err logging and copy thread joined");
+    }
 
     Ok(r)
 }
 
-/// This function creates a thread that reads the stdout and stderr of a sub
-/// command and logs them, forwarding a copy to the channels.
+/// This function optionally creates a thread that reads the stdout and stderr
+/// of a sub command and logs them, forwarding a copy to the channels.  If there
+/// is no process command, then there is no need to pass pipe_senders to this
+/// function and it will not spawn a thread.
 ///
 /// This is a little complex because in order to continue with a fixed size
 /// channel, once one is exhausted it needs to be closed. This is why instead of
@@ -212,14 +222,23 @@ where
 fn spawn_output_reader_thread<IOut, IErr>(
     stdout_iter: IOut,
     stderr_iter: IErr,
-    stdout_snd: std::sync::mpsc::SyncSender<String>,
-    stderr_snd: std::sync::mpsc::SyncSender<String>,
-) -> std::thread::JoinHandle<()>
+    pipe_senders: Option<(
+        std::sync::mpsc::SyncSender<String>,
+        std::sync::mpsc::SyncSender<String>,
+    )>,
+) -> Option<std::thread::JoinHandle<()>>
 where
     IOut: Iterator<Item = std::io::Result<String>> + Send + 'static,
     IErr: Iterator<Item = std::io::Result<String>> + Send + 'static,
 {
-    std::thread::spawn(move || {
+    // True only if we have processing to do.
+    let should_spawn_thread = pipe_senders.is_some();
+
+    let (stdout_snd, stderr_snd) = pipe_senders
+        .map(|(stdout_snd, stderr_snd)| (Some(stdout_snd), Some(stderr_snd)))
+        .unwrap_or((None, None));
+
+    let op = move || {
         let _stdout_stderr_output_reader_span =
             tracing::trace_span!("subprocess output reader").entered();
 
@@ -230,10 +249,14 @@ where
             let stdout = stdout.unwrap();
             let stderr = stderr.unwrap();
             info!("{}", stdout.clone());
-            stdout_snd.send(stdout).unwrap();
+            if let Some(ref s) = stdout_snd {
+                s.send(stdout).unwrap();
+            }
 
             info!("stderr: {}", stderr.clone());
-            stderr_snd.send(stderr).unwrap();
+            if let Some(ref s) = stderr_snd {
+                s.send(stderr).unwrap();
+            }
 
             curr = cmd_outputs_iter.next();
         }
@@ -245,7 +268,9 @@ where
                 while let Some(EitherOrBoth::Left(stdout)) = cmd_outputs_iter.next() {
                     let stdout = stdout.unwrap();
                     info!("{}", stdout.clone());
-                    stdout_snd.send(stdout).unwrap();
+                    if let Some(ref s) = stdout_snd {
+                        s.send(stdout).unwrap();
+                    }
                 }
             }
             Some(EitherOrBoth::Right(_)) => {
@@ -253,13 +278,23 @@ where
                 while let Some(EitherOrBoth::Right(stderr)) = cmd_outputs_iter.next() {
                     let stderr = stderr.unwrap();
                     info!("stderr: {}", stderr.clone());
-                    stderr_snd.send(stderr).unwrap();
+                    if let Some(ref s) = stderr_snd {
+                        s.send(stderr).unwrap();
+                    }
                 }
             }
             Some(EitherOrBoth::Both(_, _)) => panic!("somehow a stdout or stderr came back alive!"),
             None => (), // We're done.
         }
-    })
+    };
+
+    if should_spawn_thread {
+        return Some(std::thread::spawn(op));
+    }
+
+    op();
+
+    None
 }
 
 pub struct CommandOutputReciever {
