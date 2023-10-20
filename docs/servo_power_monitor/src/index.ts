@@ -53,30 +53,39 @@ selectDUTSerialButton.addEventListener('click', async () => {
   let listItem = document.createElement('li');
   listItem.textContent = 'DUTPort is selected';
   messages.appendChild(listItem);
-  const DUTReadable = DUTPort.readable;
-  if (DUTReadable === null) return;
-  const DUTReader = DUTReadable.getReader();
   listItem = document.createElement('li');
   messages.appendChild(listItem);
-  DUTReader.read().then(function processText({done, value}): void {
-    if (done) {
-      console.log('Stream complete');
-      return;
+  for (;;) {
+    const DUTReadable = DUTPort.readable;
+    if (DUTReadable === null) return;
+    const DUTReader = DUTReadable.getReader();
+    try {
+      for (;;) {
+        const {value, done} = await DUTReader.read();
+        if (done) {
+          // |DUTReader| has been canceled.
+          DUTReader.releaseLock();
+          break;
+        }
+        const chunk = decoder.decode(value, {stream: true});
+        const chunk_split_list = chunk.split('\n');
+
+        for (let i = 0; i < chunk_split_list.length - 1; i++) {
+          listItem.textContent += chunk_split_list[i];
+          listItem = document.createElement('li');
+          messages.appendChild(listItem);
+        }
+        listItem.textContent += chunk_split_list[chunk_split_list.length - 1];
+        messages.scrollTo(0, messages.scrollHeight);
+      }
+    } catch (error) {
+      DUTReader.releaseLock();
+      console.error(error);
+      throw error;
+    } finally {
+      DUTReader.releaseLock();
     }
-
-    const chunk = decoder.decode(value, {stream: true});
-    const chunk_split_list = chunk.split('\n');
-
-    for (let i = 0; i < chunk_split_list.length - 1; i++) {
-      listItem.textContent += chunk_split_list[i];
-      listItem = document.createElement('li');
-      messages.appendChild(listItem);
-    }
-    listItem.textContent += chunk_split_list[chunk_split_list.length - 1];
-    messages.scrollTo(0, messages.scrollHeight);
-
-    DUTReader.read().then(processText);
-  });
+  }
 });
 
 const form = document.getElementById('form') as HTMLFormElement;

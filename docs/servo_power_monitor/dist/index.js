@@ -68722,28 +68722,60 @@ selectDUTSerialButton.addEventListener('click', () => __awaiter(void 0, void 0, 
     let listItem = document.createElement('li');
     listItem.textContent = 'DUTPort is selected';
     messages.appendChild(listItem);
-    const DUTReadable = DUTPort.readable;
-    if (DUTReadable === null)
-        return;
-    const DUTReader = DUTReadable.getReader();
+    // const DUTReadable = DUTPort.readable;
+    // if (DUTReadable === null) return;
+    // const DUTReader = DUTReadable.getReader();
     listItem = document.createElement('li');
     messages.appendChild(listItem);
-    DUTReader.read().then(function processText({ done, value }) {
-        if (done) {
-            console.log('Stream complete');
+    for (;;) {
+        const DUTReadable = DUTPort.readable;
+        if (DUTReadable === null)
             return;
+        const DUTReader = DUTReadable.getReader();
+        try {
+            for (;;) {
+                const { value, done } = yield DUTReader.read();
+                if (done) {
+                    // |DUTReader| has been canceled.
+                    DUTReader.releaseLock();
+                    break;
+                }
+                const chunk = decoder.decode(value, { stream: true });
+                const chunk_split_list = chunk.split('\n');
+                for (let i = 0; i < chunk_split_list.length - 1; i++) {
+                    listItem.textContent += chunk_split_list[i];
+                    listItem = document.createElement('li');
+                    messages.appendChild(listItem);
+                }
+                listItem.textContent += chunk_split_list[chunk_split_list.length - 1];
+                messages.scrollTo(0, messages.scrollHeight);
+            }
         }
-        const chunk = decoder.decode(value, { stream: true });
-        const chunk_split_list = chunk.split('\n');
-        for (let i = 0; i < chunk_split_list.length - 1; i++) {
-            listItem.textContent += chunk_split_list[i];
-            listItem = document.createElement('li');
-            messages.appendChild(listItem);
+        catch (error) {
+            DUTReader.releaseLock();
+            console.error(error);
+            throw error;
         }
-        listItem.textContent += chunk_split_list[chunk_split_list.length - 1];
-        messages.scrollTo(0, messages.scrollHeight);
-        DUTReader.read().then(processText);
-    });
+        finally {
+            DUTReader.releaseLock();
+        }
+    }
+    // DUTReader.read().then(function processText({done, value}): void {
+    //   if (done) {
+    //     console.log('Stream complete');
+    //     return;
+    //   }
+    //   const chunk = decoder.decode(value, {stream: true});
+    //   const chunk_split_list = chunk.split('\n');
+    //   for (let i = 0; i < chunk_split_list.length - 1; i++) {
+    //     listItem.textContent += chunk_split_list[i];
+    //     listItem = document.createElement('li');
+    //     messages.appendChild(listItem);
+    //   }
+    //   listItem.textContent += chunk_split_list[chunk_split_list.length - 1];
+    //   messages.scrollTo(0, messages.scrollHeight);
+    //   DUTReader.read().then(processText);
+    // });
 }));
 const form = document.getElementById('form');
 form.addEventListener('submit', (e) => __awaiter(void 0, void 0, void 0, function* () {
