@@ -46,7 +46,7 @@ pub fn run(args: &Args) -> Result<()> {
             script.push_str(&format!("{l}\n"));
         }
         script.push_str(cmd);
-        chroot.run_bash_script_in_chroot(args.cmd.as_ref().unwrap(), &script, None)?;
+        chroot.run_bash_script_in_chroot("exec", &script, None)?;
     } else {
         chroot.open_chroot(additional_args.as_slice())?;
     }
