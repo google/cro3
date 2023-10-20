@@ -18,8 +18,8 @@ cargo build --release --target-dir ${TMPDIR}
 VERSION=`${TMPDIR}/release/lium version | cut -d ' ' -f 2`
 
 if gh release list | grep ${VERSION} ; then
-	# Release with the version found. Delete it first.
-	gh release delete -y ${VERSION}
+	# Release with the version found. Quit.
+	exit 1
 fi
 
 # Create a new release
