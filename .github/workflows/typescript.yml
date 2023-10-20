@@ -1,0 +1,23 @@
+name: Build with webpack and lint with gts
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Use Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18.x'
+    - uses: actions/checkout@v4
+    - name: Build
+      working-directory: ./docs/servo_power_monitor/
+      run: npm install
+    - name: Run tests
+      working-directory: ./docs/servo_power_monitor/
+      run: npm run lint

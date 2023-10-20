@@ -4,7 +4,7 @@
 
 import * as d3 from 'd3';
 import Dygraph from 'dygraphs';
-import moment from 'moment';
+import moment from 'moment'                                                                                                    ;
 
 const intervalMs = 100;
 
@@ -638,5 +638,6 @@ function setupDataLoad() {
   dropZone.innerText = 'Drop .json here';
   dropZone.addEventListener('dragover', handleDragOver, false);
   dropZone.addEventListener('drop', handleFileSelect, false);
+  console.log("hello!!!!!!!");
 }
 setupDataLoad();
