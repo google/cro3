@@ -18,7 +18,7 @@ import {
   startMeasurementFlag,
   readUSBPort,
 } from './main';
-import {setDownloadAnchor} from './ui';
+import {closePopup, setDownloadAnchor, setPopupCloseButton} from './ui';
 
 const downloadButton = document.getElementById(
   'downloadButton'
@@ -36,14 +36,8 @@ const executeScriptButton = document.getElementById(
   'executeScriptButton'
 ) as HTMLButtonElement;
 const messages = document.getElementById('messages') as HTMLUListElement;
-const popupCloseButton = document.getElementById(
-  'popup-close'
-) as HTMLButtonElement;
-const overlay = document.querySelector('#popup-overlay') as HTMLDivElement;
 
-popupCloseButton.addEventListener('click', () => {
-  overlay.classList.add('closed');
-});
+setPopupCloseButton();
 
 const utf8decoder = new TextDecoder('utf-8');
 
@@ -93,7 +87,7 @@ form.addEventListener('submit', async e => {
   e.preventDefault();
 
   if (DUTPort === undefined) {
-    overlay.classList.remove('closed');
+    closePopup();
   } else {
     const input = document.getElementById('input') as HTMLInputElement;
     await writeSerialPort(DUTPort, input.value + '\n');
@@ -103,7 +97,7 @@ form.addEventListener('submit', async e => {
 
 executeScriptButton.addEventListener('click', async () => {
   if (DUTPort === undefined) {
-    overlay.classList.remove('closed');
+    closePopup();
   } else {
     // shell script
     const scripts = `#!/bin/bash -e

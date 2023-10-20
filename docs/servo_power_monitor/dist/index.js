@@ -436,11 +436,23 @@ function handleDragOver(evt) {
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   setDownloadAnchor: () => (/* binding */ setDownloadAnchor)
+/* harmony export */   closePopup: () => (/* binding */ closePopup),
+/* harmony export */   setDownloadAnchor: () => (/* binding */ setDownloadAnchor),
+/* harmony export */   setPopupCloseButton: () => (/* binding */ setPopupCloseButton)
 /* harmony export */ });
 /* harmony import */ var moment__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! moment */ "./node_modules/moment/moment.js");
 /* harmony import */ var moment__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(moment__WEBPACK_IMPORTED_MODULE_0__);
 
+const popupCloseButton = document.getElementById('popup-close');
+const overlay = document.querySelector('#popup-overlay');
+function setPopupCloseButton() {
+    popupCloseButton.addEventListener('click', () => {
+        overlay.classList.add('closed');
+    });
+}
+function closePopup() {
+    overlay.classList.remove('closed');
+}
 function setDownloadAnchor(dataStr) {
     const dlAnchorElem = document.getElementById('downloadAnchorElem');
     if (dlAnchorElem === null)
@@ -68710,11 +68722,7 @@ const requestSerialButton = document.getElementById('requestSerialButton');
 const selectDUTSerialButton = document.getElementById('selectDUTSerialButton');
 const executeScriptButton = document.getElementById('executeScriptButton');
 const messages = document.getElementById('messages');
-const popupCloseButton = document.getElementById('popup-close');
-const overlay = document.querySelector('#popup-overlay');
-popupCloseButton.addEventListener('click', () => {
-    overlay.classList.add('closed');
-});
+(0,_ui__WEBPACK_IMPORTED_MODULE_1__.setPopupCloseButton)();
 const utf8decoder = new TextDecoder('utf-8');
 let DUTPort;
 selectDUTSerialButton.addEventListener('click', () => __awaiter(void 0, void 0, void 0, function* () {
@@ -68762,7 +68770,7 @@ const form = document.getElementById('form');
 form.addEventListener('submit', (e) => __awaiter(void 0, void 0, void 0, function* () {
     e.preventDefault();
     if (DUTPort === undefined) {
-        overlay.classList.remove('closed');
+        (0,_ui__WEBPACK_IMPORTED_MODULE_1__.closePopup)();
     }
     else {
         const input = document.getElementById('input');
@@ -68772,7 +68780,7 @@ form.addEventListener('submit', (e) => __awaiter(void 0, void 0, void 0, functio
 }));
 executeScriptButton.addEventListener('click', () => __awaiter(void 0, void 0, void 0, function* () {
     if (DUTPort === undefined) {
-        overlay.classList.remove('closed');
+        (0,_ui__WEBPACK_IMPORTED_MODULE_1__.closePopup)();
     }
     else {
         // shell script
