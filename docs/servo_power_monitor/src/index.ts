@@ -45,7 +45,7 @@ popupCloseButton.addEventListener('click', () => {
   overlay.classList.add('closed');
 });
 
-const decoder = new TextDecoder();
+const utf8decoder = new TextDecoder('utf-8');
 
 let DUTPort: SerialPort;
 selectDUTSerialButton.addEventListener('click', async () => {
@@ -67,7 +67,7 @@ selectDUTSerialButton.addEventListener('click', async () => {
           DUTReader.releaseLock();
           break;
         }
-        const chunk = decoder.decode(value, {stream: true});
+        const chunk = utf8decoder.decode(value, {stream: true});
         const chunk_split_list = chunk.split('\n');
 
         for (let i = 0; i < chunk_split_list.length - 1; i++) {
@@ -123,8 +123,6 @@ echo "end"\n`;
     writeSerialPort(DUTPort, 'bash ./example.sh\n');
   }
 });
-
-const utf8decoder = new TextDecoder('utf-8');
 
 let device: USBDevice;
 

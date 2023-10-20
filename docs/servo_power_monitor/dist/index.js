@@ -68715,16 +68715,13 @@ const overlay = document.querySelector('#popup-overlay');
 popupCloseButton.addEventListener('click', () => {
     overlay.classList.add('closed');
 });
-const decoder = new TextDecoder();
+const utf8decoder = new TextDecoder('utf-8');
 let DUTPort;
 selectDUTSerialButton.addEventListener('click', () => __awaiter(void 0, void 0, void 0, function* () {
     DUTPort = yield (0,_main__WEBPACK_IMPORTED_MODULE_0__.openSerialPort)(0x18d1, 0x504a);
     let listItem = document.createElement('li');
     listItem.textContent = 'DUTPort is selected';
     messages.appendChild(listItem);
-    // const DUTReadable = DUTPort.readable;
-    // if (DUTReadable === null) return;
-    // const DUTReader = DUTReadable.getReader();
     listItem = document.createElement('li');
     messages.appendChild(listItem);
     for (;;) {
@@ -68740,7 +68737,7 @@ selectDUTSerialButton.addEventListener('click', () => __awaiter(void 0, void 0, 
                     DUTReader.releaseLock();
                     break;
                 }
-                const chunk = decoder.decode(value, { stream: true });
+                const chunk = utf8decoder.decode(value, { stream: true });
                 const chunk_split_list = chunk.split('\n');
                 for (let i = 0; i < chunk_split_list.length - 1; i++) {
                     listItem.textContent += chunk_split_list[i];
@@ -68760,22 +68757,6 @@ selectDUTSerialButton.addEventListener('click', () => __awaiter(void 0, void 0, 
             DUTReader.releaseLock();
         }
     }
-    // DUTReader.read().then(function processText({done, value}): void {
-    //   if (done) {
-    //     console.log('Stream complete');
-    //     return;
-    //   }
-    //   const chunk = decoder.decode(value, {stream: true});
-    //   const chunk_split_list = chunk.split('\n');
-    //   for (let i = 0; i < chunk_split_list.length - 1; i++) {
-    //     listItem.textContent += chunk_split_list[i];
-    //     listItem = document.createElement('li');
-    //     messages.appendChild(listItem);
-    //   }
-    //   listItem.textContent += chunk_split_list[chunk_split_list.length - 1];
-    //   messages.scrollTo(0, messages.scrollHeight);
-    //   DUTReader.read().then(processText);
-    // });
 }));
 const form = document.getElementById('form');
 form.addEventListener('submit', (e) => __awaiter(void 0, void 0, void 0, function* () {
@@ -68812,7 +68793,6 @@ echo "end"\n`;
         (0,_main__WEBPACK_IMPORTED_MODULE_0__.writeSerialPort)(DUTPort, 'bash ./example.sh\n');
     }
 }));
-const utf8decoder = new TextDecoder('utf-8');
 let device;
 let servoPort;
 let servoReader;
