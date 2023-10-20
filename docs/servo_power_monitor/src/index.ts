@@ -95,8 +95,7 @@ form.addEventListener('submit', async e => {
   if (DUTPort === undefined) {
     overlay.classList.remove('closed');
   } else {
-    const input = document.getElementById('input') as HTMLInputElement | null;
-    if (input === null) return;
+    const input = document.getElementById('input') as HTMLInputElement;
     await writeSerialPort(DUTPort, input.value + '\n');
     input.value = '';
   }

@@ -68766,8 +68766,6 @@ form.addEventListener('submit', (e) => __awaiter(void 0, void 0, void 0, functio
     }
     else {
         const input = document.getElementById('input');
-        if (input === null)
-            return;
         yield (0,_main__WEBPACK_IMPORTED_MODULE_0__.writeSerialPort)(DUTPort, input.value + '\n');
         input.value = '';
     }
