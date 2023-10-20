@@ -14,9 +14,9 @@ import {
   handleDragOver,
   kickWriteLoop,
   readLoop,
-  stopMeasurement,
-  startMeasurement,
-  isHalt,
+  stopMeasurementFlag,
+  startMeasurementFlag,
+  readUSBPort,
 } from './main';
 import {setDownloadAnchor} from './ui';
 
@@ -136,33 +136,13 @@ function setupStartUSBButton() {
   const usb_interface = 0;
   const ep = usb_interface + 1;
   requestUSBButton.addEventListener('click', async () => {
-    startMeasurement();
+    startMeasurementFlag();
     device = await openUSBPort();
     requestUSBButton.disabled = true;
 
     try {
       kickWriteLoop(async s => writeUSBPort(device, s));
-      readLoop(async () => {
-        try {
-          const result = await device.transferIn(ep, 64);
-          if (result.status === 'stall') {
-            await device.clearHalt('in', ep);
-            throw result;
-          }
-          const resultData = result.data;
-          if (resultData === undefined) return '';
-          const result_array = new Int8Array(resultData.buffer);
-          return utf8decoder.decode(result_array);
-        } catch (e) {
-          // If halt is true, it's when the stop button is pressed. Therefore,
-          // we can ignore the error.
-          if (!isHalt()) {
-            console.error(e);
-            throw e;
-          }
-          return '';
-        }
-      });
+      readLoop(async () => readUSBPort(device));
     } catch (err) {
       console.error(`Disconnected: ${err}`);
       requestUSBButton.disabled = false;
@@ -190,7 +170,7 @@ function setupStartUSBButton() {
 setupStartUSBButton();
 
 requestSerialButton.addEventListener('click', async () => {
-  startMeasurement();
+  startMeasurementFlag();
 
   servoPort = await openSerialPort(0x18d1, 0x520d);
   requestSerialButton.disabled = true;
@@ -229,15 +209,15 @@ navigator.usb.addEventListener('disconnect', () => {
     //  specification says that
     // the servoPort will be closed automatically when a device is disconnected.
     requestUSBButton.disabled = false;
-    stopMeasurement();
+    stopMeasurementFlag();
   }
 });
 
-// event when you disconnect serial servoPort
-navigator.serial.addEventListener('disconnect', () => {
+// event when you disconnect serial port
+navigator.serial.addEventListener('disconnect', async () => {
   if (requestSerialButton.disabled) {
     closeSerialPort();
-    stopMeasurement();
+    stopMeasurementFlag();
   }
 });
 
@@ -248,7 +228,7 @@ downloadButton.addEventListener('click', async () => {
 
 const haltButton = document.getElementById('haltButton') as HTMLButtonElement;
 haltButton.addEventListener('click', () => {
-  stopMeasurement();
+  stopMeasurementFlag();
   if (requestUSBButton.disabled) {
     closeUSBPort(device);
     requestUSBButton.disabled = false;

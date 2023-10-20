@@ -14,16 +14,16 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   closeUSBPort: () => (/* binding */ closeUSBPort),
 /* harmony export */   handleDragOver: () => (/* binding */ handleDragOver),
 /* harmony export */   handleFileSelect: () => (/* binding */ handleFileSelect),
-/* harmony export */   isHalt: () => (/* binding */ isHalt),
 /* harmony export */   kickWriteLoop: () => (/* binding */ kickWriteLoop),
 /* harmony export */   openSerialPort: () => (/* binding */ openSerialPort),
 /* harmony export */   openUSBPort: () => (/* binding */ openUSBPort),
 /* harmony export */   paintHistogram: () => (/* binding */ paintHistogram),
 /* harmony export */   pushOutput: () => (/* binding */ pushOutput),
 /* harmony export */   readLoop: () => (/* binding */ readLoop),
+/* harmony export */   readUSBPort: () => (/* binding */ readUSBPort),
 /* harmony export */   savePowerDataToJSON: () => (/* binding */ savePowerDataToJSON),
-/* harmony export */   startMeasurement: () => (/* binding */ startMeasurement),
-/* harmony export */   stopMeasurement: () => (/* binding */ stopMeasurement),
+/* harmony export */   startMeasurementFlag: () => (/* binding */ startMeasurementFlag),
+/* harmony export */   stopMeasurementFlag: () => (/* binding */ stopMeasurementFlag),
 /* harmony export */   updateGraph: () => (/* binding */ updateGraph),
 /* harmony export */   writeSerialPort: () => (/* binding */ writeSerialPort),
 /* harmony export */   writeUSBPort: () => (/* binding */ writeUSBPort)
@@ -46,15 +46,13 @@ var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _argume
 
 const intervalMs = 100;
 const encoder = new TextEncoder();
+const utf8decoder = new TextDecoder('utf-8');
 let halt = false;
 let inProgress = false;
-function isHalt() {
-    return halt;
-}
-function startMeasurement() {
+function startMeasurementFlag() {
     halt = false;
 }
-function stopMeasurement() {
+function stopMeasurementFlag() {
     halt = true;
     inProgress = false;
 }
@@ -128,6 +126,31 @@ function closeUSBPort(device) {
 function writeUSBPort(device, s) {
     return __awaiter(this, void 0, void 0, function* () {
         yield device.transferOut(ep, encoder.encode(s));
+    });
+}
+function readUSBPort(device) {
+    return __awaiter(this, void 0, void 0, function* () {
+        try {
+            const result = yield device.transferIn(ep, 64);
+            if (result.status === 'stall') {
+                yield device.clearHalt('in', ep);
+                throw result;
+            }
+            const resultData = result.data;
+            if (resultData === undefined)
+                return '';
+            const result_array = new Int8Array(resultData.buffer);
+            return utf8decoder.decode(result_array);
+        }
+        catch (e) {
+            // If halt is true, it's when the stop button is pressed. Therefore,
+            // we can ignore the error.
+            if (!halt) {
+                console.error(e);
+                throw e;
+            }
+            return '';
+        }
     });
 }
 let currentData;
@@ -68776,34 +68799,12 @@ function setupStartUSBButton() {
     const usb_interface = 0;
     const ep = usb_interface + 1;
     requestUSBButton.addEventListener('click', () => __awaiter(this, void 0, void 0, function* () {
-        (0,_main__WEBPACK_IMPORTED_MODULE_0__.startMeasurement)();
+        (0,_main__WEBPACK_IMPORTED_MODULE_0__.startMeasurementFlag)();
         device = yield (0,_main__WEBPACK_IMPORTED_MODULE_0__.openUSBPort)();
         requestUSBButton.disabled = true;
         try {
             (0,_main__WEBPACK_IMPORTED_MODULE_0__.kickWriteLoop)((s) => __awaiter(this, void 0, void 0, function* () { return (0,_main__WEBPACK_IMPORTED_MODULE_0__.writeUSBPort)(device, s); }));
-            (0,_main__WEBPACK_IMPORTED_MODULE_0__.readLoop)(() => __awaiter(this, void 0, void 0, function* () {
-                try {
-                    const result = yield device.transferIn(ep, 64);
-                    if (result.status === 'stall') {
-                        yield device.clearHalt('in', ep);
-                        throw result;
-                    }
-                    const resultData = result.data;
-                    if (resultData === undefined)
-                        return '';
-                    const result_array = new Int8Array(resultData.buffer);
-                    return utf8decoder.decode(result_array);
-                }
-                catch (e) {
-                    // If halt is true, it's when the stop button is pressed. Therefore,
-                    // we can ignore the error.
-                    if (!(0,_main__WEBPACK_IMPORTED_MODULE_0__.isHalt)()) {
-                        console.error(e);
-                        throw e;
-                    }
-                    return '';
-                }
-            }));
+            (0,_main__WEBPACK_IMPORTED_MODULE_0__.readLoop)(() => __awaiter(this, void 0, void 0, function* () { return (0,_main__WEBPACK_IMPORTED_MODULE_0__.readUSBPort)(device); }));
         }
         catch (err) {
             console.error(`Disconnected: ${err}`);
@@ -68829,7 +68830,7 @@ function setupStartUSBButton() {
 }
 setupStartUSBButton();
 requestSerialButton.addEventListener('click', () => __awaiter(void 0, void 0, void 0, function* () {
-    (0,_main__WEBPACK_IMPORTED_MODULE_0__.startMeasurement)();
+    (0,_main__WEBPACK_IMPORTED_MODULE_0__.startMeasurementFlag)();
     servoPort = yield (0,_main__WEBPACK_IMPORTED_MODULE_0__.openSerialPort)(0x18d1, 0x520d);
     requestSerialButton.disabled = true;
     (0,_main__WEBPACK_IMPORTED_MODULE_0__.writeSerialPort)(servoPort, 'help\n');
@@ -68868,23 +68869,23 @@ navigator.usb.addEventListener('disconnect', () => {
         //  specification says that
         // the servoPort will be closed automatically when a device is disconnected.
         requestUSBButton.disabled = false;
-        (0,_main__WEBPACK_IMPORTED_MODULE_0__.stopMeasurement)();
+        (0,_main__WEBPACK_IMPORTED_MODULE_0__.stopMeasurementFlag)();
     }
 });
-// event when you disconnect serial servoPort
-navigator.serial.addEventListener('disconnect', () => {
+// event when you disconnect serial port
+navigator.serial.addEventListener('disconnect', () => __awaiter(void 0, void 0, void 0, function* () {
     if (requestSerialButton.disabled) {
         closeSerialPort();
-        (0,_main__WEBPACK_IMPORTED_MODULE_0__.stopMeasurement)();
+        (0,_main__WEBPACK_IMPORTED_MODULE_0__.stopMeasurementFlag)();
     }
-});
+}));
 downloadButton.addEventListener('click', () => __awaiter(void 0, void 0, void 0, function* () {
     const dataStr = (0,_main__WEBPACK_IMPORTED_MODULE_0__.savePowerDataToJSON)();
     (0,_ui__WEBPACK_IMPORTED_MODULE_1__.setDownloadAnchor)(dataStr);
 }));
 const haltButton = document.getElementById('haltButton');
 haltButton.addEventListener('click', () => {
-    (0,_main__WEBPACK_IMPORTED_MODULE_0__.stopMeasurement)();
+    (0,_main__WEBPACK_IMPORTED_MODULE_0__.stopMeasurementFlag)();
     if (requestUSBButton.disabled) {
         (0,_main__WEBPACK_IMPORTED_MODULE_0__.closeUSBPort)(device);
         requestUSBButton.disabled = false;

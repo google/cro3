@@ -4,18 +4,15 @@ import moment from 'moment';
 
 const intervalMs = 100;
 const encoder = new TextEncoder();
+const utf8decoder = new TextDecoder('utf-8');
 let halt = false;
 let inProgress = false;
 
-export function isHalt() {
-  return halt;
-}
-
-export function startMeasurement() {
+export function startMeasurementFlag() {
   halt = false;
 }
 
-export function stopMeasurement() {
+export function stopMeasurementFlag() {
   halt = true;
   inProgress = false;
 }
@@ -90,6 +87,28 @@ export function closeUSBPort(device: USBDevice) {
 
 export async function writeUSBPort(device: USBDevice, s: string) {
   await device.transferOut(ep, encoder.encode(s));
+}
+
+export async function readUSBPort(device: USBDevice) {
+  try {
+    const result = await device.transferIn(ep, 64);
+    if (result.status === 'stall') {
+      await device.clearHalt('in', ep);
+      throw result;
+    }
+    const resultData = result.data;
+    if (resultData === undefined) return '';
+    const result_array = new Int8Array(resultData.buffer);
+    return utf8decoder.decode(result_array);
+  } catch (e) {
+    // If halt is true, it's when the stop button is pressed. Therefore,
+    // we can ignore the error.
+    if (!halt) {
+      console.error(e);
+      throw e;
+    }
+    return '';
+  }
 }
 
 let currentData: Array<Array<Date | number>>;
