@@ -6,10 +6,8 @@ import {
   analyzePowerData,
   closeUSBPort,
   handleFileSelect,
-  openSerialPort,
   openUSBPort,
   savePowerDataToJSON,
-  writeSerialPort,
   writeUSBPort,
   handleDragOver,
   kickWriteLoop,
@@ -17,13 +15,24 @@ import {
   stopMeasurementFlag,
   startMeasurementFlag,
   readUSBPort,
+  readDUTSerialPort,
+  readServoSerialPort,
+  closeDUTSerialPort,
+  closeServoSerialPort,
+  openDUTSerialPort,
+  writeDUTSerialPort,
+  openServoSerialPort,
+  writeServoSerialPort,
 } from './main';
 import {
   addEmptyListItemToMessages,
   addMessageToConsole,
+  analyzeAddClickEvent,
   closePopup,
-  downloadButtonAddClickEvent,
+  downloadAddClickEvent,
   executeScriptAddClickEvent,
+  formAddSubmitEvent,
+  haltAddClickEvent,
   requestSerialAddClickEvent,
   requestUSBAddClickEvent,
   selectDUTSerialAddClickEvent,
@@ -34,60 +43,40 @@ import {
 
 setPopupCloseButton();
 
-const utf8decoder = new TextDecoder('utf-8');
+let isDUTOpened = false;
 
-let DUTPort: SerialPort;
 selectDUTSerialAddClickEvent(async () => {
-  DUTPort = await openSerialPort(0x18d1, 0x504a);
+  await openDUTSerialPort();
+  isDUTOpened = true;
   addEmptyListItemToMessages();
   addMessageToConsole('DUTPort is selected');
   addEmptyListItemToMessages();
   for (;;) {
-    const DUTReadable = DUTPort.readable;
-    if (DUTReadable === null) return;
-    const DUTReader = DUTReadable.getReader();
-    try {
-      for (;;) {
-        const {value, done} = await DUTReader.read();
-        if (done) {
-          // |DUTReader| has been canceled.
-          DUTReader.releaseLock();
-          break;
-        }
-        const chunk = utf8decoder.decode(value, {stream: true});
-        const chunk_split_list = chunk.split('\n');
+    const chunk = await readDUTSerialPort();
+    const chunk_split_list = chunk.split('\n');
 
-        for (let i = 0; i < chunk_split_list.length - 1; i++) {
-          addMessageToConsole(chunk_split_list[i]);
-          addEmptyListItemToMessages();
-        }
-        addMessageToConsole(chunk_split_list[chunk_split_list.length - 1]);
-      }
-    } catch (error) {
-      DUTReader.releaseLock();
-      console.error(error);
-      throw error;
-    } finally {
-      DUTReader.releaseLock();
+    for (let i = 0; i < chunk_split_list.length - 1; i++) {
+      addMessageToConsole(chunk_split_list[i]);
+      addEmptyListItemToMessages();
     }
+    addMessageToConsole(chunk_split_list[chunk_split_list.length - 1]);
   }
 });
 
-const form = document.getElementById('form') as HTMLFormElement;
-form.addEventListener('submit', async e => {
+formAddSubmitEvent(async e => {
   e.preventDefault();
 
-  if (DUTPort === undefined) {
+  if (!isDUTOpened) {
     closePopup();
   } else {
     const input = document.getElementById('input') as HTMLInputElement;
-    await writeSerialPort(DUTPort, input.value + '\n');
+    await writeDUTSerialPort(input.value + '\n');
     input.value = '';
   }
 });
 
 executeScriptAddClickEvent(async () => {
-  if (DUTPort === undefined) {
+  if (isDUTOpened) {
     closePopup();
   } else {
     // shell script
@@ -101,30 +90,15 @@ echo "start"
 workload 10 1> ./test_out.log 2> ./test_err.log
 echo "end"\n`;
 
-    writeSerialPort(DUTPort, 'cat > ./example.sh << EOF\n');
-    writeSerialPort(DUTPort, scripts);
-    writeSerialPort(DUTPort, 'EOF\n');
-    writeSerialPort(DUTPort, 'bash ./example.sh\n');
+    writeDUTSerialPort('cat > ./example.sh << EOF\n');
+    writeDUTSerialPort(scripts);
+    writeDUTSerialPort('EOF\n');
+    writeDUTSerialPort('bash ./example.sh\n');
   }
 });
 
-let servoPort: SerialPort;
-let servoReader: ReadableStreamDefaultReader;
-
 let isMeasuring = false;
 let isSerial = false;
-
-function closeSerialPort() {
-  servoReader.cancel();
-  servoReader.releaseLock();
-  try {
-    servoPort.close();
-  } catch (e) {
-    console.error(e);
-  }
-  isMeasuring = false;
-  useIsMeasuring(isMeasuring);
-}
 
 requestUSBAddClickEvent(async () => {
   startMeasurementFlag();
@@ -145,35 +119,15 @@ requestUSBAddClickEvent(async () => {
 requestSerialAddClickEvent(async () => {
   startMeasurementFlag();
 
-  servoPort = await openSerialPort(0x18d1, 0x520d);
+  await openServoSerialPort();
   isMeasuring = true;
   isSerial = true;
   useIsMeasuring(isMeasuring);
-  writeSerialPort(servoPort, 'help\n');
+  writeServoSerialPort('help\n');
+  // TODO: Implement something to check the validity of servo serial port
 
-  kickWriteLoop(async s => writeSerialPort(servoPort, s));
-  readLoop(async () => {
-    const servoReadable = servoPort.readable;
-    if (servoReadable === null) return '';
-    servoReader = servoReadable.getReader();
-    try {
-      for (;;) {
-        const {value, done} = await servoReader.read();
-        if (done) {
-          // |servoReader| has been canceled.
-          servoReader.releaseLock();
-          return '';
-        }
-        return utf8decoder.decode(value);
-      }
-    } catch (error) {
-      servoReader.releaseLock();
-      console.error(error);
-      throw error;
-    } finally {
-      servoReader.releaseLock();
-    }
-  });
+  kickWriteLoop(async s => writeServoSerialPort(s));
+  readLoop(async () => readServoSerialPort());
 });
 
 // `disconnect` event is fired when a USB device is disconnected.
@@ -194,32 +148,32 @@ navigator.serial.addEventListener('disconnect', async () => {
   if (isMeasuring && isSerial) {
     isMeasuring = false;
     useIsMeasuring(isMeasuring);
-    closeSerialPort();
+    closeServoSerialPort();
     stopMeasurementFlag();
+  }
+  if (isDUTOpened) {
+    closeDUTSerialPort();
+    isDUTOpened = false;
   }
 });
 
-downloadButtonAddClickEvent(async () => {
+downloadAddClickEvent(async () => {
   const dataStr = savePowerDataToJSON();
   setDownloadAnchor(dataStr);
 });
 
-const haltButton = document.getElementById('haltButton') as HTMLButtonElement;
-haltButton.addEventListener('click', () => {
+haltAddClickEvent(async () => {
   stopMeasurementFlag();
   if (isSerial) {
-    closeSerialPort();
+    await closeServoSerialPort();
   } else {
-    closeUSBPort();
+    await closeUSBPort();
   }
   isMeasuring = false;
   useIsMeasuring(isMeasuring);
 });
 
-const analyzeButton = document.getElementById(
-  'analyzeButton'
-) as HTMLButtonElement;
-analyzeButton.addEventListener('click', analyzePowerData);
+analyzeAddClickEvent(analyzePowerData);
 
 const dropZone = document.getElementById('dropZone') as HTMLSpanElement;
 dropZone.addEventListener('dragover', handleDragOver, false);

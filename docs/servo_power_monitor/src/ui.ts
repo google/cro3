@@ -6,12 +6,17 @@ const requestUSBButton = document.getElementById(
 const requestSerialButton = document.getElementById(
   'requestSerialButton'
 ) as HTMLButtonElement;
+const haltButton = document.getElementById('haltButton') as HTMLButtonElement;
 const downloadButton = document.getElementById(
   'downloadButton'
+) as HTMLButtonElement;
+const analyzeButton = document.getElementById(
+  'analyzeButton'
 ) as HTMLButtonElement;
 const selectDUTSerialButton = document.getElementById(
   'selectDUTSerialButton'
 ) as HTMLButtonElement;
+const form = document.getElementById('form') as HTMLFormElement;
 const popupCloseButton = document.getElementById(
   'popup-close'
 ) as HTMLButtonElement;
@@ -27,6 +32,10 @@ export function requestSerialAddClickEvent(fn: () => Promise<void>) {
 
 export function requestUSBAddClickEvent(fn: () => Promise<void>) {
   requestUSBButton.addEventListener('click', fn);
+}
+
+export function haltAddClickEvent(fn: () => Promise<void>) {
+  haltButton.addEventListener('click', fn);
 }
 
 export function useIsMeasuring(isMeasuring: boolean) {
@@ -61,15 +70,24 @@ export function addMessageToConsole(s: string) {
   messages.scrollTo(0, messages.scrollHeight);
 }
 
-export function executeScriptAddClickEvent(fn: () => Promise<void>) {
-  executeScriptButton.addEventListener('click', fn);
-}
 export function selectDUTSerialAddClickEvent(fn: () => Promise<void>) {
   selectDUTSerialButton.addEventListener('click', fn);
 }
 
-export function downloadButtonAddClickEvent(fn: () => Promise<void>) {
+export function executeScriptAddClickEvent(fn: () => Promise<void>) {
+  executeScriptButton.addEventListener('click', fn);
+}
+
+export function formAddSubmitEvent(fn: (e: Event) => Promise<void>) {
+  form.addEventListener('submit', fn);
+}
+
+export function downloadAddClickEvent(fn: () => Promise<void>) {
   downloadButton.addEventListener('click', fn);
+}
+
+export function analyzeAddClickEvent(fn: () => void) {
+  analyzeButton.addEventListener('click', fn);
 }
 
 export function setDownloadAnchor(dataStr: string) {

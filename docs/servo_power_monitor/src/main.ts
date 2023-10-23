@@ -36,24 +36,111 @@ export function kickWriteLoop(writeFn: (s: string) => Promise<void>) {
   setTimeout(f, intervalMs);
 }
 
-export async function openSerialPort(
-  usbVendorId: number,
-  usbProductId: number
-) {
-  const port = await navigator.serial
+let servoPort: SerialPort, servoReader: ReadableStreamDefaultReader;
+let DUTPort: SerialPort, DUTReader: ReadableStreamDefaultReader;
+
+export async function openServoSerialPort() {
+  servoPort = await navigator.serial
     .requestPort({
-      filters: [{usbVendorId: usbVendorId, usbProductId: usbProductId}],
+      filters: [{usbVendorId: 0x18d1, usbProductId: 0x520d}],
     })
     .catch(e => {
       console.error(e);
       throw e;
     });
-  await port.open({baudRate: 115200});
-  return port;
+  await servoPort.open({baudRate: 115200});
 }
 
-export async function writeSerialPort(port: SerialPort, s: string) {
-  const writable = port.writable;
+export async function closeServoSerialPort() {
+  await servoReader.cancel();
+  await servoReader.releaseLock();
+  try {
+    await servoPort.close();
+  } catch (e) {
+    console.error(e);
+    throw e;
+  }
+}
+
+export async function readServoSerialPort() {
+  const servoReadable = servoPort.readable;
+  if (servoReadable === null) return '';
+  servoReader = servoReadable.getReader();
+  try {
+    for (;;) {
+      const {value, done} = await servoReader.read();
+      if (done) {
+        // |servoReader| has been canceled.
+        servoReader.releaseLock();
+        return '';
+      }
+      return utf8decoder.decode(value);
+    }
+  } catch (error) {
+    servoReader.releaseLock();
+    console.error(error);
+    throw error;
+  } finally {
+    servoReader.releaseLock();
+  }
+}
+
+export async function writeServoSerialPort(s: string) {
+  const writable = servoPort.writable;
+  if (writable === null) return;
+  const writer = writable.getWriter();
+  await writer.write(encoder.encode(s));
+  writer.releaseLock();
+}
+
+export async function openDUTSerialPort() {
+  DUTPort = await navigator.serial
+    .requestPort({
+      filters: [{usbVendorId: 0x18d1, usbProductId: 0x504a}],
+    })
+    .catch(e => {
+      console.error(e);
+      throw e;
+    });
+  await DUTPort.open({baudRate: 115200});
+}
+
+export async function closeDUTSerialPort() {
+  await DUTReader.cancel();
+  await DUTReader.releaseLock();
+  try {
+    await DUTPort.close();
+  } catch (e) {
+    console.error(e);
+    throw e;
+  }
+}
+
+export async function readDUTSerialPort() {
+  const DUTReadable = DUTPort.readable;
+  if (DUTReadable === null) return '';
+  DUTReader = DUTReadable.getReader();
+  try {
+    for (;;) {
+      const {value, done} = await DUTReader.read();
+      if (done) {
+        // |DUTReader| has been canceled.
+        DUTReader.releaseLock();
+        return '';
+      }
+      return utf8decoder.decode(value, {stream: true});
+    }
+  } catch (error) {
+    DUTReader.releaseLock();
+    console.error(error);
+    throw error;
+  } finally {
+    DUTReader.releaseLock();
+  }
+}
+
+export async function writeDUTSerialPort(s: string) {
+  const writable = DUTPort.writable;
   if (writable === null) return;
   const writer = writable.getWriter();
   await writer.write(encoder.encode(s));
@@ -76,9 +163,9 @@ export async function openUSBPort() {
   await device.claimInterface(usb_interface);
 }
 
-export function closeUSBPort() {
+export async function closeUSBPort() {
   try {
-    device.close();
+    await device.close();
   } catch (e) {
     console.error(e);
   }

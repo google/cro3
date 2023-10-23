@@ -11,21 +11,27 @@
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   analyzePowerData: () => (/* binding */ analyzePowerData),
+/* harmony export */   closeDUTSerialPort: () => (/* binding */ closeDUTSerialPort),
+/* harmony export */   closeServoSerialPort: () => (/* binding */ closeServoSerialPort),
 /* harmony export */   closeUSBPort: () => (/* binding */ closeUSBPort),
 /* harmony export */   handleDragOver: () => (/* binding */ handleDragOver),
 /* harmony export */   handleFileSelect: () => (/* binding */ handleFileSelect),
 /* harmony export */   kickWriteLoop: () => (/* binding */ kickWriteLoop),
-/* harmony export */   openSerialPort: () => (/* binding */ openSerialPort),
+/* harmony export */   openDUTSerialPort: () => (/* binding */ openDUTSerialPort),
+/* harmony export */   openServoSerialPort: () => (/* binding */ openServoSerialPort),
 /* harmony export */   openUSBPort: () => (/* binding */ openUSBPort),
 /* harmony export */   paintHistogram: () => (/* binding */ paintHistogram),
 /* harmony export */   pushOutput: () => (/* binding */ pushOutput),
+/* harmony export */   readDUTSerialPort: () => (/* binding */ readDUTSerialPort),
 /* harmony export */   readLoop: () => (/* binding */ readLoop),
+/* harmony export */   readServoSerialPort: () => (/* binding */ readServoSerialPort),
 /* harmony export */   readUSBPort: () => (/* binding */ readUSBPort),
 /* harmony export */   savePowerDataToJSON: () => (/* binding */ savePowerDataToJSON),
 /* harmony export */   startMeasurementFlag: () => (/* binding */ startMeasurementFlag),
 /* harmony export */   stopMeasurementFlag: () => (/* binding */ stopMeasurementFlag),
 /* harmony export */   updateGraph: () => (/* binding */ updateGraph),
-/* harmony export */   writeSerialPort: () => (/* binding */ writeSerialPort),
+/* harmony export */   writeDUTSerialPort: () => (/* binding */ writeDUTSerialPort),
+/* harmony export */   writeServoSerialPort: () => (/* binding */ writeServoSerialPort),
 /* harmony export */   writeUSBPort: () => (/* binding */ writeUSBPort)
 /* harmony export */ });
 /* harmony import */ var d3__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! d3 */ "./node_modules/d3/src/index.js");
@@ -74,23 +80,127 @@ function kickWriteLoop(writeFn) {
     });
     setTimeout(f, intervalMs);
 }
-function openSerialPort(usbVendorId, usbProductId) {
+let servoPort, servoReader;
+let DUTPort, DUTReader;
+function openServoSerialPort() {
     return __awaiter(this, void 0, void 0, function* () {
-        const port = yield navigator.serial
+        servoPort = yield navigator.serial
             .requestPort({
-            filters: [{ usbVendorId: usbVendorId, usbProductId: usbProductId }],
+            filters: [{ usbVendorId: 0x18d1, usbProductId: 0x520d }],
         })
             .catch(e => {
             console.error(e);
             throw e;
         });
-        yield port.open({ baudRate: 115200 });
-        return port;
+        yield servoPort.open({ baudRate: 115200 });
     });
 }
-function writeSerialPort(port, s) {
+function closeServoSerialPort() {
     return __awaiter(this, void 0, void 0, function* () {
-        const writable = port.writable;
+        yield servoReader.cancel();
+        yield servoReader.releaseLock();
+        try {
+            yield servoPort.close();
+        }
+        catch (e) {
+            console.error(e);
+            throw e;
+        }
+    });
+}
+function readServoSerialPort() {
+    return __awaiter(this, void 0, void 0, function* () {
+        const servoReadable = servoPort.readable;
+        if (servoReadable === null)
+            return '';
+        servoReader = servoReadable.getReader();
+        try {
+            for (;;) {
+                const { value, done } = yield servoReader.read();
+                if (done) {
+                    // |servoReader| has been canceled.
+                    servoReader.releaseLock();
+                    return '';
+                }
+                return utf8decoder.decode(value);
+            }
+        }
+        catch (error) {
+            servoReader.releaseLock();
+            console.error(error);
+            throw error;
+        }
+        finally {
+            servoReader.releaseLock();
+        }
+    });
+}
+function writeServoSerialPort(s) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const writable = servoPort.writable;
+        if (writable === null)
+            return;
+        const writer = writable.getWriter();
+        yield writer.write(encoder.encode(s));
+        writer.releaseLock();
+    });
+}
+function openDUTSerialPort() {
+    return __awaiter(this, void 0, void 0, function* () {
+        DUTPort = yield navigator.serial
+            .requestPort({
+            filters: [{ usbVendorId: 0x18d1, usbProductId: 0x504a }],
+        })
+            .catch(e => {
+            console.error(e);
+            throw e;
+        });
+        yield DUTPort.open({ baudRate: 115200 });
+    });
+}
+function closeDUTSerialPort() {
+    return __awaiter(this, void 0, void 0, function* () {
+        yield DUTReader.cancel();
+        yield DUTReader.releaseLock();
+        try {
+            yield DUTPort.close();
+        }
+        catch (e) {
+            console.error(e);
+            throw e;
+        }
+    });
+}
+function readDUTSerialPort() {
+    return __awaiter(this, void 0, void 0, function* () {
+        const DUTReadable = DUTPort.readable;
+        if (DUTReadable === null)
+            return '';
+        DUTReader = DUTReadable.getReader();
+        try {
+            for (;;) {
+                const { value, done } = yield DUTReader.read();
+                if (done) {
+                    // |DUTReader| has been canceled.
+                    DUTReader.releaseLock();
+                    return '';
+                }
+                return utf8decoder.decode(value, { stream: true });
+            }
+        }
+        catch (error) {
+            DUTReader.releaseLock();
+            console.error(error);
+            throw error;
+        }
+        finally {
+            DUTReader.releaseLock();
+        }
+    });
+}
+function writeDUTSerialPort(s) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const writable = DUTPort.writable;
         if (writable === null)
             return;
         const writer = writable.getWriter();
@@ -115,12 +225,14 @@ function openUSBPort() {
     });
 }
 function closeUSBPort() {
-    try {
-        device.close();
-    }
-    catch (e) {
-        console.error(e);
-    }
+    return __awaiter(this, void 0, void 0, function* () {
+        try {
+            yield device.close();
+        }
+        catch (e) {
+            console.error(e);
+        }
+    });
 }
 function writeUSBPort(s) {
     return __awaiter(this, void 0, void 0, function* () {
@@ -437,9 +549,12 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   addEmptyListItemToMessages: () => (/* binding */ addEmptyListItemToMessages),
 /* harmony export */   addMessageToConsole: () => (/* binding */ addMessageToConsole),
+/* harmony export */   analyzeAddClickEvent: () => (/* binding */ analyzeAddClickEvent),
 /* harmony export */   closePopup: () => (/* binding */ closePopup),
-/* harmony export */   downloadButtonAddClickEvent: () => (/* binding */ downloadButtonAddClickEvent),
+/* harmony export */   downloadAddClickEvent: () => (/* binding */ downloadAddClickEvent),
 /* harmony export */   executeScriptAddClickEvent: () => (/* binding */ executeScriptAddClickEvent),
+/* harmony export */   formAddSubmitEvent: () => (/* binding */ formAddSubmitEvent),
+/* harmony export */   haltAddClickEvent: () => (/* binding */ haltAddClickEvent),
 /* harmony export */   requestSerialAddClickEvent: () => (/* binding */ requestSerialAddClickEvent),
 /* harmony export */   requestUSBAddClickEvent: () => (/* binding */ requestUSBAddClickEvent),
 /* harmony export */   selectDUTSerialAddClickEvent: () => (/* binding */ selectDUTSerialAddClickEvent),
@@ -452,8 +567,11 @@ __webpack_require__.r(__webpack_exports__);
 
 const requestUSBButton = document.getElementById('request-device');
 const requestSerialButton = document.getElementById('requestSerialButton');
+const haltButton = document.getElementById('haltButton');
 const downloadButton = document.getElementById('downloadButton');
+const analyzeButton = document.getElementById('analyzeButton');
 const selectDUTSerialButton = document.getElementById('selectDUTSerialButton');
+const form = document.getElementById('form');
 const popupCloseButton = document.getElementById('popup-close');
 const overlay = document.querySelector('#popup-overlay');
 const messages = document.getElementById('messages');
@@ -463,6 +581,9 @@ function requestSerialAddClickEvent(fn) {
 }
 function requestUSBAddClickEvent(fn) {
     requestUSBButton.addEventListener('click', fn);
+}
+function haltAddClickEvent(fn) {
+    haltButton.addEventListener('click', fn);
 }
 function useIsMeasuring(isMeasuring) {
     if (isMeasuring) {
@@ -491,14 +612,20 @@ function addMessageToConsole(s) {
     listItem.textContent += s;
     messages.scrollTo(0, messages.scrollHeight);
 }
-function executeScriptAddClickEvent(fn) {
-    executeScriptButton.addEventListener('click', fn);
-}
 function selectDUTSerialAddClickEvent(fn) {
     selectDUTSerialButton.addEventListener('click', fn);
 }
-function downloadButtonAddClickEvent(fn) {
+function executeScriptAddClickEvent(fn) {
+    executeScriptButton.addEventListener('click', fn);
+}
+function formAddSubmitEvent(fn) {
+    form.addEventListener('submit', fn);
+}
+function downloadAddClickEvent(fn) {
     downloadButton.addEventListener('click', fn);
+}
+function analyzeAddClickEvent(fn) {
+    analyzeButton.addEventListener('click', fn);
 }
 function setDownloadAnchor(dataStr) {
     const dlAnchorElem = document.getElementById('downloadAnchorElem');
@@ -68764,59 +68891,36 @@ var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _argume
 
 
 (0,_ui__WEBPACK_IMPORTED_MODULE_1__.setPopupCloseButton)();
-const utf8decoder = new TextDecoder('utf-8');
-let DUTPort;
+let isDUTOpened = false;
 (0,_ui__WEBPACK_IMPORTED_MODULE_1__.selectDUTSerialAddClickEvent)(() => __awaiter(void 0, void 0, void 0, function* () {
-    DUTPort = yield (0,_main__WEBPACK_IMPORTED_MODULE_0__.openSerialPort)(0x18d1, 0x504a);
+    yield (0,_main__WEBPACK_IMPORTED_MODULE_0__.openDUTSerialPort)();
+    isDUTOpened = true;
     (0,_ui__WEBPACK_IMPORTED_MODULE_1__.addEmptyListItemToMessages)();
     (0,_ui__WEBPACK_IMPORTED_MODULE_1__.addMessageToConsole)('DUTPort is selected');
     (0,_ui__WEBPACK_IMPORTED_MODULE_1__.addEmptyListItemToMessages)();
     for (;;) {
-        const DUTReadable = DUTPort.readable;
-        if (DUTReadable === null)
-            return;
-        const DUTReader = DUTReadable.getReader();
-        try {
-            for (;;) {
-                const { value, done } = yield DUTReader.read();
-                if (done) {
-                    // |DUTReader| has been canceled.
-                    DUTReader.releaseLock();
-                    break;
-                }
-                const chunk = utf8decoder.decode(value, { stream: true });
-                const chunk_split_list = chunk.split('\n');
-                for (let i = 0; i < chunk_split_list.length - 1; i++) {
-                    (0,_ui__WEBPACK_IMPORTED_MODULE_1__.addMessageToConsole)(chunk_split_list[i]);
-                    (0,_ui__WEBPACK_IMPORTED_MODULE_1__.addEmptyListItemToMessages)();
-                }
-                (0,_ui__WEBPACK_IMPORTED_MODULE_1__.addMessageToConsole)(chunk_split_list[chunk_split_list.length - 1]);
-            }
+        const chunk = yield (0,_main__WEBPACK_IMPORTED_MODULE_0__.readDUTSerialPort)();
+        const chunk_split_list = chunk.split('\n');
+        for (let i = 0; i < chunk_split_list.length - 1; i++) {
+            (0,_ui__WEBPACK_IMPORTED_MODULE_1__.addMessageToConsole)(chunk_split_list[i]);
+            (0,_ui__WEBPACK_IMPORTED_MODULE_1__.addEmptyListItemToMessages)();
         }
-        catch (error) {
-            DUTReader.releaseLock();
-            console.error(error);
-            throw error;
-        }
-        finally {
-            DUTReader.releaseLock();
-        }
+        (0,_ui__WEBPACK_IMPORTED_MODULE_1__.addMessageToConsole)(chunk_split_list[chunk_split_list.length - 1]);
     }
 }));
-const form = document.getElementById('form');
-form.addEventListener('submit', (e) => __awaiter(void 0, void 0, void 0, function* () {
+(0,_ui__WEBPACK_IMPORTED_MODULE_1__.formAddSubmitEvent)((e) => __awaiter(void 0, void 0, void 0, function* () {
     e.preventDefault();
-    if (DUTPort === undefined) {
+    if (!isDUTOpened) {
         (0,_ui__WEBPACK_IMPORTED_MODULE_1__.closePopup)();
     }
     else {
         const input = document.getElementById('input');
-        yield (0,_main__WEBPACK_IMPORTED_MODULE_0__.writeSerialPort)(DUTPort, input.value + '\n');
+        yield (0,_main__WEBPACK_IMPORTED_MODULE_0__.writeDUTSerialPort)(input.value + '\n');
         input.value = '';
     }
 }));
 (0,_ui__WEBPACK_IMPORTED_MODULE_1__.executeScriptAddClickEvent)(() => __awaiter(void 0, void 0, void 0, function* () {
-    if (DUTPort === undefined) {
+    if (isDUTOpened) {
         (0,_ui__WEBPACK_IMPORTED_MODULE_1__.closePopup)();
     }
     else {
@@ -68830,28 +68934,14 @@ function workload () {
 echo "start"
 workload 10 1> ./test_out.log 2> ./test_err.log
 echo "end"\n`;
-        (0,_main__WEBPACK_IMPORTED_MODULE_0__.writeSerialPort)(DUTPort, 'cat > ./example.sh << EOF\n');
-        (0,_main__WEBPACK_IMPORTED_MODULE_0__.writeSerialPort)(DUTPort, scripts);
-        (0,_main__WEBPACK_IMPORTED_MODULE_0__.writeSerialPort)(DUTPort, 'EOF\n');
-        (0,_main__WEBPACK_IMPORTED_MODULE_0__.writeSerialPort)(DUTPort, 'bash ./example.sh\n');
+        (0,_main__WEBPACK_IMPORTED_MODULE_0__.writeDUTSerialPort)('cat > ./example.sh << EOF\n');
+        (0,_main__WEBPACK_IMPORTED_MODULE_0__.writeDUTSerialPort)(scripts);
+        (0,_main__WEBPACK_IMPORTED_MODULE_0__.writeDUTSerialPort)('EOF\n');
+        (0,_main__WEBPACK_IMPORTED_MODULE_0__.writeDUTSerialPort)('bash ./example.sh\n');
     }
 }));
-let servoPort;
-let servoReader;
 let isMeasuring = false;
 let isSerial = false;
-function closeSerialPort() {
-    servoReader.cancel();
-    servoReader.releaseLock();
-    try {
-        servoPort.close();
-    }
-    catch (e) {
-        console.error(e);
-    }
-    isMeasuring = false;
-    (0,_ui__WEBPACK_IMPORTED_MODULE_1__.useIsMeasuring)(isMeasuring);
-}
 (0,_ui__WEBPACK_IMPORTED_MODULE_1__.requestUSBAddClickEvent)(() => __awaiter(void 0, void 0, void 0, function* () {
     (0,_main__WEBPACK_IMPORTED_MODULE_0__.startMeasurementFlag)();
     yield (0,_main__WEBPACK_IMPORTED_MODULE_0__.openUSBPort)();
@@ -68870,37 +68960,14 @@ function closeSerialPort() {
 }));
 (0,_ui__WEBPACK_IMPORTED_MODULE_1__.requestSerialAddClickEvent)(() => __awaiter(void 0, void 0, void 0, function* () {
     (0,_main__WEBPACK_IMPORTED_MODULE_0__.startMeasurementFlag)();
-    servoPort = yield (0,_main__WEBPACK_IMPORTED_MODULE_0__.openSerialPort)(0x18d1, 0x520d);
+    yield (0,_main__WEBPACK_IMPORTED_MODULE_0__.openServoSerialPort)();
     isMeasuring = true;
     isSerial = true;
     (0,_ui__WEBPACK_IMPORTED_MODULE_1__.useIsMeasuring)(isMeasuring);
-    (0,_main__WEBPACK_IMPORTED_MODULE_0__.writeSerialPort)(servoPort, 'help\n');
-    (0,_main__WEBPACK_IMPORTED_MODULE_0__.kickWriteLoop)((s) => __awaiter(void 0, void 0, void 0, function* () { return (0,_main__WEBPACK_IMPORTED_MODULE_0__.writeSerialPort)(servoPort, s); }));
-    (0,_main__WEBPACK_IMPORTED_MODULE_0__.readLoop)(() => __awaiter(void 0, void 0, void 0, function* () {
-        const servoReadable = servoPort.readable;
-        if (servoReadable === null)
-            return '';
-        servoReader = servoReadable.getReader();
-        try {
-            for (;;) {
-                const { value, done } = yield servoReader.read();
-                if (done) {
-                    // |servoReader| has been canceled.
-                    servoReader.releaseLock();
-                    return '';
-                }
-                return utf8decoder.decode(value);
-            }
-        }
-        catch (error) {
-            servoReader.releaseLock();
-            console.error(error);
-            throw error;
-        }
-        finally {
-            servoReader.releaseLock();
-        }
-    }));
+    (0,_main__WEBPACK_IMPORTED_MODULE_0__.writeServoSerialPort)('help\n');
+    // TODO: Implement something to check the validity of servo serial port
+    (0,_main__WEBPACK_IMPORTED_MODULE_0__.kickWriteLoop)((s) => __awaiter(void 0, void 0, void 0, function* () { return (0,_main__WEBPACK_IMPORTED_MODULE_0__.writeServoSerialPort)(s); }));
+    (0,_main__WEBPACK_IMPORTED_MODULE_0__.readLoop)(() => __awaiter(void 0, void 0, void 0, function* () { return (0,_main__WEBPACK_IMPORTED_MODULE_0__.readServoSerialPort)(); }));
 }));
 // `disconnect` event is fired when a USB device is disconnected.
 // c.f. https://wicg.github.io/webusb/#disconnect (5.1. Events)
@@ -68919,28 +68986,30 @@ navigator.serial.addEventListener('disconnect', () => __awaiter(void 0, void 0, 
     if (isMeasuring && isSerial) {
         isMeasuring = false;
         (0,_ui__WEBPACK_IMPORTED_MODULE_1__.useIsMeasuring)(isMeasuring);
-        closeSerialPort();
+        (0,_main__WEBPACK_IMPORTED_MODULE_0__.closeServoSerialPort)();
         (0,_main__WEBPACK_IMPORTED_MODULE_0__.stopMeasurementFlag)();
     }
+    if (isDUTOpened) {
+        (0,_main__WEBPACK_IMPORTED_MODULE_0__.closeDUTSerialPort)();
+        isDUTOpened = false;
+    }
 }));
-(0,_ui__WEBPACK_IMPORTED_MODULE_1__.downloadButtonAddClickEvent)(() => __awaiter(void 0, void 0, void 0, function* () {
+(0,_ui__WEBPACK_IMPORTED_MODULE_1__.downloadAddClickEvent)(() => __awaiter(void 0, void 0, void 0, function* () {
     const dataStr = (0,_main__WEBPACK_IMPORTED_MODULE_0__.savePowerDataToJSON)();
     (0,_ui__WEBPACK_IMPORTED_MODULE_1__.setDownloadAnchor)(dataStr);
 }));
-const haltButton = document.getElementById('haltButton');
-haltButton.addEventListener('click', () => {
+(0,_ui__WEBPACK_IMPORTED_MODULE_1__.haltAddClickEvent)(() => __awaiter(void 0, void 0, void 0, function* () {
     (0,_main__WEBPACK_IMPORTED_MODULE_0__.stopMeasurementFlag)();
     if (isSerial) {
-        closeSerialPort();
+        yield (0,_main__WEBPACK_IMPORTED_MODULE_0__.closeServoSerialPort)();
     }
     else {
-        (0,_main__WEBPACK_IMPORTED_MODULE_0__.closeUSBPort)();
+        yield (0,_main__WEBPACK_IMPORTED_MODULE_0__.closeUSBPort)();
     }
     isMeasuring = false;
     (0,_ui__WEBPACK_IMPORTED_MODULE_1__.useIsMeasuring)(isMeasuring);
-});
-const analyzeButton = document.getElementById('analyzeButton');
-analyzeButton.addEventListener('click', _main__WEBPACK_IMPORTED_MODULE_0__.analyzePowerData);
+}));
+(0,_ui__WEBPACK_IMPORTED_MODULE_1__.analyzeAddClickEvent)(_main__WEBPACK_IMPORTED_MODULE_0__.analyzePowerData);
 const dropZone = document.getElementById('dropZone');
 dropZone.addEventListener('dragover', _main__WEBPACK_IMPORTED_MODULE_0__.handleDragOver, false);
 dropZone.addEventListener('drop', _main__WEBPACK_IMPORTED_MODULE_0__.handleFileSelect, false);
