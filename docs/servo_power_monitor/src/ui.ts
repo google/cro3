@@ -17,6 +17,7 @@ const selectDUTSerialButton = document.getElementById(
   'selectDUTSerialButton'
 ) as HTMLButtonElement;
 const form = document.getElementById('form') as HTMLFormElement;
+const input = document.getElementById('input') as HTMLInputElement;
 const popupCloseButton = document.getElementById(
   'popup-close'
 ) as HTMLButtonElement;
@@ -25,6 +26,7 @@ const messages = document.getElementById('messages') as HTMLUListElement;
 const executeScriptButton = document.getElementById(
   'executeScriptButton'
 ) as HTMLButtonElement;
+const dropZone = document.getElementById('dropZone') as HTMLSpanElement;
 
 export function requestSerialAddClickEvent(fn: () => Promise<void>) {
   requestSerialButton.addEventListener('click', fn);
@@ -82,6 +84,12 @@ export function formAddSubmitEvent(fn: (e: Event) => Promise<void>) {
   form.addEventListener('submit', fn);
 }
 
+export function readInputValue() {
+  const res = input.value;
+  input.value = '';
+  return res;
+}
+
 export function downloadAddClickEvent(fn: () => Promise<void>) {
   downloadButton.addEventListener('click', fn);
 }
@@ -96,4 +104,12 @@ export function setDownloadAnchor(dataStr: string) {
   dlAnchorElem.setAttribute('href', dataStr);
   dlAnchorElem.setAttribute('download', `power_${moment().format()}.json`);
   dlAnchorElem.click();
+}
+
+export function dropZoneAddDragoverEvent(fn: (evt: DragEvent) => void) {
+  dropZone.addEventListener('dragover', fn, false);
+}
+
+export function dropZoneAddDropEvent(fn: (evt: DragEvent) => void) {
+  dropZone.addEventListener('drop', fn, false);
 }

@@ -552,9 +552,12 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   analyzeAddClickEvent: () => (/* binding */ analyzeAddClickEvent),
 /* harmony export */   closePopup: () => (/* binding */ closePopup),
 /* harmony export */   downloadAddClickEvent: () => (/* binding */ downloadAddClickEvent),
+/* harmony export */   dropZoneAddDragoverEvent: () => (/* binding */ dropZoneAddDragoverEvent),
+/* harmony export */   dropZoneAddDropEvent: () => (/* binding */ dropZoneAddDropEvent),
 /* harmony export */   executeScriptAddClickEvent: () => (/* binding */ executeScriptAddClickEvent),
 /* harmony export */   formAddSubmitEvent: () => (/* binding */ formAddSubmitEvent),
 /* harmony export */   haltAddClickEvent: () => (/* binding */ haltAddClickEvent),
+/* harmony export */   readInputValue: () => (/* binding */ readInputValue),
 /* harmony export */   requestSerialAddClickEvent: () => (/* binding */ requestSerialAddClickEvent),
 /* harmony export */   requestUSBAddClickEvent: () => (/* binding */ requestUSBAddClickEvent),
 /* harmony export */   selectDUTSerialAddClickEvent: () => (/* binding */ selectDUTSerialAddClickEvent),
@@ -572,10 +575,12 @@ const downloadButton = document.getElementById('downloadButton');
 const analyzeButton = document.getElementById('analyzeButton');
 const selectDUTSerialButton = document.getElementById('selectDUTSerialButton');
 const form = document.getElementById('form');
+const input = document.getElementById('input');
 const popupCloseButton = document.getElementById('popup-close');
 const overlay = document.querySelector('#popup-overlay');
 const messages = document.getElementById('messages');
 const executeScriptButton = document.getElementById('executeScriptButton');
+const dropZone = document.getElementById('dropZone');
 function requestSerialAddClickEvent(fn) {
     requestSerialButton.addEventListener('click', fn);
 }
@@ -621,6 +626,11 @@ function executeScriptAddClickEvent(fn) {
 function formAddSubmitEvent(fn) {
     form.addEventListener('submit', fn);
 }
+function readInputValue() {
+    const res = input.value;
+    input.value = '';
+    return res;
+}
 function downloadAddClickEvent(fn) {
     downloadButton.addEventListener('click', fn);
 }
@@ -634,6 +644,12 @@ function setDownloadAnchor(dataStr) {
     dlAnchorElem.setAttribute('href', dataStr);
     dlAnchorElem.setAttribute('download', `power_${moment__WEBPACK_IMPORTED_MODULE_0___default()().format()}.json`);
     dlAnchorElem.click();
+}
+function dropZoneAddDragoverEvent(fn) {
+    dropZone.addEventListener('dragover', fn, false);
+}
+function dropZoneAddDropEvent(fn) {
+    dropZone.addEventListener('drop', fn, false);
 }
 //# sourceMappingURL=ui.js.map
 
@@ -68914,9 +68930,7 @@ let isDUTOpened = false;
         (0,_ui__WEBPACK_IMPORTED_MODULE_1__.closePopup)();
     }
     else {
-        const input = document.getElementById('input');
-        yield (0,_main__WEBPACK_IMPORTED_MODULE_0__.writeDUTSerialPort)(input.value + '\n');
-        input.value = '';
+        yield (0,_main__WEBPACK_IMPORTED_MODULE_0__.writeDUTSerialPort)((0,_ui__WEBPACK_IMPORTED_MODULE_1__.readInputValue)() + '\n');
     }
 }));
 (0,_ui__WEBPACK_IMPORTED_MODULE_1__.executeScriptAddClickEvent)(() => __awaiter(void 0, void 0, void 0, function* () {
@@ -69010,9 +69024,8 @@ navigator.serial.addEventListener('disconnect', () => __awaiter(void 0, void 0, 
     (0,_ui__WEBPACK_IMPORTED_MODULE_1__.useIsMeasuring)(isMeasuring);
 }));
 (0,_ui__WEBPACK_IMPORTED_MODULE_1__.analyzeAddClickEvent)(_main__WEBPACK_IMPORTED_MODULE_0__.analyzePowerData);
-const dropZone = document.getElementById('dropZone');
-dropZone.addEventListener('dragover', _main__WEBPACK_IMPORTED_MODULE_0__.handleDragOver, false);
-dropZone.addEventListener('drop', _main__WEBPACK_IMPORTED_MODULE_0__.handleFileSelect, false);
+(0,_ui__WEBPACK_IMPORTED_MODULE_1__.dropZoneAddDragoverEvent)(_main__WEBPACK_IMPORTED_MODULE_0__.handleDragOver);
+(0,_ui__WEBPACK_IMPORTED_MODULE_1__.dropZoneAddDropEvent)(_main__WEBPACK_IMPORTED_MODULE_0__.handleFileSelect);
 //# sourceMappingURL=index.js.map
 })();
 

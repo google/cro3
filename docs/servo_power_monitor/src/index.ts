@@ -30,9 +30,12 @@ import {
   analyzeAddClickEvent,
   closePopup,
   downloadAddClickEvent,
+  dropZoneAddDragoverEvent,
+  dropZoneAddDropEvent,
   executeScriptAddClickEvent,
   formAddSubmitEvent,
   haltAddClickEvent,
+  readInputValue,
   requestSerialAddClickEvent,
   requestUSBAddClickEvent,
   selectDUTSerialAddClickEvent,
@@ -69,9 +72,7 @@ formAddSubmitEvent(async e => {
   if (!isDUTOpened) {
     closePopup();
   } else {
-    const input = document.getElementById('input') as HTMLInputElement;
-    await writeDUTSerialPort(input.value + '\n');
-    input.value = '';
+    await writeDUTSerialPort(readInputValue() + '\n');
   }
 });
 
@@ -175,6 +176,5 @@ haltAddClickEvent(async () => {
 
 analyzeAddClickEvent(analyzePowerData);
 
-const dropZone = document.getElementById('dropZone') as HTMLSpanElement;
-dropZone.addEventListener('dragover', handleDragOver, false);
-dropZone.addEventListener('drop', handleFileSelect, false);
+dropZoneAddDragoverEvent(handleDragOver);
+dropZoneAddDropEvent(handleFileSelect);
