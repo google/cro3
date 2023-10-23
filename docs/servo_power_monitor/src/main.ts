@@ -60,12 +60,12 @@ export async function writeSerialPort(port: SerialPort, s: string) {
   writer.releaseLock();
 }
 
-// let device: USBDevice;
+let device: USBDevice;
 const usb_interface = 0;
 const ep = usb_interface + 1;
 
 export async function openUSBPort() {
-  const device = await navigator.usb
+  device = await navigator.usb
     .requestDevice({filters: [{vendorId: 0x18d1, productId: 0x520d}]})
     .catch(e => {
       console.error(e);
@@ -74,10 +74,9 @@ export async function openUSBPort() {
   await device.open();
   await device.selectConfiguration(1);
   await device.claimInterface(usb_interface);
-  return device;
 }
 
-export function closeUSBPort(device: USBDevice) {
+export function closeUSBPort() {
   try {
     device.close();
   } catch (e) {
@@ -85,11 +84,11 @@ export function closeUSBPort(device: USBDevice) {
   }
 }
 
-export async function writeUSBPort(device: USBDevice, s: string) {
+export async function writeUSBPort(s: string) {
   await device.transferOut(ep, encoder.encode(s));
 }
 
-export async function readUSBPort(device: USBDevice) {
+export async function readUSBPort() {
   try {
     const result = await device.transferIn(ep, 64);
     if (result.status === 'stall') {

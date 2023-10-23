@@ -18,37 +18,30 @@ import {
   startMeasurementFlag,
   readUSBPort,
 } from './main';
-import {closePopup, setDownloadAnchor, setPopupCloseButton} from './ui';
-
-const downloadButton = document.getElementById(
-  'downloadButton'
-) as HTMLButtonElement;
-const requestUSBButton = document.getElementById(
-  'request-device'
-) as HTMLButtonElement;
-const requestSerialButton = document.getElementById(
-  'requestSerialButton'
-) as HTMLButtonElement;
-const selectDUTSerialButton = document.getElementById(
-  'selectDUTSerialButton'
-) as HTMLButtonElement;
-const executeScriptButton = document.getElementById(
-  'executeScriptButton'
-) as HTMLButtonElement;
-const messages = document.getElementById('messages') as HTMLUListElement;
+import {
+  addEmptyListItemToMessages,
+  addMessageToConsole,
+  closePopup,
+  downloadButtonAddClickEvent,
+  executeScriptAddClickEvent,
+  requestSerialAddClickEvent,
+  requestUSBAddClickEvent,
+  selectDUTSerialAddClickEvent,
+  setDownloadAnchor,
+  setPopupCloseButton,
+  useIsMeasuring,
+} from './ui';
 
 setPopupCloseButton();
 
 const utf8decoder = new TextDecoder('utf-8');
 
 let DUTPort: SerialPort;
-selectDUTSerialButton.addEventListener('click', async () => {
+selectDUTSerialAddClickEvent(async () => {
   DUTPort = await openSerialPort(0x18d1, 0x504a);
-  let listItem = document.createElement('li');
-  listItem.textContent = 'DUTPort is selected';
-  messages.appendChild(listItem);
-  listItem = document.createElement('li');
-  messages.appendChild(listItem);
+  let listItem = addEmptyListItemToMessages();
+  addMessageToConsole(listItem, 'DUTPort is selected');
+  listItem = addEmptyListItemToMessages();
   for (;;) {
     const DUTReadable = DUTPort.readable;
     if (DUTReadable === null) return;
@@ -65,12 +58,14 @@ selectDUTSerialButton.addEventListener('click', async () => {
         const chunk_split_list = chunk.split('\n');
 
         for (let i = 0; i < chunk_split_list.length - 1; i++) {
-          listItem.textContent += chunk_split_list[i];
-          listItem = document.createElement('li');
-          messages.appendChild(listItem);
+          addMessageToConsole(listItem, chunk_split_list[i]);
+          listItem = addEmptyListItemToMessages();
         }
         listItem.textContent += chunk_split_list[chunk_split_list.length - 1];
-        messages.scrollTo(0, messages.scrollHeight);
+        addMessageToConsole(
+          listItem,
+          chunk_split_list[chunk_split_list.length - 1]
+        );
       }
     } catch (error) {
       DUTReader.releaseLock();
@@ -95,7 +90,7 @@ form.addEventListener('submit', async e => {
   }
 });
 
-executeScriptButton.addEventListener('click', async () => {
+executeScriptAddClickEvent(async () => {
   if (DUTPort === undefined) {
     closePopup();
   } else {
@@ -117,10 +112,12 @@ echo "end"\n`;
   }
 });
 
-let device: USBDevice;
-
 let servoPort: SerialPort;
 let servoReader: ReadableStreamDefaultReader;
+
+let isMeasuring = false;
+let isSerial = false;
+
 function closeSerialPort() {
   servoReader.cancel();
   servoReader.releaseLock();
@@ -129,51 +126,33 @@ function closeSerialPort() {
   } catch (e) {
     console.error(e);
   }
-  requestSerialButton.disabled = false;
+  isMeasuring = false;
+  useIsMeasuring(isMeasuring);
 }
 
-function setupStartUSBButton() {
-  const usb_interface = 0;
-  const ep = usb_interface + 1;
-  requestUSBButton.addEventListener('click', async () => {
-    startMeasurementFlag();
-    device = await openUSBPort();
-    requestUSBButton.disabled = true;
+requestUSBAddClickEvent(async () => {
+  startMeasurementFlag();
+  await openUSBPort();
+  isMeasuring = true;
+  isSerial = false;
+  useIsMeasuring(isMeasuring);
+  try {
+    kickWriteLoop(async s => writeUSBPort(s));
+    readLoop(async () => readUSBPort());
+  } catch (err) {
+    console.error(`Disconnected: ${err}`);
+    isMeasuring = false;
+    useIsMeasuring(isMeasuring);
+  }
+});
 
-    try {
-      kickWriteLoop(async s => writeUSBPort(device, s));
-      readLoop(async () => readUSBPort(device));
-    } catch (err) {
-      console.error(`Disconnected: ${err}`);
-      requestUSBButton.disabled = false;
-    }
-  });
-  window.addEventListener(
-    'keydown',
-    async event => {
-      if (!device) {
-        return;
-      }
-      let data;
-      if (event.key.length === 1) {
-        data = new Int8Array([event.key.charCodeAt(0)]);
-      } else if (event.code === 'Enter') {
-        data = new Uint8Array([0x0a]);
-      } else {
-        return;
-      }
-      await device.transferOut(ep, data);
-    },
-    true
-  );
-}
-setupStartUSBButton();
-
-requestSerialButton.addEventListener('click', async () => {
+requestSerialAddClickEvent(async () => {
   startMeasurementFlag();
 
   servoPort = await openSerialPort(0x18d1, 0x520d);
-  requestSerialButton.disabled = true;
+  isMeasuring = true;
+  isSerial = true;
+  useIsMeasuring(isMeasuring);
   writeSerialPort(servoPort, 'help\n');
 
   kickWriteLoop(async s => writeSerialPort(servoPort, s));
@@ -204,24 +183,27 @@ requestSerialButton.addEventListener('click', async () => {
 // `disconnect` event is fired when a USB device is disconnected.
 // c.f. https://wicg.github.io/webusb/#disconnect (5.1. Events)
 navigator.usb.addEventListener('disconnect', () => {
-  if (requestUSBButton.disabled) {
+  if (isMeasuring && !isSerial) {
     //  No need to call close() for the USB servoPort here because the
     //  specification says that
     // the servoPort will be closed automatically when a device is disconnected.
-    requestUSBButton.disabled = false;
+    isMeasuring = false;
+    useIsMeasuring(isMeasuring);
     stopMeasurementFlag();
   }
 });
 
 // event when you disconnect serial port
 navigator.serial.addEventListener('disconnect', async () => {
-  if (requestSerialButton.disabled) {
+  if (isMeasuring && isSerial) {
+    isMeasuring = false;
+    useIsMeasuring(isMeasuring);
     closeSerialPort();
     stopMeasurementFlag();
   }
 });
 
-downloadButton.addEventListener('click', async () => {
+downloadButtonAddClickEvent(async () => {
   const dataStr = savePowerDataToJSON();
   setDownloadAnchor(dataStr);
 });
@@ -229,13 +211,13 @@ downloadButton.addEventListener('click', async () => {
 const haltButton = document.getElementById('haltButton') as HTMLButtonElement;
 haltButton.addEventListener('click', () => {
   stopMeasurementFlag();
-  if (requestUSBButton.disabled) {
-    closeUSBPort(device);
-    requestUSBButton.disabled = false;
-  }
-  if (requestSerialButton.disabled) {
+  if (isSerial) {
     closeSerialPort();
+  } else {
+    closeUSBPort();
   }
+  isMeasuring = false;
+  useIsMeasuring(isMeasuring);
 });
 
 const analyzeButton = document.getElementById(
