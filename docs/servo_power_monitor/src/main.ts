@@ -16,16 +16,7 @@ const utf8decoder = new TextDecoder('utf-8');
 let halt = false;
 let inProgress = false;
 
-export function startMeasurementFlag() {
-  halt = false;
-}
-
-export function stopMeasurementFlag() {
-  halt = true;
-  inProgress = false;
-}
-
-export function kickWriteLoop(writeFn: (s: string) => Promise<void>) {
+function kickWriteLoop(writeFn: (s: string) => Promise<void>) {
   const f = async () => {
     while (!halt) {
       if (inProgress) {
@@ -47,7 +38,7 @@ export function kickWriteLoop(writeFn: (s: string) => Promise<void>) {
 let servoPort: SerialPort, servoReader: ReadableStreamDefaultReader;
 let DUTPort: SerialPort, DUTReader: ReadableStreamDefaultReader;
 
-export async function openServoSerialPort() {
+async function openServoSerialPort() {
   servoPort = await navigator.serial
     .requestPort({
       filters: [{usbVendorId: 0x18d1, usbProductId: 0x520d}],
@@ -59,7 +50,7 @@ export async function openServoSerialPort() {
   await servoPort.open({baudRate: 115200});
 }
 
-export async function closeServoSerialPort() {
+async function closeServoSerialPort() {
   await servoReader.cancel();
   await servoReader.releaseLock();
   try {
@@ -70,7 +61,7 @@ export async function closeServoSerialPort() {
   }
 }
 
-export async function readServoSerialPort() {
+async function readServoSerialPort() {
   const servoReadable = servoPort.readable;
   if (servoReadable === null) return '';
   servoReader = servoReadable.getReader();
@@ -93,7 +84,7 @@ export async function readServoSerialPort() {
   }
 }
 
-export async function writeServoSerialPort(s: string) {
+async function writeServoSerialPort(s: string) {
   const writable = servoPort.writable;
   if (writable === null) return;
   const writer = writable.getWriter();
@@ -101,7 +92,7 @@ export async function writeServoSerialPort(s: string) {
   writer.releaseLock();
 }
 
-export async function openDUTSerialPort() {
+async function openDUTSerialPort() {
   DUTPort = await navigator.serial
     .requestPort({
       filters: [{usbVendorId: 0x18d1, usbProductId: 0x504a}],
@@ -113,7 +104,7 @@ export async function openDUTSerialPort() {
   await DUTPort.open({baudRate: 115200});
 }
 
-export async function closeDUTSerialPort() {
+async function closeDUTSerialPort() {
   await DUTReader.cancel();
   await DUTReader.releaseLock();
   try {
@@ -124,7 +115,7 @@ export async function closeDUTSerialPort() {
   }
 }
 
-export async function readDUTSerialPort() {
+async function readDUTSerialPort() {
   const DUTReadable = DUTPort.readable;
   if (DUTReadable === null) return '';
   DUTReader = DUTReadable.getReader();
@@ -147,7 +138,7 @@ export async function readDUTSerialPort() {
   }
 }
 
-export async function writeDUTSerialPort(s: string) {
+async function writeDUTSerialPort(s: string) {
   const writable = DUTPort.writable;
   if (writable === null) return;
   const writer = writable.getWriter();
@@ -159,7 +150,7 @@ let device: USBDevice;
 const usb_interface = 0;
 const ep = usb_interface + 1;
 
-export async function openUSBPort() {
+async function openUSBPort() {
   device = await navigator.usb
     .requestDevice({filters: [{vendorId: 0x18d1, productId: 0x520d}]})
     .catch(e => {
@@ -171,7 +162,7 @@ export async function openUSBPort() {
   await device.claimInterface(usb_interface);
 }
 
-export async function closeUSBPort() {
+async function closeUSBPort() {
   try {
     await device.close();
   } catch (e) {
@@ -179,11 +170,11 @@ export async function closeUSBPort() {
   }
 }
 
-export async function writeUSBPort(s: string) {
+async function writeUSBPort(s: string) {
   await device.transferOut(ep, encoder.encode(s));
 }
 
-export async function readUSBPort() {
+async function readUSBPort() {
   try {
     const result = await device.transferIn(ep, 64);
     if (result.status === 'stall') {
@@ -206,7 +197,7 @@ export async function readUSBPort() {
 }
 
 let currentData: Array<Array<Date | number>>;
-export function updateGraph(g: Dygraph, data: Array<Array<Date | number>>) {
+function updateGraph(g: Dygraph, data: Array<Array<Date | number>>) {
   if (data !== undefined && data.length > 0) {
     const toolTip = document.querySelector('#tooltip');
     if (toolTip !== null) {
@@ -247,7 +238,7 @@ const serial_output = document.getElementById(
   'serial_output'
 ) as HTMLDivElement;
 
-export function pushOutput(s: string) {
+function pushOutput(s: string) {
   output += s;
 
   const splitted = output.split('\n').filter(s => s.trim().length > 10);
@@ -267,7 +258,7 @@ export function pushOutput(s: string) {
   }
 }
 
-export async function readLoop(readFn: () => Promise<string>) {
+async function readLoop(readFn: () => Promise<string>) {
   while (!halt) {
     try {
       const s = await readFn();
@@ -285,7 +276,7 @@ export async function readLoop(readFn: () => Promise<string>) {
 }
 
 const ranges: Array<Array<number>> = [];
-export function paintHistogram(t0: number, t1: number) {
+function paintHistogram(t0: number, t1: number) {
   // constants
   const xtick = 40;
   const boxWidth = 10;
@@ -474,13 +465,6 @@ export function analyzePowerData() {
   paintHistogram(left, right);
 }
 
-export function savePowerDataToJSON() {
-  return (
-    'data:text/json;charset=utf-8,' +
-    encodeURIComponent(JSON.stringify({power: powerData}))
-  );
-}
-
 export function handleFileSelect(evt: DragEvent) {
   evt.stopPropagation();
   evt.preventDefault();
@@ -611,7 +595,9 @@ export async function disconnectSerialPort() {
 }
 
 export function downloadJSONFile() {
-  const dataStr = savePowerDataToJSON();
+  const dataStr =
+    'data:text/json;charset=utf-8,' +
+    encodeURIComponent(JSON.stringify({power: powerData}));
   setDownloadAnchor(dataStr);
 }
 

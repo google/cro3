@@ -11,9 +11,6 @@
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   analyzePowerData: () => (/* binding */ analyzePowerData),
-/* harmony export */   closeDUTSerialPort: () => (/* binding */ closeDUTSerialPort),
-/* harmony export */   closeServoSerialPort: () => (/* binding */ closeServoSerialPort),
-/* harmony export */   closeUSBPort: () => (/* binding */ closeUSBPort),
 /* harmony export */   disconnectSerialPort: () => (/* binding */ disconnectSerialPort),
 /* harmony export */   disconnectUSBPort: () => (/* binding */ disconnectUSBPort),
 /* harmony export */   downloadJSONFile: () => (/* binding */ downloadJSONFile),
@@ -21,27 +18,10 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   formSubmit: () => (/* binding */ formSubmit),
 /* harmony export */   handleDragOver: () => (/* binding */ handleDragOver),
 /* harmony export */   handleFileSelect: () => (/* binding */ handleFileSelect),
-/* harmony export */   kickWriteLoop: () => (/* binding */ kickWriteLoop),
-/* harmony export */   openDUTSerialPort: () => (/* binding */ openDUTSerialPort),
-/* harmony export */   openServoSerialPort: () => (/* binding */ openServoSerialPort),
-/* harmony export */   openUSBPort: () => (/* binding */ openUSBPort),
-/* harmony export */   paintHistogram: () => (/* binding */ paintHistogram),
-/* harmony export */   pushOutput: () => (/* binding */ pushOutput),
-/* harmony export */   readDUTSerialPort: () => (/* binding */ readDUTSerialPort),
-/* harmony export */   readLoop: () => (/* binding */ readLoop),
-/* harmony export */   readServoSerialPort: () => (/* binding */ readServoSerialPort),
-/* harmony export */   readUSBPort: () => (/* binding */ readUSBPort),
 /* harmony export */   requestSerial: () => (/* binding */ requestSerial),
 /* harmony export */   requestUSB: () => (/* binding */ requestUSB),
-/* harmony export */   savePowerDataToJSON: () => (/* binding */ savePowerDataToJSON),
 /* harmony export */   selectDUTSerial: () => (/* binding */ selectDUTSerial),
-/* harmony export */   startMeasurementFlag: () => (/* binding */ startMeasurementFlag),
-/* harmony export */   stopMeasurement: () => (/* binding */ stopMeasurement),
-/* harmony export */   stopMeasurementFlag: () => (/* binding */ stopMeasurementFlag),
-/* harmony export */   updateGraph: () => (/* binding */ updateGraph),
-/* harmony export */   writeDUTSerialPort: () => (/* binding */ writeDUTSerialPort),
-/* harmony export */   writeServoSerialPort: () => (/* binding */ writeServoSerialPort),
-/* harmony export */   writeUSBPort: () => (/* binding */ writeUSBPort)
+/* harmony export */   stopMeasurement: () => (/* binding */ stopMeasurement)
 /* harmony export */ });
 /* harmony import */ var d3__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! d3 */ "./node_modules/d3/src/index.js");
 /* harmony import */ var dygraphs__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! dygraphs */ "./node_modules/dygraphs/index.js");
@@ -66,13 +46,6 @@ const encoder = new TextEncoder();
 const utf8decoder = new TextDecoder('utf-8');
 let halt = false;
 let inProgress = false;
-function startMeasurementFlag() {
-    halt = false;
-}
-function stopMeasurementFlag() {
-    halt = true;
-    inProgress = false;
-}
 function kickWriteLoop(writeFn) {
     const f = () => __awaiter(this, void 0, void 0, function* () {
         while (!halt) {
@@ -515,10 +488,6 @@ function analyzePowerData() {
     const right = xrange[1];
     paintHistogram(left, right);
 }
-function savePowerDataToJSON() {
-    return ('data:text/json;charset=utf-8,' +
-        encodeURIComponent(JSON.stringify({ power: powerData })));
-}
 function handleFileSelect(evt) {
     evt.stopPropagation();
     evt.preventDefault();
@@ -655,7 +624,8 @@ function disconnectSerialPort() {
     });
 }
 function downloadJSONFile() {
-    const dataStr = savePowerDataToJSON();
+    const dataStr = 'data:text/json;charset=utf-8,' +
+        encodeURIComponent(JSON.stringify({ power: powerData }));
     (0,_ui__WEBPACK_IMPORTED_MODULE_3__.setDownloadAnchor)(dataStr);
 }
 function stopMeasurement() {
