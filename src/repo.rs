@@ -79,7 +79,13 @@ pub fn repo_sync(repo: &str, force: bool) -> Result<()> {
     loop {
         println!("Running repo sync...");
         let repo_sync = format!("repo sync -j{}", &num_cpus::get());
-        println!("{repo_sync}");
+        // Options of script command.
+        // -q Be quiet (do not write start and done messages to standard output).
+        // -e Return the exit status of the child process.
+        // -f Flush output after each write.
+        // -c Run the command rather than an interactive shell. This makes it easy for a
+        // script to capture the output of a program that behaves differently when its
+        // stdout is not a tty.
         let mut cmd = Command::new("script")
             .current_dir(repo)
             .stdout(Stdio::piped())
