@@ -1,8 +1,6 @@
-const { CheckerPlugin } = require('ts-loader')
+const { CheckerPlugin } = require('ts-loader');
 const ESLintPlugin = require('eslint-webpack-plugin');
-const path = require('path')
-
-
+const path = require('path');
 module.exports = {
   mode: 'development',
   resolve: {

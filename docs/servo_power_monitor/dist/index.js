@@ -34467,7 +34467,6 @@ function setupDataLoad() {
     dropZone.innerText = 'Drop .json here';
     dropZone.addEventListener('dragover', handleDragOver, false);
     dropZone.addEventListener('drop', handleFileSelect, false);
-    console.log("hello!!!!!!!");
 }
 setupDataLoad();
 
