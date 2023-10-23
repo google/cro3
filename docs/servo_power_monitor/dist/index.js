@@ -482,12 +482,12 @@ function setPopupCloseButton() {
 function closePopup() {
     overlay.classList.remove('closed');
 }
+let listItem;
 function addEmptyListItemToMessages() {
-    const listItem = document.createElement('li');
+    listItem = document.createElement('li');
     messages.appendChild(listItem);
-    return listItem;
 }
-function addMessageToConsole(listItem, s) {
+function addMessageToConsole(s) {
     listItem.textContent += s;
     messages.scrollTo(0, messages.scrollHeight);
 }
@@ -68768,9 +68768,9 @@ const utf8decoder = new TextDecoder('utf-8');
 let DUTPort;
 (0,_ui__WEBPACK_IMPORTED_MODULE_1__.selectDUTSerialAddClickEvent)(() => __awaiter(void 0, void 0, void 0, function* () {
     DUTPort = yield (0,_main__WEBPACK_IMPORTED_MODULE_0__.openSerialPort)(0x18d1, 0x504a);
-    let listItem = (0,_ui__WEBPACK_IMPORTED_MODULE_1__.addEmptyListItemToMessages)();
-    (0,_ui__WEBPACK_IMPORTED_MODULE_1__.addMessageToConsole)(listItem, 'DUTPort is selected');
-    listItem = (0,_ui__WEBPACK_IMPORTED_MODULE_1__.addEmptyListItemToMessages)();
+    (0,_ui__WEBPACK_IMPORTED_MODULE_1__.addEmptyListItemToMessages)();
+    (0,_ui__WEBPACK_IMPORTED_MODULE_1__.addMessageToConsole)('DUTPort is selected');
+    (0,_ui__WEBPACK_IMPORTED_MODULE_1__.addEmptyListItemToMessages)();
     for (;;) {
         const DUTReadable = DUTPort.readable;
         if (DUTReadable === null)
@@ -68787,11 +68787,10 @@ let DUTPort;
                 const chunk = utf8decoder.decode(value, { stream: true });
                 const chunk_split_list = chunk.split('\n');
                 for (let i = 0; i < chunk_split_list.length - 1; i++) {
-                    (0,_ui__WEBPACK_IMPORTED_MODULE_1__.addMessageToConsole)(listItem, chunk_split_list[i]);
-                    listItem = (0,_ui__WEBPACK_IMPORTED_MODULE_1__.addEmptyListItemToMessages)();
+                    (0,_ui__WEBPACK_IMPORTED_MODULE_1__.addMessageToConsole)(chunk_split_list[i]);
+                    (0,_ui__WEBPACK_IMPORTED_MODULE_1__.addEmptyListItemToMessages)();
                 }
-                listItem.textContent += chunk_split_list[chunk_split_list.length - 1];
-                (0,_ui__WEBPACK_IMPORTED_MODULE_1__.addMessageToConsole)(listItem, chunk_split_list[chunk_split_list.length - 1]);
+                (0,_ui__WEBPACK_IMPORTED_MODULE_1__.addMessageToConsole)(chunk_split_list[chunk_split_list.length - 1]);
             }
         }
         catch (error) {

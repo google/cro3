@@ -49,13 +49,14 @@ export function closePopup() {
   overlay.classList.remove('closed');
 }
 
+let listItem: HTMLLIElement;
+
 export function addEmptyListItemToMessages() {
-  const listItem = document.createElement('li');
+  listItem = document.createElement('li');
   messages.appendChild(listItem);
-  return listItem;
 }
 
-export function addMessageToConsole(listItem: HTMLLIElement, s: string) {
+export function addMessageToConsole(s: string) {
   listItem.textContent += s;
   messages.scrollTo(0, messages.scrollHeight);
 }

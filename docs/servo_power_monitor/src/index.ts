@@ -39,9 +39,9 @@ const utf8decoder = new TextDecoder('utf-8');
 let DUTPort: SerialPort;
 selectDUTSerialAddClickEvent(async () => {
   DUTPort = await openSerialPort(0x18d1, 0x504a);
-  let listItem = addEmptyListItemToMessages();
-  addMessageToConsole(listItem, 'DUTPort is selected');
-  listItem = addEmptyListItemToMessages();
+  addEmptyListItemToMessages();
+  addMessageToConsole('DUTPort is selected');
+  addEmptyListItemToMessages();
   for (;;) {
     const DUTReadable = DUTPort.readable;
     if (DUTReadable === null) return;
@@ -58,14 +58,10 @@ selectDUTSerialAddClickEvent(async () => {
         const chunk_split_list = chunk.split('\n');
 
         for (let i = 0; i < chunk_split_list.length - 1; i++) {
-          addMessageToConsole(listItem, chunk_split_list[i]);
-          listItem = addEmptyListItemToMessages();
+          addMessageToConsole(chunk_split_list[i]);
+          addEmptyListItemToMessages();
         }
-        listItem.textContent += chunk_split_list[chunk_split_list.length - 1];
-        addMessageToConsole(
-          listItem,
-          chunk_split_list[chunk_split_list.length - 1]
-        );
+        addMessageToConsole(chunk_split_list[chunk_split_list.length - 1]);
       }
     } catch (error) {
       DUTReader.releaseLock();
