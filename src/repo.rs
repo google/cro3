@@ -97,13 +97,12 @@ pub fn repo_sync(repo: &str, force: bool) -> Result<()> {
         let mut buffer = [0; 1];
         let mut stdout = cmd.stdout.take().unwrap();
         loop {
-            let n = stdout.read(&mut buffer)?;
-            if n == 0 {
+            let num_bytes = stdout.read(&mut buffer)?;
+            if num_bytes == 0 {
                 break;
             }
-            let a = format!("ASCII CODE: {:x}", buffer[0]);
-            let cs = std::str::from_utf8(&buffer).unwrap_or(&a);
-            print!("{}", cs);
+            let char = std::str::from_utf8(&buffer)?;
+            print!("{}", char);
         }
 
         let result = cmd
