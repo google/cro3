@@ -5,6 +5,7 @@
 // https://developers.google.com/open-source/licenses/bsd
 
 use std::env;
+use std::io::Read;
 use std::path::PathBuf;
 use std::process::exit;
 use std::process::Command;
@@ -77,13 +78,28 @@ pub fn repo_sync(repo: &str, force: bool) -> Result<()> {
 
     loop {
         println!("Running repo sync...");
-        let cmd = Command::new("repo")
+        let repo_sync = format!("repo sync -j{}", &num_cpus::get());
+        println!("{repo_sync}");
+        let mut cmd = Command::new("script")
             .current_dir(repo)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
-            .args(["sync", "-j", &num_cpus::get().to_string()])
+            .args(["-qefc", &repo_sync])
             .spawn()
             .context("Failed to execute repo sync")?;
+
+        let mut buffer = [0; 1];
+        let mut stdout = cmd.stdout.take().unwrap();
+        loop {
+            let n = stdout.read(&mut buffer)?;
+            if n == 0 {
+                break;
+            }
+            let a = format!("ASCII CODE: {:x}", buffer[0]);
+            let cs = std::str::from_utf8(&buffer).unwrap_or(&a);
+            print!("{}", cs);
+        }
+
         let result = cmd
             .wait_with_output()
             .context("Failed to wait for repo sync")?;
