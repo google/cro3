@@ -14,6 +14,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   closeDUTSerialPort: () => (/* binding */ closeDUTSerialPort),
 /* harmony export */   closeServoSerialPort: () => (/* binding */ closeServoSerialPort),
 /* harmony export */   closeUSBPort: () => (/* binding */ closeUSBPort),
+/* harmony export */   executeScript: () => (/* binding */ executeScript),
 /* harmony export */   handleDragOver: () => (/* binding */ handleDragOver),
 /* harmony export */   handleFileSelect: () => (/* binding */ handleFileSelect),
 /* harmony export */   kickWriteLoop: () => (/* binding */ kickWriteLoop),
@@ -206,6 +207,24 @@ function writeDUTSerialPort(s) {
         const writer = writable.getWriter();
         yield writer.write(encoder.encode(s));
         writer.releaseLock();
+    });
+}
+// shell script
+const scripts = `#!/bin/bash -e
+function workload () {
+  ectool chargecontrol idle
+  stress-ng -c 1 -t \\$1
+  echo "workload"
+}
+echo "start"
+workload 10 1> ./test_out.log 2> ./test_err.log
+echo "end"\n`;
+function executeScript() {
+    return __awaiter(this, void 0, void 0, function* () {
+        yield writeDUTSerialPort('cat > ./example.sh << EOF\n');
+        yield writeDUTSerialPort(scripts);
+        yield writeDUTSerialPort('EOF\n');
+        yield writeDUTSerialPort('bash ./example.sh\n');
     });
 }
 let device;
@@ -68934,24 +68953,11 @@ let isDUTOpened = false;
     }
 }));
 (0,_ui__WEBPACK_IMPORTED_MODULE_1__.executeScriptAddClickEvent)(() => __awaiter(void 0, void 0, void 0, function* () {
-    if (isDUTOpened) {
+    if (!isDUTOpened) {
         (0,_ui__WEBPACK_IMPORTED_MODULE_1__.closePopup)();
     }
     else {
-        // shell script
-        const scripts = `#!/bin/bash -e
-function workload () {
-    ectool chargecontrol idle
-    stress-ng -c 1 -t \\$1
-    echo "workload"
-}
-echo "start"
-workload 10 1> ./test_out.log 2> ./test_err.log
-echo "end"\n`;
-        (0,_main__WEBPACK_IMPORTED_MODULE_0__.writeDUTSerialPort)('cat > ./example.sh << EOF\n');
-        (0,_main__WEBPACK_IMPORTED_MODULE_0__.writeDUTSerialPort)(scripts);
-        (0,_main__WEBPACK_IMPORTED_MODULE_0__.writeDUTSerialPort)('EOF\n');
-        (0,_main__WEBPACK_IMPORTED_MODULE_0__.writeDUTSerialPort)('bash ./example.sh\n');
+        (0,_main__WEBPACK_IMPORTED_MODULE_0__.executeScript)();
     }
 }));
 let isMeasuring = false;
@@ -68978,7 +68984,7 @@ let isSerial = false;
     isMeasuring = true;
     isSerial = true;
     (0,_ui__WEBPACK_IMPORTED_MODULE_1__.useIsMeasuring)(isMeasuring);
-    (0,_main__WEBPACK_IMPORTED_MODULE_0__.writeServoSerialPort)('help\n');
+    yield (0,_main__WEBPACK_IMPORTED_MODULE_0__.writeServoSerialPort)('help\n');
     // TODO: Implement something to check the validity of servo serial port
     (0,_main__WEBPACK_IMPORTED_MODULE_0__.kickWriteLoop)((s) => __awaiter(void 0, void 0, void 0, function* () { return (0,_main__WEBPACK_IMPORTED_MODULE_0__.writeServoSerialPort)(s); }));
     (0,_main__WEBPACK_IMPORTED_MODULE_0__.readLoop)(() => __awaiter(void 0, void 0, void 0, function* () { return (0,_main__WEBPACK_IMPORTED_MODULE_0__.readServoSerialPort)(); }));
@@ -68998,13 +69004,13 @@ navigator.usb.addEventListener('disconnect', () => {
 // event when you disconnect serial port
 navigator.serial.addEventListener('disconnect', () => __awaiter(void 0, void 0, void 0, function* () {
     if (isMeasuring && isSerial) {
+        yield (0,_main__WEBPACK_IMPORTED_MODULE_0__.closeServoSerialPort)();
         isMeasuring = false;
         (0,_ui__WEBPACK_IMPORTED_MODULE_1__.useIsMeasuring)(isMeasuring);
-        (0,_main__WEBPACK_IMPORTED_MODULE_0__.closeServoSerialPort)();
         (0,_main__WEBPACK_IMPORTED_MODULE_0__.stopMeasurementFlag)();
     }
     if (isDUTOpened) {
-        (0,_main__WEBPACK_IMPORTED_MODULE_0__.closeDUTSerialPort)();
+        yield (0,_main__WEBPACK_IMPORTED_MODULE_0__.closeDUTSerialPort)();
         isDUTOpened = false;
     }
 }));

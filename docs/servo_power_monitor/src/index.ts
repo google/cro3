@@ -23,6 +23,7 @@ import {
   writeDUTSerialPort,
   openServoSerialPort,
   writeServoSerialPort,
+  executeScript,
 } from './main';
 import {
   addEmptyListItemToMessages,
@@ -68,7 +69,6 @@ selectDUTSerialAddClickEvent(async () => {
 
 formAddSubmitEvent(async e => {
   e.preventDefault();
-
   if (!isDUTOpened) {
     closePopup();
   } else {
@@ -77,24 +77,10 @@ formAddSubmitEvent(async e => {
 });
 
 executeScriptAddClickEvent(async () => {
-  if (isDUTOpened) {
+  if (!isDUTOpened) {
     closePopup();
   } else {
-    // shell script
-    const scripts = `#!/bin/bash -e
-function workload () {
-    ectool chargecontrol idle
-    stress-ng -c 1 -t \\$1
-    echo "workload"
-}
-echo "start"
-workload 10 1> ./test_out.log 2> ./test_err.log
-echo "end"\n`;
-
-    writeDUTSerialPort('cat > ./example.sh << EOF\n');
-    writeDUTSerialPort(scripts);
-    writeDUTSerialPort('EOF\n');
-    writeDUTSerialPort('bash ./example.sh\n');
+    executeScript();
   }
 });
 
@@ -119,12 +105,11 @@ requestUSBAddClickEvent(async () => {
 
 requestSerialAddClickEvent(async () => {
   startMeasurementFlag();
-
   await openServoSerialPort();
   isMeasuring = true;
   isSerial = true;
   useIsMeasuring(isMeasuring);
-  writeServoSerialPort('help\n');
+  await writeServoSerialPort('help\n');
   // TODO: Implement something to check the validity of servo serial port
 
   kickWriteLoop(async s => writeServoSerialPort(s));
@@ -147,13 +132,13 @@ navigator.usb.addEventListener('disconnect', () => {
 // event when you disconnect serial port
 navigator.serial.addEventListener('disconnect', async () => {
   if (isMeasuring && isSerial) {
+    await closeServoSerialPort();
     isMeasuring = false;
     useIsMeasuring(isMeasuring);
-    closeServoSerialPort();
     stopMeasurementFlag();
   }
   if (isDUTOpened) {
-    closeDUTSerialPort();
+    await closeDUTSerialPort();
     isDUTOpened = false;
   }
 });

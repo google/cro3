@@ -147,6 +147,24 @@ export async function writeDUTSerialPort(s: string) {
   writer.releaseLock();
 }
 
+// shell script
+const scripts = `#!/bin/bash -e
+function workload () {
+  ectool chargecontrol idle
+  stress-ng -c 1 -t \\$1
+  echo "workload"
+}
+echo "start"
+workload 10 1> ./test_out.log 2> ./test_err.log
+echo "end"\n`;
+
+export async function executeScript() {
+  await writeDUTSerialPort('cat > ./example.sh << EOF\n');
+  await writeDUTSerialPort(scripts);
+  await writeDUTSerialPort('EOF\n');
+  await writeDUTSerialPort('bash ./example.sh\n');
+}
+
 let device: USBDevice;
 const usb_interface = 0;
 const ep = usb_interface + 1;
