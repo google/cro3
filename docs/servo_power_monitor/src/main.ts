@@ -1,6 +1,14 @@
 import * as d3 from 'd3';
 import Dygraph from 'dygraphs';
 import moment from 'moment';
+import {
+  addEmptyListItemToMessages,
+  addMessageToConsole,
+  closePopup,
+  enabledRecordingButton,
+  readInputValue,
+  setDownloadAnchor,
+} from './ui';
 
 const intervalMs = 100;
 const encoder = new TextEncoder();
@@ -145,24 +153,6 @@ export async function writeDUTSerialPort(s: string) {
   const writer = writable.getWriter();
   await writer.write(encoder.encode(s));
   writer.releaseLock();
-}
-
-// shell script
-const scripts = `#!/bin/bash -e
-function workload () {
-  ectool chargecontrol idle
-  stress-ng -c 1 -t \\$1
-  echo "workload"
-}
-echo "start"
-workload 10 1> ./test_out.log 2> ./test_err.log
-echo "end"\n`;
-
-export async function executeScript() {
-  await writeDUTSerialPort('cat > ./example.sh << EOF\n');
-  await writeDUTSerialPort(scripts);
-  await writeDUTSerialPort('EOF\n');
-  await writeDUTSerialPort('bash ./example.sh\n');
 }
 
 let device: USBDevice;
@@ -515,4 +505,123 @@ export function handleDragOver(evt: DragEvent) {
   const eventDataTransfer = evt.dataTransfer;
   if (eventDataTransfer === null) return;
   eventDataTransfer.dropEffect = 'copy'; // Explicitly show this is a copy.
+}
+
+let isDUTOpened = false;
+export async function selectDUTSerial() {
+  await openDUTSerialPort();
+  isDUTOpened = true;
+  addEmptyListItemToMessages();
+  addMessageToConsole('DUTPort is selected');
+  addEmptyListItemToMessages();
+  for (;;) {
+    const chunk = await readDUTSerialPort();
+    const chunk_split_list = chunk.split('\n');
+
+    for (let i = 0; i < chunk_split_list.length - 1; i++) {
+      addMessageToConsole(chunk_split_list[i]);
+      addEmptyListItemToMessages();
+    }
+    addMessageToConsole(chunk_split_list[chunk_split_list.length - 1]);
+  }
+}
+
+export async function formSubmit(e: Event) {
+  e.preventDefault();
+  if (!isDUTOpened) {
+    closePopup();
+  } else {
+    await writeDUTSerialPort(readInputValue() + '\n');
+  }
+}
+
+// shell script
+const scripts = `#!/bin/bash -e
+function workload () {
+  ectool chargecontrol idle
+  stress-ng -c 1 -t \\$1
+  echo "workload"
+}
+echo "start"
+workload 10 1> ./test_out.log 2> ./test_err.log
+echo "end"\n`;
+
+export async function executeScript() {
+  if (!isDUTOpened) {
+    closePopup();
+  } else {
+    await writeDUTSerialPort('cat > ./example.sh << EOF\n');
+    await writeDUTSerialPort(scripts);
+    await writeDUTSerialPort('EOF\n');
+    await writeDUTSerialPort('bash ./example.sh\n');
+  }
+}
+
+let isSerial = false;
+
+export async function requestUSB() {
+  halt = false;
+  await openUSBPort();
+  isSerial = false;
+  enabledRecordingButton(halt);
+  try {
+    kickWriteLoop(async s => writeUSBPort(s));
+    readLoop(async () => readUSBPort());
+  } catch (err) {
+    console.error(`Disconnected: ${err}`);
+    halt = true;
+    enabledRecordingButton(halt);
+  }
+}
+
+export async function requestSerial() {
+  halt = false;
+  await openServoSerialPort();
+  isSerial = true;
+  enabledRecordingButton(halt);
+  await writeServoSerialPort('help\n');
+  // TODO: Implement something to check the validity of servo serial port
+
+  kickWriteLoop(async s => writeServoSerialPort(s));
+  readLoop(async () => readServoSerialPort());
+}
+
+export async function disconnectUSBPort() {
+  if (!halt && !isSerial) {
+    //  No need to call close() for the USB servoPort here because the
+    //  specification says that
+    // the servoPort will be closed automatically when a device is disconnected.
+    halt = true;
+    inProgress = false;
+    enabledRecordingButton(halt);
+  }
+}
+
+export async function disconnectSerialPort() {
+  if (!halt && isSerial) {
+    await closeServoSerialPort();
+    halt = true;
+    inProgress = false;
+    enabledRecordingButton(halt);
+  }
+  if (isDUTOpened) {
+    await closeDUTSerialPort();
+    isDUTOpened = false;
+  }
+}
+
+export function downloadJSONFile() {
+  const dataStr = savePowerDataToJSON();
+  setDownloadAnchor(dataStr);
+}
+
+export async function stopMeasurement() {
+  halt = true;
+  inProgress = false;
+  if (isSerial) {
+    await closeServoSerialPort();
+  } else {
+    await closeUSBPort();
+  }
+  enabledRecordingButton(halt);
 }

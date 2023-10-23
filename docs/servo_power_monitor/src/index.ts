@@ -4,162 +4,58 @@
 
 import {
   analyzePowerData,
-  closeUSBPort,
   handleFileSelect,
-  openUSBPort,
-  savePowerDataToJSON,
-  writeUSBPort,
   handleDragOver,
-  kickWriteLoop,
-  readLoop,
-  stopMeasurementFlag,
-  startMeasurementFlag,
-  readUSBPort,
-  readDUTSerialPort,
-  readServoSerialPort,
-  closeDUTSerialPort,
-  closeServoSerialPort,
-  openDUTSerialPort,
-  writeDUTSerialPort,
-  openServoSerialPort,
-  writeServoSerialPort,
   executeScript,
+  formSubmit,
+  selectDUTSerial,
+  requestUSB,
+  requestSerial,
+  disconnectUSBPort,
+  disconnectSerialPort,
+  downloadJSONFile,
+  stopMeasurement,
 } from './main';
 import {
-  addEmptyListItemToMessages,
-  addMessageToConsole,
   analyzeAddClickEvent,
-  closePopup,
   downloadAddClickEvent,
   dropZoneAddDragoverEvent,
   dropZoneAddDropEvent,
   executeScriptAddClickEvent,
   formAddSubmitEvent,
   haltAddClickEvent,
-  readInputValue,
   requestSerialAddClickEvent,
   requestUSBAddClickEvent,
   selectDUTSerialAddClickEvent,
-  setDownloadAnchor,
   setPopupCloseButton,
-  useIsMeasuring,
 } from './ui';
 
-setPopupCloseButton();
+window.addEventListener('DOMContentLoaded', () => {
+  setPopupCloseButton();
 
-let isDUTOpened = false;
+  selectDUTSerialAddClickEvent(selectDUTSerial);
 
-selectDUTSerialAddClickEvent(async () => {
-  await openDUTSerialPort();
-  isDUTOpened = true;
-  addEmptyListItemToMessages();
-  addMessageToConsole('DUTPort is selected');
-  addEmptyListItemToMessages();
-  for (;;) {
-    const chunk = await readDUTSerialPort();
-    const chunk_split_list = chunk.split('\n');
+  formAddSubmitEvent(async e => formSubmit(e));
 
-    for (let i = 0; i < chunk_split_list.length - 1; i++) {
-      addMessageToConsole(chunk_split_list[i]);
-      addEmptyListItemToMessages();
-    }
-    addMessageToConsole(chunk_split_list[chunk_split_list.length - 1]);
-  }
+  executeScriptAddClickEvent(executeScript);
+
+  requestUSBAddClickEvent(requestUSB);
+
+  requestSerialAddClickEvent(requestSerial);
+
+  // `disconnect` event is fired when a USB device is disconnected.
+  // c.f. https://wicg.github.io/webusb/#disconnect (5.1. Events)
+  navigator.usb.addEventListener('disconnect', disconnectUSBPort);
+
+  // event when you disconnect serial port
+  navigator.serial.addEventListener('disconnect', disconnectSerialPort);
+
+  downloadAddClickEvent(downloadJSONFile);
+
+  haltAddClickEvent(stopMeasurement);
+
+  analyzeAddClickEvent(analyzePowerData);
+
+  dropZoneAddDragoverEvent(handleDragOver);
+  dropZoneAddDropEvent(handleFileSelect);
 });
-
-formAddSubmitEvent(async e => {
-  e.preventDefault();
-  if (!isDUTOpened) {
-    closePopup();
-  } else {
-    await writeDUTSerialPort(readInputValue() + '\n');
-  }
-});
-
-executeScriptAddClickEvent(async () => {
-  if (!isDUTOpened) {
-    closePopup();
-  } else {
-    await executeScript();
-  }
-});
-
-let isMeasuring = false;
-let isSerial = false;
-
-requestUSBAddClickEvent(async () => {
-  startMeasurementFlag();
-  await openUSBPort();
-  isMeasuring = true;
-  isSerial = false;
-  useIsMeasuring(isMeasuring);
-  try {
-    kickWriteLoop(async s => writeUSBPort(s));
-    readLoop(async () => readUSBPort());
-  } catch (err) {
-    console.error(`Disconnected: ${err}`);
-    isMeasuring = false;
-    useIsMeasuring(isMeasuring);
-  }
-});
-
-requestSerialAddClickEvent(async () => {
-  startMeasurementFlag();
-  await openServoSerialPort();
-  isMeasuring = true;
-  isSerial = true;
-  useIsMeasuring(isMeasuring);
-  await writeServoSerialPort('help\n');
-  // TODO: Implement something to check the validity of servo serial port
-
-  kickWriteLoop(async s => writeServoSerialPort(s));
-  readLoop(async () => readServoSerialPort());
-});
-
-// `disconnect` event is fired when a USB device is disconnected.
-// c.f. https://wicg.github.io/webusb/#disconnect (5.1. Events)
-navigator.usb.addEventListener('disconnect', () => {
-  if (isMeasuring && !isSerial) {
-    //  No need to call close() for the USB servoPort here because the
-    //  specification says that
-    // the servoPort will be closed automatically when a device is disconnected.
-    isMeasuring = false;
-    useIsMeasuring(isMeasuring);
-    stopMeasurementFlag();
-  }
-});
-
-// event when you disconnect serial port
-navigator.serial.addEventListener('disconnect', async () => {
-  if (isMeasuring && isSerial) {
-    await closeServoSerialPort();
-    isMeasuring = false;
-    useIsMeasuring(isMeasuring);
-    stopMeasurementFlag();
-  }
-  if (isDUTOpened) {
-    await closeDUTSerialPort();
-    isDUTOpened = false;
-  }
-});
-
-downloadAddClickEvent(async () => {
-  const dataStr = savePowerDataToJSON();
-  setDownloadAnchor(dataStr);
-});
-
-haltAddClickEvent(async () => {
-  stopMeasurementFlag();
-  if (isSerial) {
-    await closeServoSerialPort();
-  } else {
-    await closeUSBPort();
-  }
-  isMeasuring = false;
-  useIsMeasuring(isMeasuring);
-});
-
-analyzeAddClickEvent(analyzePowerData);
-
-dropZoneAddDragoverEvent(handleDragOver);
-dropZoneAddDropEvent(handleFileSelect);

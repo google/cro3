@@ -40,14 +40,9 @@ export function haltAddClickEvent(fn: () => Promise<void>) {
   haltButton.addEventListener('click', fn);
 }
 
-export function useIsMeasuring(isMeasuring: boolean) {
-  if (isMeasuring) {
-    requestUSBButton.disabled = true;
-    requestSerialButton.disabled = true;
-  } else {
-    requestUSBButton.disabled = false;
-    requestSerialButton.disabled = false;
-  }
+export function enabledRecordingButton(halt: boolean) {
+  requestUSBButton.disabled = !halt;
+  requestSerialButton.disabled = !halt;
 }
 
 export function setPopupCloseButton() {
@@ -90,7 +85,7 @@ export function readInputValue() {
   return res;
 }
 
-export function downloadAddClickEvent(fn: () => Promise<void>) {
+export function downloadAddClickEvent(fn: () => void) {
   downloadButton.addEventListener('click', fn);
 }
 
