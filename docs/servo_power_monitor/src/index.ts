@@ -80,7 +80,7 @@ executeScriptAddClickEvent(async () => {
   if (!isDUTOpened) {
     closePopup();
   } else {
-    executeScript();
+    await executeScript();
   }
 });
 

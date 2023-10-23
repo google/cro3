@@ -68957,7 +68957,7 @@ let isDUTOpened = false;
         (0,_ui__WEBPACK_IMPORTED_MODULE_1__.closePopup)();
     }
     else {
-        (0,_main__WEBPACK_IMPORTED_MODULE_0__.executeScript)();
+        yield (0,_main__WEBPACK_IMPORTED_MODULE_0__.executeScript)();
     }
 }));
 let isMeasuring = false;
