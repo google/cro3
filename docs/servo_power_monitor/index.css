@@ -228,20 +228,18 @@ body {
   padding: 8px;
   margin: 0px;
   width: 20%;
-  <<<<<<< HEAD;
-  =======>>>>>>>upstream/main top: 0;
+  top: 0;
   right: 0;
 }
 
-<<<<<<< HEAD #graphList {
+#graphList {
   list-style: none;
   padding: 0px;
 }
 
-#graphList>li>div {
-  =======#graph {
-    >>>>>>>upstream/main height: 500px;
-    width: auto;
-    left: 0;
-    right: 0;
-  }
+#graphList>div {
+  height: 500px;
+  width: auto;
+  left: 0;
+  right: 0;
+}

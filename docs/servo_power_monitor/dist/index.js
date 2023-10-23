@@ -68261,15 +68261,12 @@ const requestUSBButton = document.getElementById('request-device');
 const requestSerialButton = document.getElementById('requestSerialButton');
 const serial_output = document.getElementById('serial_output');
 const controlDiv = document.getElementById('controlDiv');
-<<<<<<< HEAD
-let powerData = [];
-let g = new dygraphs__WEBPACK_IMPORTED_MODULE_1__["default"]('graph1', powerData, {});
-=======
 const selectDUTSerialButton = document.getElementById('selectDUTSerialButton');
 const executeScriptButton = document.getElementById('executeScriptButton');
 const messages = document.getElementById('messages');
 const popupCloseButton = document.getElementById('popup-close');
 const overlay = document.querySelector('#popup-overlay');
+const graphList = document.getElementById('graphList');
 popupCloseButton.addEventListener('click', () => {
     overlay.classList.add('closed');
 });
@@ -68356,8 +68353,9 @@ echo "end"\n`;
     }
 }));
 const powerData = [];
-const g = new dygraphs__WEBPACK_IMPORTED_MODULE_1__["default"]('graph', powerData, {});
->>>>>>> upstream/main
+let previousIsJSON = false;
+let graphNum = 0;
+let g;
 const utf8decoder = new TextDecoder('utf-8');
 let output = '';
 let halt = false;
@@ -68468,6 +68466,14 @@ function closeSerialPort() {
     }
     requestSerialButton.disabled = false;
 }
+function appendGraphElement() {
+    graphNum++;
+    const graphListItem = document.createElement('div');
+    graphListItem.id = 'graph' + String(graphNum);
+    graphList.appendChild(graphListItem);
+    g = new dygraphs__WEBPACK_IMPORTED_MODULE_1__["default"](graphListItem.id, powerData, {});
+    window.scrollTo(0, graphList.scrollHeight);
+}
 function setupStartUSBButton() {
     const usb_interface = 0;
     const ep = usb_interface + 1;
@@ -68490,6 +68496,10 @@ function setupStartUSBButton() {
             // device = null;
             return;
         }
+        if (previousIsJSON || graphNum === 0) {
+            appendGraphElement();
+        }
+        previousIsJSON = false;
         try {
             yield device.open();
             requestUSBButton.disabled = true;
@@ -68554,6 +68564,10 @@ requestSerialButton.addEventListener('click', () => __awaiter(void 0, void 0, vo
         console.error(e);
         throw e;
     });
+    if (previousIsJSON || graphNum === 0) {
+        appendGraphElement();
+    }
+    previousIsJSON = false;
     yield servoPort.open({ baudRate: 115200 });
     requestSerialButton.disabled = true;
     const servoWritable = servoPort.writable;
@@ -68815,7 +68829,6 @@ function setupAnalyze() {
 }
 setupAnalyze();
 function setupDataLoad() {
-    let noGraph = true;
     const handleFileSelect = (evt) => {
         evt.stopPropagation();
         evt.preventDefault();
@@ -68827,23 +68840,13 @@ function setupDataLoad() {
             return;
         }
         const r = new FileReader();
-        if (!noGraph) {
-            const graphList = document.getElementById("graphList");
-            const graphNum = graphList.getElementsByTagName("li").length;
-            const graphListItem = document.createElement("li");
-            const graphContent = document.createElement("div");
-            graphContent.id = "graph" + String(graphNum + 1);
-            graphListItem.appendChild(graphContent);
-            graphList.appendChild(graphListItem);
-            g = new dygraphs__WEBPACK_IMPORTED_MODULE_1__["default"](graphContent.id, powerData, {});
-            window.scrollTo(0, graphList.scrollHeight);
-        }
+        previousIsJSON = true;
+        appendGraphElement();
         r.addEventListener('load', () => {
             const data = JSON.parse(r.result);
             const powerData = data.power.map((d) => [new Date(d[0]), d[1]]);
             updateGraph(powerData);
         });
-        noGraph = false;
         r.readAsText(file);
     };
     const handleDragOver = (evt) => {
@@ -68855,9 +68858,6 @@ function setupDataLoad() {
         eventDataTransfer.dropEffect = 'copy'; // Explicitly show this is a copy.
     };
     const dropZone = document.getElementById('dropZone');
-    if (dropZone === null)
-        return;
-    dropZone.innerText = 'Drop .json here';
     dropZone.addEventListener('dragover', handleDragOver, false);
     dropZone.addEventListener('drop', handleFileSelect, false);
 }

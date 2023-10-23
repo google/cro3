@@ -32,6 +32,7 @@ const popupCloseButton = document.getElementById(
   'popup-close'
 ) as HTMLButtonElement;
 const overlay = document.querySelector('#popup-overlay') as HTMLDivElement;
+const graphList = document.getElementById('graphList') as HTMLUListElement;
 
 popupCloseButton.addEventListener('click', () => {
   overlay.classList.add('closed');
@@ -122,7 +123,9 @@ echo "end"\n`;
 });
 
 const powerData: Array<Array<Date | number>> = [];
-const g = new Dygraph('graph', powerData, {});
+let previousIsJSON = false;
+let graphNum = 0;
+let g: Dygraph;
 const utf8decoder = new TextDecoder('utf-8');
 let output = '';
 let halt = false;
@@ -240,6 +243,15 @@ function closeSerialPort() {
   requestSerialButton.disabled = false;
 }
 
+function appendGraphElement() {
+  graphNum++;
+  const graphListItem = document.createElement('div');
+  graphListItem.id = 'graph' + String(graphNum);
+  graphList.appendChild(graphListItem);
+  g = new Dygraph(graphListItem.id, powerData, {});
+  window.scrollTo(0, graphList.scrollHeight);
+}
+
 function setupStartUSBButton() {
   const usb_interface = 0;
   const ep = usb_interface + 1;
@@ -261,6 +273,10 @@ function setupStartUSBButton() {
       // device = null;
       return;
     }
+    if (previousIsJSON || graphNum === 0) {
+      appendGraphElement();
+    }
+    previousIsJSON = false;
 
     try {
       await device.open();
@@ -327,6 +343,11 @@ requestSerialButton.addEventListener('click', async () => {
       console.error(e);
       throw e;
     });
+  if (previousIsJSON || graphNum === 0) {
+    appendGraphElement();
+  }
+  previousIsJSON = false;
+
   await servoPort.open({baudRate: 115200});
   requestSerialButton.disabled = true;
   const servoWritable = servoPort.writable;
@@ -608,7 +629,6 @@ function setupAnalyze() {
 setupAnalyze();
 
 function setupDataLoad() {
-  let noGraph = true;
   const handleFileSelect = (evt: DragEvent) => {
     evt.stopPropagation();
     evt.preventDefault();
@@ -619,17 +639,9 @@ function setupDataLoad() {
       return;
     }
     const r = new FileReader();
-    if (!noGraph) {
-      const graphList = document.getElementById("graphList")
-      const graphNum = graphList.getElementsByTagName("li").length
-      const graphListItem = document.createElement("li");
-      const graphContent = document.createElement("div");
-      graphContent.id = "graph" + String(graphNum+1);
-      graphListItem.appendChild(graphContent);
-      graphList.appendChild(graphListItem);
-      g = new Dygraph(graphContent.id, powerData, {});
-      window.scrollTo(0, graphList.scrollHeight);
-    }
+    appendGraphElement();
+    previousIsJSON = true;
+
     r.addEventListener('load', () => {
       const data = JSON.parse(r.result as string);
       const powerData = data.power.map((d: string) => [new Date(d[0]), d[1]]);
@@ -645,9 +657,7 @@ function setupDataLoad() {
     if (eventDataTransfer === null) return;
     eventDataTransfer.dropEffect = 'copy'; // Explicitly show this is a copy.
   };
-  const dropZone = document.getElementById('dropZone');
-  if (dropZone === null) return;
-  dropZone.innerText = 'Drop .json here';
+  const dropZone = document.getElementById('dropZone') as HTMLSpanElement;
   dropZone.addEventListener('dragover', handleDragOver, false);
   dropZone.addEventListener('drop', handleFileSelect, false);
 }
