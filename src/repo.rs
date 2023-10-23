@@ -81,9 +81,10 @@ pub fn repo_sync(repo: &str, force: bool) -> Result<()> {
         println!("Running repo sync...");
         let repo_sync = format!("repo sync -j{}", &num_cpus::get());
         // `script` is a Unix command that takes a copy of all output to the terminal
-        // and writes it to `typescript` file. Below, explanation of `script`
-        // options. -q Be quiet (do not write start and done messages to
-        // standard output). -e Return the exit status of the child process.
+        // and writes it to `typescript` file.
+        // Below, explanation of `script` options.
+        // -q  Be quiet (do not write start and done messages to standard output).
+        // -e Return the exit status of the child process.
         // -f Flush output after each write.
         // -c Run the command rather than an interactive shell. This makes it easy for a
         // script to capture the output of a program that behaves differently when its
