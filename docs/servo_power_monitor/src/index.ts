@@ -4,7 +4,7 @@
 
 import * as d3 from 'd3';
 import Dygraph from 'dygraphs';
-import moment from 'moment'                                                                                                    ;
+import moment from 'moment';
 
 const intervalMs = 100;
 
