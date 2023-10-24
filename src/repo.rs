@@ -83,7 +83,7 @@ pub fn repo_sync(repo: &str, force: bool) -> Result<()> {
         // `script` is a Unix command that takes a copy of all output to the terminal
         // and writes it to `typescript` file.
         // Below, explanation of `script` options.
-        // -q  Be quiet (do not write start and done messages to standard output).
+        // -q Be quiet (do not write start and done messages to standard output).
         // -e Return the exit status of the child process.
         // -f Flush output after each write.
         // -c Run the command rather than an interactive shell. This makes it easy for a
@@ -97,11 +97,15 @@ pub fn repo_sync(repo: &str, force: bool) -> Result<()> {
             .spawn()
             .context("Failed to execute repo sync")?;
 
-        let stdout = cmd.stdout.take().unwrap();
+        let stdout = cmd
+            .stdout
+            .take()
+            .context("Could not get stdout from script output.")?;
         let reader = BufReader::new(stdout);
         let split_iter = reader
             .split(b'\r')
             .map(|l| String::from_utf8_lossy(&l.unwrap()).to_string());
+
         for a_line in split_iter {
             print!("{}\r", a_line);
         }
