@@ -5,8 +5,7 @@
 // https://developers.google.com/open-source/licenses/bsd
 
 use std::env;
-use std::io::BufRead;
-use std::io::BufReader;
+use std::io::Read;
 use std::path::PathBuf;
 use std::process::exit;
 use std::process::Command;
@@ -97,21 +96,18 @@ pub fn repo_sync(repo: &str, force: bool) -> Result<()> {
             .spawn()
             .context("Failed to execute repo sync")?;
 
-        let split_iter = BufReader::new(
-            cmd.stdout
-                .take()
-                .context("Could not get stdout from script output.")?,
-        )
-        .split(b'\r')
-        .map(|l| {
-            String::from_utf8_lossy(&l.unwrap_or_else(|e| {
-                format!("Could not read repo sync output: {:?}", e).into_bytes()
-            }))
-            .to_string()
-        });
-
-        for a_line in split_iter {
-            print!("{}\r", a_line);
+        let mut stdout = cmd
+            .stdout
+            .take()
+            .context("Could not get stdout from script output.")?;
+        let mut buffer = [0; 1];
+        loop {
+            let num_bytes = stdout.read(&mut buffer)?;
+            if num_bytes == 0 {
+                break;
+            }
+            let char = std::str::from_utf8(&buffer)?;
+            print!("{}", char);
         }
 
         let result = cmd
