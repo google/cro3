@@ -103,7 +103,12 @@ pub fn repo_sync(repo: &str, force: bool) -> Result<()> {
                 .context("Could not get stdout from script output.")?,
         )
         .split(b'\r')
-        .map(|l| String::from_utf8_lossy(&l.unwrap()).to_string());
+        .map(|l| {
+            String::from_utf8_lossy(&l.unwrap_or_else(|e| {
+                format!("Could not read repo sync output: {:?}", e).into_bytes()
+            }))
+            .to_string()
+        });
 
         for a_line in split_iter {
             print!("{}\r", a_line);
