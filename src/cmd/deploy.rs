@@ -72,7 +72,9 @@ pub fn run(args: &Args) -> Result<()> {
             &format!(
                 r###"
 cros-workon-{board} start {packages_str}
-~/trunk/src/scripts/update_kernel.sh {} --remote={} --ssh_port {} --remote_bootargs
+TOPDIR=~/trunk
+[ -d $TOPDIR ] || TOPDIR=~/chromiumos
+$TOPDIR/src/scripts/update_kernel.sh {} --remote={} --ssh_port {} --remote_bootargs
 "###,
                 if args.ab_update { "--ab_update" } else { "" },
                 target.host(),
