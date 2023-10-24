@@ -97,14 +97,13 @@ pub fn repo_sync(repo: &str, force: bool) -> Result<()> {
             .spawn()
             .context("Failed to execute repo sync")?;
 
-        let stdout = cmd
-            .stdout
-            .take()
-            .context("Could not get stdout from script output.")?;
-        let reader = BufReader::new(stdout);
-        let split_iter = reader
-            .split(b'\r')
-            .map(|l| String::from_utf8_lossy(&l.unwrap()).to_string());
+        let split_iter = BufReader::new(
+            cmd.stdout
+                .take()
+                .context("Could not get stdout from script output.")?,
+        )
+        .split(b'\r')
+        .map(|l| String::from_utf8_lossy(&l.unwrap()).to_string());
 
         for a_line in split_iter {
             print!("{}\r", a_line);
