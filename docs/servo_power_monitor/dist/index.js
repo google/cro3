@@ -68918,6 +68918,7 @@ selectDUTSerialButton.addEventListener('click', () => __awaiter(void 0, void 0, 
     });
 }));
 const form = document.getElementById('form');
+const input = document.getElementById('input');
 form.addEventListener('submit', (e) => __awaiter(void 0, void 0, void 0, function* () {
     e.preventDefault();
     if (DUTPort === undefined) {
@@ -68925,9 +68926,6 @@ form.addEventListener('submit', (e) => __awaiter(void 0, void 0, void 0, functio
         return;
     }
     else {
-        const input = document.getElementById('input');
-        if (input === null)
-            return;
         const DUTWritable = DUTPort.writable;
         if (DUTWritable === null)
             return;
@@ -68937,6 +68935,22 @@ form.addEventListener('submit', (e) => __awaiter(void 0, void 0, void 0, functio
         yield DUTWriter.releaseLock();
     }
     yield DUTWriter.releaseLock();
+}));
+input.addEventListener('keydown', (e) => __awaiter(void 0, void 0, void 0, function* () {
+    if (DUTPort === undefined) {
+        overlay.classList.remove('closed');
+    }
+    else {
+        const DUTWritable = DUTPort.writable;
+        if (DUTWritable === null)
+            return;
+        const DUTWriter = DUTWritable.getWriter();
+        if (e.ctrlKey && e.key === 'c') {
+            yield DUTWriter.write(encoder.encode('\x03\n'));
+            console.log('ctrl+c');
+        }
+        yield DUTWriter.releaseLock();
+    }
 }));
 executeScriptButton.addEventListener('click', () => __awaiter(void 0, void 0, void 0, function* () {
     if (DUTPort === undefined) {
