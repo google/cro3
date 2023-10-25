@@ -68255,8 +68255,8 @@ var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _argume
 
 
 
-const intervalMs = 100;
-const cancel_cmd = '\x03\n';
+const INTERVAL_MS = 100;
+const CANCEL_CMD = '\x03\n';
 const downloadButton = document.getElementById('downloadButton');
 const requestUSBButton = document.getElementById('request-device');
 const requestSerialButton = document.getElementById('requestSerialButton');
@@ -68333,7 +68333,7 @@ input.addEventListener('keydown', (e) => __awaiter(void 0, void 0, void 0, funct
         return;
     const DUTWriter = DUTWritable.getWriter();
     if (e.ctrlKey && e.key === 'c') {
-        yield DUTWriter.write(encoder.encode(cancel_cmd));
+        yield DUTWriter.write(encoder.encode(CANCEL_CMD));
     }
     yield DUTWriter.releaseLock();
 }));
@@ -68428,10 +68428,10 @@ function kickWriteLoop(writeFn) {
             // ina 2 is something but not useful
             const cmd = 'ina 0\n';
             yield writeFn(cmd);
-            yield new Promise(r => setTimeout(r, intervalMs));
+            yield new Promise(r => setTimeout(r, INTERVAL_MS));
         }
     });
-    setTimeout(f, intervalMs);
+    setTimeout(f, INTERVAL_MS);
 }
 function readLoop(readFn) {
     return __awaiter(this, void 0, void 0, function* () {
