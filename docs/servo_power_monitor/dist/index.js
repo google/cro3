@@ -68326,16 +68326,14 @@ input.addEventListener('keydown', (e) => __awaiter(void 0, void 0, void 0, funct
     if (DUTPort === undefined) {
         overlay.classList.remove('closed');
     }
-    else {
-        const DUTWritable = DUTPort.writable;
-        if (DUTWritable === null)
-            return;
-        const DUTWriter = DUTWritable.getWriter();
-        if (e.ctrlKey && e.key === 'c') {
-            yield DUTWriter.write(encoder.encode('\x03\n'));
-        }
-        yield DUTWriter.releaseLock();
+    const DUTWritable = DUTPort.writable;
+    if (DUTWritable === null)
+        return;
+    const DUTWriter = DUTWritable.getWriter();
+    if (e.ctrlKey && e.key === 'c') {
+        yield DUTWriter.write(encoder.encode('\x03\n'));
     }
+    yield DUTWriter.releaseLock();
 }));
 executeScriptButton.addEventListener('click', () => __awaiter(void 0, void 0, void 0, function* () {
     if (DUTPort === undefined) {
