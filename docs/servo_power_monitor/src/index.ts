@@ -98,12 +98,14 @@ form.addEventListener('submit', async e => {
 input.addEventListener('keydown', async e => {
   if (DUTPort === undefined) {
     overlay.classList.remove('closed');
+    return;
   }
   const DUTWritable = DUTPort.writable;
   if (DUTWritable === null) return;
   const DUTWriter = DUTWritable.getWriter();
   if (e.ctrlKey && e.key === 'c') {
-    await DUTWriter.write(encoder.encode('\x03\n'));
+    const cancel_cmd = '\x03\n';
+    await DUTWriter.write(encoder.encode(cancel_cmd));
   }
   await DUTWriter.releaseLock();
 });
