@@ -68922,6 +68922,7 @@ form.addEventListener('submit', (e) => __awaiter(void 0, void 0, void 0, functio
     e.preventDefault();
     if (DUTPort === undefined) {
         overlay.classList.remove('closed');
+        return;
     }
     else {
         const input = document.getElementById('input');
