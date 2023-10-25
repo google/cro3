@@ -97,12 +97,12 @@ pub fn repo_sync(repo: &str, force: bool) -> Result<()> {
             .spawn()
             .context("Failed to execute repo sync")?;
 
-        let stdout = cmd
-            .stdout
-            .take()
-            .context("Failed to get stdout from script output")?;
-
-        forward_to_std_out(stdout).context("Failed to forward to stdout")?;
+        forward_to_std_out(
+            cmd.stdout
+                .take()
+                .context("Failed to get stdout from script output")?,
+        )
+        .context("Failed to forward to stdout")?;
 
         let result = cmd
             .wait_with_output()
