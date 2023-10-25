@@ -85,14 +85,14 @@ form.addEventListener('submit', async e => {
 
   if (DUTPort === undefined) {
     overlay.classList.remove('closed');
-  } else {
-    const DUTWritable = DUTPort.writable;
-    if (DUTWritable === null) return;
-    const DUTWriter = DUTWritable.getWriter();
-    await DUTWriter.write(encoder.encode(input.value + '\n'));
-    input.value = '';
-    await DUTWriter.releaseLock();
+    return;
   }
+  const DUTWritable = DUTPort.writable;
+  if (DUTWritable === null) return;
+  const DUTWriter = DUTWritable.getWriter();
+  await DUTWriter.write(encoder.encode(input.value + '\n'));
+  input.value = '';
+  await DUTWriter.releaseLock();
 });
 
 input.addEventListener('keydown', async e => {
