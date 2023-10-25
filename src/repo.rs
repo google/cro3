@@ -79,6 +79,7 @@ pub fn repo_sync(repo: &str, force: bool) -> Result<()> {
     loop {
         println!("Running repo sync...");
         let repo_sync = format!("repo sync -j{}", &num_cpus::get());
+
         // `script` is a Unix command that takes a copy of all output to the terminal
         // and writes it to `typescript` file.
         // Below, explanation of `script` options.
@@ -99,9 +100,9 @@ pub fn repo_sync(repo: &str, force: bool) -> Result<()> {
         let stdout = cmd
             .stdout
             .take()
-            .context("Could not get stdout from script output.")?;
+            .context("Failed to get stdout from script output")?;
 
-        forward_to_std_out(stdout).context("Cannot forward to stdout.")?;
+        forward_to_std_out(stdout).context("Failed to forward to stdout")?;
 
         let result = cmd
             .wait_with_output()
