@@ -110,20 +110,6 @@ input.addEventListener('keydown', async e => {
   await DUTWriter.releaseLock();
 });
 
-input.addEventListener('keydown', async e => {
-  if (DUTPort === undefined) {
-    overlay.classList.remove('closed');
-  } else {
-    const DUTWritable = DUTPort.writable;
-    if (DUTWritable === null) return;
-    const DUTWriter = DUTWritable.getWriter();
-    if (e.ctrlKey && e.key === 'c') {
-      await DUTWriter.write(encoder.encode('\x03\n'));
-    }
-    await DUTWriter.releaseLock();
-  }
-});
-
 executeScriptButton.addEventListener('click', async () => {
   if (DUTPort === undefined) {
     overlay.classList.remove('closed');
