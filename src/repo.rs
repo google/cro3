@@ -96,19 +96,12 @@ pub fn repo_sync(repo: &str, force: bool) -> Result<()> {
             .spawn()
             .context("Failed to execute repo sync")?;
 
-        let mut stdout = cmd
+        let stdout = cmd
             .stdout
             .take()
             .context("Could not get stdout from script output.")?;
-        let mut buffer = [0; 1];
-        loop {
-            let num_bytes = stdout.read(&mut buffer)?;
-            if num_bytes == 0 {
-                break;
-            }
-            let char = std::str::from_utf8(&buffer)?;
-            print!("{}", char);
-        }
+
+        forward_to_std_out(stdout).context("Cannot forward to stdout.")?;
 
         let result = cmd
             .wait_with_output()
@@ -155,6 +148,21 @@ pub fn repo_sync(repo: &str, force: bool) -> Result<()> {
         break;
     }
     println!("repo sync done!");
+    Ok(())
+}
+
+fn forward_to_std_out(mut r: impl Read) -> Result<()> {
+    let mut buffer = [0; 1];
+
+    loop {
+        let num_bytes = r.read(&mut buffer)?;
+        if num_bytes == 0 {
+            break;
+        }
+        let char = std::str::from_utf8(&buffer)?;
+        print!("{}", char);
+    }
+
     Ok(())
 }
 
