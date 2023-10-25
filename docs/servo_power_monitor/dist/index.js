@@ -68312,16 +68312,15 @@ form.addEventListener('submit', (e) => __awaiter(void 0, void 0, void 0, functio
     e.preventDefault();
     if (DUTPort === undefined) {
         overlay.classList.remove('closed');
+        return;
     }
-    else {
-        const DUTWritable = DUTPort.writable;
-        if (DUTWritable === null)
-            return;
-        const DUTWriter = DUTWritable.getWriter();
-        yield DUTWriter.write(encoder.encode(input.value + '\n'));
-        input.value = '';
-        yield DUTWriter.releaseLock();
-    }
+    const DUTWritable = DUTPort.writable;
+    if (DUTWritable === null)
+        return;
+    const DUTWriter = DUTWritable.getWriter();
+    yield DUTWriter.write(encoder.encode(input.value + '\n'));
+    input.value = '';
+    yield DUTWriter.releaseLock();
 }));
 input.addEventListener('keydown', (e) => __awaiter(void 0, void 0, void 0, function* () {
     if (DUTPort === undefined) {
@@ -68334,7 +68333,6 @@ input.addEventListener('keydown', (e) => __awaiter(void 0, void 0, void 0, funct
         const DUTWriter = DUTWritable.getWriter();
         if (e.ctrlKey && e.key === 'c') {
             yield DUTWriter.write(encoder.encode('\x03\n'));
-            console.log('ctrl+c');
         }
         yield DUTWriter.releaseLock();
     }
