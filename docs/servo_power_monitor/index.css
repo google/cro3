@@ -184,10 +184,6 @@ body {
   border: 1px solid #aaa;
 }
 
-#messages>li {
-  height: 18px;
-}
-
 #popup-overlay {
   position: fixed;
   width: 100%;
