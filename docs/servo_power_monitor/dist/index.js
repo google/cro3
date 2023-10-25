@@ -68323,6 +68323,8 @@ form.addEventListener('submit', (e) => __awaiter(void 0, void 0, void 0, functio
     yield DUTWriter.releaseLock();
 }));
 input.addEventListener('keydown', (e) => __awaiter(void 0, void 0, void 0, function* () {
+    if (e.key === 'enter')
+        return;
     if (DUTPort === undefined) {
         overlay.classList.remove('closed');
     }
@@ -68331,7 +68333,8 @@ input.addEventListener('keydown', (e) => __awaiter(void 0, void 0, void 0, funct
         return;
     const DUTWriter = DUTWritable.getWriter();
     if (e.ctrlKey && e.key === 'c') {
-        yield DUTWriter.write(encoder.encode('\x03\n'));
+        const cancel_cmd = '\x03\n';
+        yield DUTWriter.write(encoder.encode(cancel_cmd));
     }
     yield DUTWriter.releaseLock();
 }));
