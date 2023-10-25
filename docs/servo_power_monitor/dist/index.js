@@ -68936,6 +68936,7 @@ form.addEventListener('submit', (e) => __awaiter(void 0, void 0, void 0, functio
         input.value = '';
         yield DUTWriter.releaseLock();
     }
+    yield DUTWriter.releaseLock();
 }));
 executeScriptButton.addEventListener('click', () => __awaiter(void 0, void 0, void 0, function* () {
     if (DUTPort === undefined) {
