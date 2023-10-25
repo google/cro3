@@ -68867,6 +68867,7 @@ var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _argume
 
 
 const intervalMs = 100;
+const cancel_cmd = '\x03\n';
 const downloadButton = document.getElementById('downloadButton');
 const requestUSBButton = document.getElementById('request-device');
 const requestSerialButton = document.getElementById('requestSerialButton');
@@ -68925,39 +68926,25 @@ form.addEventListener('submit', (e) => __awaiter(void 0, void 0, void 0, functio
         overlay.classList.remove('closed');
         return;
     }
-<<<<<<< HEAD
-    else {
-        const DUTWritable = DUTPort.writable;
-        if (DUTWritable === null)
-            return;
-        const DUTWriter = DUTWritable.getWriter();
-        yield DUTWriter.write(encoder.encode(input.value + '\n'));
-        input.value = '';
-        yield DUTWriter.releaseLock();
-    }
-=======
     const DUTWritable = DUTPort.writable;
     if (DUTWritable === null)
         return;
     const DUTWriter = DUTWritable.getWriter();
     yield DUTWriter.write(encoder.encode(input.value + '\n'));
     input.value = '';
->>>>>>> 190f7f7 (early return)
     yield DUTWriter.releaseLock();
 }));
 input.addEventListener('keydown', (e) => __awaiter(void 0, void 0, void 0, function* () {
     if (DUTPort === undefined) {
         overlay.classList.remove('closed');
+        return;
     }
-    else {
-        const DUTWritable = DUTPort.writable;
-        if (DUTWritable === null)
-            return;
-        const DUTWriter = DUTWritable.getWriter();
-        if (e.ctrlKey && e.key === 'c') {
-            yield DUTWriter.write(encoder.encode('\x03\n'));
-        }
-        yield DUTWriter.releaseLock();
+    const DUTWritable = DUTPort.writable;
+    if (DUTWritable === null)
+        return;
+    const DUTWriter = DUTWritable.getWriter();
+    if (e.ctrlKey && e.key === 'c') {
+        yield DUTWriter.write(encoder.encode(cancel_cmd));
     }
 }));
 executeScriptButton.addEventListener('click', () => __awaiter(void 0, void 0, void 0, function* () {
