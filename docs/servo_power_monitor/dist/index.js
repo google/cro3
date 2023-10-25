@@ -68256,6 +68256,7 @@ var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _argume
 
 
 const intervalMs = 100;
+const cancel_cmd = '\x03\n';
 const downloadButton = document.getElementById('downloadButton');
 const requestUSBButton = document.getElementById('request-device');
 const requestSerialButton = document.getElementById('requestSerialButton');
@@ -68323,17 +68324,15 @@ form.addEventListener('submit', (e) => __awaiter(void 0, void 0, void 0, functio
     yield DUTWriter.releaseLock();
 }));
 input.addEventListener('keydown', (e) => __awaiter(void 0, void 0, void 0, function* () {
-    if (e.key === 'enter')
-        return;
     if (DUTPort === undefined) {
         overlay.classList.remove('closed');
+        return;
     }
     const DUTWritable = DUTPort.writable;
     if (DUTWritable === null)
         return;
     const DUTWriter = DUTWritable.getWriter();
     if (e.ctrlKey && e.key === 'c') {
-        const cancel_cmd = '\x03\n';
         yield DUTWriter.write(encoder.encode(cancel_cmd));
     }
     yield DUTWriter.releaseLock();

@@ -7,6 +7,7 @@ import Dygraph from 'dygraphs';
 import moment from 'moment';
 
 const intervalMs = 100;
+const cancel_cmd = '\x03\n';
 
 const downloadButton = document.getElementById(
   'downloadButton'
@@ -104,7 +105,6 @@ input.addEventListener('keydown', async e => {
   if (DUTWritable === null) return;
   const DUTWriter = DUTWritable.getWriter();
   if (e.ctrlKey && e.key === 'c') {
-    const cancel_cmd = '\x03\n';
     await DUTWriter.write(encoder.encode(cancel_cmd));
   }
   await DUTWriter.releaseLock();
