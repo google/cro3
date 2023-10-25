@@ -182,7 +182,10 @@ body {
   padding: 4px;
   margin: 4px;
   border: 1px solid #aaa;
+}
 
+#messages>li {
+  height: 18px;
 }
 
 #popup-overlay {
