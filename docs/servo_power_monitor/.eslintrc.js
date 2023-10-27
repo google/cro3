@@ -1,14 +1,13 @@
 module.exports = {
+  extends: './node_modules/gts/',
   env: {
-    browser: true
+    browser: true,
   },
-  overrides: [
-  ],
+  overrides: [],
   parserOptions: {
     ecmaVersion: 'latest',
-    sourceType: 'module'
+    sourceType: 'module',
   },
   parser: '@typescript-eslint/parser',
-  rules: {
-  }
-}
+  rules: {},
+};
