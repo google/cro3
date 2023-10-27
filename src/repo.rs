@@ -5,6 +5,7 @@
 // https://developers.google.com/open-source/licenses/bsd
 
 use std::env;
+use std::io::Read;
 use std::path::PathBuf;
 use std::process::exit;
 use std::process::Command;
@@ -77,13 +78,32 @@ pub fn repo_sync(repo: &str, force: bool) -> Result<()> {
 
     loop {
         println!("Running repo sync...");
-        let cmd = Command::new("repo")
+        let repo_sync = format!("repo sync -j{}", &num_cpus::get());
+
+        // `script` is a Unix command that takes a copy of all output to the terminal
+        // and writes it to `typescript` file.
+        // Below, explanation of `script` options.
+        // -q Be quiet (do not write start and done messages to standard output).
+        // -e Return the exit status of the child process.
+        // -f Flush output after each write.
+        // -c Run the command rather than an interactive shell. This makes it easy for a
+        // script to capture the output of a program that behaves differently when its
+        // stdout is not a tty.
+        let mut cmd = Command::new("script")
             .current_dir(repo)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
-            .args(["sync", "-j", &num_cpus::get().to_string()])
+            .args(["-qefc", &repo_sync])
             .spawn()
             .context("Failed to execute repo sync")?;
+
+        let child_stdout = cmd
+            .stdout
+            .take()
+            .context("Failed to get stdout from script output")?;
+
+        forward_to_std_out(child_stdout).context("Failed to forward to stdout")?;
+
         let result = cmd
             .wait_with_output()
             .context("Failed to wait for repo sync")?;
@@ -129,6 +149,21 @@ pub fn repo_sync(repo: &str, force: bool) -> Result<()> {
         break;
     }
     println!("repo sync done!");
+    Ok(())
+}
+
+fn forward_to_std_out(mut r: impl Read) -> Result<()> {
+    let mut buffer = [0; 1];
+
+    loop {
+        let num_bytes = r.read(&mut buffer)?;
+        if num_bytes == 0 {
+            break;
+        }
+        let char = std::str::from_utf8(&buffer)?;
+        print!("{}", char);
+    }
+
     Ok(())
 }
 

@@ -1,761 +1,6 @@
 /******/ (() => { // webpackBootstrap
 /******/ 	var __webpack_modules__ = ({
 
-/***/ "./generated/main.js":
-/*!***************************!*\
-  !*** ./generated/main.js ***!
-  \***************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
-
-"use strict";
-__webpack_require__.r(__webpack_exports__);
-/* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   analyzePowerData: () => (/* binding */ analyzePowerData),
-/* harmony export */   disconnectSerialPort: () => (/* binding */ disconnectSerialPort),
-/* harmony export */   disconnectUSBPort: () => (/* binding */ disconnectUSBPort),
-/* harmony export */   downloadJSONFile: () => (/* binding */ downloadJSONFile),
-/* harmony export */   executeScript: () => (/* binding */ executeScript),
-/* harmony export */   formSubmit: () => (/* binding */ formSubmit),
-/* harmony export */   handleDragOver: () => (/* binding */ handleDragOver),
-/* harmony export */   handleFileSelect: () => (/* binding */ handleFileSelect),
-/* harmony export */   requestSerial: () => (/* binding */ requestSerial),
-/* harmony export */   requestUSB: () => (/* binding */ requestUSB),
-/* harmony export */   selectDUTSerial: () => (/* binding */ selectDUTSerial),
-/* harmony export */   stopMeasurement: () => (/* binding */ stopMeasurement)
-/* harmony export */ });
-/* harmony import */ var d3__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! d3 */ "./node_modules/d3/src/index.js");
-/* harmony import */ var dygraphs__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! dygraphs */ "./node_modules/dygraphs/index.js");
-/* harmony import */ var moment__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! moment */ "./node_modules/moment/moment.js");
-/* harmony import */ var moment__WEBPACK_IMPORTED_MODULE_2___default = /*#__PURE__*/__webpack_require__.n(moment__WEBPACK_IMPORTED_MODULE_2__);
-/* harmony import */ var _ui__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./ui */ "./generated/ui.js");
-var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
-
-
-
-
-const intervalMs = 100;
-const encoder = new TextEncoder();
-const utf8decoder = new TextDecoder('utf-8');
-let halt = false;
-let inProgress = false;
-function kickWriteLoop(writeFn) {
-    const f = () => __awaiter(this, void 0, void 0, function* () {
-        while (!halt) {
-            if (inProgress) {
-                console.error('previous request is in progress! skip...');
-            }
-            else {
-                inProgress = true;
-            }
-            // ina 0 and 1 seems to be the same
-            // ina 2 is something but not useful
-            const cmd = 'ina 0\n';
-            yield writeFn(cmd);
-            yield new Promise(r => setTimeout(r, intervalMs));
-        }
-    });
-    setTimeout(f, intervalMs);
-}
-let servoPort, servoReader;
-let DUTPort, DUTReader;
-function openServoSerialPort() {
-    return __awaiter(this, void 0, void 0, function* () {
-        servoPort = yield navigator.serial
-            .requestPort({
-            filters: [{ usbVendorId: 0x18d1, usbProductId: 0x520d }],
-        })
-            .catch(e => {
-            console.error(e);
-            throw e;
-        });
-        yield servoPort.open({ baudRate: 115200 });
-    });
-}
-function closeServoSerialPort() {
-    return __awaiter(this, void 0, void 0, function* () {
-        yield servoReader.cancel();
-        yield servoReader.releaseLock();
-        try {
-            yield servoPort.close();
-        }
-        catch (e) {
-            console.error(e);
-            throw e;
-        }
-    });
-}
-function readServoSerialPort() {
-    return __awaiter(this, void 0, void 0, function* () {
-        const servoReadable = servoPort.readable;
-        if (servoReadable === null)
-            return '';
-        servoReader = servoReadable.getReader();
-        try {
-            for (;;) {
-                const { value, done } = yield servoReader.read();
-                if (done) {
-                    // |servoReader| has been canceled.
-                    servoReader.releaseLock();
-                    return '';
-                }
-                return utf8decoder.decode(value);
-            }
-        }
-        catch (error) {
-            servoReader.releaseLock();
-            console.error(error);
-            throw error;
-        }
-        finally {
-            servoReader.releaseLock();
-        }
-    });
-}
-function writeServoSerialPort(s) {
-    return __awaiter(this, void 0, void 0, function* () {
-        const writable = servoPort.writable;
-        if (writable === null)
-            return;
-        const writer = writable.getWriter();
-        yield writer.write(encoder.encode(s));
-        writer.releaseLock();
-    });
-}
-function openDUTSerialPort() {
-    return __awaiter(this, void 0, void 0, function* () {
-        DUTPort = yield navigator.serial
-            .requestPort({
-            filters: [{ usbVendorId: 0x18d1, usbProductId: 0x504a }],
-        })
-            .catch(e => {
-            console.error(e);
-            throw e;
-        });
-        yield DUTPort.open({ baudRate: 115200 });
-    });
-}
-function closeDUTSerialPort() {
-    return __awaiter(this, void 0, void 0, function* () {
-        yield DUTReader.cancel();
-        yield DUTReader.releaseLock();
-        try {
-            yield DUTPort.close();
-        }
-        catch (e) {
-            console.error(e);
-            throw e;
-        }
-    });
-}
-function readDUTSerialPort() {
-    return __awaiter(this, void 0, void 0, function* () {
-        const DUTReadable = DUTPort.readable;
-        if (DUTReadable === null)
-            return '';
-        DUTReader = DUTReadable.getReader();
-        try {
-            for (;;) {
-                const { value, done } = yield DUTReader.read();
-                if (done) {
-                    // |DUTReader| has been canceled.
-                    DUTReader.releaseLock();
-                    return '';
-                }
-                return utf8decoder.decode(value, { stream: true });
-            }
-        }
-        catch (error) {
-            DUTReader.releaseLock();
-            console.error(error);
-            throw error;
-        }
-        finally {
-            DUTReader.releaseLock();
-        }
-    });
-}
-function writeDUTSerialPort(s) {
-    return __awaiter(this, void 0, void 0, function* () {
-        const writable = DUTPort.writable;
-        if (writable === null)
-            return;
-        const writer = writable.getWriter();
-        yield writer.write(encoder.encode(s));
-        writer.releaseLock();
-    });
-}
-let device;
-const usb_interface = 0;
-const ep = usb_interface + 1;
-function openUSBPort() {
-    return __awaiter(this, void 0, void 0, function* () {
-        device = yield navigator.usb
-            .requestDevice({ filters: [{ vendorId: 0x18d1, productId: 0x520d }] })
-            .catch(e => {
-            console.error(e);
-            throw e;
-        });
-        yield device.open();
-        yield device.selectConfiguration(1);
-        yield device.claimInterface(usb_interface);
-    });
-}
-function closeUSBPort() {
-    return __awaiter(this, void 0, void 0, function* () {
-        try {
-            yield device.close();
-        }
-        catch (e) {
-            console.error(e);
-        }
-    });
-}
-function writeUSBPort(s) {
-    return __awaiter(this, void 0, void 0, function* () {
-        yield device.transferOut(ep, encoder.encode(s));
-    });
-}
-function readUSBPort() {
-    return __awaiter(this, void 0, void 0, function* () {
-        try {
-            const result = yield device.transferIn(ep, 64);
-            if (result.status === 'stall') {
-                yield device.clearHalt('in', ep);
-                throw result;
-            }
-            const resultData = result.data;
-            if (resultData === undefined)
-                return '';
-            const result_array = new Int8Array(resultData.buffer);
-            return utf8decoder.decode(result_array);
-        }
-        catch (e) {
-            // If halt is true, it's when the stop button is pressed. Therefore,
-            // we can ignore the error.
-            if (!halt) {
-                console.error(e);
-                throw e;
-            }
-            return '';
-        }
-    });
-}
-let currentData;
-function updateGraph(g, data) {
-    if (data !== undefined && data.length > 0) {
-        const toolTip = document.querySelector('#tooltip');
-        if (toolTip !== null) {
-            toolTip.classList.add('hidden');
-        }
-    }
-    currentData = data;
-    g.updateOptions({
-        file: data,
-        labels: ['t', 'ina0'],
-        showRoller: true,
-        ylabel: 'Power (mW)',
-        legend: 'always',
-        showRangeSelector: true,
-        connectSeparatedPoints: true,
-        underlayCallback: function (canvas, area, g) {
-            canvas.fillStyle = 'rgba(255, 255, 102, 1.0)';
-            function highlight_period(x_start, x_end) {
-                const canvas_left_x = g.toDomXCoord(x_start);
-                const canvas_right_x = g.toDomXCoord(x_end);
-                const canvas_width = canvas_right_x - canvas_left_x;
-                canvas.fillRect(canvas_left_x, area.y, canvas_width, area.h);
-            }
-            highlight_period(10, 10);
-        },
-    }, false);
-}
-const powerData = [];
-const g = new dygraphs__WEBPACK_IMPORTED_MODULE_1__["default"]('graph', powerData, {});
-let output = '';
-const serial_output = document.getElementById('serial_output');
-function pushOutput(s) {
-    output += s;
-    const splitted = output.split('\n').filter(s => s.trim().length > 10);
-    if (splitted.length > 0 &&
-        splitted[splitted.length - 1].indexOf('Alert limit') >= 0) {
-        const powerString = splitted.find(s => s.startsWith('Power'));
-        if (powerString === undefined)
-            return;
-        const power = parseInt(powerString.split('=>')[1].trim().split(' ')[0]);
-        const e = [new Date(), power];
-        powerData.push(e);
-        updateGraph(g, powerData);
-        serial_output.innerText = output;
-        output = '';
-        inProgress = false;
-    }
-}
-function readLoop(readFn) {
-    return __awaiter(this, void 0, void 0, function* () {
-        while (!halt) {
-            try {
-                const s = yield readFn();
-                if (s === '' || !s.length) {
-                    continue;
-                }
-                pushOutput(s);
-            }
-            catch (e) {
-                // break the loop here because `disconnect` event is not called in Chrome
-                // for some reason when the loop continues. And no need to throw error
-                // here because it is thrown in readFn.
-                break;
-            }
-        }
-    });
-}
-const ranges = [];
-function paintHistogram(t0, t1) {
-    // constants
-    const xtick = 40;
-    const boxWidth = 10;
-    // setup a graph (drop if exists)
-    const margin = { top: 60, right: 200, bottom: 0, left: 200 };
-    const area = d3__WEBPACK_IMPORTED_MODULE_0__.select('#d3area');
-    const targetWidth = area.node().getBoundingClientRect().width * 0.98;
-    const targetHeight = 10000; // (area.node() as HTMLElement).getBoundingClientRect().height;
-    const width = targetWidth - margin.left - margin.right;
-    const svg = area
-        .html('')
-        .append('svg')
-        .attr('height', targetHeight)
-        .attr('width', targetWidth)
-        .append('g')
-        .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
-    // y axis and its label
-    const dataAll = currentData.map((e) => e[1]);
-    const dataMin = d3__WEBPACK_IMPORTED_MODULE_0__.min(dataAll);
-    const dataMax = d3__WEBPACK_IMPORTED_MODULE_0__.max(dataAll);
-    if (dataMin === undefined || dataMax === undefined)
-        return;
-    const ymin = dataMin - 1000;
-    const ymax = dataMax + 1000;
-    const y = d3__WEBPACK_IMPORTED_MODULE_0__.scaleLinear().domain([ymin, ymax]).range([0, width]);
-    svg.append('g').call(d3__WEBPACK_IMPORTED_MODULE_0__.axisTop(y));
-    svg
-        .append('text')
-        .attr('text-anchor', 'end')
-        .attr('x', width)
-        .attr('y', -margin.top / 2)
-        .attr('stroke', '#fff')
-        .text('Power (mW)');
-    ranges.push([t0, t1]);
-    for (let i = 0; i < ranges.length; i++) {
-        // compute data and place of i-th series
-        const left = ranges[i][0];
-        const right = ranges[i][1];
-        const points = currentData.filter((e) => typeof e[0] !== 'number' &&
-            left <= e[0].getTime() &&
-            e[0].getTime() <= right);
-        const data = points.map((e) => e[1]);
-        const center = xtick * (i + 1);
-        // Compute statistics
-        const data_sorted = data.sort(d3__WEBPACK_IMPORTED_MODULE_0__.ascending);
-        const q1 = d3__WEBPACK_IMPORTED_MODULE_0__.quantile(data_sorted, 0.25);
-        const median = d3__WEBPACK_IMPORTED_MODULE_0__.quantile(data_sorted, 0.5);
-        const q3 = d3__WEBPACK_IMPORTED_MODULE_0__.quantile(data_sorted, 0.75);
-        if (q1 === undefined || q3 === undefined)
-            return;
-        if (median === undefined)
-            return;
-        const interQuantileRange = q3 - q1;
-        const lowerFence = q1 - 1.5 * interQuantileRange;
-        const upperFence = q3 + 1.5 * interQuantileRange;
-        const minValue = d3__WEBPACK_IMPORTED_MODULE_0__.min(data);
-        const maxValue = d3__WEBPACK_IMPORTED_MODULE_0__.max(data);
-        const mean = d3__WEBPACK_IMPORTED_MODULE_0__.mean(data);
-        if (minValue === undefined || maxValue === undefined || mean === undefined)
-            return;
-        // min, mean, max
-        svg
-            .append('line')
-            .attr('y1', center)
-            .attr('y2', center)
-            .attr('x1', y(minValue))
-            .attr('x2', y(maxValue))
-            .style('stroke-dasharray', '3, 3')
-            .attr('stroke', '#aaa');
-        svg
-            .selectAll('toto')
-            .data([minValue, mean, maxValue])
-            .enter()
-            .append('line')
-            .attr('y1', center - boxWidth)
-            .attr('y2', center + boxWidth)
-            .attr('x1', d => {
-            return y(d);
-        })
-            .attr('x2', d => {
-            return y(d);
-        })
-            .style('stroke-dasharray', '3, 3')
-            .attr('stroke', '#aaa');
-        // box and line
-        svg
-            .append('line')
-            .attr('y1', center)
-            .attr('y2', center)
-            .attr('x1', y(lowerFence))
-            .attr('x2', y(upperFence))
-            .attr('stroke', '#fff');
-        svg
-            .append('rect')
-            .attr('y', center - boxWidth / 2)
-            .attr('x', y(q1))
-            .attr('width', y(q3) - y(q1))
-            .attr('height', boxWidth)
-            .attr('stroke', '#fff')
-            .style('fill', '#69b3a2');
-        svg
-            .selectAll('toto')
-            .data([lowerFence, median, upperFence])
-            .enter()
-            .append('line')
-            .attr('y1', center - boxWidth / 2)
-            .attr('y2', center + boxWidth / 2)
-            .attr('x1', d => {
-            return y(d);
-        })
-            .attr('x2', d => {
-            return y(d);
-        })
-            .attr('stroke', '#fff');
-        svg
-            .append('text')
-            .attr('text-anchor', 'end')
-            .attr('alignment-baseline', 'baseline')
-            .attr('y', center - boxWidth / 4)
-            .attr('x', 0)
-            .attr('font-size', boxWidth)
-            .attr('stroke', '#fff')
-            .text(`${moment__WEBPACK_IMPORTED_MODULE_2___default()(left).format()}`);
-        svg
-            .append('text')
-            .attr('text-anchor', 'end')
-            .attr('alignment-baseline', 'hanging')
-            .attr('y', center + boxWidth / 4)
-            .attr('x', 0)
-            .attr('font-size', boxWidth)
-            .attr('stroke', '#fff')
-            .text(`${moment__WEBPACK_IMPORTED_MODULE_2___default()(right).format()}`);
-        svg
-            .append('text')
-            .attr('text-anchor', 'middle')
-            .attr('alignment-baseline', 'baseline')
-            .attr('y', center - boxWidth)
-            .attr('x', y(mean))
-            .attr('font-size', boxWidth)
-            .attr('stroke', '#fff')
-            .text(`mean:${mean | 0}`);
-        svg
-            .append('text')
-            .attr('text-anchor', 'middle')
-            .attr('alignment-baseline', 'hanging')
-            .attr('y', center + boxWidth)
-            .attr('x', y(median))
-            .attr('font-size', boxWidth)
-            .attr('stroke', '#fff')
-            .text(`median:${median}`);
-        svg
-            .append('text')
-            .attr('text-anchor', 'start')
-            .attr('alignment-baseline', 'hanging')
-            .attr('y', center + boxWidth)
-            .attr('x', y(ymax))
-            .attr('font-size', boxWidth)
-            .attr('stroke', '#fff')
-            .text(`N:${data.length}`);
-    }
-}
-function analyzePowerData() {
-    // https://dygraphs.com/jsdoc/symbols/Dygraph.html#xAxisRange
-    const xrange = g.xAxisRange();
-    console.log(g.xAxisExtremes());
-    const left = xrange[0];
-    const right = xrange[1];
-    paintHistogram(left, right);
-}
-function handleFileSelect(evt) {
-    evt.stopPropagation();
-    evt.preventDefault();
-    const eventDataTransfer = evt.dataTransfer;
-    if (eventDataTransfer === null)
-        return;
-    const file = eventDataTransfer.files[0];
-    if (file === undefined) {
-        return;
-    }
-    const r = new FileReader();
-    r.addEventListener('load', () => {
-        const data = JSON.parse(r.result);
-        const powerData = data.power.map((d) => [new Date(d[0]), d[1]]);
-        updateGraph(g, powerData);
-    });
-    r.readAsText(file);
-}
-function handleDragOver(evt) {
-    evt.stopPropagation();
-    evt.preventDefault();
-    const eventDataTransfer = evt.dataTransfer;
-    if (eventDataTransfer === null)
-        return;
-    eventDataTransfer.dropEffect = 'copy'; // Explicitly show this is a copy.
-}
-let isDUTOpened = false;
-function selectDUTSerial() {
-    return __awaiter(this, void 0, void 0, function* () {
-        yield openDUTSerialPort();
-        isDUTOpened = true;
-        (0,_ui__WEBPACK_IMPORTED_MODULE_3__.addEmptyListItemToMessages)();
-        (0,_ui__WEBPACK_IMPORTED_MODULE_3__.addMessageToConsole)('DUTPort is selected');
-        (0,_ui__WEBPACK_IMPORTED_MODULE_3__.addEmptyListItemToMessages)();
-        for (;;) {
-            const chunk = yield readDUTSerialPort();
-            const chunk_split_list = chunk.split('\n');
-            for (let i = 0; i < chunk_split_list.length - 1; i++) {
-                (0,_ui__WEBPACK_IMPORTED_MODULE_3__.addMessageToConsole)(chunk_split_list[i]);
-                (0,_ui__WEBPACK_IMPORTED_MODULE_3__.addEmptyListItemToMessages)();
-            }
-            (0,_ui__WEBPACK_IMPORTED_MODULE_3__.addMessageToConsole)(chunk_split_list[chunk_split_list.length - 1]);
-        }
-    });
-}
-function formSubmit(e) {
-    return __awaiter(this, void 0, void 0, function* () {
-        e.preventDefault();
-        if (!isDUTOpened) {
-            (0,_ui__WEBPACK_IMPORTED_MODULE_3__.closePopup)();
-        }
-        else {
-            yield writeDUTSerialPort((0,_ui__WEBPACK_IMPORTED_MODULE_3__.readInputValue)() + '\n');
-        }
-    });
-}
-// shell script
-const scripts = `#!/bin/bash -e
-function workload () {
-  ectool chargecontrol idle
-  stress-ng -c 1 -t \\$1
-  echo "workload"
-}
-echo "start"
-workload 10 1> ./test_out.log 2> ./test_err.log
-echo "end"\n`;
-function executeScript() {
-    return __awaiter(this, void 0, void 0, function* () {
-        if (!isDUTOpened) {
-            (0,_ui__WEBPACK_IMPORTED_MODULE_3__.closePopup)();
-        }
-        else {
-            yield writeDUTSerialPort('cat > ./example.sh << EOF\n');
-            yield writeDUTSerialPort(scripts);
-            yield writeDUTSerialPort('EOF\n');
-            yield writeDUTSerialPort('bash ./example.sh\n');
-        }
-    });
-}
-let isSerial = false;
-function requestUSB() {
-    return __awaiter(this, void 0, void 0, function* () {
-        halt = false;
-        yield openUSBPort();
-        isSerial = false;
-        (0,_ui__WEBPACK_IMPORTED_MODULE_3__.enabledRecordingButton)(halt);
-        try {
-            kickWriteLoop((s) => __awaiter(this, void 0, void 0, function* () { return writeUSBPort(s); }));
-            readLoop(() => __awaiter(this, void 0, void 0, function* () { return readUSBPort(); }));
-        }
-        catch (err) {
-            console.error(`Disconnected: ${err}`);
-            halt = true;
-            (0,_ui__WEBPACK_IMPORTED_MODULE_3__.enabledRecordingButton)(halt);
-        }
-    });
-}
-function requestSerial() {
-    return __awaiter(this, void 0, void 0, function* () {
-        halt = false;
-        yield openServoSerialPort();
-        isSerial = true;
-        (0,_ui__WEBPACK_IMPORTED_MODULE_3__.enabledRecordingButton)(halt);
-        yield writeServoSerialPort('help\n');
-        // TODO: Implement something to check the validity of servo serial port
-        kickWriteLoop((s) => __awaiter(this, void 0, void 0, function* () { return writeServoSerialPort(s); }));
-        readLoop(() => __awaiter(this, void 0, void 0, function* () { return readServoSerialPort(); }));
-    });
-}
-function disconnectUSBPort() {
-    return __awaiter(this, void 0, void 0, function* () {
-        if (!halt && !isSerial) {
-            //  No need to call close() for the USB servoPort here because the
-            //  specification says that
-            // the servoPort will be closed automatically when a device is disconnected.
-            halt = true;
-            inProgress = false;
-            (0,_ui__WEBPACK_IMPORTED_MODULE_3__.enabledRecordingButton)(halt);
-        }
-    });
-}
-function disconnectSerialPort() {
-    return __awaiter(this, void 0, void 0, function* () {
-        if (!halt && isSerial) {
-            yield closeServoSerialPort();
-            halt = true;
-            inProgress = false;
-            (0,_ui__WEBPACK_IMPORTED_MODULE_3__.enabledRecordingButton)(halt);
-        }
-        if (isDUTOpened) {
-            yield closeDUTSerialPort();
-            isDUTOpened = false;
-        }
-    });
-}
-function downloadJSONFile() {
-    const dataStr = 'data:text/json;charset=utf-8,' +
-        encodeURIComponent(JSON.stringify({ power: powerData }));
-    (0,_ui__WEBPACK_IMPORTED_MODULE_3__.setDownloadAnchor)(dataStr);
-}
-function stopMeasurement() {
-    return __awaiter(this, void 0, void 0, function* () {
-        halt = true;
-        inProgress = false;
-        if (isSerial) {
-            yield closeServoSerialPort();
-        }
-        else {
-            yield closeUSBPort();
-        }
-        (0,_ui__WEBPACK_IMPORTED_MODULE_3__.enabledRecordingButton)(halt);
-    });
-}
-//# sourceMappingURL=main.js.map
-
-/***/ }),
-
-/***/ "./generated/ui.js":
-/*!*************************!*\
-  !*** ./generated/ui.js ***!
-  \*************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
-
-"use strict";
-__webpack_require__.r(__webpack_exports__);
-/* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   addEmptyListItemToMessages: () => (/* binding */ addEmptyListItemToMessages),
-/* harmony export */   addMessageToConsole: () => (/* binding */ addMessageToConsole),
-/* harmony export */   analyzeAddClickEvent: () => (/* binding */ analyzeAddClickEvent),
-/* harmony export */   closePopup: () => (/* binding */ closePopup),
-/* harmony export */   downloadAddClickEvent: () => (/* binding */ downloadAddClickEvent),
-/* harmony export */   dropZoneAddDragoverEvent: () => (/* binding */ dropZoneAddDragoverEvent),
-/* harmony export */   dropZoneAddDropEvent: () => (/* binding */ dropZoneAddDropEvent),
-/* harmony export */   enabledRecordingButton: () => (/* binding */ enabledRecordingButton),
-/* harmony export */   executeScriptAddClickEvent: () => (/* binding */ executeScriptAddClickEvent),
-/* harmony export */   formAddSubmitEvent: () => (/* binding */ formAddSubmitEvent),
-/* harmony export */   haltAddClickEvent: () => (/* binding */ haltAddClickEvent),
-/* harmony export */   readInputValue: () => (/* binding */ readInputValue),
-/* harmony export */   requestSerialAddClickEvent: () => (/* binding */ requestSerialAddClickEvent),
-/* harmony export */   requestUSBAddClickEvent: () => (/* binding */ requestUSBAddClickEvent),
-/* harmony export */   selectDUTSerialAddClickEvent: () => (/* binding */ selectDUTSerialAddClickEvent),
-/* harmony export */   setDownloadAnchor: () => (/* binding */ setDownloadAnchor),
-/* harmony export */   setPopupCloseButton: () => (/* binding */ setPopupCloseButton)
-/* harmony export */ });
-/* harmony import */ var moment__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! moment */ "./node_modules/moment/moment.js");
-/* harmony import */ var moment__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(moment__WEBPACK_IMPORTED_MODULE_0__);
-
-const requestUSBButton = document.getElementById('request-device');
-const requestSerialButton = document.getElementById('requestSerialButton');
-const haltButton = document.getElementById('haltButton');
-const downloadButton = document.getElementById('downloadButton');
-const analyzeButton = document.getElementById('analyzeButton');
-const selectDUTSerialButton = document.getElementById('selectDUTSerialButton');
-const form = document.getElementById('form');
-const input = document.getElementById('input');
-const popupCloseButton = document.getElementById('popup-close');
-const overlay = document.querySelector('#popup-overlay');
-const messages = document.getElementById('messages');
-const executeScriptButton = document.getElementById('executeScriptButton');
-const dropZone = document.getElementById('dropZone');
-function requestSerialAddClickEvent(fn) {
-    requestSerialButton.addEventListener('click', fn);
-}
-function requestUSBAddClickEvent(fn) {
-    requestUSBButton.addEventListener('click', fn);
-}
-function haltAddClickEvent(fn) {
-    haltButton.addEventListener('click', fn);
-}
-function enabledRecordingButton(halt) {
-    requestUSBButton.disabled = !halt;
-    requestSerialButton.disabled = !halt;
-}
-function setPopupCloseButton() {
-    popupCloseButton.addEventListener('click', () => {
-        overlay.classList.add('closed');
-    });
-}
-function closePopup() {
-    overlay.classList.remove('closed');
-}
-let listItem;
-function addEmptyListItemToMessages() {
-    listItem = document.createElement('li');
-    messages.appendChild(listItem);
-}
-function addMessageToConsole(s) {
-    listItem.textContent += s;
-    messages.scrollTo(0, messages.scrollHeight);
-}
-function selectDUTSerialAddClickEvent(fn) {
-    selectDUTSerialButton.addEventListener('click', fn);
-}
-function executeScriptAddClickEvent(fn) {
-    executeScriptButton.addEventListener('click', fn);
-}
-function formAddSubmitEvent(fn) {
-    form.addEventListener('submit', fn);
-}
-function readInputValue() {
-    const res = input.value;
-    input.value = '';
-    return res;
-}
-function downloadAddClickEvent(fn) {
-    downloadButton.addEventListener('click', fn);
-}
-function analyzeAddClickEvent(fn) {
-    analyzeButton.addEventListener('click', fn);
-}
-function setDownloadAnchor(dataStr) {
-    const dlAnchorElem = document.getElementById('downloadAnchorElem');
-    if (dlAnchorElem === null)
-        return;
-    dlAnchorElem.setAttribute('href', dataStr);
-    dlAnchorElem.setAttribute('download', `power_${moment__WEBPACK_IMPORTED_MODULE_0___default()().format()}.json`);
-    dlAnchorElem.click();
-}
-function dropZoneAddDragoverEvent(fn) {
-    dropZone.addEventListener('dragover', fn, false);
-}
-function dropZoneAddDropEvent(fn) {
-    dropZone.addEventListener('drop', fn, false);
-}
-//# sourceMappingURL=ui.js.map
-
-/***/ }),
-
 /***/ "./node_modules/dygraphs/index.js":
 /*!****************************************!*\
   !*** ./node_modules/dygraphs/index.js ***!
@@ -34596,6 +33841,748 @@ webpackContext.id = "./node_modules/moment/locale sync recursive ^\\.\\/.*$";
 
 /***/ }),
 
+/***/ "./src/main.ts":
+/*!*********************!*\
+  !*** ./src/main.ts ***!
+  \*********************/
+/***/ (function(__unused_webpack_module, exports, __webpack_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.stopMeasurement = exports.downloadJSONFile = exports.disconnectSerialPort = exports.disconnectUSBPort = exports.requestSerial = exports.requestUSB = exports.executeScript = exports.cancelSubmit = exports.formSubmit = exports.selectDUTSerial = exports.handleDragOver = exports.handleFileSelect = exports.analyzePowerData = void 0;
+const d3 = __importStar(__webpack_require__(/*! d3 */ "./node_modules/d3/src/index.js"));
+const dygraphs_1 = __importDefault(__webpack_require__(/*! dygraphs */ "./node_modules/dygraphs/index.js"));
+const moment_1 = __importDefault(__webpack_require__(/*! moment */ "./node_modules/moment/moment.js"));
+const ui_1 = __webpack_require__(/*! ./ui */ "./src/ui.ts");
+const INTERVAL_MS = 100;
+const CANCEL_CMD = '\x03\n';
+const encoder = new TextEncoder();
+const utf8decoder = new TextDecoder('utf-8');
+let halt = false;
+let inProgress = false;
+function kickWriteLoop(writeFn) {
+    const f = async () => {
+        while (!halt) {
+            if (inProgress) {
+                console.error('previous request is in progress! skip...');
+            }
+            else {
+                inProgress = true;
+            }
+            // ina 0 and 1 seems to be the same
+            // ina 2 is something but not useful
+            const cmd = 'ina 0\n';
+            await writeFn(cmd);
+            await new Promise(r => setTimeout(r, INTERVAL_MS));
+        }
+    };
+    setTimeout(f, INTERVAL_MS);
+}
+let servoPort, servoReader;
+let DUTPort, DUTReader;
+async function openServoSerialPort() {
+    servoPort = await navigator.serial
+        .requestPort({
+        filters: [{ usbVendorId: 0x18d1, usbProductId: 0x520d }],
+    })
+        .catch(e => {
+        console.error(e);
+        throw e;
+    });
+    await servoPort.open({ baudRate: 115200 });
+}
+async function closeServoSerialPort() {
+    await servoReader.cancel();
+    await servoReader.releaseLock();
+    try {
+        await servoPort.close();
+    }
+    catch (e) {
+        console.error(e);
+        throw e;
+    }
+}
+async function readServoSerialPort() {
+    const servoReadable = servoPort.readable;
+    if (servoReadable === null)
+        return '';
+    servoReader = servoReadable.getReader();
+    try {
+        for (;;) {
+            const { value, done } = await servoReader.read();
+            if (done) {
+                // |servoReader| has been canceled.
+                servoReader.releaseLock();
+                return '';
+            }
+            return utf8decoder.decode(value);
+        }
+    }
+    catch (error) {
+        servoReader.releaseLock();
+        console.error(error);
+        throw error;
+    }
+    finally {
+        servoReader.releaseLock();
+    }
+}
+async function writeServoSerialPort(s) {
+    const writable = servoPort.writable;
+    if (writable === null)
+        return;
+    const writer = writable.getWriter();
+    await writer.write(encoder.encode(s));
+    writer.releaseLock();
+}
+async function openDUTSerialPort() {
+    DUTPort = await navigator.serial
+        .requestPort({
+        filters: [{ usbVendorId: 0x18d1, usbProductId: 0x504a }],
+    })
+        .catch(e => {
+        console.error(e);
+        throw e;
+    });
+    await DUTPort.open({ baudRate: 115200 });
+}
+async function closeDUTSerialPort() {
+    await DUTReader.cancel();
+    await DUTReader.releaseLock();
+    try {
+        await DUTPort.close();
+    }
+    catch (e) {
+        console.error(e);
+        throw e;
+    }
+}
+async function readDUTSerialPort() {
+    const DUTReadable = DUTPort.readable;
+    if (DUTReadable === null)
+        return '';
+    DUTReader = DUTReadable.getReader();
+    try {
+        for (;;) {
+            const { value, done } = await DUTReader.read();
+            if (done) {
+                // |DUTReader| has been canceled.
+                DUTReader.releaseLock();
+                return '';
+            }
+            return utf8decoder.decode(value, { stream: true });
+        }
+    }
+    catch (error) {
+        DUTReader.releaseLock();
+        console.error(error);
+        throw error;
+    }
+    finally {
+        DUTReader.releaseLock();
+    }
+}
+async function writeDUTSerialPort(s) {
+    const writable = DUTPort.writable;
+    if (writable === null)
+        return;
+    const writer = writable.getWriter();
+    await writer.write(encoder.encode(s));
+    writer.releaseLock();
+}
+let device;
+const usb_interface = 0;
+const ep = usb_interface + 1;
+async function openUSBPort() {
+    device = await navigator.usb
+        .requestDevice({ filters: [{ vendorId: 0x18d1, productId: 0x520d }] })
+        .catch(e => {
+        console.error(e);
+        throw e;
+    });
+    await device.open();
+    await device.selectConfiguration(1);
+    await device.claimInterface(usb_interface);
+}
+async function closeUSBPort() {
+    try {
+        await device.close();
+    }
+    catch (e) {
+        console.error(e);
+    }
+}
+async function writeUSBPort(s) {
+    await device.transferOut(ep, encoder.encode(s));
+}
+async function readUSBPort() {
+    try {
+        const result = await device.transferIn(ep, 64);
+        if (result.status === 'stall') {
+            await device.clearHalt('in', ep);
+            throw result;
+        }
+        const resultData = result.data;
+        if (resultData === undefined)
+            return '';
+        const result_array = new Int8Array(resultData.buffer);
+        return utf8decoder.decode(result_array);
+    }
+    catch (e) {
+        // If halt is true, it's when the stop button is pressed. Therefore,
+        // we can ignore the error.
+        if (!halt) {
+            console.error(e);
+            throw e;
+        }
+        return '';
+    }
+}
+let currentData;
+function updateGraph(g, data) {
+    if (data !== undefined && data.length > 0) {
+        const toolTip = document.querySelector('#tooltip');
+        if (toolTip !== null) {
+            toolTip.classList.add('hidden');
+        }
+    }
+    currentData = data;
+    g.updateOptions({
+        file: data,
+        labels: ['t', 'ina0'],
+        showRoller: true,
+        ylabel: 'Power (mW)',
+        legend: 'always',
+        showRangeSelector: true,
+        connectSeparatedPoints: true,
+        underlayCallback: function (canvas, area, g) {
+            canvas.fillStyle = 'rgba(255, 255, 102, 1.0)';
+            function highlight_period(x_start, x_end) {
+                const canvas_left_x = g.toDomXCoord(x_start);
+                const canvas_right_x = g.toDomXCoord(x_end);
+                const canvas_width = canvas_right_x - canvas_left_x;
+                canvas.fillRect(canvas_left_x, area.y, canvas_width, area.h);
+            }
+            highlight_period(10, 10);
+        },
+    }, false);
+}
+const powerData = [];
+const g = new dygraphs_1.default('graph', powerData, {});
+let output = '';
+const serial_output = document.getElementById('serial_output');
+function pushOutput(s) {
+    output += s;
+    const splitted = output.split('\n').filter(s => s.trim().length > 10);
+    if (splitted.length > 0 &&
+        splitted[splitted.length - 1].indexOf('Alert limit') >= 0) {
+        const powerString = splitted.find(s => s.startsWith('Power'));
+        if (powerString === undefined)
+            return;
+        const power = parseInt(powerString.split('=>')[1].trim().split(' ')[0]);
+        const e = [new Date(), power];
+        powerData.push(e);
+        updateGraph(g, powerData);
+        serial_output.innerText = output;
+        output = '';
+        inProgress = false;
+    }
+}
+async function readLoop(readFn) {
+    while (!halt) {
+        try {
+            const s = await readFn();
+            if (s === '' || !s.length) {
+                continue;
+            }
+            pushOutput(s);
+        }
+        catch (e) {
+            // break the loop here because `disconnect` event is not called in Chrome
+            // for some reason when the loop continues. And no need to throw error
+            // here because it is thrown in readFn.
+            break;
+        }
+    }
+}
+const ranges = [];
+function paintHistogram(t0, t1) {
+    // constants
+    const xtick = 40;
+    const boxWidth = 10;
+    // setup a graph (drop if exists)
+    const margin = { top: 60, right: 200, bottom: 0, left: 200 };
+    const area = d3.select('#d3area');
+    const targetWidth = area.node().getBoundingClientRect().width * 0.98;
+    const targetHeight = 10000; // (area.node() as HTMLElement).getBoundingClientRect().height;
+    const width = targetWidth - margin.left - margin.right;
+    const svg = area
+        .html('')
+        .append('svg')
+        .attr('height', targetHeight)
+        .attr('width', targetWidth)
+        .append('g')
+        .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
+    // y axis and its label
+    const dataAll = currentData.map((e) => e[1]);
+    const dataMin = d3.min(dataAll);
+    const dataMax = d3.max(dataAll);
+    if (dataMin === undefined || dataMax === undefined)
+        return;
+    const ymin = dataMin - 1000;
+    const ymax = dataMax + 1000;
+    const y = d3.scaleLinear().domain([ymin, ymax]).range([0, width]);
+    svg.append('g').call(d3.axisTop(y));
+    svg
+        .append('text')
+        .attr('text-anchor', 'end')
+        .attr('x', width)
+        .attr('y', -margin.top / 2)
+        .attr('stroke', '#fff')
+        .text('Power (mW)');
+    ranges.push([t0, t1]);
+    for (let i = 0; i < ranges.length; i++) {
+        // compute data and place of i-th series
+        const left = ranges[i][0];
+        const right = ranges[i][1];
+        const points = currentData.filter((e) => typeof e[0] !== 'number' &&
+            left <= e[0].getTime() &&
+            e[0].getTime() <= right);
+        const data = points.map((e) => e[1]);
+        const center = xtick * (i + 1);
+        // Compute statistics
+        const data_sorted = data.sort(d3.ascending);
+        const q1 = d3.quantile(data_sorted, 0.25);
+        const median = d3.quantile(data_sorted, 0.5);
+        const q3 = d3.quantile(data_sorted, 0.75);
+        if (q1 === undefined || q3 === undefined)
+            return;
+        if (median === undefined)
+            return;
+        const interQuantileRange = q3 - q1;
+        const lowerFence = q1 - 1.5 * interQuantileRange;
+        const upperFence = q3 + 1.5 * interQuantileRange;
+        const minValue = d3.min(data);
+        const maxValue = d3.max(data);
+        const mean = d3.mean(data);
+        if (minValue === undefined || maxValue === undefined || mean === undefined)
+            return;
+        // min, mean, max
+        svg
+            .append('line')
+            .attr('y1', center)
+            .attr('y2', center)
+            .attr('x1', y(minValue))
+            .attr('x2', y(maxValue))
+            .style('stroke-dasharray', '3, 3')
+            .attr('stroke', '#aaa');
+        svg
+            .selectAll('toto')
+            .data([minValue, mean, maxValue])
+            .enter()
+            .append('line')
+            .attr('y1', center - boxWidth)
+            .attr('y2', center + boxWidth)
+            .attr('x1', d => {
+            return y(d);
+        })
+            .attr('x2', d => {
+            return y(d);
+        })
+            .style('stroke-dasharray', '3, 3')
+            .attr('stroke', '#aaa');
+        // box and line
+        svg
+            .append('line')
+            .attr('y1', center)
+            .attr('y2', center)
+            .attr('x1', y(lowerFence))
+            .attr('x2', y(upperFence))
+            .attr('stroke', '#fff');
+        svg
+            .append('rect')
+            .attr('y', center - boxWidth / 2)
+            .attr('x', y(q1))
+            .attr('width', y(q3) - y(q1))
+            .attr('height', boxWidth)
+            .attr('stroke', '#fff')
+            .style('fill', '#69b3a2');
+        svg
+            .selectAll('toto')
+            .data([lowerFence, median, upperFence])
+            .enter()
+            .append('line')
+            .attr('y1', center - boxWidth / 2)
+            .attr('y2', center + boxWidth / 2)
+            .attr('x1', d => {
+            return y(d);
+        })
+            .attr('x2', d => {
+            return y(d);
+        })
+            .attr('stroke', '#fff');
+        svg
+            .append('text')
+            .attr('text-anchor', 'end')
+            .attr('alignment-baseline', 'baseline')
+            .attr('y', center - boxWidth / 4)
+            .attr('x', 0)
+            .attr('font-size', boxWidth)
+            .attr('stroke', '#fff')
+            .text(`${(0, moment_1.default)(left).format()}`);
+        svg
+            .append('text')
+            .attr('text-anchor', 'end')
+            .attr('alignment-baseline', 'hanging')
+            .attr('y', center + boxWidth / 4)
+            .attr('x', 0)
+            .attr('font-size', boxWidth)
+            .attr('stroke', '#fff')
+            .text(`${(0, moment_1.default)(right).format()}`);
+        svg
+            .append('text')
+            .attr('text-anchor', 'middle')
+            .attr('alignment-baseline', 'baseline')
+            .attr('y', center - boxWidth)
+            .attr('x', y(mean))
+            .attr('font-size', boxWidth)
+            .attr('stroke', '#fff')
+            .text(`mean:${mean | 0}`);
+        svg
+            .append('text')
+            .attr('text-anchor', 'middle')
+            .attr('alignment-baseline', 'hanging')
+            .attr('y', center + boxWidth)
+            .attr('x', y(median))
+            .attr('font-size', boxWidth)
+            .attr('stroke', '#fff')
+            .text(`median:${median}`);
+        svg
+            .append('text')
+            .attr('text-anchor', 'start')
+            .attr('alignment-baseline', 'hanging')
+            .attr('y', center + boxWidth)
+            .attr('x', y(ymax))
+            .attr('font-size', boxWidth)
+            .attr('stroke', '#fff')
+            .text(`N:${data.length}`);
+    }
+}
+function analyzePowerData() {
+    // https://dygraphs.com/jsdoc/symbols/Dygraph.html#xAxisRange
+    const xrange = g.xAxisRange();
+    console.log(g.xAxisExtremes());
+    const left = xrange[0];
+    const right = xrange[1];
+    paintHistogram(left, right);
+}
+exports.analyzePowerData = analyzePowerData;
+function handleFileSelect(evt) {
+    evt.stopPropagation();
+    evt.preventDefault();
+    const eventDataTransfer = evt.dataTransfer;
+    if (eventDataTransfer === null)
+        return;
+    const file = eventDataTransfer.files[0];
+    if (file === undefined) {
+        return;
+    }
+    const r = new FileReader();
+    r.addEventListener('load', () => {
+        const data = JSON.parse(r.result);
+        const powerData = data.power.map((d) => [new Date(d[0]), d[1]]);
+        updateGraph(g, powerData);
+    });
+    r.readAsText(file);
+}
+exports.handleFileSelect = handleFileSelect;
+function handleDragOver(evt) {
+    evt.stopPropagation();
+    evt.preventDefault();
+    const eventDataTransfer = evt.dataTransfer;
+    if (eventDataTransfer === null)
+        return;
+    eventDataTransfer.dropEffect = 'copy'; // Explicitly show this is a copy.
+}
+exports.handleDragOver = handleDragOver;
+let isDUTOpened = false;
+async function selectDUTSerial() {
+    await openDUTSerialPort();
+    isDUTOpened = true;
+    (0, ui_1.addEmptyListItemToMessages)();
+    (0, ui_1.addMessageToConsole)('DUTPort is selected');
+    (0, ui_1.addEmptyListItemToMessages)();
+    for (;;) {
+        const chunk = await readDUTSerialPort();
+        const chunk_split_list = chunk.split('\n');
+        for (let i = 0; i < chunk_split_list.length - 1; i++) {
+            (0, ui_1.addMessageToConsole)(chunk_split_list[i]);
+            (0, ui_1.addEmptyListItemToMessages)();
+        }
+        (0, ui_1.addMessageToConsole)(chunk_split_list[chunk_split_list.length - 1]);
+    }
+}
+exports.selectDUTSerial = selectDUTSerial;
+async function formSubmit(e) {
+    e.preventDefault();
+    if (!isDUTOpened) {
+        (0, ui_1.closePopup)();
+        return;
+    }
+    await writeDUTSerialPort((0, ui_1.readInputValue)() + '\n');
+}
+exports.formSubmit = formSubmit;
+// send cancel command to serial port when ctrl+C is pressed in input area
+async function cancelSubmit(e) {
+    e.preventDefault();
+    if (!isDUTOpened) {
+        (0, ui_1.closePopup)();
+        return;
+    }
+    if (e.ctrlKey && e.key === 'c') {
+        await writeDUTSerialPort(CANCEL_CMD);
+    }
+}
+exports.cancelSubmit = cancelSubmit;
+// shell script
+const scripts = `#!/bin/bash -e
+function workload () {
+  ectool chargecontrol idle
+  stress-ng -c 1 -t \\$1
+  echo "workload"
+}
+echo "start"
+workload 10 1> ./test_out.log 2> ./test_err.log
+echo "end"\n`;
+async function executeScript() {
+    if (!isDUTOpened) {
+        (0, ui_1.closePopup)();
+    }
+    else {
+        await writeDUTSerialPort('cat > ./example.sh << EOF\n');
+        await writeDUTSerialPort(scripts);
+        await writeDUTSerialPort('EOF\n');
+        await writeDUTSerialPort('bash ./example.sh\n');
+    }
+}
+exports.executeScript = executeScript;
+let isSerial = false;
+async function requestUSB() {
+    halt = false;
+    await openUSBPort();
+    isSerial = false;
+    (0, ui_1.enabledRecordingButton)(halt);
+    try {
+        kickWriteLoop(async (s) => writeUSBPort(s));
+        readLoop(async () => readUSBPort());
+    }
+    catch (err) {
+        console.error(`Disconnected: ${err}`);
+        halt = true;
+        (0, ui_1.enabledRecordingButton)(halt);
+    }
+}
+exports.requestUSB = requestUSB;
+async function requestSerial() {
+    halt = false;
+    await openServoSerialPort();
+    isSerial = true;
+    (0, ui_1.enabledRecordingButton)(halt);
+    await writeServoSerialPort('help\n');
+    // TODO: Implement something to check the validity of servo serial port
+    kickWriteLoop(async (s) => writeServoSerialPort(s));
+    readLoop(async () => readServoSerialPort());
+}
+exports.requestSerial = requestSerial;
+async function disconnectUSBPort() {
+    if (!halt && !isSerial) {
+        //  No need to call close() for the USB servoPort here because the
+        //  specification says that
+        // the servoPort will be closed automatically when a device is disconnected.
+        halt = true;
+        inProgress = false;
+        (0, ui_1.enabledRecordingButton)(halt);
+    }
+}
+exports.disconnectUSBPort = disconnectUSBPort;
+async function disconnectSerialPort() {
+    if (!halt && isSerial) {
+        await closeServoSerialPort();
+        halt = true;
+        inProgress = false;
+        (0, ui_1.enabledRecordingButton)(halt);
+    }
+    if (isDUTOpened) {
+        await closeDUTSerialPort();
+        isDUTOpened = false;
+    }
+}
+exports.disconnectSerialPort = disconnectSerialPort;
+function downloadJSONFile() {
+    const dataStr = 'data:text/json;charset=utf-8,' +
+        encodeURIComponent(JSON.stringify({ power: powerData }));
+    (0, ui_1.setDownloadAnchor)(dataStr);
+}
+exports.downloadJSONFile = downloadJSONFile;
+async function stopMeasurement() {
+    halt = true;
+    inProgress = false;
+    if (isSerial) {
+        await closeServoSerialPort();
+    }
+    else {
+        await closeUSBPort();
+    }
+    (0, ui_1.enabledRecordingButton)(halt);
+}
+exports.stopMeasurement = stopMeasurement;
+
+
+/***/ }),
+
+/***/ "./src/ui.ts":
+/*!*******************!*\
+  !*** ./src/ui.ts ***!
+  \*******************/
+/***/ (function(__unused_webpack_module, exports, __webpack_require__) {
+
+"use strict";
+
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.dropZoneAddDropEvent = exports.dropZoneAddDragoverEvent = exports.setDownloadAnchor = exports.analyzeAddClickEvent = exports.downloadAddClickEvent = exports.readInputValue = exports.inputAddKeydownEvent = exports.formAddSubmitEvent = exports.executeScriptAddClickEvent = exports.selectDUTSerialAddClickEvent = exports.addMessageToConsole = exports.addEmptyListItemToMessages = exports.closePopup = exports.setPopupCloseButton = exports.enabledRecordingButton = exports.haltAddClickEvent = exports.requestUSBAddClickEvent = exports.requestSerialAddClickEvent = void 0;
+const moment_1 = __importDefault(__webpack_require__(/*! moment */ "./node_modules/moment/moment.js"));
+const requestUSBButton = document.getElementById('request-device');
+const requestSerialButton = document.getElementById('requestSerialButton');
+const haltButton = document.getElementById('haltButton');
+const downloadButton = document.getElementById('downloadButton');
+const analyzeButton = document.getElementById('analyzeButton');
+const selectDUTSerialButton = document.getElementById('selectDUTSerialButton');
+const form = document.getElementById('form');
+const input = document.getElementById('input');
+const popupCloseButton = document.getElementById('popup-close');
+const overlay = document.querySelector('#popup-overlay');
+const messages = document.getElementById('messages');
+const executeScriptButton = document.getElementById('executeScriptButton');
+const dropZone = document.getElementById('dropZone');
+function requestSerialAddClickEvent(fn) {
+    requestSerialButton.addEventListener('click', fn);
+}
+exports.requestSerialAddClickEvent = requestSerialAddClickEvent;
+function requestUSBAddClickEvent(fn) {
+    requestUSBButton.addEventListener('click', fn);
+}
+exports.requestUSBAddClickEvent = requestUSBAddClickEvent;
+function haltAddClickEvent(fn) {
+    haltButton.addEventListener('click', fn);
+}
+exports.haltAddClickEvent = haltAddClickEvent;
+function enabledRecordingButton(halt) {
+    requestUSBButton.disabled = !halt;
+    requestSerialButton.disabled = !halt;
+}
+exports.enabledRecordingButton = enabledRecordingButton;
+function setPopupCloseButton() {
+    popupCloseButton.addEventListener('click', () => {
+        overlay.classList.add('closed');
+    });
+}
+exports.setPopupCloseButton = setPopupCloseButton;
+function closePopup() {
+    overlay.classList.remove('closed');
+}
+exports.closePopup = closePopup;
+let listItem;
+function addEmptyListItemToMessages() {
+    listItem = document.createElement('li');
+    messages.appendChild(listItem);
+}
+exports.addEmptyListItemToMessages = addEmptyListItemToMessages;
+function addMessageToConsole(s) {
+    listItem.textContent += s;
+    messages.scrollTo(0, messages.scrollHeight);
+}
+exports.addMessageToConsole = addMessageToConsole;
+function selectDUTSerialAddClickEvent(fn) {
+    selectDUTSerialButton.addEventListener('click', fn);
+}
+exports.selectDUTSerialAddClickEvent = selectDUTSerialAddClickEvent;
+function executeScriptAddClickEvent(fn) {
+    executeScriptButton.addEventListener('click', fn);
+}
+exports.executeScriptAddClickEvent = executeScriptAddClickEvent;
+function formAddSubmitEvent(fn) {
+    form.addEventListener('submit', fn);
+}
+exports.formAddSubmitEvent = formAddSubmitEvent;
+function inputAddKeydownEvent(fn) {
+    input.addEventListener('keydown', fn);
+}
+exports.inputAddKeydownEvent = inputAddKeydownEvent;
+function readInputValue() {
+    const res = input.value;
+    input.value = '';
+    return res;
+}
+exports.readInputValue = readInputValue;
+function downloadAddClickEvent(fn) {
+    downloadButton.addEventListener('click', fn);
+}
+exports.downloadAddClickEvent = downloadAddClickEvent;
+function analyzeAddClickEvent(fn) {
+    analyzeButton.addEventListener('click', fn);
+}
+exports.analyzeAddClickEvent = analyzeAddClickEvent;
+function setDownloadAnchor(dataStr) {
+    const dlAnchorElem = document.getElementById('downloadAnchorElem');
+    if (dlAnchorElem === null)
+        return;
+    dlAnchorElem.setAttribute('href', dataStr);
+    dlAnchorElem.setAttribute('download', `power_${(0, moment_1.default)().format()}.json`);
+    dlAnchorElem.click();
+}
+exports.setDownloadAnchor = setDownloadAnchor;
+function dropZoneAddDragoverEvent(fn) {
+    dropZone.addEventListener('dragover', fn, false);
+}
+exports.dropZoneAddDragoverEvent = dropZoneAddDragoverEvent;
+function dropZoneAddDropEvent(fn) {
+    dropZone.addEventListener('drop', fn, false);
+}
+exports.dropZoneAddDropEvent = dropZoneAddDropEvent;
+
+
+/***/ }),
+
 /***/ "./node_modules/d3-array/src/array.js":
 /*!********************************************!*\
   !*** ./node_modules/d3-array/src/array.js ***!
@@ -36424,16 +36411,18 @@ function quantileSorted(values, p, valueof = _number_js__WEBPACK_IMPORTED_MODULE
   return value0 + (value1 - value0) * (i - i0);
 }
 
-function quantileIndex(values, p, valueof) {
-  values = Float64Array.from((0,_number_js__WEBPACK_IMPORTED_MODULE_0__.numbers)(values, valueof));
-  if (!(n = values.length) || isNaN(p = +p)) return;
-  if (p <= 0 || n < 2) return (0,_minIndex_js__WEBPACK_IMPORTED_MODULE_4__["default"])(values);
-  if (p >= 1) return (0,_maxIndex_js__WEBPACK_IMPORTED_MODULE_5__["default"])(values);
-  var n,
-      i = Math.floor((n - 1) * p),
-      order = (i, j) => (0,_sort_js__WEBPACK_IMPORTED_MODULE_6__.ascendingDefined)(values[i], values[j]),
-      index = (0,_quickselect_js__WEBPACK_IMPORTED_MODULE_3__["default"])(Uint32Array.from(values, (_, i) => i), i, 0, n - 1, order);
-  return (0,_greatest_js__WEBPACK_IMPORTED_MODULE_7__["default"])(index.subarray(0, i + 1), i => values[i]);
+function quantileIndex(values, p, valueof = _number_js__WEBPACK_IMPORTED_MODULE_0__["default"]) {
+  if (isNaN(p = +p)) return;
+  numbers = Float64Array.from(values, (_, i) => (0,_number_js__WEBPACK_IMPORTED_MODULE_0__["default"])(valueof(values[i], i, values)));
+  if (p <= 0) return (0,_minIndex_js__WEBPACK_IMPORTED_MODULE_4__["default"])(numbers);
+  if (p >= 1) return (0,_maxIndex_js__WEBPACK_IMPORTED_MODULE_5__["default"])(numbers);
+  var numbers,
+      index = Uint32Array.from(values, (_, i) => i),
+      j = numbers.length - 1,
+      i = Math.floor(j * p);
+  (0,_quickselect_js__WEBPACK_IMPORTED_MODULE_3__["default"])(index, i, 0, j, (i, j) => (0,_sort_js__WEBPACK_IMPORTED_MODULE_6__.ascendingDefined)(numbers[i], numbers[j]));
+  i = (0,_greatest_js__WEBPACK_IMPORTED_MODULE_7__["default"])(index.subarray(0, i + 1), (i) => numbers[i]);
+  return i >= 0 ? i : -1;
 }
 
 
@@ -67951,39 +67940,30 @@ function insphere(ax, ay, az, bx, by, bz, cx, cy, cz, dx, dy, dz, ex, ey, ez) {
     const dexbey = dex * bey;
     const bd = bexdey - dexbey;
 
-    const abc = aez * bc - bez * ac + cez * ab;
-    const bcd = bez * cd - cez * bd + dez * bc;
-    const cda = cez * da + dez * ac + aez * cd;
-    const dab = dez * ab + aez * bd + bez * da;
-
     const alift = aex * aex + aey * aey + aez * aez;
     const blift = bex * bex + bey * bey + bez * bez;
     const clift = cex * cex + cey * cey + cez * cez;
     const dlift = dex * dex + dey * dey + dez * dez;
 
-    const det = (clift * dab - dlift * abc) + (alift * bcd - blift * cda);
+    const det =
+        (clift * (dez * ab + aez * bd + bez * da) - dlift * (aez * bc - bez * ac + cez * ab)) +
+        (alift * (bez * cd - cez * bd + dez * bc) - blift * (cez * da + dez * ac + aez * cd));
 
     const aezplus = Math.abs(aez);
     const bezplus = Math.abs(bez);
     const cezplus = Math.abs(cez);
     const dezplus = Math.abs(dez);
-    const aexbeyplus = Math.abs(aexbey);
-    const bexaeyplus = Math.abs(bexaey);
-    const bexceyplus = Math.abs(bexcey);
-    const cexbeyplus = Math.abs(cexbey);
-    const cexdeyplus = Math.abs(cexdey);
-    const dexceyplus = Math.abs(dexcey);
-    const dexaeyplus = Math.abs(dexaey);
-    const aexdeyplus = Math.abs(aexdey);
-    const aexceyplus = Math.abs(aexcey);
-    const cexaeyplus = Math.abs(cexaey);
-    const bexdeyplus = Math.abs(bexdey);
-    const dexbeyplus = Math.abs(dexbey);
+    const aexbeyplus = Math.abs(aexbey) + Math.abs(bexaey);
+    const bexceyplus = Math.abs(bexcey) + Math.abs(cexbey);
+    const cexdeyplus = Math.abs(cexdey) + Math.abs(dexcey);
+    const dexaeyplus = Math.abs(dexaey) + Math.abs(aexdey);
+    const aexceyplus = Math.abs(aexcey) + Math.abs(cexaey);
+    const bexdeyplus = Math.abs(bexdey) + Math.abs(dexbey);
     const permanent =
-        ((cexdeyplus + dexceyplus) * bezplus + (dexbeyplus + bexdeyplus) * cezplus + (bexceyplus + cexbeyplus) * dezplus) * alift +
-        ((dexaeyplus + aexdeyplus) * cezplus + (aexceyplus + cexaeyplus) * dezplus + (cexdeyplus + dexceyplus) * aezplus) * blift +
-        ((aexbeyplus + bexaeyplus) * dezplus + (bexdeyplus + dexbeyplus) * aezplus + (dexaeyplus + aexdeyplus) * bezplus) * clift +
-        ((bexceyplus + cexbeyplus) * aezplus + (cexaeyplus + aexceyplus) * bezplus + (aexbeyplus + bexaeyplus) * cezplus) * dlift;
+        (cexdeyplus * bezplus + bexdeyplus * cezplus + bexceyplus * dezplus) * alift +
+        (dexaeyplus * cezplus + aexceyplus * dezplus + cexdeyplus * aezplus) * blift +
+        (aexbeyplus * dezplus + bexdeyplus * aezplus + dexaeyplus * bezplus) * clift +
+        (bexceyplus * aezplus + aexceyplus * bezplus + aexbeyplus * cezplus) * dlift;
 
     const errbound = isperrboundA * permanent;
     if (det > errbound || -det > errbound) {
@@ -68216,8 +68196,6 @@ function orient2d(ax, ay, bx, by, cx, cy) {
     const detleft = (ay - cy) * (bx - cx);
     const detright = (ax - cx) * (by - cy);
     const det = detleft - detright;
-
-    if (detleft === 0 || detright === 0 || (detleft > 0) !== (detright > 0)) return det;
 
     const detsum = Math.abs(detleft + detright);
     if (Math.abs(det) >= ccwerrboundA * detsum) return det;
@@ -68933,18 +68911,6 @@ __webpack_require__.r(__webpack_exports__);
 /******/ 	}
 /******/ 	
 /************************************************************************/
-/******/ 	/* webpack/runtime/compat get default export */
-/******/ 	(() => {
-/******/ 		// getDefaultExport function for compatibility with non-harmony modules
-/******/ 		__webpack_require__.n = (module) => {
-/******/ 			var getter = module && module.__esModule ?
-/******/ 				() => (module['default']) :
-/******/ 				() => (module);
-/******/ 			__webpack_require__.d(getter, { a: getter });
-/******/ 			return getter;
-/******/ 		};
-/******/ 	})();
-/******/ 	
 /******/ 	/* webpack/runtime/define property getters */
 /******/ 	(() => {
 /******/ 		// define getter functions for harmony exports
@@ -68987,45 +68953,37 @@ var __webpack_exports__ = {};
 // This entry need to be wrapped in an IIFE because it need to be in strict mode.
 (() => {
 "use strict";
-/*!****************************!*\
-  !*** ./generated/index.js ***!
-  \****************************/
-__webpack_require__.r(__webpack_exports__);
-/* harmony import */ var _main__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./main */ "./generated/main.js");
-/* harmony import */ var _ui__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./ui */ "./generated/ui.js");
+var exports = __webpack_exports__;
+/*!**********************!*\
+  !*** ./src/index.ts ***!
+  \**********************/
+
 // while true ; do { echo "do nothing for 5 sec" ; sleep 5 ; echo "yes for 5 sec
 // without displaying" ; timeout 5 yes > /dev/null ; } ; done ectool
 // chargecontrol idle ectool chargecontrol normal
-var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
-
-
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+const main_1 = __webpack_require__(/*! ./main */ "./src/main.ts");
+const ui_1 = __webpack_require__(/*! ./ui */ "./src/ui.ts");
 window.addEventListener('DOMContentLoaded', () => {
-    (0,_ui__WEBPACK_IMPORTED_MODULE_1__.setPopupCloseButton)();
-    (0,_ui__WEBPACK_IMPORTED_MODULE_1__.selectDUTSerialAddClickEvent)(_main__WEBPACK_IMPORTED_MODULE_0__.selectDUTSerial);
-    (0,_ui__WEBPACK_IMPORTED_MODULE_1__.formAddSubmitEvent)((e) => __awaiter(void 0, void 0, void 0, function* () { return (0,_main__WEBPACK_IMPORTED_MODULE_0__.formSubmit)(e); }));
-    (0,_ui__WEBPACK_IMPORTED_MODULE_1__.executeScriptAddClickEvent)(_main__WEBPACK_IMPORTED_MODULE_0__.executeScript);
-    (0,_ui__WEBPACK_IMPORTED_MODULE_1__.requestUSBAddClickEvent)(_main__WEBPACK_IMPORTED_MODULE_0__.requestUSB);
-    (0,_ui__WEBPACK_IMPORTED_MODULE_1__.requestSerialAddClickEvent)(_main__WEBPACK_IMPORTED_MODULE_0__.requestSerial);
+    (0, ui_1.setPopupCloseButton)();
+    (0, ui_1.selectDUTSerialAddClickEvent)(main_1.selectDUTSerial);
+    (0, ui_1.formAddSubmitEvent)(async (e) => (0, main_1.formSubmit)(e));
+    (0, ui_1.inputAddKeydownEvent)(async (e) => (0, main_1.cancelSubmit)(e));
+    (0, ui_1.executeScriptAddClickEvent)(main_1.executeScript);
+    (0, ui_1.requestUSBAddClickEvent)(main_1.requestUSB);
+    (0, ui_1.requestSerialAddClickEvent)(main_1.requestSerial);
     // `disconnect` event is fired when a USB device is disconnected.
     // c.f. https://wicg.github.io/webusb/#disconnect (5.1. Events)
-    navigator.usb.addEventListener('disconnect', _main__WEBPACK_IMPORTED_MODULE_0__.disconnectUSBPort);
+    navigator.usb.addEventListener('disconnect', main_1.disconnectUSBPort);
     // event when you disconnect serial port
-    navigator.serial.addEventListener('disconnect', _main__WEBPACK_IMPORTED_MODULE_0__.disconnectSerialPort);
-    (0,_ui__WEBPACK_IMPORTED_MODULE_1__.downloadAddClickEvent)(_main__WEBPACK_IMPORTED_MODULE_0__.downloadJSONFile);
-    (0,_ui__WEBPACK_IMPORTED_MODULE_1__.haltAddClickEvent)(_main__WEBPACK_IMPORTED_MODULE_0__.stopMeasurement);
-    (0,_ui__WEBPACK_IMPORTED_MODULE_1__.analyzeAddClickEvent)(_main__WEBPACK_IMPORTED_MODULE_0__.analyzePowerData);
-    (0,_ui__WEBPACK_IMPORTED_MODULE_1__.dropZoneAddDragoverEvent)(_main__WEBPACK_IMPORTED_MODULE_0__.handleDragOver);
-    (0,_ui__WEBPACK_IMPORTED_MODULE_1__.dropZoneAddDropEvent)(_main__WEBPACK_IMPORTED_MODULE_0__.handleFileSelect);
+    navigator.serial.addEventListener('disconnect', main_1.disconnectSerialPort);
+    (0, ui_1.downloadAddClickEvent)(main_1.downloadJSONFile);
+    (0, ui_1.haltAddClickEvent)(main_1.stopMeasurement);
+    (0, ui_1.analyzeAddClickEvent)(main_1.analyzePowerData);
+    (0, ui_1.dropZoneAddDragoverEvent)(main_1.handleDragOver);
+    (0, ui_1.dropZoneAddDropEvent)(main_1.handleFileSelect);
 });
-//# sourceMappingURL=index.js.map
+
 })();
 
 /******/ })()

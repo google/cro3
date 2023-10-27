@@ -15,6 +15,7 @@ import {
   disconnectSerialPort,
   downloadJSONFile,
   stopMeasurement,
+  cancelSubmit,
 } from './main';
 import {
   analyzeAddClickEvent,
@@ -24,6 +25,7 @@ import {
   executeScriptAddClickEvent,
   formAddSubmitEvent,
   haltAddClickEvent,
+  inputAddKeydownEvent,
   requestSerialAddClickEvent,
   requestUSBAddClickEvent,
   selectDUTSerialAddClickEvent,
@@ -36,6 +38,8 @@ window.addEventListener('DOMContentLoaded', () => {
   selectDUTSerialAddClickEvent(selectDUTSerial);
 
   formAddSubmitEvent(async e => formSubmit(e));
+
+  inputAddKeydownEvent(async e => cancelSubmit(e));
 
   executeScriptAddClickEvent(executeScript);
 
