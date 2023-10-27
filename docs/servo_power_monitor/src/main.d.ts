@@ -1,0 +1,13 @@
+export declare function analyzePowerData(): void;
+export declare function handleFileSelect(evt: DragEvent): void;
+export declare function handleDragOver(evt: DragEvent): void;
+export declare function selectDUTSerial(): Promise<void>;
+export declare function formSubmit(e: Event): Promise<void>;
+export declare function cancelSubmit(e: KeyboardEvent): Promise<void>;
+export declare function executeScript(): Promise<void>;
+export declare function requestUSB(): Promise<void>;
+export declare function requestSerial(): Promise<void>;
+export declare function disconnectUSBPort(): Promise<void>;
+export declare function disconnectSerialPort(): Promise<void>;
+export declare function downloadJSONFile(): void;
+export declare function stopMeasurement(): Promise<void>;

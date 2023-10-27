@@ -10,7 +10,8 @@ import {
   setDownloadAnchor,
 } from './ui';
 
-const intervalMs = 100;
+const INTERVAL_MS = 100;
+const CANCEL_CMD = '\x03\n';
 const encoder = new TextEncoder();
 const utf8decoder = new TextDecoder('utf-8');
 let halt = false;
@@ -29,10 +30,10 @@ function kickWriteLoop(writeFn: (s: string) => Promise<void>) {
       // ina 2 is something but not useful
       const cmd = 'ina 0\n';
       await writeFn(cmd);
-      await new Promise(r => setTimeout(r, intervalMs));
+      await new Promise(r => setTimeout(r, INTERVAL_MS));
     }
   };
-  setTimeout(f, intervalMs);
+  setTimeout(f, INTERVAL_MS);
 }
 
 let servoPort: SerialPort, servoReader: ReadableStreamDefaultReader;
@@ -514,8 +515,20 @@ export async function formSubmit(e: Event) {
   e.preventDefault();
   if (!isDUTOpened) {
     closePopup();
-  } else {
-    await writeDUTSerialPort(readInputValue() + '\n');
+    return;
+  }
+  await writeDUTSerialPort(readInputValue() + '\n');
+}
+
+// send cancel command to serial port when ctrl+C is pressed in input area
+export async function cancelSubmit(e: KeyboardEvent) {
+  e.preventDefault();
+  if (!isDUTOpened) {
+    closePopup();
+    return;
+  }
+  if (e.ctrlKey && e.key === 'c') {
+    await writeDUTSerialPort(CANCEL_CMD);
   }
 }
 

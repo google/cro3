@@ -79,6 +79,10 @@ export function formAddSubmitEvent(fn: (e: Event) => Promise<void>) {
   form.addEventListener('submit', fn);
 }
 
+export function inputAddKeydownEvent(fn: (e: KeyboardEvent) => Promise<void>) {
+  input.addEventListener('keydown', fn);
+}
+
 export function readInputValue() {
   const res = input.value;
   input.value = '';
