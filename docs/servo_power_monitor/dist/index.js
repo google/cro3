@@ -33882,7 +33882,8 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 const d3 = __importStar(__webpack_require__(/*! d3 */ "./node_modules/d3/src/index.js"));
 const dygraphs_1 = __importDefault(__webpack_require__(/*! dygraphs */ "./node_modules/dygraphs/index.js"));
 const moment_1 = __importDefault(__webpack_require__(/*! moment */ "./node_modules/moment/moment.js"));
-const intervalMs = 100;
+const INTERVAL_MS = 100;
+const CANCEL_CMD = '\x03\n';
 const downloadButton = document.getElementById('downloadButton');
 const requestUSBButton = document.getElementById('request-device');
 const requestSerialButton = document.getElementById('requestSerialButton');
@@ -33934,23 +33935,34 @@ selectDUTSerialButton.addEventListener('click', async () => {
     });
 });
 const form = document.getElementById('form');
+const input = document.getElementById('input');
 form.addEventListener('submit', async (e) => {
     e.preventDefault();
     if (DUTPort === undefined) {
         overlay.classList.remove('closed');
+        return;
     }
-    else {
-        const input = document.getElementById('input');
-        if (input === null)
-            return;
-        const DUTWritable = DUTPort.writable;
-        if (DUTWritable === null)
-            return;
-        const DUTWriter = DUTWritable.getWriter();
-        await DUTWriter.write(encoder.encode(input.value + '\n'));
-        input.value = '';
-        await DUTWriter.releaseLock();
+    const DUTWritable = DUTPort.writable;
+    if (DUTWritable === null)
+        return;
+    const DUTWriter = DUTWritable.getWriter();
+    await DUTWriter.write(encoder.encode(input.value + '\n'));
+    input.value = '';
+    await DUTWriter.releaseLock();
+});
+input.addEventListener('keydown', async (e) => {
+    if (DUTPort === undefined) {
+        overlay.classList.remove('closed');
+        return;
     }
+    const DUTWritable = DUTPort.writable;
+    if (DUTWritable === null)
+        return;
+    const DUTWriter = DUTWritable.getWriter();
+    if (e.ctrlKey && e.key === 'c') {
+        await DUTWriter.write(encoder.encode(CANCEL_CMD));
+    }
+    await DUTWriter.releaseLock();
 });
 executeScriptButton.addEventListener('click', async () => {
     if (DUTPort === undefined) {
@@ -34043,10 +34055,10 @@ function kickWriteLoop(writeFn) {
             // ina 2 is something but not useful
             const cmd = 'ina 0\n';
             await writeFn(cmd);
-            await new Promise(r => setTimeout(r, intervalMs));
+            await new Promise(r => setTimeout(r, INTERVAL_MS));
         }
     };
-    setTimeout(f, intervalMs);
+    setTimeout(f, INTERVAL_MS);
 }
 async function readLoop(readFn) {
     while (!halt) {

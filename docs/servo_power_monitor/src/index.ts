@@ -6,7 +6,8 @@ import * as d3 from 'd3';
 import Dygraph from 'dygraphs';
 import moment from 'moment';
 
-const intervalMs = 100;
+const INTERVAL_MS = 100;
+const CANCEL_CMD = '\x03\n';
 
 const downloadButton = document.getElementById(
   'downloadButton'
@@ -79,21 +80,34 @@ selectDUTSerialButton.addEventListener('click', async () => {
 });
 
 const form = document.getElementById('form') as HTMLFormElement;
+const input = document.getElementById('input') as HTMLInputElement;
 form.addEventListener('submit', async e => {
   e.preventDefault();
 
   if (DUTPort === undefined) {
     overlay.classList.remove('closed');
-  } else {
-    const input = document.getElementById('input') as HTMLInputElement | null;
-    if (input === null) return;
-    const DUTWritable = DUTPort.writable;
-    if (DUTWritable === null) return;
-    const DUTWriter = DUTWritable.getWriter();
-    await DUTWriter.write(encoder.encode(input.value + '\n'));
-    input.value = '';
-    await DUTWriter.releaseLock();
+    return;
   }
+  const DUTWritable = DUTPort.writable;
+  if (DUTWritable === null) return;
+  const DUTWriter = DUTWritable.getWriter();
+  await DUTWriter.write(encoder.encode(input.value + '\n'));
+  input.value = '';
+  await DUTWriter.releaseLock();
+});
+
+input.addEventListener('keydown', async e => {
+  if (DUTPort === undefined) {
+    overlay.classList.remove('closed');
+    return;
+  }
+  const DUTWritable = DUTPort.writable;
+  if (DUTWritable === null) return;
+  const DUTWriter = DUTWritable.getWriter();
+  if (e.ctrlKey && e.key === 'c') {
+    await DUTWriter.write(encoder.encode(CANCEL_CMD));
+  }
+  await DUTWriter.releaseLock();
 });
 
 executeScriptButton.addEventListener('click', async () => {
@@ -195,10 +209,10 @@ function kickWriteLoop(writeFn: (s: string) => Promise<void>) {
       // ina 2 is something but not useful
       const cmd = 'ina 0\n';
       await writeFn(cmd);
-      await new Promise(r => setTimeout(r, intervalMs));
+      await new Promise(r => setTimeout(r, INTERVAL_MS));
     }
   };
-  setTimeout(f, intervalMs);
+  setTimeout(f, INTERVAL_MS);
 }
 async function readLoop(readFn: () => Promise<string>) {
   while (!halt) {
