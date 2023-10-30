@@ -5,6 +5,7 @@
 // https://developers.google.com/open-source/licenses/bsd
 
 use std::env;
+use std::io::BufReader;
 use std::io::Read;
 use std::path::PathBuf;
 use std::process::exit;
@@ -97,10 +98,11 @@ pub fn repo_sync(repo: &str, force: bool) -> Result<()> {
             .spawn()
             .context("Failed to execute repo sync")?;
 
-        let child_stdout = cmd
-            .stdout
-            .take()
-            .context("Failed to get stdout from script output")?;
+        let child_stdout = BufReader::new(
+            cmd.stdout
+                .take()
+                .context("Failed to get stdout from script output")?,
+        );
 
         forward_to_std_out(child_stdout).context("Failed to forward to stdout")?;
 
@@ -152,14 +154,11 @@ pub fn repo_sync(repo: &str, force: bool) -> Result<()> {
     Ok(())
 }
 
-fn forward_to_std_out(mut r: impl Read) -> Result<()> {
+fn forward_to_std_out(r: impl Read) -> Result<()> {
     let mut buffer = [0; 1];
 
-    loop {
-        let num_bytes = r.read(&mut buffer)?;
-        if num_bytes == 0 {
-            break;
-        }
+    for a_byte in r.bytes() {
+        buffer[0] = a_byte?;
         let char = std::str::from_utf8(&buffer)?;
         print!("{}", char);
     }
