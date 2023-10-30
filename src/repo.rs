@@ -110,7 +110,7 @@ pub fn repo_sync(repo: &str, force: bool) -> Result<()> {
                     .context("Failed to get stdout from script output")?,
             );
 
-            draw_progress_bar(buf_reader)?;
+            draw_progress_bar(buf_reader).context("Failed to draw progress bar")?;
         } else {
             // Print stdout directly.
             let child_stdout = cmd
