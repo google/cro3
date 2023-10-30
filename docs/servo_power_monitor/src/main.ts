@@ -2,7 +2,6 @@ import * as d3 from 'd3';
 import Dygraph from 'dygraphs';
 import moment from 'moment';
 import {
-  addEmptyListItemToMessages,
   addMessageToConsole,
   closePopup,
   enabledRecordingButton,
@@ -496,18 +495,10 @@ let isDUTOpened = false;
 export async function selectDUTSerial() {
   await openDUTSerialPort();
   isDUTOpened = true;
-  addEmptyListItemToMessages();
   addMessageToConsole('DUTPort is selected');
-  addEmptyListItemToMessages();
   for (;;) {
     const chunk = await readDUTSerialPort();
-    const chunk_split_list = chunk.split('\n');
-
-    for (let i = 0; i < chunk_split_list.length - 1; i++) {
-      addMessageToConsole(chunk_split_list[i]);
-      addEmptyListItemToMessages();
-    }
-    addMessageToConsole(chunk_split_list[chunk_split_list.length - 1]);
+    addMessageToConsole(chunk);
   }
 }
 
@@ -522,7 +513,6 @@ export async function formSubmit(e: Event) {
 
 // send cancel command to serial port when ctrl+C is pressed in input area
 export async function cancelSubmit(e: KeyboardEvent) {
-  e.preventDefault();
   if (!isDUTOpened) {
     closePopup();
     return;

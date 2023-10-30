@@ -6,7 +6,6 @@ export declare function haltAddClickEvent(fn: () => Promise<void>): void;
 export declare function enabledRecordingButton(halt: boolean): void;
 export declare function setPopupCloseButton(): void;
 export declare function closePopup(): void;
-export declare function addEmptyListItemToMessages(): void;
 export declare function addMessageToConsole(s: string): void;
 export declare function selectDUTSerialAddClickEvent(
   fn: () => Promise<void>

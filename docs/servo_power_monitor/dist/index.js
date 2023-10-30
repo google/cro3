@@ -34336,17 +34336,10 @@ let isDUTOpened = false;
 async function selectDUTSerial() {
     await openDUTSerialPort();
     isDUTOpened = true;
-    (0, ui_1.addEmptyListItemToMessages)();
     (0, ui_1.addMessageToConsole)('DUTPort is selected');
-    (0, ui_1.addEmptyListItemToMessages)();
     for (;;) {
         const chunk = await readDUTSerialPort();
-        const chunk_split_list = chunk.split('\n');
-        for (let i = 0; i < chunk_split_list.length - 1; i++) {
-            (0, ui_1.addMessageToConsole)(chunk_split_list[i]);
-            (0, ui_1.addEmptyListItemToMessages)();
-        }
-        (0, ui_1.addMessageToConsole)(chunk_split_list[chunk_split_list.length - 1]);
+        (0, ui_1.addMessageToConsole)(chunk);
     }
 }
 exports.selectDUTSerial = selectDUTSerial;
@@ -34361,7 +34354,6 @@ async function formSubmit(e) {
 exports.formSubmit = formSubmit;
 // send cancel command to serial port when ctrl+C is pressed in input area
 async function cancelSubmit(e) {
-    e.preventDefault();
     if (!isDUTOpened) {
         (0, ui_1.closePopup)();
         return;
@@ -34479,7 +34471,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.dropZoneAddDropEvent = exports.dropZoneAddDragoverEvent = exports.setDownloadAnchor = exports.analyzeAddClickEvent = exports.downloadAddClickEvent = exports.readInputValue = exports.inputAddKeydownEvent = exports.formAddSubmitEvent = exports.executeScriptAddClickEvent = exports.selectDUTSerialAddClickEvent = exports.addMessageToConsole = exports.addEmptyListItemToMessages = exports.closePopup = exports.setPopupCloseButton = exports.enabledRecordingButton = exports.haltAddClickEvent = exports.requestUSBAddClickEvent = exports.requestSerialAddClickEvent = void 0;
+exports.dropZoneAddDropEvent = exports.dropZoneAddDragoverEvent = exports.setDownloadAnchor = exports.analyzeAddClickEvent = exports.downloadAddClickEvent = exports.readInputValue = exports.inputAddKeydownEvent = exports.formAddSubmitEvent = exports.executeScriptAddClickEvent = exports.selectDUTSerialAddClickEvent = exports.addMessageToConsole = exports.closePopup = exports.setPopupCloseButton = exports.enabledRecordingButton = exports.haltAddClickEvent = exports.requestUSBAddClickEvent = exports.requestSerialAddClickEvent = void 0;
 const moment_1 = __importDefault(__webpack_require__(/*! moment */ "./node_modules/moment/moment.js"));
 const requestUSBButton = document.getElementById('request-device');
 const requestSerialButton = document.getElementById('requestSerialButton');
@@ -34521,14 +34513,8 @@ function closePopup() {
     overlay.classList.remove('closed');
 }
 exports.closePopup = closePopup;
-let listItem;
-function addEmptyListItemToMessages() {
-    listItem = document.createElement('li');
-    messages.appendChild(listItem);
-}
-exports.addEmptyListItemToMessages = addEmptyListItemToMessages;
 function addMessageToConsole(s) {
-    listItem.textContent += s;
+    messages.textContent += s;
     messages.scrollTo(0, messages.scrollHeight);
 }
 exports.addMessageToConsole = addMessageToConsole;

@@ -22,7 +22,7 @@ const popupCloseButton = document.getElementById(
   'popup-close'
 ) as HTMLButtonElement;
 const overlay = document.querySelector('#popup-overlay') as HTMLDivElement;
-const messages = document.getElementById('messages') as HTMLUListElement;
+const messages = document.getElementById('messages') as HTMLDivElement;
 const executeScriptButton = document.getElementById(
   'executeScriptButton'
 ) as HTMLButtonElement;
@@ -55,15 +55,8 @@ export function closePopup() {
   overlay.classList.remove('closed');
 }
 
-let listItem: HTMLLIElement;
-
-export function addEmptyListItemToMessages() {
-  listItem = document.createElement('li');
-  messages.appendChild(listItem);
-}
-
 export function addMessageToConsole(s: string) {
-  listItem.textContent += s;
+  messages.textContent += s;
   messages.scrollTo(0, messages.scrollHeight);
 }
 
