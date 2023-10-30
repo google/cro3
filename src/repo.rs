@@ -5,6 +5,7 @@
 // https://developers.google.com/open-source/licenses/bsd
 
 use std::env;
+use std::io::BufRead;
 use std::io::BufReader;
 use std::io::Read;
 use std::path::PathBuf;
@@ -98,13 +99,25 @@ pub fn repo_sync(repo: &str, force: bool) -> Result<()> {
             .spawn()
             .context("Failed to execute repo sync")?;
 
-        let child_stdout = BufReader::new(
-            cmd.stdout
-                .take()
-                .context("Failed to get stdout from script output")?,
-        );
+        let bar = true;
+        if bar {
+            // Show progress bar.
+            let buf_reader = BufReader::new(
+                cmd.stdout
+                    .take()
+                    .context("Failed to get stdout from script output")?,
+            );
 
-        forward_to_std_out(child_stdout).context("Failed to forward to stdout")?;
+            draw_progress_bar(buf_reader)?;
+        } else {
+            // Print stdout directly.
+            let child_stdout = cmd
+                .stdout
+                .take()
+                .context("Failed to get stdout from script output")?;
+
+            forward_to_std_out(child_stdout).context("Failed to forward to stdout")?;
+        }
 
         let result = cmd
             .wait_with_output()
@@ -161,6 +174,18 @@ fn forward_to_std_out(r: impl Read) -> Result<()> {
         buffer[0] = a_byte?;
         let char = std::str::from_utf8(&buffer)?;
         print!("{}", char);
+    }
+
+    Ok(())
+}
+
+fn draw_progress_bar(r: impl BufRead) -> Result<()> {
+    let split_iter = r
+        .split(b'\r')
+        .map(|l| String::from_utf8_lossy(&l.unwrap()).to_string());
+
+    for a_line in split_iter {
+        print!("{}", a_line);
     }
 
     Ok(())
