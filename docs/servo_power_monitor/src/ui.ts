@@ -1,6 +1,6 @@
 import moment from 'moment';
 
-const requestUSBButton = document.getElementById(
+const requestUsbButton = document.getElementById(
   'request-device'
 ) as HTMLButtonElement;
 const requestSerialButton = document.getElementById(
@@ -13,8 +13,8 @@ const downloadButton = document.getElementById(
 const analyzeButton = document.getElementById(
   'analyzeButton'
 ) as HTMLButtonElement;
-const selectDUTSerialButton = document.getElementById(
-  'selectDUTSerialButton'
+const selectDutSerialButton = document.getElementById(
+  'selectDutSerialButton'
 ) as HTMLButtonElement;
 const form = document.getElementById('form') as HTMLFormElement;
 const input = document.getElementById('input') as HTMLInputElement;
@@ -32,8 +32,8 @@ export function requestSerialAddClickEvent(fn: () => Promise<void>) {
   requestSerialButton.addEventListener('click', fn);
 }
 
-export function requestUSBAddClickEvent(fn: () => Promise<void>) {
-  requestUSBButton.addEventListener('click', fn);
+export function requestUsbAddClickEvent(fn: () => Promise<void>) {
+  requestUsbButton.addEventListener('click', fn);
 }
 
 export function haltAddClickEvent(fn: () => Promise<void>) {
@@ -41,7 +41,7 @@ export function haltAddClickEvent(fn: () => Promise<void>) {
 }
 
 export function enabledRecordingButton(halt: boolean) {
-  requestUSBButton.disabled = !halt;
+  requestUsbButton.disabled = !halt;
   requestSerialButton.disabled = !halt;
 }
 
@@ -60,8 +60,8 @@ export function addMessageToConsole(s: string) {
   messages.scrollTo(0, messages.scrollHeight);
 }
 
-export function selectDUTSerialAddClickEvent(fn: () => Promise<void>) {
-  selectDUTSerialButton.addEventListener('click', fn);
+export function selectDutSerialAddClickEvent(fn: () => Promise<void>) {
+  selectDutSerialButton.addEventListener('click', fn);
 }
 
 export function executeScriptAddClickEvent(fn: () => Promise<void>) {

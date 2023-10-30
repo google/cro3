@@ -8,10 +8,10 @@ import {
   handleDragOver,
   executeScript,
   formSubmit,
-  selectDUTSerial,
-  requestUSB,
+  selectDutSerial,
+  requestUsb,
   requestSerial,
-  disconnectUSBPort,
+  disconnectUsbPort,
   disconnectSerialPort,
   downloadJSONFile,
   stopMeasurement,
@@ -27,22 +27,22 @@ import {
   haltAddClickEvent,
   inputAddKeydownEvent,
   requestSerialAddClickEvent,
-  requestUSBAddClickEvent,
-  selectDUTSerialAddClickEvent,
+  requestUsbAddClickEvent,
+  selectDutSerialAddClickEvent,
   setPopupCloseButton,
 } from './ui';
 
 window.addEventListener('DOMContentLoaded', () => {
   setPopupCloseButton();
-  selectDUTSerialAddClickEvent(selectDUTSerial);
+  selectDutSerialAddClickEvent(selectDutSerial);
   formAddSubmitEvent(async e => formSubmit(e));
   inputAddKeydownEvent(async e => cancelSubmit(e));
   executeScriptAddClickEvent(executeScript);
-  requestUSBAddClickEvent(requestUSB);
+  requestUsbAddClickEvent(requestUsb);
   requestSerialAddClickEvent(requestSerial);
-  // `disconnect` event is fired when a USB device is disconnected.
+  // `disconnect` event is fired when a Usb device is disconnected.
   // c.f. https://wicg.github.io/webusb/#disconnect (5.1. Events)
-  navigator.usb.addEventListener('disconnect', disconnectUSBPort);
+  navigator.usb.addEventListener('disconnect', disconnectUsbPort);
   // event when you disconnect serial port
   navigator.serial.addEventListener('disconnect', disconnectSerialPort);
   downloadAddClickEvent(downloadJSONFile);

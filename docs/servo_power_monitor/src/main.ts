@@ -36,7 +36,7 @@ function kickWriteLoop(writeFn: (s: string) => Promise<void>) {
 }
 
 let servoPort: SerialPort, servoReader: ReadableStreamDefaultReader;
-let DUTPort: SerialPort, DUTReader: ReadableStreamDefaultReader;
+let DutPort: SerialPort, DutReader: ReadableStreamDefaultReader;
 
 async function openServoSerialPort() {
   servoPort = await navigator.serial
@@ -92,8 +92,8 @@ async function writeServoSerialPort(s: string) {
   writer.releaseLock();
 }
 
-async function openDUTSerialPort() {
-  DUTPort = await navigator.serial
+async function openDutSerialPort() {
+  DutPort = await navigator.serial
     .requestPort({
       filters: [{usbVendorId: 0x18d1, usbProductId: 0x504a}],
     })
@@ -101,45 +101,45 @@ async function openDUTSerialPort() {
       console.error(e);
       throw e;
     });
-  await DUTPort.open({baudRate: 115200});
+  await DutPort.open({baudRate: 115200});
 }
 
-async function closeDUTSerialPort() {
-  await DUTReader.cancel();
-  await DUTReader.releaseLock();
+async function closeDutSerialPort() {
+  await DutReader.cancel();
+  await DutReader.releaseLock();
   try {
-    await DUTPort.close();
+    await DutPort.close();
   } catch (e) {
     console.error(e);
     throw e;
   }
 }
 
-async function readDUTSerialPort() {
-  const DUTReadable = DUTPort.readable;
-  if (DUTReadable === null) return '';
-  DUTReader = DUTReadable.getReader();
+async function readDutSerialPort() {
+  const DutReadable = DutPort.readable;
+  if (DutReadable === null) return '';
+  DutReader = DutReadable.getReader();
   try {
     for (;;) {
-      const {value, done} = await DUTReader.read();
+      const {value, done} = await DutReader.read();
       if (done) {
-        // |DUTReader| has been canceled.
-        DUTReader.releaseLock();
+        // |DutReader| has been canceled.
+        DutReader.releaseLock();
         return '';
       }
       return utf8decoder.decode(value, {stream: true});
     }
   } catch (error) {
-    DUTReader.releaseLock();
+    DutReader.releaseLock();
     console.error(error);
     throw error;
   } finally {
-    DUTReader.releaseLock();
+    DutReader.releaseLock();
   }
 }
 
-async function writeDUTSerialPort(s: string) {
-  const writable = DUTPort.writable;
+async function writeDutSerialPort(s: string) {
+  const writable = DutPort.writable;
   if (writable === null) return;
   const writer = writable.getWriter();
   await writer.write(encoder.encode(s));
@@ -150,7 +150,7 @@ let device: USBDevice;
 const usb_interface = 0;
 const ep = usb_interface + 1;
 
-async function openUSBPort() {
+async function openUsbPort() {
   device = await navigator.usb
     .requestDevice({filters: [{vendorId: 0x18d1, productId: 0x520d}]})
     .catch(e => {
@@ -162,7 +162,7 @@ async function openUSBPort() {
   await device.claimInterface(usb_interface);
 }
 
-async function closeUSBPort() {
+async function closeUsbPort() {
   try {
     await device.close();
   } catch (e) {
@@ -170,11 +170,11 @@ async function closeUSBPort() {
   }
 }
 
-async function writeUSBPort(s: string) {
+async function writeUsbPort(s: string) {
   await device.transferOut(ep, encoder.encode(s));
 }
 
-async function readUSBPort() {
+async function readUsbPort() {
   try {
     const result = await device.transferIn(ep, 64);
     if (result.status === 'stall') {
@@ -491,34 +491,34 @@ export function handleDragOver(evt: DragEvent) {
   eventDataTransfer.dropEffect = 'copy'; // Explicitly show this is a copy.
 }
 
-let isDUTOpened = false;
-export async function selectDUTSerial() {
-  await openDUTSerialPort();
-  isDUTOpened = true;
-  addMessageToConsole('DUTPort is selected');
+let isDutOpened = false;
+export async function selectDutSerial() {
+  await openDutSerialPort();
+  isDutOpened = true;
+  addMessageToConsole('DutPort is selected');
   for (;;) {
-    const chunk = await readDUTSerialPort();
+    const chunk = await readDutSerialPort();
     addMessageToConsole(chunk);
   }
 }
 
 export async function formSubmit(e: Event) {
   e.preventDefault();
-  if (!isDUTOpened) {
+  if (!isDutOpened) {
     closePopup();
     return;
   }
-  await writeDUTSerialPort(readInputValue() + '\n');
+  await writeDutSerialPort(readInputValue() + '\n');
 }
 
 // send cancel command to serial port when ctrl+C is pressed in input area
 export async function cancelSubmit(e: KeyboardEvent) {
-  if (!isDUTOpened) {
+  if (!isDutOpened) {
     closePopup();
     return;
   }
   if (e.ctrlKey && e.key === 'c') {
-    await writeDUTSerialPort(CANCEL_CMD);
+    await writeDutSerialPort(CANCEL_CMD);
   }
 }
 
@@ -534,26 +534,26 @@ workload 10 1> ./test_out.log 2> ./test_err.log
 echo "end"\n`;
 
 export async function executeScript() {
-  if (!isDUTOpened) {
+  if (!isDutOpened) {
     closePopup();
   } else {
-    await writeDUTSerialPort('cat > ./example.sh << EOF\n');
-    await writeDUTSerialPort(scripts);
-    await writeDUTSerialPort('EOF\n');
-    await writeDUTSerialPort('bash ./example.sh\n');
+    await writeDutSerialPort('cat > ./example.sh << EOF\n');
+    await writeDutSerialPort(scripts);
+    await writeDutSerialPort('EOF\n');
+    await writeDutSerialPort('bash ./example.sh\n');
   }
 }
 
 let isSerial = false;
 
-export async function requestUSB() {
+export async function requestUsb() {
   halt = false;
-  await openUSBPort();
+  await openUsbPort();
   isSerial = false;
   enabledRecordingButton(halt);
   try {
-    kickWriteLoop(async s => writeUSBPort(s));
-    readLoop(async () => readUSBPort());
+    kickWriteLoop(async s => writeUsbPort(s));
+    readLoop(async () => readUsbPort());
   } catch (err) {
     console.error(`Disconnected: ${err}`);
     halt = true;
@@ -573,9 +573,9 @@ export async function requestSerial() {
   readLoop(async () => readServoSerialPort());
 }
 
-export async function disconnectUSBPort() {
+export async function disconnectUsbPort() {
   if (!halt && !isSerial) {
-    //  No need to call close() for the USB servoPort here because the
+    //  No need to call close() for the Usb servoPort here because the
     //  specification says that
     // the servoPort will be closed automatically when a device is disconnected.
     halt = true;
@@ -591,9 +591,9 @@ export async function disconnectSerialPort() {
     inProgress = false;
     enabledRecordingButton(halt);
   }
-  if (isDUTOpened) {
-    await closeDUTSerialPort();
-    isDUTOpened = false;
+  if (isDutOpened) {
+    await closeDutSerialPort();
+    isDutOpened = false;
   }
 }
 
@@ -610,7 +610,7 @@ export async function stopMeasurement() {
   if (isSerial) {
     await closeServoSerialPort();
   } else {
-    await closeUSBPort();
+    await closeUsbPort();
   }
   enabledRecordingButton(halt);
 }
