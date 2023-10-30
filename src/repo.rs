@@ -17,6 +17,7 @@ use anyhow::anyhow;
 use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
+use regex::Regex;
 use regex_macro::regex;
 
 use crate::config::Config;
@@ -184,8 +185,20 @@ fn draw_progress_bar(r: impl BufRead) -> Result<()> {
         .split(b'\r')
         .map(|l| String::from_utf8_lossy(&l.unwrap()).to_string());
 
+    let re = Regex::new(
+        r"(?P<title>.+:\s)+\s{0,2}(?P<percent>\d{1,3})%\s\((?P<done>\d+)\/(?P<total>\d+)\)",
+    )?;
+
     for a_line in split_iter {
-        print!("{}", a_line);
+        match re.captures(&a_line) {
+            Some(caps) => {
+                println!("TITLE >> {}\r", &caps["title"]);
+                println!("PERCENT >> {}\r", &caps["percent"]);
+                println!("DONE >> {}\r", &caps["done"]);
+                println!("TOTAL >> {}\r", &caps["total"]);
+            }
+            None => print!("A_LINE >> {}\r", a_line),
+        }
     }
 
     Ok(())
