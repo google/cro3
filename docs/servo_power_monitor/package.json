@@ -5,10 +5,9 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "lint": "gts lint -v",
-    "clean": "gts clean",
+    "lint": "gts lint src/*.ts",
     "compile": "webpack",
-    "fix": "gts fix",
+    "fix": "gts fix src/*.ts",
     "prepare": "npm run compile",
     "pretest": "npm run compile",
     "posttest": "npm run lint"
@@ -29,8 +28,9 @@
     "@types/dygraphs": "^2.1.4",
     "eslint-webpack-plugin": "^4.0.1",
     "gts": "^5.2.0",
-    "typescript": "^4.1.6",
-    "webpack-cli": "^5.1.4"
+    "typescript": "~5.0.0",
+    "webpack-cli": "^5.1.4",
+    "@types/node": "20.8.2"
   },
   "engines": {
     "node": ">= 11.0.0"
