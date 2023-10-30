@@ -2,10 +2,12 @@
   "extends": "./node_modules/gts/tsconfig-google.json",
   "compilerOptions": {
     "lib": [
-      "es6", "DOM"
+      "es6",
+      "DOM"
     ],
     "esModuleInterop": true,
-    "sourceMap": true
+    "sourceMap": true,
+    "declaration": false
   },
   "include": [
     "src/**/*.ts",
