@@ -17,6 +17,7 @@ use anyhow::anyhow;
 use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
+use indicatif::ProgressBar;
 use regex::Regex;
 use regex_macro::regex;
 
@@ -189,17 +190,23 @@ fn draw_progress_bar(r: impl BufRead) -> Result<()> {
         r"(?P<title>.+:\s)+\s{0,2}(?P<percent>\d{1,3})%\s\((?P<done>\d+)\/(?P<total>\d+)\)",
     )?;
 
+    let bar = ProgressBar::new(0);
+    let mut prev: String = String::from("");
+
     for a_line in split_iter {
-        match re.captures(&a_line) {
-            Some(caps) => {
-                println!("TITLE >> {}\r", &caps["title"]);
-                println!("PERCENT >> {}\r", &caps["percent"]);
-                println!("DONE >> {}\r", &caps["done"]);
-                println!("TOTAL >> {}\r", &caps["total"]);
+        if let Some(caps) = re.captures(&a_line) {
+            let title = caps["title"].to_string();
+
+            if prev != title {
+                println!("{}\r", title);
+                bar.set_length(caps["total"].parse::<u64>()?);
+            } else {
+                bar.set_position(caps["done"].parse::<u64>()?);
             }
-            None => print!("A_LINE >> {}\r", a_line),
+            prev = title;
         }
     }
+    bar.finish();
 
     Ok(())
 }
