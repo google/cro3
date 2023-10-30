@@ -28,7 +28,7 @@ const selectDUTSerialButton = document.getElementById(
 const executeScriptButton = document.getElementById(
   'executeScriptButton'
 ) as HTMLButtonElement;
-const messages = document.getElementById('messages') as HTMLUListElement;
+const messages = document.getElementById('messages') as HTMLDivElement;
 const popupCloseButton = document.getElementById(
   'popup-close'
 ) as HTMLButtonElement;
@@ -50,31 +50,18 @@ selectDUTSerialButton.addEventListener('click', async () => {
       throw e;
     });
   await DUTPort.open({baudRate: 115200});
-  let listItem = document.createElement('li');
-  listItem.textContent = 'DUTPort is selected';
-  messages.appendChild(listItem);
+  messages.textContent += 'DUTPort is selected';
   const DUTReadable = DUTPort.readable;
   if (DUTReadable === null) return;
   const DUTReader = DUTReadable.getReader();
-  listItem = document.createElement('li');
-  messages.appendChild(listItem);
   DUTReader.read().then(function processText({done, value}): void {
     if (done) {
       console.log('Stream complete');
       return;
     }
-
     const chunk = decoder.decode(value, {stream: true});
-    const chunk_split_list = chunk.split('\n');
-
-    for (let i = 0; i < chunk_split_list.length - 1; i++) {
-      listItem.textContent += chunk_split_list[i];
-      listItem = document.createElement('li');
-      messages.appendChild(listItem);
-    }
-    listItem.textContent += chunk_split_list[chunk_split_list.length - 1];
+    messages.textContent += chunk;
     messages.scrollTo(0, messages.scrollHeight);
-
     DUTReader.read().then(processText);
   });
 });
