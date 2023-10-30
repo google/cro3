@@ -77,7 +77,7 @@ pub fn get_current_synced_arc_version(repo: &str) -> Result<String> {
     Ok(get_stdout(&output))
 }
 
-pub fn repo_sync(repo: &str, force: bool) -> Result<()> {
+pub fn repo_sync(repo: &str, force: bool, verbose: bool) -> Result<()> {
     let mut last_failed_repos = None;
 
     loop {
@@ -101,8 +101,7 @@ pub fn repo_sync(repo: &str, force: bool) -> Result<()> {
             .spawn()
             .context("Failed to execute repo sync")?;
 
-        let bar = true;
-        if bar {
+        if !verbose {
             // Show progress bar.
             let buf_reader = BufReader::new(
                 cmd.stdout
