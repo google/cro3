@@ -16,11 +16,11 @@ const analyzeButton = document.getElementById(
 const selectDutSerialButton = document.getElementById(
   'selectDutSerialButton'
 ) as HTMLButtonElement;
-const DutCommandForm = document.getElementById(
-  'DutCommandForm'
+const dutCommandForm = document.getElementById(
+  'dutCommandForm'
 ) as HTMLFormElement;
-const DutCommandInput = document.getElementById(
-  'DutCommandInput'
+const dutCommandInput = document.getElementById(
+  'dutCommandInput'
 ) as HTMLInputElement;
 const popupCloseButton = document.getElementById(
   'popup-close'
@@ -73,16 +73,16 @@ export function executeScriptAddClickEvent(fn: () => Promise<void>) {
 }
 
 export function formAddSubmitEvent(fn: (e: Event) => Promise<void>) {
-  DutCommandForm.addEventListener('submit', fn);
+  dutCommandForm.addEventListener('submit', fn);
 }
 
 export function inputAddKeydownEvent(fn: (e: KeyboardEvent) => Promise<void>) {
-  DutCommandInput.addEventListener('keydown', fn);
+  dutCommandInput.addEventListener('keydown', fn);
 }
 
 export function readInputValue() {
-  const res = DutCommandInput.value;
-  DutCommandInput.value = '';
+  const res = dutCommandInput.value;
+  dutCommandInput.value = '';
   return res;
 }
 

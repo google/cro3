@@ -34479,8 +34479,8 @@ const haltButton = document.getElementById('haltButton');
 const downloadButton = document.getElementById('downloadButton');
 const analyzeButton = document.getElementById('analyzeButton');
 const selectDutSerialButton = document.getElementById('selectDutSerialButton');
-const DutCommandForm = document.getElementById('DutCommandForm');
-const DutCommandInput = document.getElementById('DutCommandInput');
+const dutCommandForm = document.getElementById('dutCommandForm');
+const dutCommandInput = document.getElementById('dutCommandInput');
 const popupCloseButton = document.getElementById('popup-close');
 const overlay = document.querySelector('#popup-overlay');
 const messages = document.getElementById('messages');
@@ -34527,16 +34527,16 @@ function executeScriptAddClickEvent(fn) {
 }
 exports.executeScriptAddClickEvent = executeScriptAddClickEvent;
 function formAddSubmitEvent(fn) {
-    DutCommandForm.addEventListener('submit', fn);
+    dutCommandForm.addEventListener('submit', fn);
 }
 exports.formAddSubmitEvent = formAddSubmitEvent;
 function inputAddKeydownEvent(fn) {
-    DutCommandInput.addEventListener('keydown', fn);
+    dutCommandInput.addEventListener('keydown', fn);
 }
 exports.inputAddKeydownEvent = inputAddKeydownEvent;
 function readInputValue() {
-    const res = DutCommandInput.value;
-    DutCommandInput.value = '';
+    const res = dutCommandInput.value;
+    dutCommandInput.value = '';
     return res;
 }
 exports.readInputValue = readInputValue;
