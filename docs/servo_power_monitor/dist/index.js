@@ -34479,8 +34479,8 @@ const haltButton = document.getElementById('haltButton');
 const downloadButton = document.getElementById('downloadButton');
 const analyzeButton = document.getElementById('analyzeButton');
 const selectDutSerialButton = document.getElementById('selectDutSerialButton');
-const form = document.getElementById('form');
-const input = document.getElementById('input');
+const dutCommandForm = document.getElementById('dutCommandForm');
+const dutCommandInput = document.getElementById('dutCommandInput');
 const popupCloseButton = document.getElementById('popup-close');
 const overlay = document.querySelector('#popup-overlay');
 const messages = document.getElementById('messages');
@@ -34527,16 +34527,16 @@ function executeScriptAddClickEvent(fn) {
 }
 exports.executeScriptAddClickEvent = executeScriptAddClickEvent;
 function formAddSubmitEvent(fn) {
-    form.addEventListener('submit', fn);
+    dutCommandForm.addEventListener('submit', fn);
 }
 exports.formAddSubmitEvent = formAddSubmitEvent;
 function inputAddKeydownEvent(fn) {
-    input.addEventListener('keydown', fn);
+    dutCommandInput.addEventListener('keydown', fn);
 }
 exports.inputAddKeydownEvent = inputAddKeydownEvent;
 function readInputValue() {
-    const res = input.value;
-    input.value = '';
+    const res = dutCommandInput.value;
+    dutCommandInput.value = '';
     return res;
 }
 exports.readInputValue = readInputValue;
