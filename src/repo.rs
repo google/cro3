@@ -192,7 +192,7 @@ fn draw_progress_bar(r: impl BufRead) -> Result<()> {
 
     let bar = ProgressBar::new(0);
     bar.set_style(ProgressStyle::with_template(
-        "{msg} {wide_bar}{pos:>5}/{len:5}",
+        "{msg:>15} {wide_bar} {pos:>4}/{len:4}",
     )?);
 
     for a_line in split_iter {
@@ -205,7 +205,7 @@ fn draw_progress_bar(r: impl BufRead) -> Result<()> {
             bar.set_length(total);
 
             if done == total {
-                bar.finish();
+                bar.finish_with_message("Finished");
             }
         }
     }
