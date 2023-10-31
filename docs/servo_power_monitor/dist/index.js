@@ -34151,185 +34151,154 @@ echo "end"\n`;
         this.usb = new usbport_1.usbPort();
         this.servo = new serialport_1.serialPort();
         this.dut = new serialport_1.serialPort();
-        this.pushOutput = (s) => {
-            this.output += s;
-            const splitted = this.output.split('\n').filter(s => s.trim().length > 10);
-            if (splitted.length > 0 &&
-                splitted[splitted.length - 1].indexOf('Alert limit') >= 0) {
-                const powerString = splitted.find(s => s.startsWith('Power'));
-                if (powerString === undefined)
-                    return;
-                const power = parseInt(powerString.split('=>')[1].trim().split(' ')[0]);
-                const e = [new Date(), power];
-                this.graph.pushData(e);
-                this.graph.updateGraph();
-                (0, ui_1.addServoConsole)(this.output);
-                this.output = '';
-                this.inProgress = false;
-            }
-        };
-        this.kickWriteLoop = (writeFn) => {
-            const f = async () => {
-                while (!this.halt) {
-                    if (this.inProgress) {
-                        console.error('previous request is in progress! skip...');
-                    }
-                    else {
-                        this.inProgress = true;
-                    }
-                    // ina 0 and 1 seems to be the same
-                    // ina 2 is something but not useful
-                    const cmd = 'ina 0\n';
-                    await writeFn(cmd);
-                    await new Promise(r => setTimeout(r, this.INTERVAL_MS));
-                }
-            };
-            setTimeout(f, this.INTERVAL_MS);
-        };
-        this.readLoop = async (readFn) => {
+    }
+    pushOutput(s) {
+        this.output += s;
+        const splitted = this.output.split('\n').filter(s => s.trim().length > 10);
+        if (splitted.length > 0 &&
+            splitted[splitted.length - 1].indexOf('Alert limit') >= 0) {
+            const powerString = splitted.find(s => s.startsWith('Power'));
+            if (powerString === undefined)
+                return;
+            const power = parseInt(powerString.split('=>')[1].trim().split(' ')[0]);
+            const e = [new Date(), power];
+            this.graph.pushData(e);
+            this.graph.updateGraph();
+            (0, ui_1.addServoConsole)(this.output);
+            this.output = '';
+            this.inProgress = false;
+        }
+    }
+    kickWriteLoop(writeFn) {
+        const f = async () => {
             while (!this.halt) {
-                try {
-                    const s = await readFn();
-                    if (s === '' || !s.length) {
-                        continue;
-                    }
-                    this.pushOutput(s);
+                if (this.inProgress) {
+                    console.error('previous request is in progress! skip...');
                 }
-                catch (e) {
-                    // break the loop here because `disconnect` event is not called in Chrome
-                    // for some reason when the loop continues. And no need to throw error
-                    // here because it is thrown in readFn.
-                    break;
+                else {
+                    this.inProgress = true;
                 }
+                // ina 0 and 1 seems to be the same
+                // ina 2 is something but not useful
+                const cmd = 'ina 0\n';
+                await writeFn(cmd);
+                await new Promise(r => setTimeout(r, this.INTERVAL_MS));
             }
         };
-        this.selectDutSerial = async () => {
-            await this.dut.open(0x18d1, 0x504a);
-            this.isDutOpened = true;
-            (0, ui_1.addMessageToConsole)('DutPort is selected');
-            for (;;) {
-                const chunk = await this.dut.read();
-                (0, ui_1.addMessageToConsole)(chunk);
-            }
-        };
-        this.formSubmit = async (e) => {
-            e.preventDefault();
-            if (!this.isDutOpened) {
-                (0, ui_1.closePopup)();
-                return;
-            }
-            await this.dut.write((0, ui_1.readInputValue)() + '\n');
-        };
-        // send cancel command to serial port when ctrl+C is pressed in input area
-        this.cancelSubmit = async (e) => {
-            if (!this.isDutOpened) {
-                (0, ui_1.closePopup)();
-                return;
-            }
-            if (e.ctrlKey && e.key === 'c') {
-                await this.dut.write(this.CANCEL_CMD);
-            }
-        };
-        this.executeScript = async () => {
-            if (!this.isDutOpened) {
-                (0, ui_1.closePopup)();
-            }
-            else {
-                await this.dut.write('cat > ./example.sh << EOF\n');
-                await this.dut.write(this.scripts);
-                await this.dut.write('EOF\n');
-                await this.dut.write('bash ./example.sh\n');
-            }
-        };
-        this.requestUsb = async () => {
-            this.halt = false;
-            await this.usb.open();
-            this.isSerial = false;
-            (0, ui_1.enabledRecordingButton)(this.halt);
+        setTimeout(f, this.INTERVAL_MS);
+    }
+    async readLoop(readFn) {
+        while (!this.halt) {
             try {
-                this.kickWriteLoop(async (s) => this.usb.write(s));
-                this.readLoop(async () => this.usb.read(this.halt));
+                const s = await readFn();
+                if (s === '' || !s.length) {
+                    continue;
+                }
+                this.pushOutput(s);
             }
-            catch (err) {
-                console.error(`Disconnected: ${err}`);
-                this.halt = true;
-                (0, ui_1.enabledRecordingButton)(this.halt);
+            catch (e) {
+                // break the loop here because `disconnect` event is not called in Chrome
+                // for some reason when the loop continues. And no need to throw error
+                // here because it is thrown in readFn.
+                break;
             }
-        };
-        this.requestSerial = async () => {
-            this.halt = false;
-            await this.servo.open(0x18d1, 0x520d);
-            this.isSerial = true;
+        }
+    }
+    async selectDutSerial() {
+        await this.dut.open(0x18d1, 0x504a);
+        this.isDutOpened = true;
+        (0, ui_1.addMessageToConsole)('DutPort is selected');
+        for (;;) {
+            const chunk = await this.dut.read();
+            (0, ui_1.addMessageToConsole)(chunk);
+        }
+    }
+    async formSubmit(e) {
+        e.preventDefault();
+        if (!this.isDutOpened) {
+            (0, ui_1.closePopup)();
+            return;
+        }
+        await this.dut.write((0, ui_1.readInputValue)() + '\n');
+    }
+    // send cancel command to serial port when ctrl+C is pressed in input area
+    async cancelSubmit(e) {
+        if (!this.isDutOpened) {
+            (0, ui_1.closePopup)();
+            return;
+        }
+        if (e.ctrlKey && e.key === 'c') {
+            await this.dut.write(this.CANCEL_CMD);
+        }
+    }
+    async executeScript() {
+        if (!this.isDutOpened) {
+            (0, ui_1.closePopup)();
+        }
+        else {
+            await this.dut.write('cat > ./example.sh << EOF\n');
+            await this.dut.write(this.scripts);
+            await this.dut.write('EOF\n');
+            await this.dut.write('bash ./example.sh\n');
+        }
+    }
+    async requestUsb() {
+        this.halt = false;
+        await this.usb.open();
+        this.isSerial = false;
+        (0, ui_1.enabledRecordingButton)(this.halt);
+        try {
+            this.kickWriteLoop(async (s) => this.usb.write(s));
+            this.readLoop(async () => this.usb.read(this.halt));
+        }
+        catch (err) {
+            console.error(`Disconnected: ${err}`);
+            this.halt = true;
             (0, ui_1.enabledRecordingButton)(this.halt);
-            await this.servo.write('help\n');
-            // TODO: Implement something to check the validity of servo serial port
-            this.kickWriteLoop(async (s) => this.servo.write(s));
-            this.readLoop(() => this.servo.read());
-        };
-        this.disconnectUsbPort = async () => {
-            if (!this.halt && !this.isSerial) {
-                //  No need to call close() for the Usb servoPort here because the
-                //  specification says that
-                // the servoPort will be closed automatically when a device is disconnected.
-                this.halt = true;
-                this.inProgress = false;
-                (0, ui_1.enabledRecordingButton)(this.halt);
-            }
-        };
-        this.disconnectSerialPort = async () => {
-            if (!this.halt && this.isSerial) {
-                await this.servo.close();
-                this.halt = true;
-                this.inProgress = false;
-                (0, ui_1.enabledRecordingButton)(this.halt);
-            }
-            if (this.isDutOpened) {
-                await this.dut.close();
-                this.isDutOpened = false;
-            }
-        };
-        this.stopMeasurement = async () => {
+        }
+    }
+    async requestSerial() {
+        this.halt = false;
+        await this.servo.open(0x18d1, 0x520d);
+        this.isSerial = true;
+        (0, ui_1.enabledRecordingButton)(this.halt);
+        await this.servo.write('help\n');
+        // TODO: Implement something to check the validity of servo serial port
+        this.kickWriteLoop(async (s) => this.servo.write(s));
+        this.readLoop(() => this.servo.read());
+    }
+    disconnectUsbPort() {
+        if (!this.halt && !this.isSerial) {
+            //  No need to call close() for the Usb servoPort here because the
+            //  specification says that
+            // the servoPort will be closed automatically when a device is disconnected.
             this.halt = true;
             this.inProgress = false;
-            if (this.isSerial) {
-                await this.servo.close();
-            }
-            else {
-                await this.usb.close();
-            }
             (0, ui_1.enabledRecordingButton)(this.halt);
-        };
-        this.downloadJSONFile = () => {
-            const dataStr = 'data:text/json;charset=utf-8,' +
-                encodeURIComponent(JSON.stringify({ power: this.graph.powerData }));
-            (0, ui_1.setDownloadAnchor)(dataStr);
-        };
-        this.handleFileSelect = (evt) => {
-            evt.stopPropagation();
-            evt.preventDefault();
-            const eventDataTransfer = evt.dataTransfer;
-            if (eventDataTransfer === null)
-                return;
-            const file = eventDataTransfer.files[0];
-            if (file === undefined) {
-                return;
-            }
-            const r = new FileReader();
-            r.addEventListener('load', () => {
-                const data = JSON.parse(r.result);
-                this.graph.updateData(data.power.map((d) => [new Date(d[0]), d[1]]));
-                this.graph.updateGraph();
-            });
-            r.readAsText(file);
-        };
-        this.handleDragOver = (evt) => {
-            evt.stopPropagation();
-            evt.preventDefault();
-            const eventDataTransfer = evt.dataTransfer;
-            if (eventDataTransfer === null)
-                return;
-            eventDataTransfer.dropEffect = 'copy'; // Explicitly show this is a copy.
-        };
+        }
+    }
+    async disconnectSerialPort() {
+        if (!this.halt && this.isSerial) {
+            await this.servo.close();
+            this.halt = true;
+            this.inProgress = false;
+            (0, ui_1.enabledRecordingButton)(this.halt);
+        }
+        if (this.isDutOpened) {
+            await this.dut.close();
+            this.isDutOpened = false;
+        }
+    }
+    async stopMeasurement() {
+        this.halt = true;
+        this.inProgress = false;
+        if (this.isSerial) {
+            await this.servo.close();
+        }
+        else {
+            await this.usb.close();
+        }
+        (0, ui_1.enabledRecordingButton)(this.halt);
     }
     analyzePowerData() {
         // https://dygraphs.com/jsdoc/symbols/Dygraph.html#xAxisRange
@@ -34338,6 +34307,37 @@ echo "end"\n`;
         const left = xrange[0];
         const right = xrange[1];
         this.histogram.paintHistogram(left, right, this.graph.powerData);
+    }
+    downloadJSONFile() {
+        const dataStr = 'data:text/json;charset=utf-8,' +
+            encodeURIComponent(JSON.stringify({ power: this.graph.powerData }));
+        (0, ui_1.setDownloadAnchor)(dataStr);
+    }
+    handleFileSelect(evt) {
+        evt.stopPropagation();
+        evt.preventDefault();
+        const eventDataTransfer = evt.dataTransfer;
+        if (eventDataTransfer === null)
+            return;
+        const file = eventDataTransfer.files[0];
+        if (file === undefined) {
+            return;
+        }
+        const r = new FileReader();
+        r.addEventListener('load', () => {
+            const data = JSON.parse(r.result);
+            this.graph.updateData(data.power.map((d) => [new Date(d[0]), d[1]]));
+            this.graph.updateGraph();
+        });
+        r.readAsText(file);
+    }
+    handleDragOver(evt) {
+        evt.stopPropagation();
+        evt.preventDefault();
+        const eventDataTransfer = evt.dataTransfer;
+        if (eventDataTransfer === null)
+            return;
+        eventDataTransfer.dropEffect = 'copy'; // Explicitly show this is a copy.
     }
 }
 exports.powerMonitor = powerMonitor;
@@ -34357,71 +34357,70 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.serialPort = void 0;
 class serialPort {
     constructor() {
-        this.port = undefined;
         this.reader = new ReadableStreamDefaultReader(new ReadableStream());
         this.encoder = new TextEncoder();
         this.decoder = new TextDecoder();
-        this.open = async (usbVendorId, usbProductId) => {
-            this.port = await navigator.serial
-                .requestPort({
-                filters: [{ usbVendorId: usbVendorId, usbProductId: usbProductId }],
-            })
-                .catch(e => {
-                console.error(e);
-                throw e;
-            });
-            await this.port.open({ baudRate: 115200 });
-        };
-        this.close = async () => {
-            if (this.port === undefined)
-                return;
-            await this.reader.cancel();
-            await this.reader.releaseLock();
-            try {
-                await this.port.close();
-            }
-            catch (e) {
-                console.error(e);
-                throw e;
-            }
-        };
-        this.read = async () => {
-            if (this.port === undefined)
-                return '';
-            const readable = this.port.readable;
-            if (readable === null)
-                return '';
-            this.reader = readable.getReader();
-            try {
-                for (;;) {
-                    const { value, done } = await this.reader.read();
-                    if (done) {
-                        // |reader| has been canceled.
-                        this.reader.releaseLock();
-                        return '';
-                    }
-                    return this.decoder.decode(value);
+    }
+    async open(usbVendorId, usbProductId) {
+        this.port = await navigator.serial
+            .requestPort({
+            filters: [{ usbVendorId: usbVendorId, usbProductId: usbProductId }],
+        })
+            .catch(e => {
+            console.error(e);
+            throw e;
+        });
+        await this.port.open({ baudRate: 115200 });
+    }
+    async close() {
+        if (this.port === undefined)
+            return;
+        await this.reader.cancel();
+        await this.reader.releaseLock();
+        try {
+            await this.port.close();
+        }
+        catch (e) {
+            console.error(e);
+            throw e;
+        }
+    }
+    async read() {
+        if (this.port === undefined)
+            return '';
+        const readable = this.port.readable;
+        if (readable === null)
+            return '';
+        this.reader = readable.getReader();
+        try {
+            for (;;) {
+                const { value, done } = await this.reader.read();
+                if (done) {
+                    // |reader| has been canceled.
+                    this.reader.releaseLock();
+                    return '';
                 }
+                return this.decoder.decode(value);
             }
-            catch (error) {
-                this.reader.releaseLock();
-                console.error(error);
-                throw error;
-            }
-            finally {
-                this.reader.releaseLock();
-            }
-        };
-        this.write = async (s) => {
-            if (this.port === undefined)
-                return;
-            const writable = this.port.writable;
-            if (writable === null)
-                return;
-            const writer = writable.getWriter();
-            await writer.write(this.encoder.encode(s));
-            writer.releaseLock();
-        };
+        }
+        catch (error) {
+            this.reader.releaseLock();
+            console.error(error);
+            throw error;
+        }
+        finally {
+            this.reader.releaseLock();
+        }
+    }
+    async write(s) {
+        if (this.port === undefined)
+            return;
+        const writable = this.port.writable;
+        if (writable === null)
+            return;
+        const writer = writable.getWriter();
+        await writer.write(this.encoder.encode(s));
+        writer.releaseLock();
     }
 }
 exports.serialPort = serialPort;
@@ -34443,9 +34442,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.dropZoneAddDropEvent = exports.dropZoneAddDragoverEvent = exports.setDownloadAnchor = exports.analyzeAddClickEvent = exports.downloadAddClickEvent = exports.readInputValue = exports.inputAddKeydownEvent = exports.formAddSubmitEvent = exports.executeScriptAddClickEvent = exports.selectDutSerialAddClickEvent = exports.addServoConsole = exports.addMessageToConsole = exports.closePopup = exports.setPopupCloseButton = exports.enabledRecordingButton = exports.haltAddClickEvent = exports.requestUsbAddClickEvent = exports.requestSerialAddClickEvent = void 0;
 const moment_1 = __importDefault(__webpack_require__(/*! moment */ "./node_modules/moment/moment.js"));
-// import { htmlButton } from './button';
 const requestUsbButton = document.getElementById('request-device');
-// const requestUsbButton = new htmlButton('request-device');
 const requestSerialButton = document.getElementById('requestSerialButton');
 const haltButton = document.getElementById('haltButton');
 const downloadButton = document.getElementById('downloadButton');
@@ -34492,7 +34489,7 @@ function addMessageToConsole(s) {
 }
 exports.addMessageToConsole = addMessageToConsole;
 function addServoConsole(s) {
-    serial_output.innerText = s;
+    serial_output.textContent = s;
 }
 exports.addServoConsole = addServoConsole;
 function selectDutSerialAddClickEvent(fn) {
@@ -34563,57 +34560,57 @@ class usbPort {
         this.ep = this.usb_interface + 1;
         this.encoder = new TextEncoder();
         this.decoder = new TextDecoder();
-        this.open = async () => {
-            this.device = await navigator.usb
-                .requestDevice({ filters: [{ vendorId: 0x18d1, productId: 0x520d }] })
-                .catch(e => {
+    }
+    async open() {
+        this.device = await navigator.usb
+            .requestDevice({ filters: [{ vendorId: 0x18d1, productId: 0x520d }] })
+            .catch(e => {
+            console.error(e);
+            throw e;
+        });
+        await this.device.open();
+        await this.device.selectConfiguration(1);
+        await this.device.claimInterface(this.usb_interface);
+    }
+    async close() {
+        if (this.device === undefined)
+            return;
+        try {
+            await this.device.close();
+        }
+        catch (e) {
+            console.error(e);
+        }
+    }
+    async read(halt) {
+        if (this.device === undefined)
+            return '';
+        try {
+            const result = await this.device.transferIn(this.ep, 64);
+            if (result.status === 'stall') {
+                await this.device.clearHalt('in', this.ep);
+                throw result;
+            }
+            const resultData = result.data;
+            if (resultData === undefined)
+                return '';
+            const result_array = new Int8Array(resultData.buffer);
+            return this.decoder.decode(result_array);
+        }
+        catch (e) {
+            // If halt is true, it's when the stop button is pressed. Therefore,
+            // we can ignore the error.
+            if (!halt) {
                 console.error(e);
                 throw e;
-            });
-            await this.device.open();
-            await this.device.selectConfiguration(1);
-            await this.device.claimInterface(this.usb_interface);
-        };
-        this.close = async () => {
-            if (this.device === undefined)
-                return;
-            try {
-                await this.device.close();
             }
-            catch (e) {
-                console.error(e);
-            }
-        };
-        this.read = async (halt) => {
-            if (this.device === undefined)
-                return '';
-            try {
-                const result = await this.device.transferIn(this.ep, 64);
-                if (result.status === 'stall') {
-                    await this.device.clearHalt('in', this.ep);
-                    throw result;
-                }
-                const resultData = result.data;
-                if (resultData === undefined)
-                    return '';
-                const result_array = new Int8Array(resultData.buffer);
-                return this.decoder.decode(result_array);
-            }
-            catch (e) {
-                // If halt is true, it's when the stop button is pressed. Therefore,
-                // we can ignore the error.
-                if (!halt) {
-                    console.error(e);
-                    throw e;
-                }
-                return '';
-            }
-        };
-        this.write = async (s) => {
-            if (this.device === undefined)
-                return;
-            await this.device.transferOut(this.ep, this.encoder.encode(s));
-        };
+            return '';
+        }
+    }
+    async write(s) {
+        if (this.device === undefined)
+            return;
+        await this.device.transferOut(this.ep, this.encoder.encode(s));
     }
 }
 exports.usbPort = usbPort;
@@ -69005,22 +69002,22 @@ const ui_1 = __webpack_require__(/*! ./ui */ "./src/ui.ts");
 window.addEventListener('DOMContentLoaded', () => {
     const monitor = new main_1.powerMonitor();
     (0, ui_1.setPopupCloseButton)();
-    (0, ui_1.selectDutSerialAddClickEvent)(monitor.selectDutSerial);
-    (0, ui_1.formAddSubmitEvent)(monitor.formSubmit);
-    (0, ui_1.inputAddKeydownEvent)(monitor.cancelSubmit);
-    (0, ui_1.executeScriptAddClickEvent)(monitor.executeScript);
-    (0, ui_1.requestUsbAddClickEvent)(monitor.requestUsb);
-    (0, ui_1.requestSerialAddClickEvent)(monitor.requestSerial);
+    (0, ui_1.selectDutSerialAddClickEvent)(() => monitor.selectDutSerial());
+    (0, ui_1.formAddSubmitEvent)(e => monitor.formSubmit(e));
+    (0, ui_1.inputAddKeydownEvent)(e => monitor.cancelSubmit(e));
+    (0, ui_1.executeScriptAddClickEvent)(() => monitor.executeScript());
+    (0, ui_1.requestUsbAddClickEvent)(() => monitor.requestUsb());
+    (0, ui_1.requestSerialAddClickEvent)(() => monitor.requestSerial());
     // `disconnect` event is fired when a Usb device is disconnected.
     // c.f. https://wicg.github.io/webusb/#disconnect (5.1. Events)
-    navigator.usb.addEventListener('disconnect', monitor.disconnectUsbPort);
+    navigator.usb.addEventListener('disconnect', () => monitor.disconnectUsbPort());
     // event when you disconnect serial port
-    navigator.serial.addEventListener('disconnect', monitor.disconnectSerialPort);
-    (0, ui_1.downloadAddClickEvent)(monitor.downloadJSONFile);
-    (0, ui_1.haltAddClickEvent)(monitor.stopMeasurement);
-    (0, ui_1.analyzeAddClickEvent)(monitor.analyzePowerData);
-    (0, ui_1.dropZoneAddDragoverEvent)(monitor.handleDragOver);
-    (0, ui_1.dropZoneAddDropEvent)(monitor.handleFileSelect);
+    navigator.serial.addEventListener('disconnect', () => monitor.disconnectSerialPort());
+    (0, ui_1.downloadAddClickEvent)(() => monitor.downloadJSONFile());
+    (0, ui_1.haltAddClickEvent)(() => monitor.stopMeasurement());
+    (0, ui_1.analyzeAddClickEvent)(() => monitor.analyzePowerData());
+    (0, ui_1.dropZoneAddDragoverEvent)(e => monitor.handleDragOver(e));
+    (0, ui_1.dropZoneAddDropEvent)(e => monitor.handleFileSelect(e));
 });
 
 })();

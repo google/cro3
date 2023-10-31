@@ -1,9 +1,9 @@
 export class serialPort {
-  port: SerialPort | undefined = undefined;
+  port?: SerialPort;
   reader = new ReadableStreamDefaultReader(new ReadableStream());
   encoder = new TextEncoder();
   decoder = new TextDecoder();
-  open = async (usbVendorId: number, usbProductId: number) => {
+  async open(usbVendorId: number, usbProductId: number) {
     this.port = await navigator.serial
       .requestPort({
         filters: [{usbVendorId: usbVendorId, usbProductId: usbProductId}],
@@ -13,8 +13,8 @@ export class serialPort {
         throw e;
       });
     await this.port.open({baudRate: 115200});
-  };
-  close = async () => {
+  }
+  async close() {
     if (this.port === undefined) return;
     await this.reader.cancel();
     await this.reader.releaseLock();
@@ -24,8 +24,8 @@ export class serialPort {
       console.error(e);
       throw e;
     }
-  };
-  read = async () => {
+  }
+  async read() {
     if (this.port === undefined) return '';
     const readable = this.port.readable;
     if (readable === null) return '';
@@ -47,13 +47,13 @@ export class serialPort {
     } finally {
       this.reader.releaseLock();
     }
-  };
-  write = async (s: string) => {
+  }
+  async write(s: string) {
     if (this.port === undefined) return;
     const writable = this.port.writable;
     if (writable === null) return;
     const writer = writable.getWriter();
     await writer.write(this.encoder.encode(s));
     writer.releaseLock();
-  };
+  }
 }

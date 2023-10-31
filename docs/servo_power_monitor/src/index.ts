@@ -21,20 +21,24 @@ import {
 window.addEventListener('DOMContentLoaded', () => {
   const monitor = new powerMonitor();
   setPopupCloseButton();
-  selectDutSerialAddClickEvent(monitor.selectDutSerial);
-  formAddSubmitEvent(monitor.formSubmit);
-  inputAddKeydownEvent(monitor.cancelSubmit);
-  executeScriptAddClickEvent(monitor.executeScript);
-  requestUsbAddClickEvent(monitor.requestUsb);
-  requestSerialAddClickEvent(monitor.requestSerial);
+  selectDutSerialAddClickEvent(() => monitor.selectDutSerial());
+  formAddSubmitEvent(e => monitor.formSubmit(e));
+  inputAddKeydownEvent(e => monitor.cancelSubmit(e));
+  executeScriptAddClickEvent(() => monitor.executeScript());
+  requestUsbAddClickEvent(() => monitor.requestUsb());
+  requestSerialAddClickEvent(() => monitor.requestSerial());
   // `disconnect` event is fired when a Usb device is disconnected.
   // c.f. https://wicg.github.io/webusb/#disconnect (5.1. Events)
-  navigator.usb.addEventListener('disconnect', monitor.disconnectUsbPort);
+  navigator.usb.addEventListener('disconnect', () =>
+    monitor.disconnectUsbPort()
+  );
   // event when you disconnect serial port
-  navigator.serial.addEventListener('disconnect', monitor.disconnectSerialPort);
-  downloadAddClickEvent(monitor.downloadJSONFile);
-  haltAddClickEvent(monitor.stopMeasurement);
-  analyzeAddClickEvent(monitor.analyzePowerData);
-  dropZoneAddDragoverEvent(monitor.handleDragOver);
-  dropZoneAddDropEvent(monitor.handleFileSelect);
+  navigator.serial.addEventListener('disconnect', () =>
+    monitor.disconnectSerialPort()
+  );
+  downloadAddClickEvent(() => monitor.downloadJSONFile());
+  haltAddClickEvent(() => monitor.stopMeasurement());
+  analyzeAddClickEvent(() => monitor.analyzePowerData());
+  dropZoneAddDragoverEvent(e => monitor.handleDragOver(e));
+  dropZoneAddDropEvent(e => monitor.handleFileSelect(e));
 });

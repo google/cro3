@@ -27,6 +27,9 @@ const popupCloseButton = document.getElementById(
 ) as HTMLButtonElement;
 const overlay = document.querySelector('#popup-overlay') as HTMLDivElement;
 const messages = document.getElementById('messages') as HTMLDivElement;
+const serial_output = document.getElementById(
+  'serial_output'
+) as HTMLDivElement;
 const executeScriptButton = document.getElementById(
   'executeScriptButton'
 ) as HTMLButtonElement;
@@ -62,6 +65,10 @@ export function closePopup() {
 export function addMessageToConsole(s: string) {
   messages.textContent += s;
   messages.scrollTo(0, messages.scrollHeight);
+}
+
+export function addServoConsole(s: string) {
+  serial_output.textContent = s;
 }
 
 export function selectDutSerialAddClickEvent(fn: () => Promise<void>) {

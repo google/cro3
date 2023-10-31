@@ -35,7 +35,7 @@ echo "end"\n`;
   servo = new serialPort();
   dut = new serialPort();
 
-  pushOutput = (s: string) => {
+  pushOutput(s: string) {
     this.output += s;
 
     const splitted = this.output.split('\n').filter(s => s.trim().length > 10);
@@ -53,8 +53,8 @@ echo "end"\n`;
       this.output = '';
       this.inProgress = false;
     }
-  };
-  kickWriteLoop = (writeFn: (s: string) => Promise<void>) => {
+  }
+  kickWriteLoop(writeFn: (s: string) => Promise<void>) {
     const f = async () => {
       while (!this.halt) {
         if (this.inProgress) {
@@ -71,8 +71,8 @@ echo "end"\n`;
       }
     };
     setTimeout(f, this.INTERVAL_MS);
-  };
-  readLoop = async (readFn: () => Promise<string>) => {
+  }
+  async readLoop(readFn: () => Promise<string>) {
     while (!this.halt) {
       try {
         const s = await readFn();
@@ -87,8 +87,8 @@ echo "end"\n`;
         break;
       }
     }
-  };
-  selectDutSerial = async () => {
+  }
+  async selectDutSerial() {
     await this.dut.open(0x18d1, 0x504a);
     this.isDutOpened = true;
     addMessageToConsole('DutPort is selected');
@@ -96,17 +96,17 @@ echo "end"\n`;
       const chunk = await this.dut.read();
       addMessageToConsole(chunk);
     }
-  };
-  formSubmit = async (e: Event) => {
+  }
+  async formSubmit(e: Event) {
     e.preventDefault();
     if (!this.isDutOpened) {
       closePopup();
       return;
     }
     await this.dut.write(readInputValue() + '\n');
-  };
+  }
   // send cancel command to serial port when ctrl+C is pressed in input area
-  cancelSubmit = async (e: KeyboardEvent) => {
+  async cancelSubmit(e: KeyboardEvent) {
     if (!this.isDutOpened) {
       closePopup();
       return;
@@ -114,8 +114,8 @@ echo "end"\n`;
     if (e.ctrlKey && e.key === 'c') {
       await this.dut.write(this.CANCEL_CMD);
     }
-  };
-  executeScript = async () => {
+  }
+  async executeScript() {
     if (!this.isDutOpened) {
       closePopup();
     } else {
@@ -124,8 +124,8 @@ echo "end"\n`;
       await this.dut.write('EOF\n');
       await this.dut.write('bash ./example.sh\n');
     }
-  };
-  requestUsb = async () => {
+  }
+  async requestUsb() {
     this.halt = false;
     await this.usb.open();
     this.isSerial = false;
@@ -138,8 +138,8 @@ echo "end"\n`;
       this.halt = true;
       enabledRecordingButton(this.halt);
     }
-  };
-  requestSerial = async () => {
+  }
+  async requestSerial() {
     this.halt = false;
     await this.servo.open(0x18d1, 0x520d);
     this.isSerial = true;
@@ -149,8 +149,8 @@ echo "end"\n`;
 
     this.kickWriteLoop(async s => this.servo.write(s));
     this.readLoop(() => this.servo.read());
-  };
-  disconnectUsbPort = async () => {
+  }
+  disconnectUsbPort() {
     if (!this.halt && !this.isSerial) {
       //  No need to call close() for the Usb servoPort here because the
       //  specification says that
@@ -159,8 +159,8 @@ echo "end"\n`;
       this.inProgress = false;
       enabledRecordingButton(this.halt);
     }
-  };
-  disconnectSerialPort = async () => {
+  }
+  async disconnectSerialPort() {
     if (!this.halt && this.isSerial) {
       await this.servo.close();
       this.halt = true;
@@ -171,8 +171,8 @@ echo "end"\n`;
       await this.dut.close();
       this.isDutOpened = false;
     }
-  };
-  stopMeasurement = async () => {
+  }
+  async stopMeasurement() {
     this.halt = true;
     this.inProgress = false;
     if (this.isSerial) {
@@ -181,7 +181,7 @@ echo "end"\n`;
       await this.usb.close();
     }
     enabledRecordingButton(this.halt);
-  };
+  }
   analyzePowerData() {
     // https://dygraphs.com/jsdoc/symbols/Dygraph.html#xAxisRange
     const xrange = this.graph.g.xAxisRange();
@@ -190,13 +190,13 @@ echo "end"\n`;
     const right = xrange[1];
     this.histogram.paintHistogram(left, right, this.graph.powerData);
   }
-  downloadJSONFile = () => {
+  downloadJSONFile() {
     const dataStr =
       'data:text/json;charset=utf-8,' +
       encodeURIComponent(JSON.stringify({power: this.graph.powerData}));
     setDownloadAnchor(dataStr);
-  };
-  handleFileSelect = (evt: DragEvent) => {
+  }
+  handleFileSelect(evt: DragEvent) {
     evt.stopPropagation();
     evt.preventDefault();
     const eventDataTransfer = evt.dataTransfer;
@@ -214,12 +214,12 @@ echo "end"\n`;
       this.graph.updateGraph();
     });
     r.readAsText(file);
-  };
-  handleDragOver = (evt: DragEvent) => {
+  }
+  handleDragOver(evt: DragEvent) {
     evt.stopPropagation();
     evt.preventDefault();
     const eventDataTransfer = evt.dataTransfer;
     if (eventDataTransfer === null) return;
     eventDataTransfer.dropEffect = 'copy'; // Explicitly show this is a copy.
-  };
+  }
 }

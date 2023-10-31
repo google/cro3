@@ -4,7 +4,7 @@ export class usbPort {
   ep = this.usb_interface + 1;
   encoder = new TextEncoder();
   decoder = new TextDecoder();
-  open = async () => {
+  async open() {
     this.device = await navigator.usb
       .requestDevice({filters: [{vendorId: 0x18d1, productId: 0x520d}]})
       .catch(e => {
@@ -14,16 +14,16 @@ export class usbPort {
     await this.device.open();
     await this.device.selectConfiguration(1);
     await this.device.claimInterface(this.usb_interface);
-  };
-  close = async () => {
+  }
+  async close() {
     if (this.device === undefined) return;
     try {
       await this.device.close();
     } catch (e) {
       console.error(e);
     }
-  };
-  read = async (halt: boolean) => {
+  }
+  async read(halt: boolean) {
     if (this.device === undefined) return '';
     try {
       const result = await this.device.transferIn(this.ep, 64);
@@ -44,9 +44,9 @@ export class usbPort {
       }
       return '';
     }
-  };
-  write = async (s: string) => {
+  }
+  async write(s: string) {
     if (this.device === undefined) return;
     await this.device.transferOut(this.ep, this.encoder.encode(s));
-  };
+  }
 }
