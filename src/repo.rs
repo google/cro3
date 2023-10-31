@@ -18,6 +18,7 @@ use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
 use indicatif::ProgressBar;
+use indicatif::ProgressStyle;
 use regex::Regex;
 use regex_macro::regex;
 
@@ -186,26 +187,28 @@ fn draw_progress_bar(r: impl BufRead) -> Result<()> {
         .map(|l| String::from_utf8_lossy(&l.unwrap()).to_string());
 
     let re = Regex::new(
-        r"(?P<title>.+:\s)+\s{0,2}(?P<percent>\d{1,3})%\s\((?P<done>\d+)\/(?P<total>\d+)\)",
+        r"(?P<title>Finding sources|Fetching|Checking out):\s{1,3}(?P<percent>\d{1,3})%\s\((?P<done>\d+)\/(?P<total>\d+)\)",
     )?;
 
     let bar = ProgressBar::new(0);
-    let mut prev: String = String::from("");
+    bar.set_style(ProgressStyle::with_template(
+        "{msg} {wide_bar}{pos:>5}/{len:5}",
+    )?);
 
     for a_line in split_iter {
         if let Some(caps) = re.captures(&a_line) {
-            let title = caps["title"].to_string();
+            let done = caps["done"].parse::<u64>()?;
+            let total = caps["total"].parse::<u64>()?;
 
-            if prev != title {
-                println!("{}\r", title);
-                bar.set_length(caps["total"].parse::<u64>()?);
-            } else {
-                bar.set_position(caps["done"].parse::<u64>()?);
+            bar.set_message(caps["title"].to_string());
+            bar.set_position(done);
+            bar.set_length(total);
+
+            if done == total {
+                bar.finish();
             }
-            prev = title;
         }
     }
-    bar.finish();
 
     Ok(())
 }
