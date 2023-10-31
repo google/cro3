@@ -2,21 +2,7 @@
 // without displaying" ; timeout 5 yes > /dev/null ; } ; done ectool
 // chargecontrol idle ectool chargecontrol normal
 
-import {
-  analyzePowerData,
-  handleFileSelect,
-  handleDragOver,
-  executeScript,
-  formSubmit,
-  selectDutSerial,
-  requestUsb,
-  requestSerial,
-  disconnectUsbPort,
-  disconnectSerialPort,
-  downloadJSONFile,
-  stopMeasurement,
-  cancelSubmit,
-} from './main';
+import {powerMonitor} from './main';
 import {
   analyzeAddClickEvent,
   downloadAddClickEvent,
@@ -33,21 +19,22 @@ import {
 } from './ui';
 
 window.addEventListener('DOMContentLoaded', () => {
+  const monitor = new powerMonitor();
   setPopupCloseButton();
-  selectDutSerialAddClickEvent(selectDutSerial);
-  formAddSubmitEvent(async e => formSubmit(e));
-  inputAddKeydownEvent(async e => cancelSubmit(e));
-  executeScriptAddClickEvent(executeScript);
-  requestUsbAddClickEvent(requestUsb);
-  requestSerialAddClickEvent(requestSerial);
+  selectDutSerialAddClickEvent(monitor.selectDutSerial);
+  formAddSubmitEvent(monitor.formSubmit);
+  inputAddKeydownEvent(monitor.cancelSubmit);
+  executeScriptAddClickEvent(monitor.executeScript);
+  requestUsbAddClickEvent(monitor.requestUsb);
+  requestSerialAddClickEvent(monitor.requestSerial);
   // `disconnect` event is fired when a Usb device is disconnected.
   // c.f. https://wicg.github.io/webusb/#disconnect (5.1. Events)
-  navigator.usb.addEventListener('disconnect', disconnectUsbPort);
+  navigator.usb.addEventListener('disconnect', monitor.disconnectUsbPort);
   // event when you disconnect serial port
-  navigator.serial.addEventListener('disconnect', disconnectSerialPort);
-  downloadAddClickEvent(downloadJSONFile);
-  haltAddClickEvent(stopMeasurement);
-  analyzeAddClickEvent(analyzePowerData);
-  dropZoneAddDragoverEvent(handleDragOver);
-  dropZoneAddDropEvent(handleFileSelect);
+  navigator.serial.addEventListener('disconnect', monitor.disconnectSerialPort);
+  downloadAddClickEvent(monitor.downloadJSONFile);
+  haltAddClickEvent(monitor.stopMeasurement);
+  analyzeAddClickEvent(monitor.analyzePowerData);
+  dropZoneAddDragoverEvent(monitor.handleDragOver);
+  dropZoneAddDropEvent(monitor.handleFileSelect);
 });
