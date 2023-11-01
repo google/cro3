@@ -2,6 +2,7 @@
 // without displaying" ; timeout 5 yes > /dev/null ; } ; done ectool
 // chargecontrol idle ectool chargecontrol normal
 
+import {dutSerialConsole} from './dutSerialConsole';
 import {powerMonitor} from './main';
 import {
   analyzeAddClickEvent,
@@ -20,11 +21,12 @@ import {
 
 window.addEventListener('DOMContentLoaded', () => {
   const monitor = new powerMonitor();
+  const dut = new dutSerialConsole();
   setPopupCloseButton();
-  selectDutSerialAddClickEvent(() => monitor.selectDutSerial());
-  formAddSubmitEvent(e => monitor.formSubmit(e));
-  inputAddKeydownEvent(e => monitor.cancelSubmit(e));
-  executeScriptAddClickEvent(() => monitor.executeScript());
+  selectDutSerialAddClickEvent(() => dut.selectPort());
+  formAddSubmitEvent(e => dut.formSubmit(e));
+  inputAddKeydownEvent(e => dut.cancelSubmit(e));
+  executeScriptAddClickEvent(() => dut.executeScript());
   requestUsbAddClickEvent(() => monitor.requestUsb());
   requestSerialAddClickEvent(() => monitor.requestSerial());
   // `disconnect` event is fired when a Usb device is disconnected.
@@ -33,9 +35,10 @@ window.addEventListener('DOMContentLoaded', () => {
     monitor.disconnectUsbPort()
   );
   // event when you disconnect serial port
-  navigator.serial.addEventListener('disconnect', () =>
-    monitor.disconnectSerialPort()
-  );
+  navigator.serial.addEventListener('disconnect', () => {
+    monitor.disconnectSerialPort();
+    dut.disconnectPort();
+  });
   downloadAddClickEvent(() => monitor.downloadJSONFile());
   haltAddClickEvent(() => monitor.stopMeasurement());
   analyzeAddClickEvent(() => monitor.analyzePowerData());

@@ -33841,6 +33841,84 @@ webpackContext.id = "./node_modules/moment/locale sync recursive ^\\.\\/.*$";
 
 /***/ }),
 
+/***/ "./src/dutSerialConsole.ts":
+/*!*********************************!*\
+  !*** ./src/dutSerialConsole.ts ***!
+  \*********************************/
+/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.dutSerialConsole = void 0;
+const serialport_1 = __webpack_require__(/*! ./serialport */ "./src/serialport.ts");
+const ui_1 = __webpack_require__(/*! ./ui */ "./src/ui.ts");
+class dutSerialConsole {
+    constructor() {
+        this.dut = new serialport_1.serialPort();
+        this.isOpened = false;
+        this.CANCEL_CMD = '\x03\n';
+        // shell script
+        this.scripts = `#!/bin/bash -e
+function workload () {
+  ectool chargecontrol idle
+  stress-ng -c 1 -t \\$1
+  echo "workload"
+}
+echo "start"
+workload 10 1> ./test_out.log 2> ./test_err.log
+echo "end"\n`;
+    }
+    async selectPort() {
+        await this.dut.open(0x18d1, 0x504a);
+        this.isOpened = true;
+        (0, ui_1.addMessageToConsole)('DutPort is selected');
+        for (;;) {
+            const chunk = await this.dut.read();
+            (0, ui_1.addMessageToConsole)(chunk);
+        }
+    }
+    async formSubmit(e) {
+        e.preventDefault();
+        if (!this.isOpened) {
+            (0, ui_1.closePopup)();
+            return;
+        }
+        await this.dut.write((0, ui_1.readInputValue)() + '\n');
+    }
+    // send cancel command to serial port when ctrl+C is pressed in input area
+    async cancelSubmit(e) {
+        if (!this.isOpened) {
+            (0, ui_1.closePopup)();
+            return;
+        }
+        if (e.ctrlKey && e.key === 'c') {
+            await this.dut.write(this.CANCEL_CMD);
+        }
+    }
+    async executeScript() {
+        if (!this.isOpened) {
+            (0, ui_1.closePopup)();
+        }
+        else {
+            await this.dut.write('cat > ./example.sh << EOF\n');
+            await this.dut.write(this.scripts);
+            await this.dut.write('EOF\n');
+            await this.dut.write('bash ./example.sh\n');
+        }
+    }
+    async disconnectPort() {
+        if (this.isOpened) {
+            await this.dut.close();
+            this.isOpened = false;
+        }
+    }
+}
+exports.dutSerialConsole = dutSerialConsole;
+
+
+/***/ }),
+
 /***/ "./src/graph.ts":
 /*!**********************!*\
   !*** ./src/graph.ts ***!
@@ -34130,27 +34208,14 @@ const usbport_1 = __webpack_require__(/*! ./usbport */ "./src/usbport.ts");
 class powerMonitor {
     constructor() {
         this.INTERVAL_MS = 100;
-        this.CANCEL_CMD = '\x03\n';
-        // shell script
-        this.scripts = `#!/bin/bash -e
-function workload () {
-  ectool chargecontrol idle
-  stress-ng -c 1 -t \\$1
-  echo "workload"
-}
-echo "start"
-workload 10 1> ./test_out.log 2> ./test_err.log
-echo "end"\n`;
         this.halt = false;
         this.inProgress = false;
         this.isSerial = false;
-        this.isDutOpened = false;
         this.graph = new graph_1.powerGraph();
         this.histogram = new histogram_1.histogram();
         this.output = '';
         this.usb = new usbport_1.usbPort();
         this.servo = new serialport_1.serialPort();
-        this.dut = new serialport_1.serialPort();
     }
     pushOutput(s) {
         this.output += s;
@@ -34204,44 +34269,6 @@ echo "end"\n`;
             }
         }
     }
-    async selectDutSerial() {
-        await this.dut.open(0x18d1, 0x504a);
-        this.isDutOpened = true;
-        (0, ui_1.addMessageToConsole)('DutPort is selected');
-        for (;;) {
-            const chunk = await this.dut.read();
-            (0, ui_1.addMessageToConsole)(chunk);
-        }
-    }
-    async formSubmit(e) {
-        e.preventDefault();
-        if (!this.isDutOpened) {
-            (0, ui_1.closePopup)();
-            return;
-        }
-        await this.dut.write((0, ui_1.readInputValue)() + '\n');
-    }
-    // send cancel command to serial port when ctrl+C is pressed in input area
-    async cancelSubmit(e) {
-        if (!this.isDutOpened) {
-            (0, ui_1.closePopup)();
-            return;
-        }
-        if (e.ctrlKey && e.key === 'c') {
-            await this.dut.write(this.CANCEL_CMD);
-        }
-    }
-    async executeScript() {
-        if (!this.isDutOpened) {
-            (0, ui_1.closePopup)();
-        }
-        else {
-            await this.dut.write('cat > ./example.sh << EOF\n');
-            await this.dut.write(this.scripts);
-            await this.dut.write('EOF\n');
-            await this.dut.write('bash ./example.sh\n');
-        }
-    }
     async requestUsb() {
         this.halt = false;
         await this.usb.open();
@@ -34283,10 +34310,6 @@ echo "end"\n`;
             this.halt = true;
             this.inProgress = false;
             (0, ui_1.enabledRecordingButton)(this.halt);
-        }
-        if (this.isDutOpened) {
-            await this.dut.close();
-            this.isDutOpened = false;
         }
     }
     async stopMeasurement() {
@@ -68997,22 +69020,27 @@ var exports = __webpack_exports__;
 // without displaying" ; timeout 5 yes > /dev/null ; } ; done ectool
 // chargecontrol idle ectool chargecontrol normal
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+const dutSerialConsole_1 = __webpack_require__(/*! ./dutSerialConsole */ "./src/dutSerialConsole.ts");
 const main_1 = __webpack_require__(/*! ./main */ "./src/main.ts");
 const ui_1 = __webpack_require__(/*! ./ui */ "./src/ui.ts");
 window.addEventListener('DOMContentLoaded', () => {
     const monitor = new main_1.powerMonitor();
+    const dut = new dutSerialConsole_1.dutSerialConsole();
     (0, ui_1.setPopupCloseButton)();
-    (0, ui_1.selectDutSerialAddClickEvent)(() => monitor.selectDutSerial());
-    (0, ui_1.formAddSubmitEvent)(e => monitor.formSubmit(e));
-    (0, ui_1.inputAddKeydownEvent)(e => monitor.cancelSubmit(e));
-    (0, ui_1.executeScriptAddClickEvent)(() => monitor.executeScript());
+    (0, ui_1.selectDutSerialAddClickEvent)(() => dut.selectPort());
+    (0, ui_1.formAddSubmitEvent)(e => dut.formSubmit(e));
+    (0, ui_1.inputAddKeydownEvent)(e => dut.cancelSubmit(e));
+    (0, ui_1.executeScriptAddClickEvent)(() => dut.executeScript());
     (0, ui_1.requestUsbAddClickEvent)(() => monitor.requestUsb());
     (0, ui_1.requestSerialAddClickEvent)(() => monitor.requestSerial());
     // `disconnect` event is fired when a Usb device is disconnected.
     // c.f. https://wicg.github.io/webusb/#disconnect (5.1. Events)
     navigator.usb.addEventListener('disconnect', () => monitor.disconnectUsbPort());
     // event when you disconnect serial port
-    navigator.serial.addEventListener('disconnect', () => monitor.disconnectSerialPort());
+    navigator.serial.addEventListener('disconnect', () => {
+        monitor.disconnectSerialPort();
+        dut.disconnectPort();
+    });
     (0, ui_1.downloadAddClickEvent)(() => monitor.downloadJSONFile());
     (0, ui_1.haltAddClickEvent)(() => monitor.stopMeasurement());
     (0, ui_1.analyzeAddClickEvent)(() => monitor.analyzePowerData());

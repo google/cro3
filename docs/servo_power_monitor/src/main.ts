@@ -1,40 +1,19 @@
 import {powerGraph} from './graph';
 import {histogram} from './histogram';
 import {serialPort} from './serialport';
-import {
-  addMessageToConsole,
-  addServoConsole,
-  closePopup,
-  enabledRecordingButton,
-  readInputValue,
-  setDownloadAnchor,
-} from './ui';
+import {addServoConsole, enabledRecordingButton, setDownloadAnchor} from './ui';
 import {usbPort} from './usbport';
 
 export class powerMonitor {
   INTERVAL_MS = 100;
-  CANCEL_CMD = '\x03\n';
-  // shell script
-  scripts = `#!/bin/bash -e
-function workload () {
-  ectool chargecontrol idle
-  stress-ng -c 1 -t \\$1
-  echo "workload"
-}
-echo "start"
-workload 10 1> ./test_out.log 2> ./test_err.log
-echo "end"\n`;
   halt = false;
   inProgress = false;
   isSerial = false;
-  isDutOpened = false;
   graph = new powerGraph();
   histogram = new histogram();
   output = '';
   usb = new usbPort();
   servo = new serialPort();
-  dut = new serialPort();
-
   pushOutput(s: string) {
     this.output += s;
 
@@ -88,43 +67,7 @@ echo "end"\n`;
       }
     }
   }
-  async selectDutSerial() {
-    await this.dut.open(0x18d1, 0x504a);
-    this.isDutOpened = true;
-    addMessageToConsole('DutPort is selected');
-    for (;;) {
-      const chunk = await this.dut.read();
-      addMessageToConsole(chunk);
-    }
-  }
-  async formSubmit(e: Event) {
-    e.preventDefault();
-    if (!this.isDutOpened) {
-      closePopup();
-      return;
-    }
-    await this.dut.write(readInputValue() + '\n');
-  }
-  // send cancel command to serial port when ctrl+C is pressed in input area
-  async cancelSubmit(e: KeyboardEvent) {
-    if (!this.isDutOpened) {
-      closePopup();
-      return;
-    }
-    if (e.ctrlKey && e.key === 'c') {
-      await this.dut.write(this.CANCEL_CMD);
-    }
-  }
-  async executeScript() {
-    if (!this.isDutOpened) {
-      closePopup();
-    } else {
-      await this.dut.write('cat > ./example.sh << EOF\n');
-      await this.dut.write(this.scripts);
-      await this.dut.write('EOF\n');
-      await this.dut.write('bash ./example.sh\n');
-    }
-  }
+
   async requestUsb() {
     this.halt = false;
     await this.usb.open();
@@ -166,10 +109,6 @@ echo "end"\n`;
       this.halt = true;
       this.inProgress = false;
       enabledRecordingButton(this.halt);
-    }
-    if (this.isDutOpened) {
-      await this.dut.close();
-      this.isDutOpened = false;
     }
   }
   async stopMeasurement() {
