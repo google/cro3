@@ -9,7 +9,7 @@ export class powerMonitor {
   isSerial = false;
   graph: powerGraph;
   output = '';
-  usb = new usbPort(this.halt);
+  usb = new usbPort();
   servo = new serialPort();
   requestUsbButton = document.getElementById(
     'request-device'
@@ -22,6 +22,10 @@ export class powerMonitor {
 
   constructor(graph: powerGraph) {
     this.graph = graph;
+  }
+  changeHaltFlag(flag: boolean) {
+    this.halt = flag;
+    this.usb.changeHaltFlag(flag);
   }
   enabledRecordingButton(halt: boolean) {
     this.requestUsbButton.disabled = !halt;
@@ -82,7 +86,7 @@ export class powerMonitor {
   }
 
   async requestUsb() {
-    this.halt = false;
+    this.changeHaltFlag(false);
     await this.usb.open();
     this.isSerial = false;
     this.enabledRecordingButton(this.halt);
@@ -91,12 +95,12 @@ export class powerMonitor {
       this.readLoop(async () => this.usb.read());
     } catch (err) {
       console.error(`Disconnected: ${err}`);
-      this.halt = true;
+      this.changeHaltFlag(true);
       this.enabledRecordingButton(this.halt);
     }
   }
   async requestSerial() {
-    this.halt = false;
+    this.changeHaltFlag(false);
     await this.servo.open(0x18d1, 0x520d);
     this.isSerial = true;
     this.enabledRecordingButton(this.halt);
@@ -111,7 +115,7 @@ export class powerMonitor {
       //  No need to call close() for the Usb servoPort here because the
       //  specification says that
       // the servoPort will be closed automatically when a device is disconnected.
-      this.halt = true;
+      this.changeHaltFlag(true);
       this.inProgress = false;
       this.enabledRecordingButton(this.halt);
     }
@@ -119,13 +123,13 @@ export class powerMonitor {
   async disconnectSerialPort() {
     if (!this.halt && this.isSerial) {
       await this.servo.close();
-      this.halt = true;
+      this.changeHaltFlag(true);
       this.inProgress = false;
       this.enabledRecordingButton(this.halt);
     }
   }
   async stopMeasurement() {
-    this.halt = true;
+    this.changeHaltFlag(true);
     this.inProgress = false;
     if (this.isSerial) {
       await this.servo.close();

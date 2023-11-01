@@ -1,12 +1,12 @@
 export class usbPort {
-  halt: boolean;
+  halt = false;
   device?: USBDevice;
   usb_interface = 0;
   ep = this.usb_interface + 1;
   encoder = new TextEncoder();
   decoder = new TextDecoder();
-  constructor(halt: boolean) {
-    this.halt = halt;
+  changeHaltFlag(flag: boolean) {
+    this.halt = flag;
   }
   async open() {
     this.device = await navigator.usb

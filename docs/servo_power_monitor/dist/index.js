@@ -34359,13 +34359,17 @@ class powerMonitor {
         this.inProgress = false;
         this.isSerial = false;
         this.output = '';
-        this.usb = new usbport_1.usbPort(this.halt);
+        this.usb = new usbport_1.usbPort();
         this.servo = new serialport_1.serialPort();
         this.requestUsbButton = document.getElementById('request-device');
         this.requestSerialButton = document.getElementById('requestSerialButton');
         this.haltButton = document.getElementById('haltButton');
         this.serial_output = document.getElementById('serial_output');
         this.graph = graph;
+    }
+    changeHaltFlag(flag) {
+        this.halt = flag;
+        this.usb.changeHaltFlag(flag);
     }
     enabledRecordingButton(halt) {
         this.requestUsbButton.disabled = !halt;
@@ -34424,7 +34428,7 @@ class powerMonitor {
         }
     }
     async requestUsb() {
-        this.halt = false;
+        this.changeHaltFlag(false);
         await this.usb.open();
         this.isSerial = false;
         this.enabledRecordingButton(this.halt);
@@ -34434,12 +34438,12 @@ class powerMonitor {
         }
         catch (err) {
             console.error(`Disconnected: ${err}`);
-            this.halt = true;
+            this.changeHaltFlag(true);
             this.enabledRecordingButton(this.halt);
         }
     }
     async requestSerial() {
-        this.halt = false;
+        this.changeHaltFlag(false);
         await this.servo.open(0x18d1, 0x520d);
         this.isSerial = true;
         this.enabledRecordingButton(this.halt);
@@ -34453,7 +34457,7 @@ class powerMonitor {
             //  No need to call close() for the Usb servoPort here because the
             //  specification says that
             // the servoPort will be closed automatically when a device is disconnected.
-            this.halt = true;
+            this.changeHaltFlag(true);
             this.inProgress = false;
             this.enabledRecordingButton(this.halt);
         }
@@ -34461,13 +34465,13 @@ class powerMonitor {
     async disconnectSerialPort() {
         if (!this.halt && this.isSerial) {
             await this.servo.close();
-            this.halt = true;
+            this.changeHaltFlag(true);
             this.inProgress = false;
             this.enabledRecordingButton(this.halt);
         }
     }
     async stopMeasurement() {
-        this.halt = true;
+        this.changeHaltFlag(true);
         this.inProgress = false;
         if (this.isSerial) {
             await this.servo.close();
@@ -34582,12 +34586,15 @@ exports.serialPort = serialPort;
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.usbPort = void 0;
 class usbPort {
-    constructor(halt) {
+    constructor() {
+        this.halt = false;
         this.usb_interface = 0;
         this.ep = this.usb_interface + 1;
         this.encoder = new TextEncoder();
         this.decoder = new TextDecoder();
-        this.halt = halt;
+    }
+    changeHaltFlag(flag) {
+        this.halt = flag;
     }
     async open() {
         this.device = await navigator.usb
