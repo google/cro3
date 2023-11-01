@@ -8,11 +8,6 @@ import {dutSerialConsole} from './dutSerialConsole';
 import {powerGraph} from './graph';
 import {importJsonFile} from './importJsonFile';
 import {powerMonitor} from './main';
-import {
-  haltAddClickEvent,
-  requestSerialAddClickEvent,
-  requestUsbAddClickEvent,
-} from './ui';
 
 window.addEventListener('DOMContentLoaded', () => {
   const graph = new powerGraph();
@@ -21,12 +16,11 @@ window.addEventListener('DOMContentLoaded', () => {
   const importFile = new importJsonFile(graph);
   const downloadFile = new downloadJsonFile(graph);
   const analyze = new analyzeData(graph);
+  monitor.setupHtmlEvent();
   dut.setupHtmlEvent();
   importFile.setupHtmlEvent();
   downloadFile.setupHtmlEvent();
   analyze.setupHtmlEvent();
-  requestUsbAddClickEvent(() => monitor.requestUsb());
-  requestSerialAddClickEvent(() => monitor.requestSerial());
   // `disconnect` event is fired when a Usb device is disconnected.
   // c.f. https://wicg.github.io/webusb/#disconnect (5.1. Events)
   navigator.usb.addEventListener('disconnect', () =>
@@ -37,5 +31,4 @@ window.addEventListener('DOMContentLoaded', () => {
     monitor.disconnectSerialPort();
     dut.disconnectPort();
   });
-  haltAddClickEvent(() => monitor.stopMeasurement());
 });

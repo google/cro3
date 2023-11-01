@@ -1,6 +1,5 @@
 import {powerGraph} from './graph';
 import {serialPort} from './serialport';
-import {addServoConsole, enabledRecordingButton} from './ui';
 import {usbPort} from './usbport';
 
 export class powerMonitor {
@@ -12,8 +11,21 @@ export class powerMonitor {
   output = '';
   usb = new usbPort(this.halt);
   servo = new serialPort();
+  requestUsbButton = document.getElementById(
+    'request-device'
+  ) as HTMLButtonElement;
+  requestSerialButton = document.getElementById(
+    'requestSerialButton'
+  ) as HTMLButtonElement;
+  haltButton = document.getElementById('haltButton') as HTMLButtonElement;
+  serial_output = document.getElementById('serial_output') as HTMLDivElement;
+
   constructor(graph: powerGraph) {
     this.graph = graph;
+  }
+  enabledRecordingButton(halt: boolean) {
+    this.requestUsbButton.disabled = !halt;
+    this.requestSerialButton.disabled = !halt;
   }
   pushOutput(s: string) {
     this.output += s;
@@ -29,7 +41,7 @@ export class powerMonitor {
       const e: Array<Date | number> = [new Date(), power];
       this.graph.pushData(e);
       this.graph.updateGraph();
-      addServoConsole(this.output);
+      this.serial_output.textContent = this.output;
       this.output = '';
       this.inProgress = false;
     }
@@ -73,21 +85,21 @@ export class powerMonitor {
     this.halt = false;
     await this.usb.open();
     this.isSerial = false;
-    enabledRecordingButton(this.halt);
+    this.enabledRecordingButton(this.halt);
     try {
       this.kickWriteLoop(async s => this.usb.write(s));
       this.readLoop(async () => this.usb.read());
     } catch (err) {
       console.error(`Disconnected: ${err}`);
       this.halt = true;
-      enabledRecordingButton(this.halt);
+      this.enabledRecordingButton(this.halt);
     }
   }
   async requestSerial() {
     this.halt = false;
     await this.servo.open(0x18d1, 0x520d);
     this.isSerial = true;
-    enabledRecordingButton(this.halt);
+    this.enabledRecordingButton(this.halt);
     await this.servo.write('help\n');
     // TODO: Implement something to check the validity of servo serial port
 
@@ -101,7 +113,7 @@ export class powerMonitor {
       // the servoPort will be closed automatically when a device is disconnected.
       this.halt = true;
       this.inProgress = false;
-      enabledRecordingButton(this.halt);
+      this.enabledRecordingButton(this.halt);
     }
   }
   async disconnectSerialPort() {
@@ -109,7 +121,7 @@ export class powerMonitor {
       await this.servo.close();
       this.halt = true;
       this.inProgress = false;
-      enabledRecordingButton(this.halt);
+      this.enabledRecordingButton(this.halt);
     }
   }
   async stopMeasurement() {
@@ -120,6 +132,13 @@ export class powerMonitor {
     } else {
       await this.usb.close();
     }
-    enabledRecordingButton(this.halt);
+    this.enabledRecordingButton(this.halt);
+  }
+  setupHtmlEvent() {
+    this.requestSerialButton.addEventListener('click', () =>
+      this.requestSerial()
+    );
+    this.requestUsbButton.addEventListener('click', () => this.requestUsb());
+    this.haltButton.addEventListener('click', () => this.stopMeasurement());
   }
 }

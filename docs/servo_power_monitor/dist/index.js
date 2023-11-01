@@ -34351,7 +34351,6 @@ exports.importJsonFile = importJsonFile;
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.powerMonitor = void 0;
 const serialport_1 = __webpack_require__(/*! ./serialport */ "./src/serialport.ts");
-const ui_1 = __webpack_require__(/*! ./ui */ "./src/ui.ts");
 const usbport_1 = __webpack_require__(/*! ./usbport */ "./src/usbport.ts");
 class powerMonitor {
     constructor(graph) {
@@ -34362,7 +34361,15 @@ class powerMonitor {
         this.output = '';
         this.usb = new usbport_1.usbPort(this.halt);
         this.servo = new serialport_1.serialPort();
+        this.requestUsbButton = document.getElementById('request-device');
+        this.requestSerialButton = document.getElementById('requestSerialButton');
+        this.haltButton = document.getElementById('haltButton');
+        this.serial_output = document.getElementById('serial_output');
         this.graph = graph;
+    }
+    enabledRecordingButton(halt) {
+        this.requestUsbButton.disabled = !halt;
+        this.requestSerialButton.disabled = !halt;
     }
     pushOutput(s) {
         this.output += s;
@@ -34376,7 +34383,7 @@ class powerMonitor {
             const e = [new Date(), power];
             this.graph.pushData(e);
             this.graph.updateGraph();
-            (0, ui_1.addServoConsole)(this.output);
+            this.serial_output.textContent = this.output;
             this.output = '';
             this.inProgress = false;
         }
@@ -34420,7 +34427,7 @@ class powerMonitor {
         this.halt = false;
         await this.usb.open();
         this.isSerial = false;
-        (0, ui_1.enabledRecordingButton)(this.halt);
+        this.enabledRecordingButton(this.halt);
         try {
             this.kickWriteLoop(async (s) => this.usb.write(s));
             this.readLoop(async () => this.usb.read());
@@ -34428,14 +34435,14 @@ class powerMonitor {
         catch (err) {
             console.error(`Disconnected: ${err}`);
             this.halt = true;
-            (0, ui_1.enabledRecordingButton)(this.halt);
+            this.enabledRecordingButton(this.halt);
         }
     }
     async requestSerial() {
         this.halt = false;
         await this.servo.open(0x18d1, 0x520d);
         this.isSerial = true;
-        (0, ui_1.enabledRecordingButton)(this.halt);
+        this.enabledRecordingButton(this.halt);
         await this.servo.write('help\n');
         // TODO: Implement something to check the validity of servo serial port
         this.kickWriteLoop(async (s) => this.servo.write(s));
@@ -34448,7 +34455,7 @@ class powerMonitor {
             // the servoPort will be closed automatically when a device is disconnected.
             this.halt = true;
             this.inProgress = false;
-            (0, ui_1.enabledRecordingButton)(this.halt);
+            this.enabledRecordingButton(this.halt);
         }
     }
     async disconnectSerialPort() {
@@ -34456,7 +34463,7 @@ class powerMonitor {
             await this.servo.close();
             this.halt = true;
             this.inProgress = false;
-            (0, ui_1.enabledRecordingButton)(this.halt);
+            this.enabledRecordingButton(this.halt);
         }
     }
     async stopMeasurement() {
@@ -34468,7 +34475,12 @@ class powerMonitor {
         else {
             await this.usb.close();
         }
-        (0, ui_1.enabledRecordingButton)(this.halt);
+        this.enabledRecordingButton(this.halt);
+    }
+    setupHtmlEvent() {
+        this.requestSerialButton.addEventListener('click', () => this.requestSerial());
+        this.requestUsbButton.addEventListener('click', () => this.requestUsb());
+        this.haltButton.addEventListener('click', () => this.stopMeasurement());
     }
 }
 exports.powerMonitor = powerMonitor;
@@ -34555,45 +34567,6 @@ class serialPort {
     }
 }
 exports.serialPort = serialPort;
-
-
-/***/ }),
-
-/***/ "./src/ui.ts":
-/*!*******************!*\
-  !*** ./src/ui.ts ***!
-  \*******************/
-/***/ ((__unused_webpack_module, exports) => {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.addServoConsole = exports.enabledRecordingButton = exports.haltAddClickEvent = exports.requestUsbAddClickEvent = exports.requestSerialAddClickEvent = void 0;
-const requestUsbButton = document.getElementById('request-device');
-const requestSerialButton = document.getElementById('requestSerialButton');
-const haltButton = document.getElementById('haltButton');
-const serial_output = document.getElementById('serial_output');
-function requestSerialAddClickEvent(fn) {
-    requestSerialButton.addEventListener('click', fn);
-}
-exports.requestSerialAddClickEvent = requestSerialAddClickEvent;
-function requestUsbAddClickEvent(fn) {
-    requestUsbButton.addEventListener('click', fn);
-}
-exports.requestUsbAddClickEvent = requestUsbAddClickEvent;
-function haltAddClickEvent(fn) {
-    haltButton.addEventListener('click', fn);
-}
-exports.haltAddClickEvent = haltAddClickEvent;
-function enabledRecordingButton(halt) {
-    requestUsbButton.disabled = !halt;
-    requestSerialButton.disabled = !halt;
-}
-exports.enabledRecordingButton = enabledRecordingButton;
-function addServoConsole(s) {
-    serial_output.textContent = s;
-}
-exports.addServoConsole = addServoConsole;
 
 
 /***/ }),
@@ -69058,7 +69031,6 @@ const dutSerialConsole_1 = __webpack_require__(/*! ./dutSerialConsole */ "./src/
 const graph_1 = __webpack_require__(/*! ./graph */ "./src/graph.ts");
 const importJsonFile_1 = __webpack_require__(/*! ./importJsonFile */ "./src/importJsonFile.ts");
 const main_1 = __webpack_require__(/*! ./main */ "./src/main.ts");
-const ui_1 = __webpack_require__(/*! ./ui */ "./src/ui.ts");
 window.addEventListener('DOMContentLoaded', () => {
     const graph = new graph_1.powerGraph();
     const monitor = new main_1.powerMonitor(graph);
@@ -69066,12 +69038,11 @@ window.addEventListener('DOMContentLoaded', () => {
     const importFile = new importJsonFile_1.importJsonFile(graph);
     const downloadFile = new downloadJsonFile_1.downloadJsonFile(graph);
     const analyze = new analyzeData_1.analyzeData(graph);
+    monitor.setupHtmlEvent();
     dut.setupHtmlEvent();
     importFile.setupHtmlEvent();
     downloadFile.setupHtmlEvent();
     analyze.setupHtmlEvent();
-    (0, ui_1.requestUsbAddClickEvent)(() => monitor.requestUsb());
-    (0, ui_1.requestSerialAddClickEvent)(() => monitor.requestSerial());
     // `disconnect` event is fired when a Usb device is disconnected.
     // c.f. https://wicg.github.io/webusb/#disconnect (5.1. Events)
     navigator.usb.addEventListener('disconnect', () => monitor.disconnectUsbPort());
@@ -69080,7 +69051,6 @@ window.addEventListener('DOMContentLoaded', () => {
         monitor.disconnectSerialPort();
         dut.disconnectPort();
     });
-    (0, ui_1.haltAddClickEvent)(() => monitor.stopMeasurement());
 });
 
 })();
