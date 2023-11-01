@@ -1,5 +1,4 @@
 import {powerGraph} from './graph';
-import {histogram} from './histogram';
 import {serialPort} from './serialport';
 import {addServoConsole, enabledRecordingButton} from './ui';
 import {usbPort} from './usbport';
@@ -10,7 +9,6 @@ export class powerMonitor {
   inProgress = false;
   isSerial = false;
   graph: powerGraph;
-  histogram = new histogram();
   output = '';
   usb = new usbPort(this.halt);
   servo = new serialPort();
@@ -123,13 +121,5 @@ export class powerMonitor {
       await this.usb.close();
     }
     enabledRecordingButton(this.halt);
-  }
-  analyzePowerData() {
-    // https://dygraphs.com/jsdoc/symbols/Dygraph.html#xAxisRange
-    const xrange = this.graph.g.xAxisRange();
-    console.log(this.graph.g.xAxisExtremes());
-    const left = xrange[0];
-    const right = xrange[1];
-    this.histogram.paintHistogram(left, right, this.graph.powerData);
   }
 }

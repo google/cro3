@@ -33841,6 +33841,40 @@ webpackContext.id = "./node_modules/moment/locale sync recursive ^\\.\\/.*$";
 
 /***/ }),
 
+/***/ "./src/analyzeData.ts":
+/*!****************************!*\
+  !*** ./src/analyzeData.ts ***!
+  \****************************/
+/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.analyzeData = void 0;
+const histogram_1 = __webpack_require__(/*! ./histogram */ "./src/histogram.ts");
+class analyzeData {
+    constructor(graph) {
+        this.histogram = new histogram_1.histogram();
+        this.analyzeButton = document.getElementById('analyzeButton');
+        this.graph = graph;
+    }
+    analyzePowerData() {
+        // https://dygraphs.com/jsdoc/symbols/Dygraph.html#xAxisRange
+        const xrange = this.graph.g.xAxisRange();
+        console.log(this.graph.g.xAxisExtremes());
+        const left = xrange[0];
+        const right = xrange[1];
+        this.histogram.paintHistogram(left, right, this.graph.powerData);
+    }
+    setupHtmlEvent() {
+        this.analyzeButton.addEventListener('click', () => this.analyzePowerData());
+    }
+}
+exports.analyzeData = analyzeData;
+
+
+/***/ }),
+
 /***/ "./src/downloadJsonFile.ts":
 /*!*********************************!*\
   !*** ./src/downloadJsonFile.ts ***!
@@ -34316,7 +34350,6 @@ exports.importJsonFile = importJsonFile;
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.powerMonitor = void 0;
-const histogram_1 = __webpack_require__(/*! ./histogram */ "./src/histogram.ts");
 const serialport_1 = __webpack_require__(/*! ./serialport */ "./src/serialport.ts");
 const ui_1 = __webpack_require__(/*! ./ui */ "./src/ui.ts");
 const usbport_1 = __webpack_require__(/*! ./usbport */ "./src/usbport.ts");
@@ -34326,7 +34359,6 @@ class powerMonitor {
         this.halt = false;
         this.inProgress = false;
         this.isSerial = false;
-        this.histogram = new histogram_1.histogram();
         this.output = '';
         this.usb = new usbport_1.usbPort(this.halt);
         this.servo = new serialport_1.serialPort();
@@ -34438,14 +34470,6 @@ class powerMonitor {
         }
         (0, ui_1.enabledRecordingButton)(this.halt);
     }
-    analyzePowerData() {
-        // https://dygraphs.com/jsdoc/symbols/Dygraph.html#xAxisRange
-        const xrange = this.graph.g.xAxisRange();
-        console.log(this.graph.g.xAxisExtremes());
-        const left = xrange[0];
-        const right = xrange[1];
-        this.histogram.paintHistogram(left, right, this.graph.powerData);
-    }
 }
 exports.powerMonitor = powerMonitor;
 
@@ -34544,11 +34568,10 @@ exports.serialPort = serialPort;
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.analyzeAddClickEvent = exports.addServoConsole = exports.setPopupCloseButton = exports.enabledRecordingButton = exports.haltAddClickEvent = exports.requestUsbAddClickEvent = exports.requestSerialAddClickEvent = void 0;
+exports.addServoConsole = exports.enabledRecordingButton = exports.haltAddClickEvent = exports.requestUsbAddClickEvent = exports.requestSerialAddClickEvent = void 0;
 const requestUsbButton = document.getElementById('request-device');
 const requestSerialButton = document.getElementById('requestSerialButton');
 const haltButton = document.getElementById('haltButton');
-const analyzeButton = document.getElementById('analyzeButton');
 const serial_output = document.getElementById('serial_output');
 function requestSerialAddClickEvent(fn) {
     requestSerialButton.addEventListener('click', fn);
@@ -34567,16 +34590,10 @@ function enabledRecordingButton(halt) {
     requestSerialButton.disabled = !halt;
 }
 exports.enabledRecordingButton = enabledRecordingButton;
-function setPopupCloseButton() { }
-exports.setPopupCloseButton = setPopupCloseButton;
 function addServoConsole(s) {
     serial_output.textContent = s;
 }
 exports.addServoConsole = addServoConsole;
-function analyzeAddClickEvent(fn) {
-    analyzeButton.addEventListener('click', fn);
-}
-exports.analyzeAddClickEvent = analyzeAddClickEvent;
 
 
 /***/ }),
@@ -69035,6 +69052,7 @@ var exports = __webpack_exports__;
 // without displaying" ; timeout 5 yes > /dev/null ; } ; done ectool
 // chargecontrol idle ectool chargecontrol normal
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+const analyzeData_1 = __webpack_require__(/*! ./analyzeData */ "./src/analyzeData.ts");
 const downloadJsonFile_1 = __webpack_require__(/*! ./downloadJsonFile */ "./src/downloadJsonFile.ts");
 const dutSerialConsole_1 = __webpack_require__(/*! ./dutSerialConsole */ "./src/dutSerialConsole.ts");
 const graph_1 = __webpack_require__(/*! ./graph */ "./src/graph.ts");
@@ -69047,9 +69065,11 @@ window.addEventListener('DOMContentLoaded', () => {
     const dut = new dutSerialConsole_1.dutSerialConsole();
     const importFile = new importJsonFile_1.importJsonFile(graph);
     const downloadFile = new downloadJsonFile_1.downloadJsonFile(graph);
+    const analyze = new analyzeData_1.analyzeData(graph);
     dut.setupHtmlEvent();
     importFile.setupHtmlEvent();
     downloadFile.setupHtmlEvent();
+    analyze.setupHtmlEvent();
     (0, ui_1.requestUsbAddClickEvent)(() => monitor.requestUsb());
     (0, ui_1.requestSerialAddClickEvent)(() => monitor.requestSerial());
     // `disconnect` event is fired when a Usb device is disconnected.
@@ -69061,7 +69081,6 @@ window.addEventListener('DOMContentLoaded', () => {
         dut.disconnectPort();
     });
     (0, ui_1.haltAddClickEvent)(() => monitor.stopMeasurement());
-    (0, ui_1.analyzeAddClickEvent)(() => monitor.analyzePowerData());
 });
 
 })();

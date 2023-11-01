@@ -5,9 +5,6 @@ const requestSerialButton = document.getElementById(
   'requestSerialButton'
 ) as HTMLButtonElement;
 const haltButton = document.getElementById('haltButton') as HTMLButtonElement;
-const analyzeButton = document.getElementById(
-  'analyzeButton'
-) as HTMLButtonElement;
 const serial_output = document.getElementById(
   'serial_output'
 ) as HTMLDivElement;
@@ -29,12 +26,6 @@ export function enabledRecordingButton(halt: boolean) {
   requestSerialButton.disabled = !halt;
 }
 
-export function setPopupCloseButton() {}
-
 export function addServoConsole(s: string) {
   serial_output.textContent = s;
-}
-
-export function analyzeAddClickEvent(fn: () => void) {
-  analyzeButton.addEventListener('click', fn);
 }
