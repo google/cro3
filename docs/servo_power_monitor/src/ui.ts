@@ -16,7 +16,6 @@ const analyzeButton = document.getElementById(
 const serial_output = document.getElementById(
   'serial_output'
 ) as HTMLDivElement;
-const dropZone = document.getElementById('dropZone') as HTMLSpanElement;
 
 export function requestSerialAddClickEvent(fn: () => Promise<void>) {
   requestSerialButton.addEventListener('click', fn);
@@ -55,12 +54,4 @@ export function setDownloadAnchor(dataStr: string) {
   dlAnchorElem.setAttribute('href', dataStr);
   dlAnchorElem.setAttribute('download', `power_${moment().format()}.json`);
   dlAnchorElem.click();
-}
-
-export function dropZoneAddDragoverEvent(fn: (evt: DragEvent) => void) {
-  dropZone.addEventListener('dragover', fn, false);
-}
-
-export function dropZoneAddDropEvent(fn: (evt: DragEvent) => void) {
-  dropZone.addEventListener('drop', fn, false);
 }

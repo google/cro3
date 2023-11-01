@@ -34214,6 +34214,57 @@ exports.histogram = histogram;
 
 /***/ }),
 
+/***/ "./src/importJsonFile.ts":
+/*!*******************************!*\
+  !*** ./src/importJsonFile.ts ***!
+  \*******************************/
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.importJsonFile = void 0;
+class importJsonFile {
+    constructor(graph) {
+        this.dropZone = document.getElementById('dropZone');
+        this.graph = graph;
+    }
+    handleFileSelect(evt) {
+        evt.stopPropagation();
+        evt.preventDefault();
+        const eventDataTransfer = evt.dataTransfer;
+        if (eventDataTransfer === null)
+            return;
+        const file = eventDataTransfer.files[0];
+        if (file === undefined) {
+            return;
+        }
+        const r = new FileReader();
+        r.addEventListener('load', () => {
+            const data = JSON.parse(r.result);
+            this.graph.updateData(data.power.map((d) => [new Date(d[0]), d[1]]));
+            this.graph.updateGraph();
+        });
+        r.readAsText(file);
+    }
+    handleDragOver(evt) {
+        evt.stopPropagation();
+        evt.preventDefault();
+        const eventDataTransfer = evt.dataTransfer;
+        if (eventDataTransfer === null)
+            return;
+        eventDataTransfer.dropEffect = 'copy'; // Explicitly show this is a copy.
+    }
+    setupHtmlEvent() {
+        this.dropZone.addEventListener('dragover', e => this.handleDragOver(e), false);
+        this.dropZone.addEventListener('drop', e => this.handleFileSelect(e), false);
+    }
+}
+exports.importJsonFile = importJsonFile;
+
+
+/***/ }),
+
 /***/ "./src/main.ts":
 /*!*********************!*\
   !*** ./src/main.ts ***!
@@ -34224,22 +34275,21 @@ exports.histogram = histogram;
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.powerMonitor = void 0;
-const graph_1 = __webpack_require__(/*! ./graph */ "./src/graph.ts");
 const histogram_1 = __webpack_require__(/*! ./histogram */ "./src/histogram.ts");
 const serialport_1 = __webpack_require__(/*! ./serialport */ "./src/serialport.ts");
 const ui_1 = __webpack_require__(/*! ./ui */ "./src/ui.ts");
 const usbport_1 = __webpack_require__(/*! ./usbport */ "./src/usbport.ts");
 class powerMonitor {
-    constructor() {
+    constructor(graph) {
         this.INTERVAL_MS = 100;
         this.halt = false;
         this.inProgress = false;
         this.isSerial = false;
-        this.graph = new graph_1.powerGraph();
         this.histogram = new histogram_1.histogram();
         this.output = '';
         this.usb = new usbport_1.usbPort();
         this.servo = new serialport_1.serialPort();
+        this.graph = graph;
     }
     pushOutput(s) {
         this.output += s;
@@ -34360,32 +34410,6 @@ class powerMonitor {
             encodeURIComponent(JSON.stringify({ power: this.graph.powerData }));
         (0, ui_1.setDownloadAnchor)(dataStr);
     }
-    handleFileSelect(evt) {
-        evt.stopPropagation();
-        evt.preventDefault();
-        const eventDataTransfer = evt.dataTransfer;
-        if (eventDataTransfer === null)
-            return;
-        const file = eventDataTransfer.files[0];
-        if (file === undefined) {
-            return;
-        }
-        const r = new FileReader();
-        r.addEventListener('load', () => {
-            const data = JSON.parse(r.result);
-            this.graph.updateData(data.power.map((d) => [new Date(d[0]), d[1]]));
-            this.graph.updateGraph();
-        });
-        r.readAsText(file);
-    }
-    handleDragOver(evt) {
-        evt.stopPropagation();
-        evt.preventDefault();
-        const eventDataTransfer = evt.dataTransfer;
-        if (eventDataTransfer === null)
-            return;
-        eventDataTransfer.dropEffect = 'copy'; // Explicitly show this is a copy.
-    }
 }
 exports.powerMonitor = powerMonitor;
 
@@ -34487,7 +34511,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.dropZoneAddDropEvent = exports.dropZoneAddDragoverEvent = exports.setDownloadAnchor = exports.analyzeAddClickEvent = exports.downloadAddClickEvent = exports.addServoConsole = exports.setPopupCloseButton = exports.enabledRecordingButton = exports.haltAddClickEvent = exports.requestUsbAddClickEvent = exports.requestSerialAddClickEvent = void 0;
+exports.setDownloadAnchor = exports.analyzeAddClickEvent = exports.downloadAddClickEvent = exports.addServoConsole = exports.setPopupCloseButton = exports.enabledRecordingButton = exports.haltAddClickEvent = exports.requestUsbAddClickEvent = exports.requestSerialAddClickEvent = void 0;
 const moment_1 = __importDefault(__webpack_require__(/*! moment */ "./node_modules/moment/moment.js"));
 const requestUsbButton = document.getElementById('request-device');
 const requestSerialButton = document.getElementById('requestSerialButton');
@@ -34495,7 +34519,6 @@ const haltButton = document.getElementById('haltButton');
 const downloadButton = document.getElementById('downloadButton');
 const analyzeButton = document.getElementById('analyzeButton');
 const serial_output = document.getElementById('serial_output');
-const dropZone = document.getElementById('dropZone');
 function requestSerialAddClickEvent(fn) {
     requestSerialButton.addEventListener('click', fn);
 }
@@ -34536,14 +34559,6 @@ function setDownloadAnchor(dataStr) {
     dlAnchorElem.click();
 }
 exports.setDownloadAnchor = setDownloadAnchor;
-function dropZoneAddDragoverEvent(fn) {
-    dropZone.addEventListener('dragover', fn, false);
-}
-exports.dropZoneAddDragoverEvent = dropZoneAddDragoverEvent;
-function dropZoneAddDropEvent(fn) {
-    dropZone.addEventListener('drop', fn, false);
-}
-exports.dropZoneAddDropEvent = dropZoneAddDropEvent;
 
 
 /***/ }),
@@ -69002,12 +69017,17 @@ var exports = __webpack_exports__;
 // chargecontrol idle ectool chargecontrol normal
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const dutSerialConsole_1 = __webpack_require__(/*! ./dutSerialConsole */ "./src/dutSerialConsole.ts");
+const graph_1 = __webpack_require__(/*! ./graph */ "./src/graph.ts");
+const importJsonFile_1 = __webpack_require__(/*! ./importJsonFile */ "./src/importJsonFile.ts");
 const main_1 = __webpack_require__(/*! ./main */ "./src/main.ts");
 const ui_1 = __webpack_require__(/*! ./ui */ "./src/ui.ts");
 window.addEventListener('DOMContentLoaded', () => {
-    const monitor = new main_1.powerMonitor();
+    const graph = new graph_1.powerGraph();
+    const monitor = new main_1.powerMonitor(graph);
     const dut = new dutSerialConsole_1.dutSerialConsole();
+    const importFile = new importJsonFile_1.importJsonFile(graph);
     dut.setupHtmlEvent();
+    importFile.setupHtmlEvent();
     (0, ui_1.requestUsbAddClickEvent)(() => monitor.requestUsb());
     (0, ui_1.requestSerialAddClickEvent)(() => monitor.requestSerial());
     // `disconnect` event is fired when a Usb device is disconnected.
@@ -69021,8 +69041,6 @@ window.addEventListener('DOMContentLoaded', () => {
     (0, ui_1.downloadAddClickEvent)(() => monitor.downloadJSONFile());
     (0, ui_1.haltAddClickEvent)(() => monitor.stopMeasurement());
     (0, ui_1.analyzeAddClickEvent)(() => monitor.analyzePowerData());
-    (0, ui_1.dropZoneAddDragoverEvent)(e => monitor.handleDragOver(e));
-    (0, ui_1.dropZoneAddDropEvent)(e => monitor.handleFileSelect(e));
 });
 
 })();

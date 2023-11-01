@@ -9,11 +9,14 @@ export class powerMonitor {
   halt = false;
   inProgress = false;
   isSerial = false;
-  graph = new powerGraph();
+  graph: powerGraph;
   histogram = new histogram();
   output = '';
   usb = new usbPort();
   servo = new serialPort();
+  constructor(graph: powerGraph) {
+    this.graph = graph;
+  }
   pushOutput(s: string) {
     this.output += s;
 
@@ -134,31 +137,5 @@ export class powerMonitor {
       'data:text/json;charset=utf-8,' +
       encodeURIComponent(JSON.stringify({power: this.graph.powerData}));
     setDownloadAnchor(dataStr);
-  }
-  handleFileSelect(evt: DragEvent) {
-    evt.stopPropagation();
-    evt.preventDefault();
-    const eventDataTransfer = evt.dataTransfer;
-    if (eventDataTransfer === null) return;
-    const file = eventDataTransfer.files[0];
-    if (file === undefined) {
-      return;
-    }
-    const r = new FileReader();
-    r.addEventListener('load', () => {
-      const data = JSON.parse(r.result as string);
-      this.graph.updateData(
-        data.power.map((d: string) => [new Date(d[0]), d[1]])
-      );
-      this.graph.updateGraph();
-    });
-    r.readAsText(file);
-  }
-  handleDragOver(evt: DragEvent) {
-    evt.stopPropagation();
-    evt.preventDefault();
-    const eventDataTransfer = evt.dataTransfer;
-    if (eventDataTransfer === null) return;
-    eventDataTransfer.dropEffect = 'copy'; // Explicitly show this is a copy.
   }
 }
