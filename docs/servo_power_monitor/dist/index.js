@@ -34340,10 +34340,10 @@ exports.importJsonFile = importJsonFile;
 
 /***/ }),
 
-/***/ "./src/main.ts":
-/*!*********************!*\
-  !*** ./src/main.ts ***!
-  \*********************/
+/***/ "./src/powerMonitor.ts":
+/*!*****************************!*\
+  !*** ./src/powerMonitor.ts ***!
+  \*****************************/
 /***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
 "use strict";
@@ -69030,10 +69030,10 @@ const downloadJsonFile_1 = __webpack_require__(/*! ./downloadJsonFile */ "./src/
 const dutSerialConsole_1 = __webpack_require__(/*! ./dutSerialConsole */ "./src/dutSerialConsole.ts");
 const graph_1 = __webpack_require__(/*! ./graph */ "./src/graph.ts");
 const importJsonFile_1 = __webpack_require__(/*! ./importJsonFile */ "./src/importJsonFile.ts");
-const main_1 = __webpack_require__(/*! ./main */ "./src/main.ts");
+const powerMonitor_1 = __webpack_require__(/*! ./powerMonitor */ "./src/powerMonitor.ts");
 window.addEventListener('DOMContentLoaded', () => {
     const graph = new graph_1.powerGraph();
-    const monitor = new main_1.powerMonitor(graph);
+    const monitor = new powerMonitor_1.powerMonitor(graph);
     const dut = new dutSerialConsole_1.dutSerialConsole();
     const importFile = new importJsonFile_1.importJsonFile(graph);
     const downloadFile = new downloadJsonFile_1.downloadJsonFile(graph);

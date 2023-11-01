@@ -7,7 +7,7 @@ import {downloadJsonFile} from './downloadJsonFile';
 import {dutSerialConsole} from './dutSerialConsole';
 import {powerGraph} from './graph';
 import {importJsonFile} from './importJsonFile';
-import {powerMonitor} from './main';
+import {powerMonitor} from './powerMonitor';
 
 window.addEventListener('DOMContentLoaded', () => {
   const graph = new powerGraph();
