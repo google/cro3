@@ -34287,7 +34287,7 @@ class powerMonitor {
         this.isSerial = false;
         this.histogram = new histogram_1.histogram();
         this.output = '';
-        this.usb = new usbport_1.usbPort();
+        this.usb = new usbport_1.usbPort(this.halt);
         this.servo = new serialport_1.serialPort();
         this.graph = graph;
     }
@@ -34350,7 +34350,7 @@ class powerMonitor {
         (0, ui_1.enabledRecordingButton)(this.halt);
         try {
             this.kickWriteLoop(async (s) => this.usb.write(s));
-            this.readLoop(async () => this.usb.read(this.halt));
+            this.readLoop(async () => this.usb.read());
         }
         catch (err) {
             console.error(`Disconnected: ${err}`);
@@ -34574,11 +34574,12 @@ exports.setDownloadAnchor = setDownloadAnchor;
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.usbPort = void 0;
 class usbPort {
-    constructor() {
+    constructor(halt) {
         this.usb_interface = 0;
         this.ep = this.usb_interface + 1;
         this.encoder = new TextEncoder();
         this.decoder = new TextDecoder();
+        this.halt = halt;
     }
     async open() {
         this.device = await navigator.usb
@@ -34601,7 +34602,7 @@ class usbPort {
             console.error(e);
         }
     }
-    async read(halt) {
+    async read() {
         if (this.device === undefined)
             return '';
         try {
@@ -34619,7 +34620,7 @@ class usbPort {
         catch (e) {
             // If halt is true, it's when the stop button is pressed. Therefore,
             // we can ignore the error.
-            if (!halt) {
+            if (!this.halt) {
                 console.error(e);
                 throw e;
             }

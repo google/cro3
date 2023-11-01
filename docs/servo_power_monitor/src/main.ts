@@ -12,7 +12,7 @@ export class powerMonitor {
   graph: powerGraph;
   histogram = new histogram();
   output = '';
-  usb = new usbPort();
+  usb = new usbPort(this.halt);
   servo = new serialPort();
   constructor(graph: powerGraph) {
     this.graph = graph;
@@ -78,7 +78,7 @@ export class powerMonitor {
     enabledRecordingButton(this.halt);
     try {
       this.kickWriteLoop(async s => this.usb.write(s));
-      this.readLoop(async () => this.usb.read(this.halt));
+      this.readLoop(async () => this.usb.read());
     } catch (err) {
       console.error(`Disconnected: ${err}`);
       this.halt = true;

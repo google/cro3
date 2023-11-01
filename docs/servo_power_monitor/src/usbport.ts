@@ -1,9 +1,13 @@
 export class usbPort {
+  halt: boolean;
   device?: USBDevice;
   usb_interface = 0;
   ep = this.usb_interface + 1;
   encoder = new TextEncoder();
   decoder = new TextDecoder();
+  constructor(halt: boolean) {
+    this.halt = halt;
+  }
   async open() {
     this.device = await navigator.usb
       .requestDevice({filters: [{vendorId: 0x18d1, productId: 0x520d}]})
@@ -23,7 +27,7 @@ export class usbPort {
       console.error(e);
     }
   }
-  async read(halt: boolean) {
+  async read() {
     if (this.device === undefined) return '';
     try {
       const result = await this.device.transferIn(this.ep, 64);
@@ -38,7 +42,7 @@ export class usbPort {
     } catch (e) {
       // If halt is true, it's when the stop button is pressed. Therefore,
       // we can ignore the error.
-      if (!halt) {
+      if (!this.halt) {
         console.error(e);
         throw e;
       }
