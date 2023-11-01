@@ -1,5 +1,5 @@
 export class usbPort {
-  device: USBDevice | undefined = undefined;
+  device?: USBDevice;
   usb_interface = 0;
   ep = this.usb_interface + 1;
   encoder = new TextEncoder();
