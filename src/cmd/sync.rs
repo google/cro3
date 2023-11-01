@@ -46,6 +46,10 @@ pub struct Args {
     /// destructive sync
     #[argh(switch)]
     force: bool,
+
+    /// output repo sync log as it is
+    #[argh(switch)]
+    verbose: bool,
 }
 
 #[tracing::instrument(level = "trace")]
@@ -68,7 +72,7 @@ pub fn run(args: &Args) -> Result<()> {
     // that one is synced.
     if let Some(reference) = &args.reference {
         warn!("Updating the mirror at {reference}...");
-        repo_sync(reference, args.force)?;
+        repo_sync(reference, args.force, args.verbose)?;
     }
 
     if is_arc {
@@ -77,7 +81,7 @@ pub fn run(args: &Args) -> Result<()> {
         setup_cros_repo(&repo, &version, &args.reference)?;
     }
 
-    repo_sync(&repo, args.force)
+    repo_sync(&repo, args.force, args.verbose)
 }
 
 /// Version string can represent either cros repo version or an arc version.

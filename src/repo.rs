@@ -5,6 +5,7 @@
 // https://developers.google.com/open-source/licenses/bsd
 
 use std::env;
+use std::io::BufRead;
 use std::io::BufReader;
 use std::io::Read;
 use std::path::PathBuf;
@@ -16,6 +17,9 @@ use anyhow::anyhow;
 use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
+use indicatif::ProgressBar;
+use indicatif::ProgressStyle;
+use regex::Regex;
 use regex_macro::regex;
 
 use crate::config::Config;
@@ -74,7 +78,7 @@ pub fn get_current_synced_arc_version(repo: &str) -> Result<String> {
     Ok(get_stdout(&output))
 }
 
-pub fn repo_sync(repo: &str, force: bool) -> Result<()> {
+pub fn repo_sync(repo: &str, force: bool, verbose: bool) -> Result<()> {
     let mut last_failed_repos = None;
 
     loop {
@@ -98,13 +102,24 @@ pub fn repo_sync(repo: &str, force: bool) -> Result<()> {
             .spawn()
             .context("Failed to execute repo sync")?;
 
-        let child_stdout = BufReader::new(
-            cmd.stdout
-                .take()
-                .context("Failed to get stdout from script output")?,
-        );
+        if !verbose {
+            // Show progress bar.
+            let buf_reader = BufReader::new(
+                cmd.stdout
+                    .take()
+                    .context("Failed to get stdout from script output")?,
+            );
 
-        forward_to_std_out(child_stdout).context("Failed to forward to stdout")?;
+            draw_progress_bar(buf_reader).context("Failed to draw progress bar")?;
+        } else {
+            // Print stdout directly.
+            let child_stdout = cmd
+                .stdout
+                .take()
+                .context("Failed to get stdout from script output")?;
+
+            forward_to_std_out(child_stdout).context("Failed to forward to stdout")?;
+        }
 
         let result = cmd
             .wait_with_output()
@@ -161,6 +176,38 @@ fn forward_to_std_out(r: impl Read) -> Result<()> {
         buffer[0] = a_byte?;
         let char = std::str::from_utf8(&buffer)?;
         print!("{}", char);
+    }
+
+    Ok(())
+}
+
+fn draw_progress_bar(r: impl BufRead) -> Result<()> {
+    let split_iter = r
+        .split(b'\r')
+        .map(|l| String::from_utf8_lossy(&l.unwrap()).to_string());
+
+    let re = Regex::new(
+        r"(?P<title>Finding sources|Fetching|Checking out):\s{1,3}(?P<percent>\d{1,3})%\s\((?P<done>\d+)\/(?P<total>\d+)\)",
+    )?;
+
+    let bar = ProgressBar::new(0);
+    bar.set_style(ProgressStyle::with_template(
+        "{msg:>15} {wide_bar} {pos:>4}/{len:4}",
+    )?);
+
+    for a_line in split_iter {
+        if let Some(caps) = re.captures(&a_line) {
+            let done = caps["done"].parse::<u64>()?;
+            let total = caps["total"].parse::<u64>()?;
+
+            bar.set_message(caps["title"].to_string());
+            bar.set_position(done);
+            bar.set_length(total);
+
+            if done == total {
+                bar.finish_with_message("Finished");
+            }
+        }
     }
 
     Ok(())
