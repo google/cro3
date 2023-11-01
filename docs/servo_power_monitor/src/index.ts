@@ -9,24 +9,15 @@ import {
   downloadAddClickEvent,
   dropZoneAddDragoverEvent,
   dropZoneAddDropEvent,
-  executeScriptAddClickEvent,
-  formAddSubmitEvent,
   haltAddClickEvent,
-  inputAddKeydownEvent,
   requestSerialAddClickEvent,
   requestUsbAddClickEvent,
-  selectDutSerialAddClickEvent,
-  setPopupCloseButton,
 } from './ui';
 
 window.addEventListener('DOMContentLoaded', () => {
   const monitor = new powerMonitor();
   const dut = new dutSerialConsole();
-  setPopupCloseButton();
-  selectDutSerialAddClickEvent(() => dut.selectPort());
-  formAddSubmitEvent(e => dut.formSubmit(e));
-  inputAddKeydownEvent(e => dut.cancelSubmit(e));
-  executeScriptAddClickEvent(() => dut.executeScript());
+  dut.setupHtmlEvent();
   requestUsbAddClickEvent(() => monitor.requestUsb());
   requestSerialAddClickEvent(() => monitor.requestSerial());
   // `disconnect` event is fired when a Usb device is disconnected.

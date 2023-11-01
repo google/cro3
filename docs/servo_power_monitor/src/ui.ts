@@ -13,26 +13,9 @@ const downloadButton = document.getElementById(
 const analyzeButton = document.getElementById(
   'analyzeButton'
 ) as HTMLButtonElement;
-const selectDutSerialButton = document.getElementById(
-  'selectDutSerialButton'
-) as HTMLButtonElement;
-const dutCommandForm = document.getElementById(
-  'dutCommandForm'
-) as HTMLFormElement;
-const dutCommandInput = document.getElementById(
-  'dutCommandInput'
-) as HTMLInputElement;
-const popupCloseButton = document.getElementById(
-  'popup-close'
-) as HTMLButtonElement;
-const overlay = document.querySelector('#popup-overlay') as HTMLDivElement;
-const messages = document.getElementById('messages') as HTMLDivElement;
 const serial_output = document.getElementById(
   'serial_output'
 ) as HTMLDivElement;
-const executeScriptButton = document.getElementById(
-  'executeScriptButton'
-) as HTMLButtonElement;
 const dropZone = document.getElementById('dropZone') as HTMLSpanElement;
 
 export function requestSerialAddClickEvent(fn: () => Promise<void>) {
@@ -52,45 +35,10 @@ export function enabledRecordingButton(halt: boolean) {
   requestSerialButton.disabled = !halt;
 }
 
-export function setPopupCloseButton() {
-  popupCloseButton.addEventListener('click', () => {
-    overlay.classList.add('closed');
-  });
-}
-
-export function closePopup() {
-  overlay.classList.remove('closed');
-}
-
-export function addMessageToConsole(s: string) {
-  messages.textContent += s;
-  messages.scrollTo(0, messages.scrollHeight);
-}
+export function setPopupCloseButton() {}
 
 export function addServoConsole(s: string) {
   serial_output.textContent = s;
-}
-
-export function selectDutSerialAddClickEvent(fn: () => Promise<void>) {
-  selectDutSerialButton.addEventListener('click', fn);
-}
-
-export function executeScriptAddClickEvent(fn: () => Promise<void>) {
-  executeScriptButton.addEventListener('click', fn);
-}
-
-export function formAddSubmitEvent(fn: (e: Event) => Promise<void>) {
-  dutCommandForm.addEventListener('submit', fn);
-}
-
-export function inputAddKeydownEvent(fn: (e: KeyboardEvent) => Promise<void>) {
-  dutCommandInput.addEventListener('keydown', fn);
-}
-
-export function readInputValue() {
-  const res = dutCommandInput.value;
-  dutCommandInput.value = '';
-  return res;
 }
 
 export function downloadAddClickEvent(fn: () => void) {

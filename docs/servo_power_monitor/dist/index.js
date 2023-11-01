@@ -33852,7 +33852,6 @@ webpackContext.id = "./node_modules/moment/locale sync recursive ^\\.\\/.*$";
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.dutSerialConsole = void 0;
 const serialport_1 = __webpack_require__(/*! ./serialport */ "./src/serialport.ts");
-const ui_1 = __webpack_require__(/*! ./ui */ "./src/ui.ts");
 class dutSerialConsole {
     constructor() {
         this.dut = new serialport_1.serialPort();
@@ -33868,28 +33867,44 @@ function workload () {
 echo "start"
 workload 10 1> ./test_out.log 2> ./test_err.log
 echo "end"\n`;
+        this.selectDutSerialButton = document.getElementById('selectDutSerialButton');
+        this.executeScriptButton = document.getElementById('executeScriptButton');
+        this.popupCloseButton = document.getElementById('popup-close');
+        this.dutCommandForm = document.getElementById('dutCommandForm');
+        this.dutCommandInput = document.getElementById('dutCommandInput');
+        this.overlay = document.querySelector('#popup-overlay');
+        this.messages = document.getElementById('messages');
+    }
+    addMessageToConsole(s) {
+        this.messages.textContent += s;
+        this.messages.scrollTo(0, this.messages.scrollHeight);
+    }
+    readInputValue() {
+        const res = this.dutCommandInput.value;
+        this.dutCommandInput.value = '';
+        return res;
     }
     async selectPort() {
         await this.dut.open(0x18d1, 0x504a);
         this.isOpened = true;
-        (0, ui_1.addMessageToConsole)('DutPort is selected');
+        this.addMessageToConsole('DutPort is selected');
         for (;;) {
             const chunk = await this.dut.read();
-            (0, ui_1.addMessageToConsole)(chunk);
+            this.addMessageToConsole(chunk);
         }
     }
     async formSubmit(e) {
         e.preventDefault();
         if (!this.isOpened) {
-            (0, ui_1.closePopup)();
+            this.overlay.classList.remove('closed');
             return;
         }
-        await this.dut.write((0, ui_1.readInputValue)() + '\n');
+        await this.dut.write(this.readInputValue() + '\n');
     }
     // send cancel command to serial port when ctrl+C is pressed in input area
     async cancelSubmit(e) {
         if (!this.isOpened) {
-            (0, ui_1.closePopup)();
+            this.overlay.classList.remove('closed');
             return;
         }
         if (e.ctrlKey && e.key === 'c') {
@@ -33898,7 +33913,7 @@ echo "end"\n`;
     }
     async executeScript() {
         if (!this.isOpened) {
-            (0, ui_1.closePopup)();
+            this.overlay.classList.remove('closed');
         }
         else {
             await this.dut.write('cat > ./example.sh << EOF\n');
@@ -33912,6 +33927,15 @@ echo "end"\n`;
             await this.dut.close();
             this.isOpened = false;
         }
+    }
+    setupHtmlEvent() {
+        this.selectDutSerialButton.addEventListener('click', () => this.selectPort());
+        this.dutCommandForm.addEventListener('submit', e => this.formSubmit(e));
+        this.dutCommandInput.addEventListener('keydown', e => this.cancelSubmit(e));
+        this.executeScriptButton.addEventListener('click', () => this.executeScript());
+        this.popupCloseButton.addEventListener('click', () => {
+            this.overlay.classList.add('closed');
+        });
     }
 }
 exports.dutSerialConsole = dutSerialConsole;
@@ -34463,21 +34487,14 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.dropZoneAddDropEvent = exports.dropZoneAddDragoverEvent = exports.setDownloadAnchor = exports.analyzeAddClickEvent = exports.downloadAddClickEvent = exports.readInputValue = exports.inputAddKeydownEvent = exports.formAddSubmitEvent = exports.executeScriptAddClickEvent = exports.selectDutSerialAddClickEvent = exports.addServoConsole = exports.addMessageToConsole = exports.closePopup = exports.setPopupCloseButton = exports.enabledRecordingButton = exports.haltAddClickEvent = exports.requestUsbAddClickEvent = exports.requestSerialAddClickEvent = void 0;
+exports.dropZoneAddDropEvent = exports.dropZoneAddDragoverEvent = exports.setDownloadAnchor = exports.analyzeAddClickEvent = exports.downloadAddClickEvent = exports.addServoConsole = exports.setPopupCloseButton = exports.enabledRecordingButton = exports.haltAddClickEvent = exports.requestUsbAddClickEvent = exports.requestSerialAddClickEvent = void 0;
 const moment_1 = __importDefault(__webpack_require__(/*! moment */ "./node_modules/moment/moment.js"));
 const requestUsbButton = document.getElementById('request-device');
 const requestSerialButton = document.getElementById('requestSerialButton');
 const haltButton = document.getElementById('haltButton');
 const downloadButton = document.getElementById('downloadButton');
 const analyzeButton = document.getElementById('analyzeButton');
-const selectDutSerialButton = document.getElementById('selectDutSerialButton');
-const dutCommandForm = document.getElementById('dutCommandForm');
-const dutCommandInput = document.getElementById('dutCommandInput');
-const popupCloseButton = document.getElementById('popup-close');
-const overlay = document.querySelector('#popup-overlay');
-const messages = document.getElementById('messages');
 const serial_output = document.getElementById('serial_output');
-const executeScriptButton = document.getElementById('executeScriptButton');
 const dropZone = document.getElementById('dropZone');
 function requestSerialAddClickEvent(fn) {
     requestSerialButton.addEventListener('click', fn);
@@ -34496,47 +34513,12 @@ function enabledRecordingButton(halt) {
     requestSerialButton.disabled = !halt;
 }
 exports.enabledRecordingButton = enabledRecordingButton;
-function setPopupCloseButton() {
-    popupCloseButton.addEventListener('click', () => {
-        overlay.classList.add('closed');
-    });
-}
+function setPopupCloseButton() { }
 exports.setPopupCloseButton = setPopupCloseButton;
-function closePopup() {
-    overlay.classList.remove('closed');
-}
-exports.closePopup = closePopup;
-function addMessageToConsole(s) {
-    messages.textContent += s;
-    messages.scrollTo(0, messages.scrollHeight);
-}
-exports.addMessageToConsole = addMessageToConsole;
 function addServoConsole(s) {
     serial_output.textContent = s;
 }
 exports.addServoConsole = addServoConsole;
-function selectDutSerialAddClickEvent(fn) {
-    selectDutSerialButton.addEventListener('click', fn);
-}
-exports.selectDutSerialAddClickEvent = selectDutSerialAddClickEvent;
-function executeScriptAddClickEvent(fn) {
-    executeScriptButton.addEventListener('click', fn);
-}
-exports.executeScriptAddClickEvent = executeScriptAddClickEvent;
-function formAddSubmitEvent(fn) {
-    dutCommandForm.addEventListener('submit', fn);
-}
-exports.formAddSubmitEvent = formAddSubmitEvent;
-function inputAddKeydownEvent(fn) {
-    dutCommandInput.addEventListener('keydown', fn);
-}
-exports.inputAddKeydownEvent = inputAddKeydownEvent;
-function readInputValue() {
-    const res = dutCommandInput.value;
-    dutCommandInput.value = '';
-    return res;
-}
-exports.readInputValue = readInputValue;
 function downloadAddClickEvent(fn) {
     downloadButton.addEventListener('click', fn);
 }
@@ -34578,7 +34560,6 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.usbPort = void 0;
 class usbPort {
     constructor() {
-        this.device = undefined;
         this.usb_interface = 0;
         this.ep = this.usb_interface + 1;
         this.encoder = new TextEncoder();
@@ -69026,11 +69007,7 @@ const ui_1 = __webpack_require__(/*! ./ui */ "./src/ui.ts");
 window.addEventListener('DOMContentLoaded', () => {
     const monitor = new main_1.powerMonitor();
     const dut = new dutSerialConsole_1.dutSerialConsole();
-    (0, ui_1.setPopupCloseButton)();
-    (0, ui_1.selectDutSerialAddClickEvent)(() => dut.selectPort());
-    (0, ui_1.formAddSubmitEvent)(e => dut.formSubmit(e));
-    (0, ui_1.inputAddKeydownEvent)(e => dut.cancelSubmit(e));
-    (0, ui_1.executeScriptAddClickEvent)(() => dut.executeScript());
+    dut.setupHtmlEvent();
     (0, ui_1.requestUsbAddClickEvent)(() => monitor.requestUsb());
     (0, ui_1.requestSerialAddClickEvent)(() => monitor.requestSerial());
     // `disconnect` event is fired when a Usb device is disconnected.
