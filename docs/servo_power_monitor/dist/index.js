@@ -33841,6 +33841,47 @@ webpackContext.id = "./node_modules/moment/locale sync recursive ^\\.\\/.*$";
 
 /***/ }),
 
+/***/ "./src/downloadJsonFile.ts":
+/*!*********************************!*\
+  !*** ./src/downloadJsonFile.ts ***!
+  \*********************************/
+/***/ (function(__unused_webpack_module, exports, __webpack_require__) {
+
+"use strict";
+
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.downloadJsonFile = void 0;
+const moment_1 = __importDefault(__webpack_require__(/*! moment */ "./node_modules/moment/moment.js"));
+class downloadJsonFile {
+    constructor(graph) {
+        this.downloadButton = document.getElementById('downloadButton');
+        this.graph = graph;
+    }
+    setDownloadAnchor(dataStr) {
+        const dlAnchorElem = document.getElementById('downloadAnchorElem');
+        if (dlAnchorElem === null)
+            return;
+        dlAnchorElem.setAttribute('href', dataStr);
+        dlAnchorElem.setAttribute('download', `power_${(0, moment_1.default)().format()}.json`);
+        dlAnchorElem.click();
+    }
+    downloadJSONFile() {
+        const dataStr = 'data:text/json;charset=utf-8,' +
+            encodeURIComponent(JSON.stringify({ power: this.graph.powerData }));
+        this.setDownloadAnchor(dataStr);
+    }
+    setupHtmlEvent() {
+        this.downloadButton.addEventListener('click', () => this.downloadJSONFile());
+    }
+}
+exports.downloadJsonFile = downloadJsonFile;
+
+
+/***/ }),
+
 /***/ "./src/dutSerialConsole.ts":
 /*!*********************************!*\
   !*** ./src/dutSerialConsole.ts ***!
@@ -34405,11 +34446,6 @@ class powerMonitor {
         const right = xrange[1];
         this.histogram.paintHistogram(left, right, this.graph.powerData);
     }
-    downloadJSONFile() {
-        const dataStr = 'data:text/json;charset=utf-8,' +
-            encodeURIComponent(JSON.stringify({ power: this.graph.powerData }));
-        (0, ui_1.setDownloadAnchor)(dataStr);
-    }
 }
 exports.powerMonitor = powerMonitor;
 
@@ -34503,20 +34539,15 @@ exports.serialPort = serialPort;
 /*!*******************!*\
   !*** ./src/ui.ts ***!
   \*******************/
-/***/ (function(__unused_webpack_module, exports, __webpack_require__) {
+/***/ ((__unused_webpack_module, exports) => {
 
 "use strict";
 
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.setDownloadAnchor = exports.analyzeAddClickEvent = exports.downloadAddClickEvent = exports.addServoConsole = exports.setPopupCloseButton = exports.enabledRecordingButton = exports.haltAddClickEvent = exports.requestUsbAddClickEvent = exports.requestSerialAddClickEvent = void 0;
-const moment_1 = __importDefault(__webpack_require__(/*! moment */ "./node_modules/moment/moment.js"));
+exports.analyzeAddClickEvent = exports.addServoConsole = exports.setPopupCloseButton = exports.enabledRecordingButton = exports.haltAddClickEvent = exports.requestUsbAddClickEvent = exports.requestSerialAddClickEvent = void 0;
 const requestUsbButton = document.getElementById('request-device');
 const requestSerialButton = document.getElementById('requestSerialButton');
 const haltButton = document.getElementById('haltButton');
-const downloadButton = document.getElementById('downloadButton');
 const analyzeButton = document.getElementById('analyzeButton');
 const serial_output = document.getElementById('serial_output');
 function requestSerialAddClickEvent(fn) {
@@ -34542,23 +34573,10 @@ function addServoConsole(s) {
     serial_output.textContent = s;
 }
 exports.addServoConsole = addServoConsole;
-function downloadAddClickEvent(fn) {
-    downloadButton.addEventListener('click', fn);
-}
-exports.downloadAddClickEvent = downloadAddClickEvent;
 function analyzeAddClickEvent(fn) {
     analyzeButton.addEventListener('click', fn);
 }
 exports.analyzeAddClickEvent = analyzeAddClickEvent;
-function setDownloadAnchor(dataStr) {
-    const dlAnchorElem = document.getElementById('downloadAnchorElem');
-    if (dlAnchorElem === null)
-        return;
-    dlAnchorElem.setAttribute('href', dataStr);
-    dlAnchorElem.setAttribute('download', `power_${(0, moment_1.default)().format()}.json`);
-    dlAnchorElem.click();
-}
-exports.setDownloadAnchor = setDownloadAnchor;
 
 
 /***/ }),
@@ -69017,6 +69035,7 @@ var exports = __webpack_exports__;
 // without displaying" ; timeout 5 yes > /dev/null ; } ; done ectool
 // chargecontrol idle ectool chargecontrol normal
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+const downloadJsonFile_1 = __webpack_require__(/*! ./downloadJsonFile */ "./src/downloadJsonFile.ts");
 const dutSerialConsole_1 = __webpack_require__(/*! ./dutSerialConsole */ "./src/dutSerialConsole.ts");
 const graph_1 = __webpack_require__(/*! ./graph */ "./src/graph.ts");
 const importJsonFile_1 = __webpack_require__(/*! ./importJsonFile */ "./src/importJsonFile.ts");
@@ -69027,8 +69046,10 @@ window.addEventListener('DOMContentLoaded', () => {
     const monitor = new main_1.powerMonitor(graph);
     const dut = new dutSerialConsole_1.dutSerialConsole();
     const importFile = new importJsonFile_1.importJsonFile(graph);
+    const downloadFile = new downloadJsonFile_1.downloadJsonFile(graph);
     dut.setupHtmlEvent();
     importFile.setupHtmlEvent();
+    downloadFile.setupHtmlEvent();
     (0, ui_1.requestUsbAddClickEvent)(() => monitor.requestUsb());
     (0, ui_1.requestSerialAddClickEvent)(() => monitor.requestSerial());
     // `disconnect` event is fired when a Usb device is disconnected.
@@ -69039,7 +69060,6 @@ window.addEventListener('DOMContentLoaded', () => {
         monitor.disconnectSerialPort();
         dut.disconnectPort();
     });
-    (0, ui_1.downloadAddClickEvent)(() => monitor.downloadJSONFile());
     (0, ui_1.haltAddClickEvent)(() => monitor.stopMeasurement());
     (0, ui_1.analyzeAddClickEvent)(() => monitor.analyzePowerData());
 });

@@ -1,7 +1,7 @@
 import {powerGraph} from './graph';
 import {histogram} from './histogram';
 import {serialPort} from './serialport';
-import {addServoConsole, enabledRecordingButton, setDownloadAnchor} from './ui';
+import {addServoConsole, enabledRecordingButton} from './ui';
 import {usbPort} from './usbport';
 
 export class powerMonitor {
@@ -131,11 +131,5 @@ export class powerMonitor {
     const left = xrange[0];
     const right = xrange[1];
     this.histogram.paintHistogram(left, right, this.graph.powerData);
-  }
-  downloadJSONFile() {
-    const dataStr =
-      'data:text/json;charset=utf-8,' +
-      encodeURIComponent(JSON.stringify({power: this.graph.powerData}));
-    setDownloadAnchor(dataStr);
   }
 }

@@ -2,13 +2,13 @@
 // without displaying" ; timeout 5 yes > /dev/null ; } ; done ectool
 // chargecontrol idle ectool chargecontrol normal
 
+import {downloadJsonFile} from './downloadJsonFile';
 import {dutSerialConsole} from './dutSerialConsole';
 import {powerGraph} from './graph';
 import {importJsonFile} from './importJsonFile';
 import {powerMonitor} from './main';
 import {
   analyzeAddClickEvent,
-  downloadAddClickEvent,
   haltAddClickEvent,
   requestSerialAddClickEvent,
   requestUsbAddClickEvent,
@@ -19,8 +19,10 @@ window.addEventListener('DOMContentLoaded', () => {
   const monitor = new powerMonitor(graph);
   const dut = new dutSerialConsole();
   const importFile = new importJsonFile(graph);
+  const downloadFile = new downloadJsonFile(graph);
   dut.setupHtmlEvent();
   importFile.setupHtmlEvent();
+  downloadFile.setupHtmlEvent();
   requestUsbAddClickEvent(() => monitor.requestUsb());
   requestSerialAddClickEvent(() => monitor.requestSerial());
   // `disconnect` event is fired when a Usb device is disconnected.
@@ -33,7 +35,6 @@ window.addEventListener('DOMContentLoaded', () => {
     monitor.disconnectSerialPort();
     dut.disconnectPort();
   });
-  downloadAddClickEvent(() => monitor.downloadJSONFile());
   haltAddClickEvent(() => monitor.stopMeasurement());
   analyzeAddClickEvent(() => monitor.analyzePowerData());
 });

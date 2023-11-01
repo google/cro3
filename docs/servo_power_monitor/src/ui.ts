@@ -1,5 +1,3 @@
-import moment from 'moment';
-
 const requestUsbButton = document.getElementById(
   'request-device'
 ) as HTMLButtonElement;
@@ -7,9 +5,6 @@ const requestSerialButton = document.getElementById(
   'requestSerialButton'
 ) as HTMLButtonElement;
 const haltButton = document.getElementById('haltButton') as HTMLButtonElement;
-const downloadButton = document.getElementById(
-  'downloadButton'
-) as HTMLButtonElement;
 const analyzeButton = document.getElementById(
   'analyzeButton'
 ) as HTMLButtonElement;
@@ -40,18 +35,6 @@ export function addServoConsole(s: string) {
   serial_output.textContent = s;
 }
 
-export function downloadAddClickEvent(fn: () => void) {
-  downloadButton.addEventListener('click', fn);
-}
-
 export function analyzeAddClickEvent(fn: () => void) {
   analyzeButton.addEventListener('click', fn);
-}
-
-export function setDownloadAnchor(dataStr: string) {
-  const dlAnchorElem = document.getElementById('downloadAnchorElem');
-  if (dlAnchorElem === null) return;
-  dlAnchorElem.setAttribute('href', dataStr);
-  dlAnchorElem.setAttribute('download', `power_${moment().format()}.json`);
-  dlAnchorElem.click();
 }
