@@ -1,16 +1,9 @@
 import Dygraph from 'dygraphs';
 
 export class powerGraph {
-  powerData: Array<Array<Date | number>> = [];
-  g = new Dygraph('graph', this.powerData, {});
-  pushData = (newElement: Array<Date | number>) => {
-    this.powerData.push(newElement);
-  };
-  updateData = (newData: Array<Array<Date | number>>) => {
-    this.powerData = newData;
-  };
-  updateGraph = () => {
-    if (this.powerData !== undefined && this.powerData.length > 0) {
+  g = new Dygraph('graph', [], {});
+  updateGraph(powerData: Array<Array<Date | number>>) {
+    if (powerData !== undefined && powerData.length > 0) {
       const toolTip = document.querySelector('#tooltip');
       if (toolTip !== null) {
         toolTip.classList.add('hidden');
@@ -19,7 +12,7 @@ export class powerGraph {
     // currentData = data;
     this.g.updateOptions(
       {
-        file: this.powerData,
+        file: powerData,
         labels: ['t', 'ina0'],
         showRoller: true,
         ylabel: 'Power (mW)',
@@ -40,5 +33,5 @@ export class powerGraph {
       },
       false
     );
-  };
+  }
 }

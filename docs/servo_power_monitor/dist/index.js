@@ -33841,22 +33841,100 @@ webpackContext.id = "./node_modules/moment/locale sync recursive ^\\.\\/.*$";
 
 /***/ }),
 
-/***/ "./src/analyzeData.ts":
+/***/ "./src/dataRecoder.ts":
 /*!****************************!*\
-  !*** ./src/analyzeData.ts ***!
+  !*** ./src/dataRecoder.ts ***!
   \****************************/
 /***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.analyzeData = void 0;
+exports.dataRecoder = void 0;
+const powerGraph_1 = __webpack_require__(/*! ./powerGraph */ "./src/powerGraph.ts");
 const histogram_1 = __webpack_require__(/*! ./histogram */ "./src/histogram.ts");
-class analyzeData {
-    constructor(graph) {
+class dataRecoder {
+    constructor(servoShell, enabledRecordingButton, setSerialOutput) {
+        this.INTERVAL_MS = 100;
+        this.halt = false;
+        this.inProgress = false;
+        this.graph = new powerGraph_1.powerGraph();
         this.histogram = new histogram_1.histogram();
-        this.analyzeButton = document.getElementById('analyzeButton');
-        this.graph = graph;
+        this.output = '';
+        this.powerData = [];
+        this.servoShell = servoShell;
+        this.enabledRecordingButton = enabledRecordingButton;
+        this.setSerialOutput = setSerialOutput;
+    }
+    changeHaltFlag(flag) {
+        this.halt = flag;
+    }
+    pushData(s) {
+        this.output += s;
+        const splitted = this.output.split('\n').filter(s => s.trim().length > 10);
+        if (splitted.length > 0 &&
+            splitted[splitted.length - 1].indexOf('Alert limit') >= 0) {
+            const powerString = splitted.find(s => s.startsWith('Power'));
+            if (powerString === undefined)
+                return;
+            const power = parseInt(powerString.split('=>')[1].trim().split(' ')[0]);
+            const e = [new Date(), power];
+            this.powerData.push(e);
+            this.graph.updateGraph(this.powerData);
+            this.setSerialOutput(this.output);
+            this.output = '';
+            this.inProgress = false;
+        }
+    }
+    kickWriteLoop(writeFn) {
+        const f = async () => {
+            while (!this.halt) {
+                if (this.inProgress) {
+                    console.error('previous request is in progress! skip...');
+                }
+                else {
+                    this.inProgress = true;
+                }
+                // ina 0 and 1 seems to be the same
+                // ina 2 is something but not useful
+                const cmd = 'ina 0\n';
+                await writeFn(cmd);
+                await new Promise(r => setTimeout(r, this.INTERVAL_MS));
+            }
+        };
+        setTimeout(f, this.INTERVAL_MS);
+    }
+    async readLoop(readFn) {
+        while (!this.halt) {
+            try {
+                const s = await readFn();
+                if (s === '' || !s.length) {
+                    continue;
+                }
+                this.pushData(s);
+            }
+            catch (e) {
+                // break the loop here because `disconnect` event is not called in Chrome
+                // for some reason when the loop continues. And no need to throw error
+                // here because it is thrown in readFn.
+                break;
+            }
+        }
+    }
+    async start() {
+        this.changeHaltFlag(false);
+        await this.servoShell.open();
+        // this.enabledRecordingButton(this.halt);
+        // TODO: Implement something to check the validity of servo serial servoShell
+        // await this.servo.write('help\n');
+        this.kickWriteLoop(async (s) => this.servoShell.write(s));
+        this.readLoop(() => this.servoShell.read());
+    }
+    async stop() {
+        this.changeHaltFlag(true);
+        this.inProgress = false;
+        await this.servoShell.close();
+        // this.enabledRecordingButton(this.halt);
     }
     analyzePowerData() {
         // https://dygraphs.com/jsdoc/symbols/Dygraph.html#xAxisRange
@@ -33864,215 +33942,43 @@ class analyzeData {
         console.log(this.graph.g.xAxisExtremes());
         const left = xrange[0];
         const right = xrange[1];
-        this.histogram.paintHistogram(left, right, this.graph.powerData);
+        this.histogram.paintHistogram(left, right, this.powerData);
     }
-    setupHtmlEvent() {
-        this.analyzeButton.addEventListener('click', () => this.analyzePowerData());
+    readJsonFile(s) {
+        const data = JSON.parse(s);
+        this.powerData = data.power.map((d) => [new Date(d[0]), d[1]]);
+        this.graph.updateGraph(this.powerData);
     }
-}
-exports.analyzeData = analyzeData;
-
-
-/***/ }),
-
-/***/ "./src/downloadJsonFile.ts":
-/*!*********************************!*\
-  !*** ./src/downloadJsonFile.ts ***!
-  \*********************************/
-/***/ (function(__unused_webpack_module, exports, __webpack_require__) {
-
-"use strict";
-
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.downloadJsonFile = void 0;
-const moment_1 = __importDefault(__webpack_require__(/*! moment */ "./node_modules/moment/moment.js"));
-class downloadJsonFile {
-    constructor(graph) {
-        this.downloadButton = document.getElementById('downloadButton');
-        this.graph = graph;
-    }
-    setDownloadAnchor(dataStr) {
-        const dlAnchorElem = document.getElementById('downloadAnchorElem');
-        if (dlAnchorElem === null)
-            return;
-        dlAnchorElem.setAttribute('href', dataStr);
-        dlAnchorElem.setAttribute('download', `power_${(0, moment_1.default)().format()}.json`);
-        dlAnchorElem.click();
-    }
-    downloadJSONFile() {
+    writeJsonFile() {
         const dataStr = 'data:text/json;charset=utf-8,' +
-            encodeURIComponent(JSON.stringify({ power: this.graph.powerData }));
-        this.setDownloadAnchor(dataStr);
+            encodeURIComponent(JSON.stringify({ power: this.powerData }));
+        return dataStr;
     }
-    setupHtmlEvent() {
-        this.downloadButton.addEventListener('click', () => this.downloadJSONFile());
-    }
-}
-exports.downloadJsonFile = downloadJsonFile;
-
-
-/***/ }),
-
-/***/ "./src/dutSerialConsole.ts":
-/*!*********************************!*\
-  !*** ./src/dutSerialConsole.ts ***!
-  \*********************************/
-/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.dutSerialConsole = void 0;
-const serialport_1 = __webpack_require__(/*! ./serialport */ "./src/serialport.ts");
-class dutSerialConsole {
-    constructor() {
-        this.dut = new serialport_1.serialPort();
-        this.isOpened = false;
-        this.CANCEL_CMD = '\x03\n';
-        // shell script
-        this.scripts = `#!/bin/bash -e
-function workload () {
-  ectool chargecontrol idle
-  stress-ng -c 1 -t \\$1
-  echo "workload"
-}
-echo "start"
-workload 10 1> ./test_out.log 2> ./test_err.log
-echo "end"\n`;
-        this.selectDutSerialButton = document.getElementById('selectDutSerialButton');
-        this.executeScriptButton = document.getElementById('executeScriptButton');
-        this.popupCloseButton = document.getElementById('popup-close');
-        this.dutCommandForm = document.getElementById('dutCommandForm');
-        this.dutCommandInput = document.getElementById('dutCommandInput');
-        this.overlay = document.querySelector('#popup-overlay');
-        this.messages = document.getElementById('messages');
-    }
-    addMessageToConsole(s) {
-        this.messages.textContent += s;
-        this.messages.scrollTo(0, this.messages.scrollHeight);
-    }
-    readInputValue() {
-        const res = this.dutCommandInput.value;
-        this.dutCommandInput.value = '';
-        return res;
-    }
-    async selectPort() {
-        await this.dut.open(0x18d1, 0x504a);
-        this.isOpened = true;
-        this.addMessageToConsole('DutPort is selected');
-        for (;;) {
-            const chunk = await this.dut.read();
-            this.addMessageToConsole(chunk);
-        }
-    }
-    async formSubmit(e) {
-        e.preventDefault();
-        if (!this.isOpened) {
-            this.overlay.classList.remove('closed');
-            return;
-        }
-        await this.dut.write(this.readInputValue() + '\n');
-    }
-    // send cancel command to serial port when ctrl+C is pressed in input area
-    async cancelSubmit(e) {
-        if (!this.isOpened) {
-            this.overlay.classList.remove('closed');
-            return;
-        }
-        if (e.ctrlKey && e.key === 'c') {
-            await this.dut.write(this.CANCEL_CMD);
-        }
-    }
-    async executeScript() {
-        if (!this.isOpened) {
-            this.overlay.classList.remove('closed');
-        }
-        else {
-            await this.dut.write('cat > ./example.sh << EOF\n');
-            await this.dut.write(this.scripts);
-            await this.dut.write('EOF\n');
-            await this.dut.write('bash ./example.sh\n');
-        }
-    }
-    async disconnectPort() {
-        if (this.isOpened) {
-            await this.dut.close();
-            this.isOpened = false;
-        }
-    }
-    setupHtmlEvent() {
-        this.selectDutSerialButton.addEventListener('click', () => this.selectPort());
-        this.dutCommandForm.addEventListener('submit', e => this.formSubmit(e));
-        this.dutCommandInput.addEventListener('keydown', e => this.cancelSubmit(e));
-        this.executeScriptButton.addEventListener('click', () => this.executeScript());
-        this.popupCloseButton.addEventListener('click', () => {
-            this.overlay.classList.add('closed');
+    setupDisconnectEvent() {
+        // `disconnect` event is fired when a Usb device is disconnected.
+        // c.f. https://wicg.github.io/webusb/#disconnect (5.1. Events)
+        navigator.usb.addEventListener('disconnect', () => {
+            if (!this.halt && !this.servoShell.isSerial) {
+                //  No need to call close() for the Usb servoPort here because the
+                //  specification says that
+                // the servoPort will be closed automatically when a device is disconnected.
+                this.changeHaltFlag(true);
+                this.inProgress = false;
+                // this.enabledRecordingButton(this.halt);
+            }
+        });
+        // event when you disconnect serial port
+        navigator.serial.addEventListener('disconnect', async () => {
+            if (!this.halt && this.servoShell.isSerial) {
+                await this.servoShell.close();
+                this.changeHaltFlag(true);
+                this.inProgress = false;
+                // this.enabledRecordingButton(this.halt);
+            }
         });
     }
 }
-exports.dutSerialConsole = dutSerialConsole;
-
-
-/***/ }),
-
-/***/ "./src/graph.ts":
-/*!**********************!*\
-  !*** ./src/graph.ts ***!
-  \**********************/
-/***/ (function(__unused_webpack_module, exports, __webpack_require__) {
-
-"use strict";
-
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.powerGraph = void 0;
-const dygraphs_1 = __importDefault(__webpack_require__(/*! dygraphs */ "./node_modules/dygraphs/index.js"));
-class powerGraph {
-    constructor() {
-        this.powerData = [];
-        this.g = new dygraphs_1.default('graph', this.powerData, {});
-        this.pushData = (newElement) => {
-            this.powerData.push(newElement);
-        };
-        this.updateData = (newData) => {
-            this.powerData = newData;
-        };
-        this.updateGraph = () => {
-            if (this.powerData !== undefined && this.powerData.length > 0) {
-                const toolTip = document.querySelector('#tooltip');
-                if (toolTip !== null) {
-                    toolTip.classList.add('hidden');
-                }
-            }
-            // currentData = data;
-            this.g.updateOptions({
-                file: this.powerData,
-                labels: ['t', 'ina0'],
-                showRoller: true,
-                ylabel: 'Power (mW)',
-                legend: 'always',
-                showRangeSelector: true,
-                connectSeparatedPoints: true,
-                underlayCallback: function (canvas, area, g) {
-                    canvas.fillStyle = 'rgba(255, 255, 102, 1.0)';
-                    function highlight_period(x_start, x_end) {
-                        const canvas_left_x = g.toDomXCoord(x_start);
-                        const canvas_right_x = g.toDomXCoord(x_end);
-                        const canvas_width = canvas_right_x - canvas_left_x;
-                        canvas.fillRect(canvas_left_x, area.y, canvas_width, area.h);
-                    }
-                    highlight_period(10, 10);
-                },
-            }, false);
-        };
-    }
-}
-exports.powerGraph = powerGraph;
+exports.dataRecoder = dataRecoder;
 
 
 /***/ }),
@@ -34289,22 +34195,120 @@ exports.histogram = histogram;
 
 /***/ }),
 
-/***/ "./src/importJsonFile.ts":
-/*!*******************************!*\
-  !*** ./src/importJsonFile.ts ***!
-  \*******************************/
-/***/ ((__unused_webpack_module, exports) => {
+/***/ "./src/index.ts":
+/*!**********************!*\
+  !*** ./src/index.ts ***!
+  \**********************/
+/***/ (function(__unused_webpack_module, exports, __webpack_require__) {
 
 "use strict";
 
+// while true ; do { echo "do nothing for 5 sec" ; sleep 5 ; echo "yes for 5 sec
+// without displaying" ; timeout 5 yes > /dev/null ; } ; done ectool
+// chargecontrol idle ectool chargecontrol normal
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.importJsonFile = void 0;
-class importJsonFile {
-    constructor(graph) {
-        this.dropZone = document.getElementById('dropZone');
-        this.graph = graph;
+const operatePort_1 = __webpack_require__(/*! ./operatePort */ "./src/operatePort.ts");
+const powerTestController_1 = __webpack_require__(/*! ./powerTestController */ "./src/powerTestController.ts");
+const moment_1 = __importDefault(__webpack_require__(/*! moment */ "./node_modules/moment/moment.js"));
+window.addEventListener('DOMContentLoaded', () => {
+    const servoShell = new operatePort_1.operatePort(0x18d1, 0x520d);
+    const dutShell = new operatePort_1.operatePort(0x18d1, 0x504a);
+    const controller = new powerTestController_1.powerTestController(servoShell, dutShell, enabledRecordingButton, setSerialOutput);
+    const requestUsbButton = document.getElementById('request-device');
+    const requestSerialButton = document.getElementById('requestSerialButton');
+    const haltButton = document.getElementById('haltButton');
+    const downloadButton = document.getElementById('downloadButton');
+    const analyzeButton = document.getElementById('analyzeButton');
+    const selectDutSerialButton = document.getElementById('selectDutSerialButton');
+    const dutCommandForm = document.getElementById('dutCommandForm');
+    const dutCommandInput = document.getElementById('dutCommandInput');
+    const popupCloseButton = document.getElementById('popup-close');
+    const overlay = document.querySelector('#popup-overlay');
+    const messages = document.getElementById('messages');
+    const executeScriptButton = document.getElementById('executeScriptButton');
+    const dropZone = document.getElementById('dropZone');
+    const serial_output = document.getElementById('serial_output');
+    requestSerialButton.addEventListener('click', () => {
+        controller.startMeasurement();
+    });
+    requestUsbButton.addEventListener('click', () => {
+        controller.servoShell.setIsSerialFlag(true);
+        controller.startMeasurement();
+    });
+    haltButton.addEventListener('click', () => {
+        controller.stopMeasurement();
+    });
+    selectDutSerialButton.addEventListener('click', () => {
+        controller.startDutConsole(addMessageToConsole);
+    });
+    dutCommandForm.addEventListener('submit', e => formSubmit(e));
+    dutCommandInput.addEventListener('keydown', e => sendCancel(e));
+    analyzeButton.addEventListener('click', () => {
+        controller.analyzePowerData();
+    });
+    executeScriptButton.addEventListener('click', () => executeScript());
+    dropZone.addEventListener('dragover', e => handleDragOver(e), false);
+    dropZone.addEventListener('drop', e => handleFileSelect(e), false);
+    downloadButton.addEventListener('click', () => {
+        const dataStr = controller.exportPowerData();
+        setDownloadAnchor(dataStr);
+    });
+    popupCloseButton.addEventListener('click', () => {
+        overlay.classList.add('closed');
+    });
+    function enabledRecordingButton(halt) {
+        requestUsbButton.disabled = !halt;
+        requestSerialButton.disabled = !halt;
     }
-    handleFileSelect(evt) {
+    function setSerialOutput(s) {
+        serial_output.textContent = s;
+    }
+    function readInputValue() {
+        const res = dutCommandInput.value;
+        dutCommandInput.value = '';
+        return res;
+    }
+    function executeScript() {
+        if (!controller.test.isOpened) {
+            overlay.classList.remove('closed');
+            return;
+        }
+        controller.executeScript();
+    }
+    async function formSubmit(e) {
+        e.preventDefault();
+        if (!controller.test.isOpened) {
+            overlay.classList.remove('closed');
+            return;
+        }
+        await controller.executeCommand(readInputValue() + '\n');
+    }
+    // send cancel command to serial port when ctrl+C is pressed in input area
+    async function sendCancel(e) {
+        if (!controller.test.isOpened) {
+            overlay.classList.remove('closed');
+            return;
+        }
+        if (e.ctrlKey && e.key === 'c') {
+            await controller.test.sendCommand(controller.test.CANCEL_CMD);
+        }
+    }
+    function addMessageToConsole(s) {
+        messages.textContent += s;
+        messages.scrollTo(0, messages.scrollHeight);
+    }
+    function handleDragOver(evt) {
+        evt.stopPropagation();
+        evt.preventDefault();
+        const eventDataTransfer = evt.dataTransfer;
+        if (eventDataTransfer === null)
+            return;
+        eventDataTransfer.dropEffect = 'copy'; // Explicitly show this is a copy.
+    }
+    function handleFileSelect(evt) {
         evt.stopPropagation();
         evt.preventDefault();
         const eventDataTransfer = evt.dataTransfer;
@@ -34316,339 +34320,350 @@ class importJsonFile {
         }
         const r = new FileReader();
         r.addEventListener('load', () => {
-            const data = JSON.parse(r.result);
-            this.graph.updateData(data.power.map((d) => [new Date(d[0]), d[1]]));
-            this.graph.updateGraph();
+            controller.loadPowerData(r.result);
         });
         r.readAsText(file);
     }
-    handleDragOver(evt) {
-        evt.stopPropagation();
-        evt.preventDefault();
-        const eventDataTransfer = evt.dataTransfer;
-        if (eventDataTransfer === null)
+    function setDownloadAnchor(dataStr) {
+        const dlAnchorElem = document.getElementById('downloadAnchorElem');
+        if (dlAnchorElem === null)
             return;
-        eventDataTransfer.dropEffect = 'copy'; // Explicitly show this is a copy.
+        dlAnchorElem.setAttribute('href', dataStr);
+        dlAnchorElem.setAttribute('download', `power_${(0, moment_1.default)().format()}.json`);
+        dlAnchorElem.click();
     }
-    setupHtmlEvent() {
-        this.dropZone.addEventListener('dragover', e => this.handleDragOver(e), false);
-        this.dropZone.addEventListener('drop', e => this.handleFileSelect(e), false);
-    }
-}
-exports.importJsonFile = importJsonFile;
+});
 
 
 /***/ }),
 
-/***/ "./src/powerMonitor.ts":
-/*!*****************************!*\
-  !*** ./src/powerMonitor.ts ***!
-  \*****************************/
+/***/ "./src/operatePort.ts":
+/*!****************************!*\
+  !*** ./src/operatePort.ts ***!
+  \****************************/
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.operatePort = void 0;
+class operatePort {
+    constructor(vendorId, productId) {
+        this.isSerial = true;
+        this.serial = new (class {
+            constructor() {
+                this.reader = new ReadableStreamDefaultReader(new ReadableStream());
+                this.encoder = new TextEncoder();
+                this.decoder = new TextDecoder();
+            }
+            async open(usbVendorId, usbProductId) {
+                this.port = await navigator.serial
+                    .requestPort({
+                    filters: [{ usbVendorId: usbVendorId, usbProductId: usbProductId }],
+                })
+                    .catch(e => {
+                    console.error(e);
+                    throw e;
+                });
+                await this.port.open({ baudRate: 115200 });
+            }
+            async close() {
+                if (this.port === undefined)
+                    return;
+                await this.reader.cancel();
+                await this.reader.releaseLock();
+                try {
+                    await this.port.close();
+                }
+                catch (e) {
+                    console.error(e);
+                    throw e;
+                }
+            }
+            async read() {
+                if (this.port === undefined)
+                    return '';
+                const readable = this.port.readable;
+                if (readable === null)
+                    return '';
+                this.reader = readable.getReader();
+                try {
+                    for (;;) {
+                        const { value, done } = await this.reader.read();
+                        if (done) {
+                            // |reader| has been canceled.
+                            this.reader.releaseLock();
+                            return '';
+                        }
+                        return this.decoder.decode(value);
+                    }
+                }
+                catch (error) {
+                    this.reader.releaseLock();
+                    console.error(error);
+                    throw error;
+                }
+                finally {
+                    this.reader.releaseLock();
+                }
+            }
+            async write(s) {
+                if (this.port === undefined)
+                    return;
+                const writable = this.port.writable;
+                if (writable === null)
+                    return;
+                const writer = writable.getWriter();
+                await writer.write(this.encoder.encode(s));
+                writer.releaseLock();
+            }
+        })();
+        this.usb = new (class {
+            constructor() {
+                this.halt = false;
+                this.usb_interface = 0;
+                this.ep = this.usb_interface + 1;
+                this.encoder = new TextEncoder();
+                this.decoder = new TextDecoder();
+            }
+            changeHaltFlag(flag) {
+                this.halt = flag;
+            }
+            async open(vendorId, productId) {
+                this.device = await navigator.usb
+                    .requestDevice({ filters: [{ vendorId: vendorId, productId: productId }] })
+                    .catch(e => {
+                    console.error(e);
+                    throw e;
+                });
+                await this.device.open();
+                await this.device.selectConfiguration(1);
+                await this.device.claimInterface(this.usb_interface);
+            }
+            async close() {
+                if (this.device === undefined)
+                    return;
+                try {
+                    await this.device.close();
+                }
+                catch (e) {
+                    console.error(e);
+                }
+            }
+            async read() {
+                if (this.device === undefined)
+                    return '';
+                try {
+                    const result = await this.device.transferIn(this.ep, 64);
+                    if (result.status === 'stall') {
+                        await this.device.clearHalt('in', this.ep);
+                        throw result;
+                    }
+                    const resultData = result.data;
+                    if (resultData === undefined)
+                        return '';
+                    const result_array = new Int8Array(resultData.buffer);
+                    return this.decoder.decode(result_array);
+                }
+                catch (e) {
+                    // If halt is true, it's when the stop button is pressed. Therefore,
+                    // we can ignore the error.
+                    if (!this.halt) {
+                        console.error(e);
+                        throw e;
+                    }
+                    return '';
+                }
+            }
+            async write(s) {
+                if (this.device === undefined)
+                    return;
+                await this.device.transferOut(this.ep, this.encoder.encode(s));
+            }
+        })();
+        this.vendorId = vendorId;
+        this.productId = productId;
+    }
+    async setIsSerialFlag(isSerial) {
+        this.isSerial = isSerial;
+    }
+    async open() {
+        if (this.isSerial)
+            await this.serial.open(this.vendorId, this.productId);
+        else
+            await this.usb.open(this.vendorId, this.productId);
+    }
+    async close() {
+        if (this.isSerial)
+            await this.serial.close();
+        else
+            await this.usb.close();
+    }
+    async read() {
+        if (this.isSerial)
+            return await this.serial.read();
+        else
+            return await this.usb.read();
+    }
+    async write(s) {
+        if (this.isSerial)
+            await this.serial.write(s);
+        else
+            await this.usb.write(s);
+    }
+}
+exports.operatePort = operatePort;
+
+
+/***/ }),
+
+/***/ "./src/powerGraph.ts":
+/*!***************************!*\
+  !*** ./src/powerGraph.ts ***!
+  \***************************/
+/***/ (function(__unused_webpack_module, exports, __webpack_require__) {
+
+"use strict";
+
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.powerGraph = void 0;
+const dygraphs_1 = __importDefault(__webpack_require__(/*! dygraphs */ "./node_modules/dygraphs/index.js"));
+class powerGraph {
+    constructor() {
+        this.g = new dygraphs_1.default('graph', [], {});
+    }
+    updateGraph(powerData) {
+        if (powerData !== undefined && powerData.length > 0) {
+            const toolTip = document.querySelector('#tooltip');
+            if (toolTip !== null) {
+                toolTip.classList.add('hidden');
+            }
+        }
+        // currentData = data;
+        this.g.updateOptions({
+            file: powerData,
+            labels: ['t', 'ina0'],
+            showRoller: true,
+            ylabel: 'Power (mW)',
+            legend: 'always',
+            showRangeSelector: true,
+            connectSeparatedPoints: true,
+            underlayCallback: function (canvas, area, g) {
+                canvas.fillStyle = 'rgba(255, 255, 102, 1.0)';
+                function highlight_period(x_start, x_end) {
+                    const canvas_left_x = g.toDomXCoord(x_start);
+                    const canvas_right_x = g.toDomXCoord(x_end);
+                    const canvas_width = canvas_right_x - canvas_left_x;
+                    canvas.fillRect(canvas_left_x, area.y, canvas_width, area.h);
+                }
+                highlight_period(10, 10);
+            },
+        }, false);
+    }
+}
+exports.powerGraph = powerGraph;
+
+
+/***/ }),
+
+/***/ "./src/powerTestController.ts":
+/*!************************************!*\
+  !*** ./src/powerTestController.ts ***!
+  \************************************/
 /***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.powerMonitor = void 0;
-const serialport_1 = __webpack_require__(/*! ./serialport */ "./src/serialport.ts");
-const usbport_1 = __webpack_require__(/*! ./usbport */ "./src/usbport.ts");
-class powerMonitor {
-    constructor(graph) {
-        this.INTERVAL_MS = 100;
-        this.halt = false;
-        this.inProgress = false;
-        this.isSerial = false;
-        this.output = '';
-        this.usb = new usbport_1.usbPort();
-        this.servo = new serialport_1.serialPort();
-        this.requestUsbButton = document.getElementById('request-device');
-        this.requestSerialButton = document.getElementById('requestSerialButton');
-        this.haltButton = document.getElementById('haltButton');
-        this.serial_output = document.getElementById('serial_output');
-        this.graph = graph;
+exports.powerTestController = void 0;
+const dataRecoder_1 = __webpack_require__(/*! ./dataRecoder */ "./src/dataRecoder.ts");
+const testRunner_1 = __webpack_require__(/*! ./testRunner */ "./src/testRunner.ts");
+class powerTestController {
+    constructor(servoShell, dutShell, enabledRecordingButton, setSerialOutput) {
+        // shell script
+        this.scripts = `#!/bin/bash -e
+function workload () {
+  ectool chargecontrol idle
+  stress-ng -c 1 -t \\$1
+  echo "workload"
+}
+echo "start"
+workload 10 1> ./test_out.log 2> ./test_err.log
+echo "end"\n`;
+        this.servoShell = servoShell;
+        this.recoder = new dataRecoder_1.dataRecoder(servoShell, enabledRecordingButton, setSerialOutput);
+        this.recoder.setupDisconnectEvent();
+        this.test = new testRunner_1.testRunner(dutShell);
     }
-    changeHaltFlag(flag) {
-        this.halt = flag;
-        this.usb.changeHaltFlag(flag);
+    startMeasurement() {
+        this.recoder.start();
     }
-    enabledRecordingButton(halt) {
-        this.requestUsbButton.disabled = !halt;
-        this.requestSerialButton.disabled = !halt;
+    stopMeasurement() {
+        this.recoder.stop();
     }
-    pushOutput(s) {
-        this.output += s;
-        const splitted = this.output.split('\n').filter(s => s.trim().length > 10);
-        if (splitted.length > 0 &&
-            splitted[splitted.length - 1].indexOf('Alert limit') >= 0) {
-            const powerString = splitted.find(s => s.startsWith('Power'));
-            if (powerString === undefined)
-                return;
-            const power = parseInt(powerString.split('=>')[1].trim().split(' ')[0]);
-            const e = [new Date(), power];
-            this.graph.pushData(e);
-            this.graph.updateGraph();
-            this.serial_output.textContent = this.output;
-            this.output = '';
-            this.inProgress = false;
-        }
+    startDutConsole(addMessageToConsole) {
+        this.test.selectPort(addMessageToConsole);
     }
-    kickWriteLoop(writeFn) {
-        const f = async () => {
-            while (!this.halt) {
-                if (this.inProgress) {
-                    console.error('previous request is in progress! skip...');
-                }
-                else {
-                    this.inProgress = true;
-                }
-                // ina 0 and 1 seems to be the same
-                // ina 2 is something but not useful
-                const cmd = 'ina 0\n';
-                await writeFn(cmd);
-                await new Promise(r => setTimeout(r, this.INTERVAL_MS));
-            }
-        };
-        setTimeout(f, this.INTERVAL_MS);
+    executeCommand(s) {
+        this.test.sendCommand(s);
     }
-    async readLoop(readFn) {
-        while (!this.halt) {
-            try {
-                const s = await readFn();
-                if (s === '' || !s.length) {
-                    continue;
-                }
-                this.pushOutput(s);
-            }
-            catch (e) {
-                // break the loop here because `disconnect` event is not called in Chrome
-                // for some reason when the loop continues. And no need to throw error
-                // here because it is thrown in readFn.
-                break;
-            }
-        }
+    executeScript() {
+        this.test.executeScript(this.scripts);
     }
-    async requestUsb() {
-        this.changeHaltFlag(false);
-        await this.usb.open();
-        this.isSerial = false;
-        this.enabledRecordingButton(this.halt);
-        try {
-            this.kickWriteLoop(async (s) => this.usb.write(s));
-            this.readLoop(async () => this.usb.read());
-        }
-        catch (err) {
-            console.error(`Disconnected: ${err}`);
-            this.changeHaltFlag(true);
-            this.enabledRecordingButton(this.halt);
-        }
+    analyzePowerData() {
+        this.recoder.analyzePowerData();
     }
-    async requestSerial() {
-        this.changeHaltFlag(false);
-        await this.servo.open(0x18d1, 0x520d);
-        this.isSerial = true;
-        this.enabledRecordingButton(this.halt);
-        await this.servo.write('help\n');
-        // TODO: Implement something to check the validity of servo serial port
-        this.kickWriteLoop(async (s) => this.servo.write(s));
-        this.readLoop(() => this.servo.read());
+    loadPowerData(s) {
+        this.recoder.readJsonFile(s);
     }
-    disconnectUsbPort() {
-        if (!this.halt && !this.isSerial) {
-            //  No need to call close() for the Usb servoPort here because the
-            //  specification says that
-            // the servoPort will be closed automatically when a device is disconnected.
-            this.changeHaltFlag(true);
-            this.inProgress = false;
-            this.enabledRecordingButton(this.halt);
-        }
-    }
-    async disconnectSerialPort() {
-        if (!this.halt && this.isSerial) {
-            await this.servo.close();
-            this.changeHaltFlag(true);
-            this.inProgress = false;
-            this.enabledRecordingButton(this.halt);
-        }
-    }
-    async stopMeasurement() {
-        this.changeHaltFlag(true);
-        this.inProgress = false;
-        if (this.isSerial) {
-            await this.servo.close();
-        }
-        else {
-            await this.usb.close();
-        }
-        this.enabledRecordingButton(this.halt);
-    }
-    setupHtmlEvent() {
-        this.requestSerialButton.addEventListener('click', () => this.requestSerial());
-        this.requestUsbButton.addEventListener('click', () => this.requestUsb());
-        this.haltButton.addEventListener('click', () => this.stopMeasurement());
+    exportPowerData() {
+        return this.recoder.writeJsonFile();
     }
 }
-exports.powerMonitor = powerMonitor;
+exports.powerTestController = powerTestController;
 
 
 /***/ }),
 
-/***/ "./src/serialport.ts":
+/***/ "./src/testRunner.ts":
 /*!***************************!*\
-  !*** ./src/serialport.ts ***!
+  !*** ./src/testRunner.ts ***!
   \***************************/
 /***/ ((__unused_webpack_module, exports) => {
 
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.serialPort = void 0;
-class serialPort {
-    constructor() {
-        this.reader = new ReadableStreamDefaultReader(new ReadableStream());
-        this.encoder = new TextEncoder();
-        this.decoder = new TextDecoder();
+exports.testRunner = void 0;
+class testRunner {
+    constructor(port) {
+        this.isOpened = false;
+        this.CANCEL_CMD = '\x03\n';
+        this.port = port;
     }
-    async open(usbVendorId, usbProductId) {
-        this.port = await navigator.serial
-            .requestPort({
-            filters: [{ usbVendorId: usbVendorId, usbProductId: usbProductId }],
-        })
-            .catch(e => {
-            console.error(e);
-            throw e;
-        });
-        await this.port.open({ baudRate: 115200 });
-    }
-    async close() {
-        if (this.port === undefined)
-            return;
-        await this.reader.cancel();
-        await this.reader.releaseLock();
-        try {
-            await this.port.close();
-        }
-        catch (e) {
-            console.error(e);
-            throw e;
+    async selectPort(addMessageToConsole) {
+        await this.port.open();
+        this.isOpened = true;
+        addMessageToConsole('DutPort is selected');
+        for (;;) {
+            const chunk = await this.port.read();
+            addMessageToConsole(chunk);
         }
     }
-    async read() {
-        if (this.port === undefined)
-            return '';
-        const readable = this.port.readable;
-        if (readable === null)
-            return '';
-        this.reader = readable.getReader();
-        try {
-            for (;;) {
-                const { value, done } = await this.reader.read();
-                if (done) {
-                    // |reader| has been canceled.
-                    this.reader.releaseLock();
-                    return '';
-                }
-                return this.decoder.decode(value);
-            }
-        }
-        catch (error) {
-            this.reader.releaseLock();
-            console.error(error);
-            throw error;
-        }
-        finally {
-            this.reader.releaseLock();
-        }
+    async executeScript(script) {
+        await this.port.write('cat > ./example.sh << EOF\n');
+        await this.port.write(script);
+        await this.port.write('EOF\n');
+        await this.port.write('bash ./example.sh\n');
     }
-    async write(s) {
-        if (this.port === undefined)
-            return;
-        const writable = this.port.writable;
-        if (writable === null)
-            return;
-        const writer = writable.getWriter();
-        await writer.write(this.encoder.encode(s));
-        writer.releaseLock();
+    async sendCommand(s) {
+        await this.port.write(s);
     }
 }
-exports.serialPort = serialPort;
-
-
-/***/ }),
-
-/***/ "./src/usbport.ts":
-/*!************************!*\
-  !*** ./src/usbport.ts ***!
-  \************************/
-/***/ ((__unused_webpack_module, exports) => {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.usbPort = void 0;
-class usbPort {
-    constructor() {
-        this.halt = false;
-        this.usb_interface = 0;
-        this.ep = this.usb_interface + 1;
-        this.encoder = new TextEncoder();
-        this.decoder = new TextDecoder();
-    }
-    changeHaltFlag(flag) {
-        this.halt = flag;
-    }
-    async open() {
-        this.device = await navigator.usb
-            .requestDevice({ filters: [{ vendorId: 0x18d1, productId: 0x520d }] })
-            .catch(e => {
-            console.error(e);
-            throw e;
-        });
-        await this.device.open();
-        await this.device.selectConfiguration(1);
-        await this.device.claimInterface(this.usb_interface);
-    }
-    async close() {
-        if (this.device === undefined)
-            return;
-        try {
-            await this.device.close();
-        }
-        catch (e) {
-            console.error(e);
-        }
-    }
-    async read() {
-        if (this.device === undefined)
-            return '';
-        try {
-            const result = await this.device.transferIn(this.ep, 64);
-            if (result.status === 'stall') {
-                await this.device.clearHalt('in', this.ep);
-                throw result;
-            }
-            const resultData = result.data;
-            if (resultData === undefined)
-                return '';
-            const result_array = new Int8Array(resultData.buffer);
-            return this.decoder.decode(result_array);
-        }
-        catch (e) {
-            // If halt is true, it's when the stop button is pressed. Therefore,
-            // we can ignore the error.
-            if (!this.halt) {
-                console.error(e);
-                throw e;
-            }
-            return '';
-        }
-    }
-    async write(s) {
-        if (this.device === undefined)
-            return;
-        await this.device.transferOut(this.ep, this.encoder.encode(s));
-    }
-}
-exports.usbPort = usbPort;
+exports.testRunner = testRunner;
 
 
 /***/ }),
@@ -69019,49 +69034,12 @@ __webpack_require__.r(__webpack_exports__);
 /******/ 	})();
 /******/ 	
 /************************************************************************/
-var __webpack_exports__ = {};
-// This entry need to be wrapped in an IIFE because it need to be in strict mode.
-(() => {
-"use strict";
-var exports = __webpack_exports__;
-/*!**********************!*\
-  !*** ./src/index.ts ***!
-  \**********************/
-
-// while true ; do { echo "do nothing for 5 sec" ; sleep 5 ; echo "yes for 5 sec
-// without displaying" ; timeout 5 yes > /dev/null ; } ; done ectool
-// chargecontrol idle ectool chargecontrol normal
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-const analyzeData_1 = __webpack_require__(/*! ./analyzeData */ "./src/analyzeData.ts");
-const downloadJsonFile_1 = __webpack_require__(/*! ./downloadJsonFile */ "./src/downloadJsonFile.ts");
-const dutSerialConsole_1 = __webpack_require__(/*! ./dutSerialConsole */ "./src/dutSerialConsole.ts");
-const graph_1 = __webpack_require__(/*! ./graph */ "./src/graph.ts");
-const importJsonFile_1 = __webpack_require__(/*! ./importJsonFile */ "./src/importJsonFile.ts");
-const powerMonitor_1 = __webpack_require__(/*! ./powerMonitor */ "./src/powerMonitor.ts");
-window.addEventListener('DOMContentLoaded', () => {
-    const graph = new graph_1.powerGraph();
-    const monitor = new powerMonitor_1.powerMonitor(graph);
-    const dut = new dutSerialConsole_1.dutSerialConsole();
-    const importFile = new importJsonFile_1.importJsonFile(graph);
-    const downloadFile = new downloadJsonFile_1.downloadJsonFile(graph);
-    const analyze = new analyzeData_1.analyzeData(graph);
-    monitor.setupHtmlEvent();
-    dut.setupHtmlEvent();
-    importFile.setupHtmlEvent();
-    downloadFile.setupHtmlEvent();
-    analyze.setupHtmlEvent();
-    // `disconnect` event is fired when a Usb device is disconnected.
-    // c.f. https://wicg.github.io/webusb/#disconnect (5.1. Events)
-    navigator.usb.addEventListener('disconnect', () => monitor.disconnectUsbPort());
-    // event when you disconnect serial port
-    navigator.serial.addEventListener('disconnect', () => {
-        monitor.disconnectSerialPort();
-        dut.disconnectPort();
-    });
-});
-
-})();
-
+/******/ 	
+/******/ 	// startup
+/******/ 	// Load entry module and return exports
+/******/ 	// This entry module is referenced by other modules so it can't be inlined
+/******/ 	var __webpack_exports__ = __webpack_require__("./src/index.ts");
+/******/ 	
 /******/ })()
 ;
 //# sourceMappingURL=index.js.map

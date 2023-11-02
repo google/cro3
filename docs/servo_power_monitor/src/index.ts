@@ -2,33 +2,152 @@
 // without displaying" ; timeout 5 yes > /dev/null ; } ; done ectool
 // chargecontrol idle ectool chargecontrol normal
 
-import {analyzeData} from './analyzeData';
-import {downloadJsonFile} from './downloadJsonFile';
-import {dutSerialConsole} from './dutSerialConsole';
-import {powerGraph} from './graph';
-import {importJsonFile} from './importJsonFile';
-import {powerMonitor} from './powerMonitor';
+import {operatePort} from './operatePort';
+import {powerTestController} from './powerTestController';
+import moment from 'moment';
 
 window.addEventListener('DOMContentLoaded', () => {
-  const graph = new powerGraph();
-  const monitor = new powerMonitor(graph);
-  const dut = new dutSerialConsole();
-  const importFile = new importJsonFile(graph);
-  const downloadFile = new downloadJsonFile(graph);
-  const analyze = new analyzeData(graph);
-  monitor.setupHtmlEvent();
-  dut.setupHtmlEvent();
-  importFile.setupHtmlEvent();
-  downloadFile.setupHtmlEvent();
-  analyze.setupHtmlEvent();
-  // `disconnect` event is fired when a Usb device is disconnected.
-  // c.f. https://wicg.github.io/webusb/#disconnect (5.1. Events)
-  navigator.usb.addEventListener('disconnect', () =>
-    monitor.disconnectUsbPort()
+  const servoShell = new operatePort(0x18d1, 0x520d);
+  const dutShell = new operatePort(0x18d1, 0x504a);
+  const controller = new powerTestController(
+    servoShell,
+    dutShell,
+    enabledRecordingButton,
+    setSerialOutput
   );
-  // event when you disconnect serial port
-  navigator.serial.addEventListener('disconnect', () => {
-    monitor.disconnectSerialPort();
-    dut.disconnectPort();
+
+  const requestUsbButton = document.getElementById(
+    'request-device'
+  ) as HTMLButtonElement;
+  const requestSerialButton = document.getElementById(
+    'requestSerialButton'
+  ) as HTMLButtonElement;
+  const haltButton = document.getElementById('haltButton') as HTMLButtonElement;
+  const downloadButton = document.getElementById(
+    'downloadButton'
+  ) as HTMLButtonElement;
+  const analyzeButton = document.getElementById(
+    'analyzeButton'
+  ) as HTMLButtonElement;
+  const selectDutSerialButton = document.getElementById(
+    'selectDutSerialButton'
+  ) as HTMLButtonElement;
+  const dutCommandForm = document.getElementById(
+    'dutCommandForm'
+  ) as HTMLFormElement;
+  const dutCommandInput = document.getElementById(
+    'dutCommandInput'
+  ) as HTMLInputElement;
+  const popupCloseButton = document.getElementById(
+    'popup-close'
+  ) as HTMLButtonElement;
+  const overlay = document.querySelector('#popup-overlay') as HTMLDivElement;
+  const messages = document.getElementById('messages') as HTMLDivElement;
+  const executeScriptButton = document.getElementById(
+    'executeScriptButton'
+  ) as HTMLButtonElement;
+  const dropZone = document.getElementById('dropZone') as HTMLSpanElement;
+  const serial_output = document.getElementById(
+    'serial_output'
+  ) as HTMLDivElement;
+
+  requestSerialButton.addEventListener('click', () => {
+    controller.startMeasurement();
   });
+  requestUsbButton.addEventListener('click', () => {
+    controller.servoShell.setIsSerialFlag(true);
+    controller.startMeasurement();
+  });
+  haltButton.addEventListener('click', () => {
+    controller.stopMeasurement();
+  });
+  selectDutSerialButton.addEventListener('click', () => {
+    controller.startDutConsole(addMessageToConsole);
+  });
+  dutCommandForm.addEventListener('submit', e => formSubmit(e));
+  dutCommandInput.addEventListener('keydown', e => sendCancel(e));
+  analyzeButton.addEventListener('click', () => {
+    controller.analyzePowerData();
+  });
+  executeScriptButton.addEventListener('click', () => executeScript());
+  dropZone.addEventListener('dragover', e => handleDragOver(e), false);
+  dropZone.addEventListener('drop', e => handleFileSelect(e), false);
+  downloadButton.addEventListener('click', () => {
+    const dataStr = controller.exportPowerData();
+    setDownloadAnchor(dataStr);
+  });
+  popupCloseButton.addEventListener('click', () => {
+    overlay.classList.add('closed');
+  });
+
+  function enabledRecordingButton(halt: boolean) {
+    requestUsbButton.disabled = !halt;
+    requestSerialButton.disabled = !halt;
+  }
+  function setSerialOutput(s: string) {
+    serial_output.textContent = s;
+  }
+  function readInputValue() {
+    const res = dutCommandInput.value;
+    dutCommandInput.value = '';
+    return res;
+  }
+  function executeScript() {
+    if (!controller.test.isOpened) {
+      overlay.classList.remove('closed');
+      return;
+    }
+    controller.executeScript();
+  }
+  async function formSubmit(e: Event) {
+    e.preventDefault();
+    if (!controller.test.isOpened) {
+      overlay.classList.remove('closed');
+      return;
+    }
+    await controller.executeCommand(readInputValue() + '\n');
+  }
+  // send cancel command to serial port when ctrl+C is pressed in input area
+  async function sendCancel(e: KeyboardEvent) {
+    if (!controller.test.isOpened) {
+      overlay.classList.remove('closed');
+      return;
+    }
+    if (e.ctrlKey && e.key === 'c') {
+      await controller.test.sendCommand(controller.test.CANCEL_CMD);
+    }
+  }
+  function addMessageToConsole(s: string) {
+    messages.textContent += s;
+    messages.scrollTo(0, messages.scrollHeight);
+  }
+  function handleDragOver(evt: DragEvent) {
+    evt.stopPropagation();
+    evt.preventDefault();
+    const eventDataTransfer = evt.dataTransfer;
+    if (eventDataTransfer === null) return;
+    eventDataTransfer.dropEffect = 'copy'; // Explicitly show this is a copy.
+  }
+  function handleFileSelect(evt: DragEvent) {
+    evt.stopPropagation();
+    evt.preventDefault();
+    const eventDataTransfer = evt.dataTransfer;
+    if (eventDataTransfer === null) return;
+    const file = eventDataTransfer.files[0];
+    if (file === undefined) {
+      return;
+    }
+    const r = new FileReader();
+    r.addEventListener('load', () => {
+      controller.loadPowerData(r.result as string);
+    });
+    r.readAsText(file);
+  }
+  function setDownloadAnchor(dataStr: string) {
+    const dlAnchorElem = document.getElementById('downloadAnchorElem');
+    if (dlAnchorElem === null) return;
+    dlAnchorElem.setAttribute('href', dataStr);
+    dlAnchorElem.setAttribute('download', `power_${moment().format()}.json`);
+    dlAnchorElem.click();
+  }
 });
