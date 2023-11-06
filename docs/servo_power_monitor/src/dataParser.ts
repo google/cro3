@@ -1,13 +1,16 @@
 import {OperatePort} from './operatePort';
 
+type parseData = {
+  power: number;
+  originalData: string;
+};
+
 export class DataParser {
   servoShell: OperatePort;
   output = '';
-  setSerialOutput: (s: string) => void;
 
-  constructor(servoShell: OperatePort, setSerialOutput: (s: string) => void) {
+  constructor(servoShell: OperatePort) {
     this.servoShell = servoShell;
-    this.setSerialOutput = setSerialOutput;
   }
   async readData() {
     for (;;) {
@@ -26,9 +29,12 @@ export class DataParser {
           const power = parseInt(
             powerString.split('=>')[1].trim().split(' ')[0]
           );
-          this.setSerialOutput(this.output);
+          const parseResult: parseData = {
+            power: power,
+            originalData: this.output,
+          };
           this.output = '';
-          return power;
+          return parseResult;
         }
       } catch (e) {
         // break the loop here because `disconnect` event is not called in Chrome

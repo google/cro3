@@ -13,15 +13,16 @@ export class PowerTestController {
   graph = new Graph();
   histogram = new Histogram();
   enabledRecordingButton: (flag: boolean) => void;
-
+  setSerialOutput: (s: string) => void;
   constructor(
     servoShell: OperatePort,
     enabledRecordingButton: (flag: boolean) => void,
     setSerialOutput: (s: string) => void
   ) {
     this.servoShell = servoShell;
-    this.parser = new DataParser(servoShell, setSerialOutput);
+    this.parser = new DataParser(servoShell);
     this.enabledRecordingButton = enabledRecordingButton;
+    this.setSerialOutput = setSerialOutput;
   }
   changeHaltFlag(flag: boolean) {
     this.halt = flag;
@@ -49,7 +50,8 @@ export class PowerTestController {
     while (!this.halt) {
       const currentPowerData = await this.parser.readData();
       if (currentPowerData === undefined) continue;
-      const e: Array<Date | number> = [new Date(), currentPowerData];
+      this.setSerialOutput(currentPowerData.originalData);
+      const e: Array<Date | number> = [new Date(), currentPowerData.power];
       this.powerData.push(e);
       this.graph.updateGraph(this.powerData);
     }

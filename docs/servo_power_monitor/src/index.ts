@@ -9,12 +9,12 @@ import {testRunner} from './testRunner';
 
 window.addEventListener('DOMContentLoaded', () => {
   const servoShell = new OperatePort(0x18d1, 0x520d);
-  const dutShell = new OperatePort(0x18d1, 0x504a);
   const controller = new PowerTestController(
     servoShell,
     enabledRecordingButton,
     setSerialOutput
   );
+  const dutShell = new OperatePort(0x18d1, 0x504a);
   const runner = new testRunner(dutShell);
   controller.setupDisconnectEvent();
   runner.setupDisconnectEvent();
