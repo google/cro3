@@ -68,8 +68,8 @@ class OperateSerialPort implements PortInterface {
 class OperateUsbPort implements PortInterface {
   halt = false;
   private device?: USBDevice;
-  private usb_interface = 0;
-  private ep = this.usb_interface + 1;
+  private interfaceNum = 0;
+  private ep = this.interfaceNum + 1;
   private encoder = new TextEncoder();
   private decoder = new TextDecoder();
   changeHaltFlag(flag: boolean) {
@@ -86,11 +86,20 @@ class OperateUsbPort implements PortInterface {
       });
     await this.device.open();
     await this.device.selectConfiguration(1);
-    await this.device.claimInterface(this.usb_interface);
+    await this.device.claimInterface(this.interfaceNum);
   }
   public async close() {
     if (this.device === undefined) return;
     try {
+      // This sets the DTR (data terminal ready) signal low to indicate to the device that the host has disconnected.
+      // NOTE: investigate whether it stops the error with closing device while waiting for transferIn
+      await this.device.controlTransferOut({
+        requestType: 'class',
+        recipient: 'interface',
+        request: 0x22,
+        value: 0x00,
+        index: this.interfaceNum,
+      });
       await this.device.close();
     } catch (e) {
       console.error(e);
@@ -114,11 +123,12 @@ class OperateUsbPort implements PortInterface {
 
       // NOTE: investigate the way not to use halt flag because it makes the implementation complicated
       // if (!this.halt) {
-      if (this.device.opened) {
-        console.error(e);
-        throw e;
-      }
-      return '';
+      //   console.error(e);
+      //   throw e;
+      // }
+      // return '';
+      console.error(e);
+      throw e;
     }
   }
   public async write(s: string) {
