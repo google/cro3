@@ -1,58 +1,110 @@
-import {dataRecoder} from './dataRecoder';
-import {operatePort} from './operatePort';
-import {testRunner} from './testRunner';
+import {DataParser} from './dataParser';
+import {OperatePort} from './operatePort';
+import {Graph} from './graph';
+import {Histogram} from './histogram';
 
-export class powerTestController {
-  // shell script
-  scripts = `#!/bin/bash -e
-function workload () {
-  ectool chargecontrol idle
-  stress-ng -c 1 -t \\$1
-  echo "workload"
-}
-echo "start"
-workload 10 1> ./test_out.log 2> ./test_err.log
-echo "end"\n`;
-  servoShell: operatePort;
-  recoder: dataRecoder;
-  test: testRunner;
+export class PowerTestController {
+  INTERVAL_MS = 100;
+  halt = false;
+  inProgress = false;
+  servoShell: OperatePort;
+  parser: DataParser;
+  powerData: Array<Array<Date | number>> = [];
+  graph = new Graph();
+  histogram = new Histogram();
+  enabledRecordingButton: (flag: boolean) => void;
+
   constructor(
-    servoShell: operatePort,
-    dutShell: operatePort,
+    servoShell: OperatePort,
     enabledRecordingButton: (flag: boolean) => void,
     setSerialOutput: (s: string) => void
   ) {
     this.servoShell = servoShell;
-    this.recoder = new dataRecoder(
-      servoShell,
-      enabledRecordingButton,
-      setSerialOutput
-    );
-    this.recoder.setupDisconnectEvent();
-    this.test = new testRunner(dutShell);
+    this.parser = new DataParser(servoShell, setSerialOutput);
+    this.enabledRecordingButton = enabledRecordingButton;
   }
-  startMeasurement() {
-    this.recoder.start();
+  changeHaltFlag(flag: boolean) {
+    this.halt = flag;
+    this.enabledRecordingButton(flag);
   }
-  stopMeasurement() {
-    this.recoder.stop();
+  kickWriteLoop() {
+    const f = async () => {
+      while (!this.halt) {
+        if (this.inProgress) {
+          console.error('previous request is in progress! skip...');
+        } else {
+          this.inProgress = true;
+        }
+
+        // ina 0 and 1 seems to be the same
+        // ina 2 is something but not useful
+        const cmd = 'ina 0\n';
+        await this.servoShell.write(cmd);
+        await new Promise(r => setTimeout(r, this.INTERVAL_MS));
+      }
+    };
+    setTimeout(f, this.INTERVAL_MS);
   }
-  startDutConsole(addMessageToConsole: (s: string) => void) {
-    this.test.selectPort(addMessageToConsole);
+  async readLoop() {
+    while (!this.halt) {
+      const currentPowerData = await this.parser.readData();
+      if (currentPowerData === undefined) continue;
+      const e: Array<Date | number> = [new Date(), currentPowerData];
+      this.powerData.push(e);
+      this.graph.updateGraph(this.powerData);
+    }
   }
-  executeCommand(s: string) {
-    this.test.sendCommand(s);
+  async startMeasurement(isSerial: boolean) {
+    await this.servoShell.open(isSerial);
+    this.changeHaltFlag(false);
+    this.kickWriteLoop();
+    this.readLoop();
   }
-  executeScript() {
-    this.test.executeScript(this.scripts);
+  async stopMeasurement() {
+    this.changeHaltFlag(true);
+    this.inProgress = false;
+    await this.servoShell.close();
   }
   analyzePowerData() {
-    this.recoder.analyzePowerData();
+    // https://dygraphs.com/jsdoc/symbols/Dygraph.html#xAxisRange
+    const xrange = this.graph.g.xAxisRange();
+    console.log(this.graph.g.xAxisExtremes());
+    const left = xrange[0];
+    const right = xrange[1];
+    this.histogram.paintHistogram(left, right, this.powerData);
   }
   loadPowerData(s: string) {
-    this.recoder.readJsonFile(s);
+    const data = JSON.parse(s);
+    this.powerData = data.power.map((d: string) => [new Date(d[0]), d[1]]);
+    this.graph.updateGraph(this.powerData);
   }
   exportPowerData() {
-    return this.recoder.writeJsonFile();
+    const dataStr =
+      'data:text/json;charset=utf-8,' +
+      encodeURIComponent(JSON.stringify({power: this.powerData}));
+    return dataStr;
+  }
+  setupDisconnectEvent() {
+    // `disconnect` event is fired when a Usb device is disconnected.
+    // c.f. https://wicg.github.io/webusb/#disconnect (5.1. Events)
+    navigator.usb.addEventListener('disconnect', () => {
+      if (!this.halt && !this.servoShell.isSerial) {
+        //  No need to call close() for the Usb servoPort here because the
+        //  specification says that
+        // the servoPort will be closed automatically when a device is disconnected.
+        this.changeHaltFlag(true);
+        this.inProgress = false;
+        this.enabledRecordingButton(this.halt);
+      }
+    });
+    // event when you disconnect serial port
+    navigator.serial.addEventListener('disconnect', async () => {
+      if (!this.halt && this.servoShell.isSerial) {
+        await this.servoShell.close();
+        this.changeHaltFlag(true);
+        this.inProgress = false;
+        this.enabledRecordingButton(this.halt);
+      }
+    });
   }
 }

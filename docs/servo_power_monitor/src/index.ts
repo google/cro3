@@ -2,19 +2,22 @@
 // without displaying" ; timeout 5 yes > /dev/null ; } ; done ectool
 // chargecontrol idle ectool chargecontrol normal
 
-import {operatePort} from './operatePort';
-import {powerTestController} from './powerTestController';
+import {OperatePort} from './operatePort';
+import {PowerTestController} from './powerTestController';
 import moment from 'moment';
+import {testRunner} from './testRunner';
 
 window.addEventListener('DOMContentLoaded', () => {
-  const servoShell = new operatePort(0x18d1, 0x520d);
-  const dutShell = new operatePort(0x18d1, 0x504a);
-  const controller = new powerTestController(
+  const servoShell = new OperatePort(0x18d1, 0x520d);
+  const dutShell = new OperatePort(0x18d1, 0x504a);
+  const controller = new PowerTestController(
     servoShell,
-    dutShell,
     enabledRecordingButton,
     setSerialOutput
   );
+  const runner = new testRunner(dutShell);
+  controller.setupDisconnectEvent();
+  runner.setupDisconnectEvent();
 
   const requestUsbButton = document.getElementById(
     'request-device'
@@ -52,17 +55,16 @@ window.addEventListener('DOMContentLoaded', () => {
   ) as HTMLDivElement;
 
   requestSerialButton.addEventListener('click', () => {
-    controller.startMeasurement();
+    controller.startMeasurement(true);
   });
   requestUsbButton.addEventListener('click', () => {
-    controller.servoShell.setIsSerialFlag(true);
-    controller.startMeasurement();
+    controller.startMeasurement(false);
   });
   haltButton.addEventListener('click', () => {
     controller.stopMeasurement();
   });
   selectDutSerialButton.addEventListener('click', () => {
-    controller.startDutConsole(addMessageToConsole);
+    runner.selectPort(addMessageToConsole);
   });
   dutCommandForm.addEventListener('submit', e => formSubmit(e));
   dutCommandInput.addEventListener('keydown', e => sendCancel(e));
@@ -93,28 +95,28 @@ window.addEventListener('DOMContentLoaded', () => {
     return res;
   }
   function executeScript() {
-    if (!controller.test.isOpened) {
+    if (!runner.isOpened) {
       overlay.classList.remove('closed');
       return;
     }
-    controller.executeScript();
+    runner.executeScript();
   }
   async function formSubmit(e: Event) {
     e.preventDefault();
-    if (!controller.test.isOpened) {
+    if (!runner.isOpened) {
       overlay.classList.remove('closed');
       return;
     }
-    await controller.executeCommand(readInputValue() + '\n');
+    await runner.sendCommand(readInputValue() + '\n');
   }
   // send cancel command to serial port when ctrl+C is pressed in input area
   async function sendCancel(e: KeyboardEvent) {
-    if (!controller.test.isOpened) {
+    if (!runner.isOpened) {
       overlay.classList.remove('closed');
       return;
     }
     if (e.ctrlKey && e.key === 'c') {
-      await controller.test.sendCommand(controller.test.CANCEL_CMD);
+      await runner.sendCommand(runner.CANCEL_CMD);
     }
   }
   function addMessageToConsole(s: string) {

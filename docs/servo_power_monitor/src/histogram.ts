@@ -1,13 +1,13 @@
 import * as d3 from 'd3';
 import moment from 'moment';
 
-export class histogram {
+export class Histogram {
   ranges: Array<Array<number>> = [];
-  paintHistogram = (
+  paintHistogram(
     t0: number,
     t1: number,
     powerData: Array<Array<Date | number>>
-  ) => {
+  ) {
     // constants
     const xtick = 40;
     const boxWidth = 10;
@@ -189,5 +189,5 @@ export class histogram {
         .attr('stroke', '#fff')
         .text(`N:${data.length}`);
     }
-  };
+  }
 }

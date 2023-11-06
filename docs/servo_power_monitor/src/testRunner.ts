@@ -1,29 +1,49 @@
-import {operatePort} from './operatePort';
+import {OperatePort} from './operatePort';
 
 export class testRunner {
   isOpened = false;
   CANCEL_CMD = '\x03\n';
-
-  port: operatePort;
-  constructor(port: operatePort) {
-    this.port = port;
+  // shell script
+  scripts = `#!/bin/bash -e
+function workload () {
+  ectool chargecontrol idle
+  stress-ng -c 1 -t \\$1
+  echo "workload"
+}
+echo "start"
+workload 10 1> ./test_out.log 2> ./test_err.log
+echo "end"\n`;
+  dut: OperatePort;
+  constructor(dut: OperatePort) {
+    this.dut = dut;
   }
-  async selectPort(addMessageToConsole: (s: string) => void) {
-    await this.port.open();
-    this.isOpened = true;
+  async readDutLoop(addMessageToConsole: (s: string) => void) {
     addMessageToConsole('DutPort is selected');
     for (;;) {
-      const chunk = await this.port.read();
+      const chunk = await this.dut.read();
       addMessageToConsole(chunk);
     }
   }
-  async executeScript(script: string) {
-    await this.port.write('cat > ./example.sh << EOF\n');
-    await this.port.write(script);
-    await this.port.write('EOF\n');
-    await this.port.write('bash ./example.sh\n');
+  async selectPort(addMessageToConsole: (s: string) => void) {
+    await this.dut.open(true);
+    this.isOpened = true;
+    this.readDutLoop(addMessageToConsole);
+  }
+  async executeScript() {
+    await this.dut.write('cat > ./example.sh << EOF\n');
+    await this.dut.write(this.scripts);
+    await this.dut.write('EOF\n');
+    await this.dut.write('bash ./example.sh\n');
   }
   async sendCommand(s: string) {
-    await this.port.write(s);
+    await this.dut.write(s);
+  }
+  setupDisconnectEvent() {
+    navigator.serial.addEventListener('disconnect', async () => {
+      if (this.isOpened) {
+        await this.dut.close();
+        this.isOpened = false;
+      }
+    });
   }
 }

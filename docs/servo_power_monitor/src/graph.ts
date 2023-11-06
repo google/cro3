@@ -1,6 +1,6 @@
 import Dygraph from 'dygraphs';
 
-export class powerGraph {
+export class Graph {
   g = new Dygraph('graph', [], {});
   updateGraph(powerData: Array<Array<Date | number>>) {
     if (powerData !== undefined && powerData.length > 0) {

@@ -33841,144 +33841,103 @@ webpackContext.id = "./node_modules/moment/locale sync recursive ^\\.\\/.*$";
 
 /***/ }),
 
-/***/ "./src/dataRecoder.ts":
-/*!****************************!*\
-  !*** ./src/dataRecoder.ts ***!
-  \****************************/
-/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
+/***/ "./src/dataParser.ts":
+/*!***************************!*\
+  !*** ./src/dataParser.ts ***!
+  \***************************/
+/***/ ((__unused_webpack_module, exports) => {
 
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.dataRecoder = void 0;
-const powerGraph_1 = __webpack_require__(/*! ./powerGraph */ "./src/powerGraph.ts");
-const histogram_1 = __webpack_require__(/*! ./histogram */ "./src/histogram.ts");
-class dataRecoder {
-    constructor(servoShell, enabledRecordingButton, setSerialOutput) {
-        this.INTERVAL_MS = 100;
-        this.halt = false;
-        this.inProgress = false;
-        this.graph = new powerGraph_1.powerGraph();
-        this.histogram = new histogram_1.histogram();
+exports.DataParser = void 0;
+class DataParser {
+    constructor(servoShell, setSerialOutput) {
         this.output = '';
-        this.powerData = [];
         this.servoShell = servoShell;
-        this.enabledRecordingButton = enabledRecordingButton;
         this.setSerialOutput = setSerialOutput;
     }
-    changeHaltFlag(flag) {
-        this.halt = flag;
-    }
-    pushData(s) {
-        this.output += s;
-        const splitted = this.output.split('\n').filter(s => s.trim().length > 10);
-        if (splitted.length > 0 &&
-            splitted[splitted.length - 1].indexOf('Alert limit') >= 0) {
-            const powerString = splitted.find(s => s.startsWith('Power'));
-            if (powerString === undefined)
-                return;
-            const power = parseInt(powerString.split('=>')[1].trim().split(' ')[0]);
-            const e = [new Date(), power];
-            this.powerData.push(e);
-            this.graph.updateGraph(this.powerData);
-            this.setSerialOutput(this.output);
-            this.output = '';
-            this.inProgress = false;
-        }
-    }
-    kickWriteLoop(writeFn) {
-        const f = async () => {
-            while (!this.halt) {
-                if (this.inProgress) {
-                    console.error('previous request is in progress! skip...');
-                }
-                else {
-                    this.inProgress = true;
-                }
-                // ina 0 and 1 seems to be the same
-                // ina 2 is something but not useful
-                const cmd = 'ina 0\n';
-                await writeFn(cmd);
-                await new Promise(r => setTimeout(r, this.INTERVAL_MS));
-            }
-        };
-        setTimeout(f, this.INTERVAL_MS);
-    }
-    async readLoop(readFn) {
-        while (!this.halt) {
+    async readData() {
+        for (;;) {
             try {
-                const s = await readFn();
-                if (s === '' || !s.length) {
-                    continue;
+                const s = await this.servoShell.read();
+                this.output += s;
+                const splitted = this.output
+                    .split('\n')
+                    .filter(s => s.trim().length > 10);
+                if (splitted.length > 0 &&
+                    splitted[splitted.length - 1].indexOf('Alert limit') >= 0) {
+                    const powerString = splitted.find(s => s.startsWith('Power'));
+                    if (powerString === undefined)
+                        return undefined;
+                    const power = parseInt(powerString.split('=>')[1].trim().split(' ')[0]);
+                    this.setSerialOutput(this.output);
+                    this.output = '';
+                    return power;
                 }
-                this.pushData(s);
             }
             catch (e) {
                 // break the loop here because `disconnect` event is not called in Chrome
                 // for some reason when the loop continues. And no need to throw error
                 // here because it is thrown in readFn.
-                break;
+                return undefined;
             }
         }
     }
-    async start() {
-        this.changeHaltFlag(false);
-        await this.servoShell.open();
-        // this.enabledRecordingButton(this.halt);
-        // TODO: Implement something to check the validity of servo serial servoShell
-        // await this.servo.write('help\n');
-        this.kickWriteLoop(async (s) => this.servoShell.write(s));
-        this.readLoop(() => this.servoShell.read());
+}
+exports.DataParser = DataParser;
+
+
+/***/ }),
+
+/***/ "./src/graph.ts":
+/*!**********************!*\
+  !*** ./src/graph.ts ***!
+  \**********************/
+/***/ (function(__unused_webpack_module, exports, __webpack_require__) {
+
+"use strict";
+
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.Graph = void 0;
+const dygraphs_1 = __importDefault(__webpack_require__(/*! dygraphs */ "./node_modules/dygraphs/index.js"));
+class Graph {
+    constructor() {
+        this.g = new dygraphs_1.default('graph', [], {});
     }
-    async stop() {
-        this.changeHaltFlag(true);
-        this.inProgress = false;
-        await this.servoShell.close();
-        // this.enabledRecordingButton(this.halt);
-    }
-    analyzePowerData() {
-        // https://dygraphs.com/jsdoc/symbols/Dygraph.html#xAxisRange
-        const xrange = this.graph.g.xAxisRange();
-        console.log(this.graph.g.xAxisExtremes());
-        const left = xrange[0];
-        const right = xrange[1];
-        this.histogram.paintHistogram(left, right, this.powerData);
-    }
-    readJsonFile(s) {
-        const data = JSON.parse(s);
-        this.powerData = data.power.map((d) => [new Date(d[0]), d[1]]);
-        this.graph.updateGraph(this.powerData);
-    }
-    writeJsonFile() {
-        const dataStr = 'data:text/json;charset=utf-8,' +
-            encodeURIComponent(JSON.stringify({ power: this.powerData }));
-        return dataStr;
-    }
-    setupDisconnectEvent() {
-        // `disconnect` event is fired when a Usb device is disconnected.
-        // c.f. https://wicg.github.io/webusb/#disconnect (5.1. Events)
-        navigator.usb.addEventListener('disconnect', () => {
-            if (!this.halt && !this.servoShell.isSerial) {
-                //  No need to call close() for the Usb servoPort here because the
-                //  specification says that
-                // the servoPort will be closed automatically when a device is disconnected.
-                this.changeHaltFlag(true);
-                this.inProgress = false;
-                // this.enabledRecordingButton(this.halt);
+    updateGraph(powerData) {
+        if (powerData !== undefined && powerData.length > 0) {
+            const toolTip = document.querySelector('#tooltip');
+            if (toolTip !== null) {
+                toolTip.classList.add('hidden');
             }
-        });
-        // event when you disconnect serial port
-        navigator.serial.addEventListener('disconnect', async () => {
-            if (!this.halt && this.servoShell.isSerial) {
-                await this.servoShell.close();
-                this.changeHaltFlag(true);
-                this.inProgress = false;
-                // this.enabledRecordingButton(this.halt);
-            }
-        });
+        }
+        // currentData = data;
+        this.g.updateOptions({
+            file: powerData,
+            labels: ['t', 'ina0'],
+            showRoller: true,
+            ylabel: 'Power (mW)',
+            legend: 'always',
+            showRangeSelector: true,
+            connectSeparatedPoints: true,
+            underlayCallback: function (canvas, area, g) {
+                canvas.fillStyle = 'rgba(255, 255, 102, 1.0)';
+                function highlight_period(x_start, x_end) {
+                    const canvas_left_x = g.toDomXCoord(x_start);
+                    const canvas_right_x = g.toDomXCoord(x_end);
+                    const canvas_width = canvas_right_x - canvas_left_x;
+                    canvas.fillRect(canvas_left_x, area.y, canvas_width, area.h);
+                }
+                highlight_period(10, 10);
+            },
+        }, false);
     }
 }
-exports.dataRecoder = dataRecoder;
+exports.Graph = Graph;
 
 
 /***/ }),
@@ -34018,179 +33977,179 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.histogram = void 0;
+exports.Histogram = void 0;
 const d3 = __importStar(__webpack_require__(/*! d3 */ "./node_modules/d3/src/index.js"));
 const moment_1 = __importDefault(__webpack_require__(/*! moment */ "./node_modules/moment/moment.js"));
-class histogram {
+class Histogram {
     constructor() {
         this.ranges = [];
-        this.paintHistogram = (t0, t1, powerData) => {
-            // constants
-            const xtick = 40;
-            const boxWidth = 10;
-            // setup a graph (drop if exists)
-            const margin = { top: 60, right: 200, bottom: 0, left: 200 };
-            const area = d3.select('#d3area');
-            const targetWidth = area.node().getBoundingClientRect().width * 0.98;
-            const targetHeight = 10000; // (area.node() as HTMLElement).getBoundingClientRect().height;
-            const width = targetWidth - margin.left - margin.right;
-            const svg = area
-                .html('')
-                .append('svg')
-                .attr('height', targetHeight)
-                .attr('width', targetWidth)
-                .append('g')
-                .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
-            // y axis and its label
-            const dataAll = powerData.map((e) => e[1]);
-            const dataMin = d3.min(dataAll);
-            const dataMax = d3.max(dataAll);
-            if (dataMin === undefined || dataMax === undefined)
+    }
+    paintHistogram(t0, t1, powerData) {
+        // constants
+        const xtick = 40;
+        const boxWidth = 10;
+        // setup a graph (drop if exists)
+        const margin = { top: 60, right: 200, bottom: 0, left: 200 };
+        const area = d3.select('#d3area');
+        const targetWidth = area.node().getBoundingClientRect().width * 0.98;
+        const targetHeight = 10000; // (area.node() as HTMLElement).getBoundingClientRect().height;
+        const width = targetWidth - margin.left - margin.right;
+        const svg = area
+            .html('')
+            .append('svg')
+            .attr('height', targetHeight)
+            .attr('width', targetWidth)
+            .append('g')
+            .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
+        // y axis and its label
+        const dataAll = powerData.map((e) => e[1]);
+        const dataMin = d3.min(dataAll);
+        const dataMax = d3.max(dataAll);
+        if (dataMin === undefined || dataMax === undefined)
+            return;
+        const ymin = dataMin - 1000;
+        const ymax = dataMax + 1000;
+        const y = d3.scaleLinear().domain([ymin, ymax]).range([0, width]);
+        svg.append('g').call(d3.axisTop(y));
+        svg
+            .append('text')
+            .attr('text-anchor', 'end')
+            .attr('x', width)
+            .attr('y', -margin.top / 2)
+            .attr('stroke', '#fff')
+            .text('Power (mW)');
+        this.ranges.push([t0, t1]);
+        for (let i = 0; i < this.ranges.length; i++) {
+            // compute data and place of i-th series
+            const left = this.ranges[i][0];
+            const right = this.ranges[i][1];
+            const points = powerData.filter((e) => typeof e[0] !== 'number' &&
+                left <= e[0].getTime() &&
+                e[0].getTime() <= right);
+            const data = points.map((e) => e[1]);
+            const center = xtick * (i + 1);
+            // Compute statistics
+            const data_sorted = data.sort(d3.ascending);
+            const q1 = d3.quantile(data_sorted, 0.25);
+            const median = d3.quantile(data_sorted, 0.5);
+            const q3 = d3.quantile(data_sorted, 0.75);
+            if (q1 === undefined || q3 === undefined)
                 return;
-            const ymin = dataMin - 1000;
-            const ymax = dataMax + 1000;
-            const y = d3.scaleLinear().domain([ymin, ymax]).range([0, width]);
-            svg.append('g').call(d3.axisTop(y));
+            if (median === undefined)
+                return;
+            const interQuantileRange = q3 - q1;
+            const lowerFence = q1 - 1.5 * interQuantileRange;
+            const upperFence = q3 + 1.5 * interQuantileRange;
+            const minValue = d3.min(data);
+            const maxValue = d3.max(data);
+            const mean = d3.mean(data);
+            if (minValue === undefined ||
+                maxValue === undefined ||
+                mean === undefined)
+                return;
+            // min, mean, max
+            svg
+                .append('line')
+                .attr('y1', center)
+                .attr('y2', center)
+                .attr('x1', y(minValue))
+                .attr('x2', y(maxValue))
+                .style('stroke-dasharray', '3, 3')
+                .attr('stroke', '#aaa');
+            svg
+                .selectAll('toto')
+                .data([minValue, mean, maxValue])
+                .enter()
+                .append('line')
+                .attr('y1', center - boxWidth)
+                .attr('y2', center + boxWidth)
+                .attr('x1', d => {
+                return y(d);
+            })
+                .attr('x2', d => {
+                return y(d);
+            })
+                .style('stroke-dasharray', '3, 3')
+                .attr('stroke', '#aaa');
+            // box and line
+            svg
+                .append('line')
+                .attr('y1', center)
+                .attr('y2', center)
+                .attr('x1', y(lowerFence))
+                .attr('x2', y(upperFence))
+                .attr('stroke', '#fff');
+            svg
+                .append('rect')
+                .attr('y', center - boxWidth / 2)
+                .attr('x', y(q1))
+                .attr('width', y(q3) - y(q1))
+                .attr('height', boxWidth)
+                .attr('stroke', '#fff')
+                .style('fill', '#69b3a2');
+            svg
+                .selectAll('toto')
+                .data([lowerFence, median, upperFence])
+                .enter()
+                .append('line')
+                .attr('y1', center - boxWidth / 2)
+                .attr('y2', center + boxWidth / 2)
+                .attr('x1', d => {
+                return y(d);
+            })
+                .attr('x2', d => {
+                return y(d);
+            })
+                .attr('stroke', '#fff');
             svg
                 .append('text')
                 .attr('text-anchor', 'end')
-                .attr('x', width)
-                .attr('y', -margin.top / 2)
+                .attr('alignment-baseline', 'baseline')
+                .attr('y', center - boxWidth / 4)
+                .attr('x', 0)
+                .attr('font-size', boxWidth)
                 .attr('stroke', '#fff')
-                .text('Power (mW)');
-            this.ranges.push([t0, t1]);
-            for (let i = 0; i < this.ranges.length; i++) {
-                // compute data and place of i-th series
-                const left = this.ranges[i][0];
-                const right = this.ranges[i][1];
-                const points = powerData.filter((e) => typeof e[0] !== 'number' &&
-                    left <= e[0].getTime() &&
-                    e[0].getTime() <= right);
-                const data = points.map((e) => e[1]);
-                const center = xtick * (i + 1);
-                // Compute statistics
-                const data_sorted = data.sort(d3.ascending);
-                const q1 = d3.quantile(data_sorted, 0.25);
-                const median = d3.quantile(data_sorted, 0.5);
-                const q3 = d3.quantile(data_sorted, 0.75);
-                if (q1 === undefined || q3 === undefined)
-                    return;
-                if (median === undefined)
-                    return;
-                const interQuantileRange = q3 - q1;
-                const lowerFence = q1 - 1.5 * interQuantileRange;
-                const upperFence = q3 + 1.5 * interQuantileRange;
-                const minValue = d3.min(data);
-                const maxValue = d3.max(data);
-                const mean = d3.mean(data);
-                if (minValue === undefined ||
-                    maxValue === undefined ||
-                    mean === undefined)
-                    return;
-                // min, mean, max
-                svg
-                    .append('line')
-                    .attr('y1', center)
-                    .attr('y2', center)
-                    .attr('x1', y(minValue))
-                    .attr('x2', y(maxValue))
-                    .style('stroke-dasharray', '3, 3')
-                    .attr('stroke', '#aaa');
-                svg
-                    .selectAll('toto')
-                    .data([minValue, mean, maxValue])
-                    .enter()
-                    .append('line')
-                    .attr('y1', center - boxWidth)
-                    .attr('y2', center + boxWidth)
-                    .attr('x1', d => {
-                    return y(d);
-                })
-                    .attr('x2', d => {
-                    return y(d);
-                })
-                    .style('stroke-dasharray', '3, 3')
-                    .attr('stroke', '#aaa');
-                // box and line
-                svg
-                    .append('line')
-                    .attr('y1', center)
-                    .attr('y2', center)
-                    .attr('x1', y(lowerFence))
-                    .attr('x2', y(upperFence))
-                    .attr('stroke', '#fff');
-                svg
-                    .append('rect')
-                    .attr('y', center - boxWidth / 2)
-                    .attr('x', y(q1))
-                    .attr('width', y(q3) - y(q1))
-                    .attr('height', boxWidth)
-                    .attr('stroke', '#fff')
-                    .style('fill', '#69b3a2');
-                svg
-                    .selectAll('toto')
-                    .data([lowerFence, median, upperFence])
-                    .enter()
-                    .append('line')
-                    .attr('y1', center - boxWidth / 2)
-                    .attr('y2', center + boxWidth / 2)
-                    .attr('x1', d => {
-                    return y(d);
-                })
-                    .attr('x2', d => {
-                    return y(d);
-                })
-                    .attr('stroke', '#fff');
-                svg
-                    .append('text')
-                    .attr('text-anchor', 'end')
-                    .attr('alignment-baseline', 'baseline')
-                    .attr('y', center - boxWidth / 4)
-                    .attr('x', 0)
-                    .attr('font-size', boxWidth)
-                    .attr('stroke', '#fff')
-                    .text(`${(0, moment_1.default)(left).format()}`);
-                svg
-                    .append('text')
-                    .attr('text-anchor', 'end')
-                    .attr('alignment-baseline', 'hanging')
-                    .attr('y', center + boxWidth / 4)
-                    .attr('x', 0)
-                    .attr('font-size', boxWidth)
-                    .attr('stroke', '#fff')
-                    .text(`${(0, moment_1.default)(right).format()}`);
-                svg
-                    .append('text')
-                    .attr('text-anchor', 'middle')
-                    .attr('alignment-baseline', 'baseline')
-                    .attr('y', center - boxWidth)
-                    .attr('x', y(mean))
-                    .attr('font-size', boxWidth)
-                    .attr('stroke', '#fff')
-                    .text(`mean:${mean | 0}`);
-                svg
-                    .append('text')
-                    .attr('text-anchor', 'middle')
-                    .attr('alignment-baseline', 'hanging')
-                    .attr('y', center + boxWidth)
-                    .attr('x', y(median))
-                    .attr('font-size', boxWidth)
-                    .attr('stroke', '#fff')
-                    .text(`median:${median}`);
-                svg
-                    .append('text')
-                    .attr('text-anchor', 'start')
-                    .attr('alignment-baseline', 'hanging')
-                    .attr('y', center + boxWidth)
-                    .attr('x', y(ymax))
-                    .attr('font-size', boxWidth)
-                    .attr('stroke', '#fff')
-                    .text(`N:${data.length}`);
-            }
-        };
+                .text(`${(0, moment_1.default)(left).format()}`);
+            svg
+                .append('text')
+                .attr('text-anchor', 'end')
+                .attr('alignment-baseline', 'hanging')
+                .attr('y', center + boxWidth / 4)
+                .attr('x', 0)
+                .attr('font-size', boxWidth)
+                .attr('stroke', '#fff')
+                .text(`${(0, moment_1.default)(right).format()}`);
+            svg
+                .append('text')
+                .attr('text-anchor', 'middle')
+                .attr('alignment-baseline', 'baseline')
+                .attr('y', center - boxWidth)
+                .attr('x', y(mean))
+                .attr('font-size', boxWidth)
+                .attr('stroke', '#fff')
+                .text(`mean:${mean | 0}`);
+            svg
+                .append('text')
+                .attr('text-anchor', 'middle')
+                .attr('alignment-baseline', 'hanging')
+                .attr('y', center + boxWidth)
+                .attr('x', y(median))
+                .attr('font-size', boxWidth)
+                .attr('stroke', '#fff')
+                .text(`median:${median}`);
+            svg
+                .append('text')
+                .attr('text-anchor', 'start')
+                .attr('alignment-baseline', 'hanging')
+                .attr('y', center + boxWidth)
+                .attr('x', y(ymax))
+                .attr('font-size', boxWidth)
+                .attr('stroke', '#fff')
+                .text(`N:${data.length}`);
+        }
     }
 }
-exports.histogram = histogram;
+exports.Histogram = Histogram;
 
 
 /***/ }),
@@ -34213,10 +34172,14 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 const operatePort_1 = __webpack_require__(/*! ./operatePort */ "./src/operatePort.ts");
 const powerTestController_1 = __webpack_require__(/*! ./powerTestController */ "./src/powerTestController.ts");
 const moment_1 = __importDefault(__webpack_require__(/*! moment */ "./node_modules/moment/moment.js"));
+const testRunner_1 = __webpack_require__(/*! ./testRunner */ "./src/testRunner.ts");
 window.addEventListener('DOMContentLoaded', () => {
-    const servoShell = new operatePort_1.operatePort(0x18d1, 0x520d);
-    const dutShell = new operatePort_1.operatePort(0x18d1, 0x504a);
-    const controller = new powerTestController_1.powerTestController(servoShell, dutShell, enabledRecordingButton, setSerialOutput);
+    const servoShell = new operatePort_1.OperatePort(0x18d1, 0x520d);
+    const dutShell = new operatePort_1.OperatePort(0x18d1, 0x504a);
+    const controller = new powerTestController_1.PowerTestController(servoShell, enabledRecordingButton, setSerialOutput);
+    const runner = new testRunner_1.testRunner(dutShell);
+    controller.setupDisconnectEvent();
+    runner.setupDisconnectEvent();
     const requestUsbButton = document.getElementById('request-device');
     const requestSerialButton = document.getElementById('requestSerialButton');
     const haltButton = document.getElementById('haltButton');
@@ -34232,17 +34195,16 @@ window.addEventListener('DOMContentLoaded', () => {
     const dropZone = document.getElementById('dropZone');
     const serial_output = document.getElementById('serial_output');
     requestSerialButton.addEventListener('click', () => {
-        controller.startMeasurement();
+        controller.startMeasurement(true);
     });
     requestUsbButton.addEventListener('click', () => {
-        controller.servoShell.setIsSerialFlag(true);
-        controller.startMeasurement();
+        controller.startMeasurement(false);
     });
     haltButton.addEventListener('click', () => {
         controller.stopMeasurement();
     });
     selectDutSerialButton.addEventListener('click', () => {
-        controller.startDutConsole(addMessageToConsole);
+        runner.selectPort(addMessageToConsole);
     });
     dutCommandForm.addEventListener('submit', e => formSubmit(e));
     dutCommandInput.addEventListener('keydown', e => sendCancel(e));
@@ -34272,28 +34234,28 @@ window.addEventListener('DOMContentLoaded', () => {
         return res;
     }
     function executeScript() {
-        if (!controller.test.isOpened) {
+        if (!runner.isOpened) {
             overlay.classList.remove('closed');
             return;
         }
-        controller.executeScript();
+        runner.executeScript();
     }
     async function formSubmit(e) {
         e.preventDefault();
-        if (!controller.test.isOpened) {
+        if (!runner.isOpened) {
             overlay.classList.remove('closed');
             return;
         }
-        await controller.executeCommand(readInputValue() + '\n');
+        await runner.sendCommand(readInputValue() + '\n');
     }
     // send cancel command to serial port when ctrl+C is pressed in input area
     async function sendCancel(e) {
-        if (!controller.test.isOpened) {
+        if (!runner.isOpened) {
             overlay.classList.remove('closed');
             return;
         }
         if (e.ctrlKey && e.key === 'c') {
-            await controller.test.sendCommand(controller.test.CANCEL_CMD);
+            await runner.sendCommand(runner.CANCEL_CMD);
         }
     }
     function addMessageToConsole(s) {
@@ -34346,225 +34308,175 @@ window.addEventListener('DOMContentLoaded', () => {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.operatePort = void 0;
-class operatePort {
+exports.OperatePort = void 0;
+class OperateSerialPort {
+    constructor() {
+        this.reader = new ReadableStreamDefaultReader(new ReadableStream());
+        this.encoder = new TextEncoder();
+        this.decoder = new TextDecoder();
+    }
+    async open(usbVendorId, usbProductId) {
+        this.port = await navigator.serial
+            .requestPort({
+            filters: [{ usbVendorId: usbVendorId, usbProductId: usbProductId }],
+        })
+            .catch(e => {
+            console.error(e);
+            throw e;
+        });
+        await this.port.open({ baudRate: 115200 });
+    }
+    async close() {
+        if (this.port === undefined)
+            return;
+        await this.reader.cancel();
+        await this.reader.releaseLock();
+        try {
+            await this.port.close();
+        }
+        catch (e) {
+            console.error(e);
+            throw e;
+        }
+    }
+    async read() {
+        if (this.port === undefined)
+            return '';
+        const readable = this.port.readable;
+        if (readable === null)
+            return '';
+        this.reader = readable.getReader();
+        try {
+            for (;;) {
+                const { value, done } = await this.reader.read();
+                if (done) {
+                    // |reader| has been canceled.
+                    this.reader.releaseLock();
+                    return '';
+                }
+                return this.decoder.decode(value);
+            }
+        }
+        catch (error) {
+            this.reader.releaseLock();
+            console.error(error);
+            throw error;
+        }
+        finally {
+            this.reader.releaseLock();
+        }
+    }
+    async write(s) {
+        if (this.port === undefined)
+            return;
+        const writable = this.port.writable;
+        if (writable === null)
+            return;
+        const writer = writable.getWriter();
+        await writer.write(this.encoder.encode(s));
+        writer.releaseLock();
+    }
+}
+class OperateUsbPort {
+    constructor() {
+        this.halt = false;
+        this.usb_interface = 0;
+        this.ep = this.usb_interface + 1;
+        this.encoder = new TextEncoder();
+        this.decoder = new TextDecoder();
+    }
+    changeHaltFlag(flag) {
+        this.halt = flag;
+    }
+    async open(vendorId, productId) {
+        this.device = await navigator.usb
+            .requestDevice({
+            filters: [{ vendorId: vendorId, productId: productId }],
+        })
+            .catch(e => {
+            console.error(e);
+            throw e;
+        });
+        await this.device.open();
+        await this.device.selectConfiguration(1);
+        await this.device.claimInterface(this.usb_interface);
+    }
+    async close() {
+        if (this.device === undefined)
+            return;
+        try {
+            await this.device.close();
+        }
+        catch (e) {
+            console.error(e);
+        }
+    }
+    async read() {
+        if (this.device === undefined)
+            return '';
+        try {
+            const result = await this.device.transferIn(this.ep, 64);
+            if (result.status === 'stall') {
+                await this.device.clearHalt('in', this.ep);
+                throw result;
+            }
+            const resultData = result.data;
+            if (resultData === undefined)
+                return '';
+            const result_array = new Int8Array(resultData.buffer);
+            return this.decoder.decode(result_array);
+        }
+        catch (e) {
+            // If halt is true, it's when the stop button is pressed. Therefore,
+            // we can ignore the error.
+            // NOTE: investigate the way not to use halt flag because it makes the implementation complicated
+            // if (!this.halt) {
+            if (this.device.opened) {
+                console.error(e);
+                throw e;
+            }
+            return '';
+        }
+    }
+    async write(s) {
+        if (this.device === undefined)
+            return;
+        await this.device.transferOut(this.ep, this.encoder.encode(s));
+    }
+}
+class OperatePort {
     constructor(vendorId, productId) {
-        this.isSerial = true;
-        this.serial = new (class {
-            constructor() {
-                this.reader = new ReadableStreamDefaultReader(new ReadableStream());
-                this.encoder = new TextEncoder();
-                this.decoder = new TextDecoder();
-            }
-            async open(usbVendorId, usbProductId) {
-                this.port = await navigator.serial
-                    .requestPort({
-                    filters: [{ usbVendorId: usbVendorId, usbProductId: usbProductId }],
-                })
-                    .catch(e => {
-                    console.error(e);
-                    throw e;
-                });
-                await this.port.open({ baudRate: 115200 });
-            }
-            async close() {
-                if (this.port === undefined)
-                    return;
-                await this.reader.cancel();
-                await this.reader.releaseLock();
-                try {
-                    await this.port.close();
-                }
-                catch (e) {
-                    console.error(e);
-                    throw e;
-                }
-            }
-            async read() {
-                if (this.port === undefined)
-                    return '';
-                const readable = this.port.readable;
-                if (readable === null)
-                    return '';
-                this.reader = readable.getReader();
-                try {
-                    for (;;) {
-                        const { value, done } = await this.reader.read();
-                        if (done) {
-                            // |reader| has been canceled.
-                            this.reader.releaseLock();
-                            return '';
-                        }
-                        return this.decoder.decode(value);
-                    }
-                }
-                catch (error) {
-                    this.reader.releaseLock();
-                    console.error(error);
-                    throw error;
-                }
-                finally {
-                    this.reader.releaseLock();
-                }
-            }
-            async write(s) {
-                if (this.port === undefined)
-                    return;
-                const writable = this.port.writable;
-                if (writable === null)
-                    return;
-                const writer = writable.getWriter();
-                await writer.write(this.encoder.encode(s));
-                writer.releaseLock();
-            }
-        })();
-        this.usb = new (class {
-            constructor() {
-                this.halt = false;
-                this.usb_interface = 0;
-                this.ep = this.usb_interface + 1;
-                this.encoder = new TextEncoder();
-                this.decoder = new TextDecoder();
-            }
-            changeHaltFlag(flag) {
-                this.halt = flag;
-            }
-            async open(vendorId, productId) {
-                this.device = await navigator.usb
-                    .requestDevice({ filters: [{ vendorId: vendorId, productId: productId }] })
-                    .catch(e => {
-                    console.error(e);
-                    throw e;
-                });
-                await this.device.open();
-                await this.device.selectConfiguration(1);
-                await this.device.claimInterface(this.usb_interface);
-            }
-            async close() {
-                if (this.device === undefined)
-                    return;
-                try {
-                    await this.device.close();
-                }
-                catch (e) {
-                    console.error(e);
-                }
-            }
-            async read() {
-                if (this.device === undefined)
-                    return '';
-                try {
-                    const result = await this.device.transferIn(this.ep, 64);
-                    if (result.status === 'stall') {
-                        await this.device.clearHalt('in', this.ep);
-                        throw result;
-                    }
-                    const resultData = result.data;
-                    if (resultData === undefined)
-                        return '';
-                    const result_array = new Int8Array(resultData.buffer);
-                    return this.decoder.decode(result_array);
-                }
-                catch (e) {
-                    // If halt is true, it's when the stop button is pressed. Therefore,
-                    // we can ignore the error.
-                    if (!this.halt) {
-                        console.error(e);
-                        throw e;
-                    }
-                    return '';
-                }
-            }
-            async write(s) {
-                if (this.device === undefined)
-                    return;
-                await this.device.transferOut(this.ep, this.encoder.encode(s));
-            }
-        })();
+        this.isSerial = false;
         this.vendorId = vendorId;
         this.productId = productId;
     }
-    async setIsSerialFlag(isSerial) {
+    async open(isSerial) {
+        if (isSerial) {
+            this.currentDevice = new OperateSerialPort();
+        }
+        else {
+            this.currentDevice = new OperateUsbPort();
+        }
+        await this.currentDevice.open(this.vendorId, this.productId);
         this.isSerial = isSerial;
     }
-    async open() {
-        if (this.isSerial)
-            await this.serial.open(this.vendorId, this.productId);
-        else
-            await this.usb.open(this.vendorId, this.productId);
-    }
     async close() {
-        if (this.isSerial)
-            await this.serial.close();
-        else
-            await this.usb.close();
+        if (this.currentDevice === undefined)
+            return;
+        this.currentDevice.close();
     }
     async read() {
-        if (this.isSerial)
-            return await this.serial.read();
-        else
-            return await this.usb.read();
+        if (this.currentDevice === undefined)
+            return '';
+        return this.currentDevice.read();
     }
     async write(s) {
-        if (this.isSerial)
-            await this.serial.write(s);
-        else
-            await this.usb.write(s);
+        if (this.currentDevice === undefined)
+            return;
+        this.currentDevice.write(s);
     }
 }
-exports.operatePort = operatePort;
-
-
-/***/ }),
-
-/***/ "./src/powerGraph.ts":
-/*!***************************!*\
-  !*** ./src/powerGraph.ts ***!
-  \***************************/
-/***/ (function(__unused_webpack_module, exports, __webpack_require__) {
-
-"use strict";
-
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.powerGraph = void 0;
-const dygraphs_1 = __importDefault(__webpack_require__(/*! dygraphs */ "./node_modules/dygraphs/index.js"));
-class powerGraph {
-    constructor() {
-        this.g = new dygraphs_1.default('graph', [], {});
-    }
-    updateGraph(powerData) {
-        if (powerData !== undefined && powerData.length > 0) {
-            const toolTip = document.querySelector('#tooltip');
-            if (toolTip !== null) {
-                toolTip.classList.add('hidden');
-            }
-        }
-        // currentData = data;
-        this.g.updateOptions({
-            file: powerData,
-            labels: ['t', 'ina0'],
-            showRoller: true,
-            ylabel: 'Power (mW)',
-            legend: 'always',
-            showRangeSelector: true,
-            connectSeparatedPoints: true,
-            underlayCallback: function (canvas, area, g) {
-                canvas.fillStyle = 'rgba(255, 255, 102, 1.0)';
-                function highlight_period(x_start, x_end) {
-                    const canvas_left_x = g.toDomXCoord(x_start);
-                    const canvas_right_x = g.toDomXCoord(x_end);
-                    const canvas_width = canvas_right_x - canvas_left_x;
-                    canvas.fillRect(canvas_left_x, area.y, canvas_width, area.h);
-                }
-                highlight_period(10, 10);
-            },
-        }, false);
-    }
-}
-exports.powerGraph = powerGraph;
+exports.OperatePort = OperatePort;
 
 
 /***/ }),
@@ -34578,52 +34490,108 @@ exports.powerGraph = powerGraph;
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.powerTestController = void 0;
-const dataRecoder_1 = __webpack_require__(/*! ./dataRecoder */ "./src/dataRecoder.ts");
-const testRunner_1 = __webpack_require__(/*! ./testRunner */ "./src/testRunner.ts");
-class powerTestController {
-    constructor(servoShell, dutShell, enabledRecordingButton, setSerialOutput) {
-        // shell script
-        this.scripts = `#!/bin/bash -e
-function workload () {
-  ectool chargecontrol idle
-  stress-ng -c 1 -t \\$1
-  echo "workload"
-}
-echo "start"
-workload 10 1> ./test_out.log 2> ./test_err.log
-echo "end"\n`;
+exports.PowerTestController = void 0;
+const dataParser_1 = __webpack_require__(/*! ./dataParser */ "./src/dataParser.ts");
+const graph_1 = __webpack_require__(/*! ./graph */ "./src/graph.ts");
+const histogram_1 = __webpack_require__(/*! ./histogram */ "./src/histogram.ts");
+class PowerTestController {
+    constructor(servoShell, enabledRecordingButton, setSerialOutput) {
+        this.INTERVAL_MS = 100;
+        this.halt = false;
+        this.inProgress = false;
+        this.powerData = [];
+        this.graph = new graph_1.Graph();
+        this.histogram = new histogram_1.Histogram();
         this.servoShell = servoShell;
-        this.recoder = new dataRecoder_1.dataRecoder(servoShell, enabledRecordingButton, setSerialOutput);
-        this.recoder.setupDisconnectEvent();
-        this.test = new testRunner_1.testRunner(dutShell);
+        this.parser = new dataParser_1.DataParser(servoShell, setSerialOutput);
+        this.enabledRecordingButton = enabledRecordingButton;
     }
-    startMeasurement() {
-        this.recoder.start();
+    changeHaltFlag(flag) {
+        this.halt = flag;
+        this.enabledRecordingButton(flag);
     }
-    stopMeasurement() {
-        this.recoder.stop();
+    kickWriteLoop() {
+        const f = async () => {
+            while (!this.halt) {
+                if (this.inProgress) {
+                    console.error('previous request is in progress! skip...');
+                }
+                else {
+                    this.inProgress = true;
+                }
+                // ina 0 and 1 seems to be the same
+                // ina 2 is something but not useful
+                const cmd = 'ina 0\n';
+                await this.servoShell.write(cmd);
+                await new Promise(r => setTimeout(r, this.INTERVAL_MS));
+            }
+        };
+        setTimeout(f, this.INTERVAL_MS);
     }
-    startDutConsole(addMessageToConsole) {
-        this.test.selectPort(addMessageToConsole);
+    async readLoop() {
+        while (!this.halt) {
+            const currentPowerData = await this.parser.readData();
+            if (currentPowerData === undefined)
+                continue;
+            const e = [new Date(), currentPowerData];
+            this.powerData.push(e);
+            this.graph.updateGraph(this.powerData);
+        }
     }
-    executeCommand(s) {
-        this.test.sendCommand(s);
+    async startMeasurement(isSerial) {
+        await this.servoShell.open(isSerial);
+        this.changeHaltFlag(false);
+        this.kickWriteLoop();
+        this.readLoop();
     }
-    executeScript() {
-        this.test.executeScript(this.scripts);
+    async stopMeasurement() {
+        this.changeHaltFlag(true);
+        this.inProgress = false;
+        await this.servoShell.close();
     }
     analyzePowerData() {
-        this.recoder.analyzePowerData();
+        // https://dygraphs.com/jsdoc/symbols/Dygraph.html#xAxisRange
+        const xrange = this.graph.g.xAxisRange();
+        console.log(this.graph.g.xAxisExtremes());
+        const left = xrange[0];
+        const right = xrange[1];
+        this.histogram.paintHistogram(left, right, this.powerData);
     }
     loadPowerData(s) {
-        this.recoder.readJsonFile(s);
+        const data = JSON.parse(s);
+        this.powerData = data.power.map((d) => [new Date(d[0]), d[1]]);
+        this.graph.updateGraph(this.powerData);
     }
     exportPowerData() {
-        return this.recoder.writeJsonFile();
+        const dataStr = 'data:text/json;charset=utf-8,' +
+            encodeURIComponent(JSON.stringify({ power: this.powerData }));
+        return dataStr;
+    }
+    setupDisconnectEvent() {
+        // `disconnect` event is fired when a Usb device is disconnected.
+        // c.f. https://wicg.github.io/webusb/#disconnect (5.1. Events)
+        navigator.usb.addEventListener('disconnect', () => {
+            if (!this.halt && !this.servoShell.isSerial) {
+                //  No need to call close() for the Usb servoPort here because the
+                //  specification says that
+                // the servoPort will be closed automatically when a device is disconnected.
+                this.changeHaltFlag(true);
+                this.inProgress = false;
+                this.enabledRecordingButton(this.halt);
+            }
+        });
+        // event when you disconnect serial port
+        navigator.serial.addEventListener('disconnect', async () => {
+            if (!this.halt && this.servoShell.isSerial) {
+                await this.servoShell.close();
+                this.changeHaltFlag(true);
+                this.inProgress = false;
+                this.enabledRecordingButton(this.halt);
+            }
+        });
     }
 }
-exports.powerTestController = powerTestController;
+exports.PowerTestController = PowerTestController;
 
 
 /***/ }),
@@ -34639,28 +34607,49 @@ exports.powerTestController = powerTestController;
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.testRunner = void 0;
 class testRunner {
-    constructor(port) {
+    constructor(dut) {
         this.isOpened = false;
         this.CANCEL_CMD = '\x03\n';
-        this.port = port;
+        // shell script
+        this.scripts = `#!/bin/bash -e
+function workload () {
+  ectool chargecontrol idle
+  stress-ng -c 1 -t \\$1
+  echo "workload"
+}
+echo "start"
+workload 10 1> ./test_out.log 2> ./test_err.log
+echo "end"\n`;
+        this.dut = dut;
     }
-    async selectPort(addMessageToConsole) {
-        await this.port.open();
-        this.isOpened = true;
+    async readDutLoop(addMessageToConsole) {
         addMessageToConsole('DutPort is selected');
         for (;;) {
-            const chunk = await this.port.read();
+            const chunk = await this.dut.read();
             addMessageToConsole(chunk);
         }
     }
-    async executeScript(script) {
-        await this.port.write('cat > ./example.sh << EOF\n');
-        await this.port.write(script);
-        await this.port.write('EOF\n');
-        await this.port.write('bash ./example.sh\n');
+    async selectPort(addMessageToConsole) {
+        await this.dut.open(true);
+        this.isOpened = true;
+        this.readDutLoop(addMessageToConsole);
+    }
+    async executeScript() {
+        await this.dut.write('cat > ./example.sh << EOF\n');
+        await this.dut.write(this.scripts);
+        await this.dut.write('EOF\n');
+        await this.dut.write('bash ./example.sh\n');
     }
     async sendCommand(s) {
-        await this.port.write(s);
+        await this.dut.write(s);
+    }
+    setupDisconnectEvent() {
+        navigator.serial.addEventListener('disconnect', async () => {
+            if (this.isOpened) {
+                await this.dut.close();
+                this.isOpened = false;
+            }
+        });
     }
 }
 exports.testRunner = testRunner;
