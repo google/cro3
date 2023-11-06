@@ -33841,56 +33841,6 @@ webpackContext.id = "./node_modules/moment/locale sync recursive ^\\.\\/.*$";
 
 /***/ }),
 
-/***/ "./src/dataParser.ts":
-/*!***************************!*\
-  !*** ./src/dataParser.ts ***!
-  \***************************/
-/***/ ((__unused_webpack_module, exports) => {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.DataParser = void 0;
-class DataParser {
-    constructor() {
-        this.output = '';
-    }
-    async readData(readFn) {
-        for (;;) {
-            try {
-                const s = await readFn();
-                this.output += s;
-                const splitted = this.output
-                    .split('\n')
-                    .filter(s => s.trim().length > 10);
-                if (splitted.length > 0 &&
-                    splitted[splitted.length - 1].indexOf('Alert limit') >= 0) {
-                    const powerString = splitted.find(s => s.startsWith('Power'));
-                    if (powerString === undefined)
-                        return undefined;
-                    const power = parseInt(powerString.split('=>')[1].trim().split(' ')[0]);
-                    const parseResult = {
-                        power: power,
-                        originalData: this.output,
-                    };
-                    this.output = '';
-                    return parseResult;
-                }
-            }
-            catch (e) {
-                // break the loop here because `disconnect` event is not called in Chrome
-                // for some reason when the loop continues. And no need to throw error
-                // here because it is thrown in readFn.
-                return undefined;
-            }
-        }
-    }
-}
-exports.DataParser = DataParser;
-
-
-/***/ }),
-
 /***/ "./src/graph.ts":
 /*!**********************!*\
   !*** ./src/graph.ts ***!
@@ -34178,6 +34128,7 @@ const operatePort_1 = __webpack_require__(/*! ./operatePort */ "./src/operatePor
 const powerTestController_1 = __webpack_require__(/*! ./powerTestController */ "./src/powerTestController.ts");
 const moment_1 = __importDefault(__webpack_require__(/*! moment */ "./node_modules/moment/moment.js"));
 const testRunner_1 = __webpack_require__(/*! ./testRunner */ "./src/testRunner.ts");
+const servoController_1 = __webpack_require__(/*! ./servoController */ "./src/servoController.ts");
 window.addEventListener('DOMContentLoaded', () => {
     const requestUsbButton = document.getElementById('request-device');
     const requestSerialButton = document.getElementById('requestSerialButton');
@@ -34193,20 +34144,20 @@ window.addEventListener('DOMContentLoaded', () => {
     const executeScriptButton = document.getElementById('executeScriptButton');
     const dropZone = document.getElementById('dropZone');
     const serial_output = document.getElementById('serial_output');
-    requestSerialButton.addEventListener('click', () => {
-        controller.startMeasurement(true);
-    });
-    const servoShell = new operatePort_1.OperatePort(0x18d1, 0x520d);
-    const controller = new powerTestController_1.PowerTestController(servoShell, enabledRecordingButton, setSerialOutput);
+    const servoController = new servoController_1.ServoController();
+    const testController = new powerTestController_1.PowerTestController(servoController, enabledRecordingButton, setSerialOutput);
     const dutShell = new operatePort_1.OperatePort(0x18d1, 0x504a);
     const runner = new testRunner_1.testRunner(dutShell);
-    controller.setupDisconnectEvent();
+    testController.setupDisconnectEvent();
     runner.setupDisconnectEvent();
+    requestSerialButton.addEventListener('click', () => {
+        testController.startMeasurement(true);
+    });
     requestUsbButton.addEventListener('click', () => {
-        controller.startMeasurement(false);
+        testController.startMeasurement(false);
     });
     haltButton.addEventListener('click', () => {
-        controller.stopMeasurement();
+        testController.stopMeasurement();
     });
     selectDutSerialButton.addEventListener('click', () => {
         runner.selectPort(addMessageToConsole);
@@ -34214,13 +34165,13 @@ window.addEventListener('DOMContentLoaded', () => {
     dutCommandForm.addEventListener('submit', e => formSubmit(e));
     dutCommandInput.addEventListener('keydown', e => sendCancel(e));
     analyzeButton.addEventListener('click', () => {
-        controller.analyzePowerData();
+        testController.analyzePowerData();
     });
     executeScriptButton.addEventListener('click', () => executeScript());
     dropZone.addEventListener('dragover', e => handleDragOver(e), false);
     dropZone.addEventListener('drop', e => handleFileSelect(e), false);
     downloadButton.addEventListener('click', () => {
-        const dataStr = controller.exportPowerData();
+        const dataStr = testController.exportPowerData();
         setDownloadAnchor(dataStr);
     });
     popupCloseButton.addEventListener('click', () => {
@@ -34290,7 +34241,7 @@ window.addEventListener('DOMContentLoaded', () => {
         }
         const r = new FileReader();
         r.addEventListener('load', () => {
-            controller.loadPowerData(r.result);
+            testController.loadPowerData(r.result);
         });
         r.readAsText(file);
     }
@@ -34388,8 +34339,8 @@ class OperateSerialPort {
 class OperateUsbPort {
     constructor() {
         this.halt = false;
-        this.usb_interface = 0;
-        this.ep = this.usb_interface + 1;
+        this.interfaceNum = 0;
+        this.ep = this.interfaceNum + 1;
         this.encoder = new TextEncoder();
         this.decoder = new TextDecoder();
     }
@@ -34407,12 +34358,21 @@ class OperateUsbPort {
         });
         await this.device.open();
         await this.device.selectConfiguration(1);
-        await this.device.claimInterface(this.usb_interface);
+        await this.device.claimInterface(this.interfaceNum);
     }
     async close() {
         if (this.device === undefined)
             return;
         try {
+            // This sets the DTR (data terminal ready) signal low to indicate to the device that the host has disconnected.
+            // NOTE: investigate whether it stops the error with closing device while waiting for transferIn
+            await this.device.controlTransferOut({
+                requestType: 'class',
+                recipient: 'interface',
+                request: 0x22,
+                value: 0x00,
+                index: this.interfaceNum,
+            });
             await this.device.close();
         }
         catch (e) {
@@ -34439,11 +34399,12 @@ class OperateUsbPort {
             // we can ignore the error.
             // NOTE: investigate the way not to use halt flag because it makes the implementation complicated
             // if (!this.halt) {
-            if (this.device.opened) {
-                console.error(e);
-                throw e;
-            }
-            return '';
+            //   console.error(e);
+            //   throw e;
+            // }
+            // return '';
+            console.error(e);
+            throw e;
         }
     }
     async write(s) {
@@ -34499,19 +34460,17 @@ exports.OperatePort = OperatePort;
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.PowerTestController = void 0;
-const dataParser_1 = __webpack_require__(/*! ./dataParser */ "./src/dataParser.ts");
 const graph_1 = __webpack_require__(/*! ./graph */ "./src/graph.ts");
 const histogram_1 = __webpack_require__(/*! ./histogram */ "./src/histogram.ts");
 class PowerTestController {
-    constructor(servoShell, enabledRecordingButton, setSerialOutput) {
+    constructor(servoController, enabledRecordingButton, setSerialOutput) {
         this.INTERVAL_MS = 100;
         this.halt = true;
         this.inProgress = false;
         this.powerData = [];
         this.graph = new graph_1.Graph();
         this.histogram = new histogram_1.Histogram();
-        this.servoShell = servoShell;
-        this.parser = new dataParser_1.DataParser();
+        this.servoController = servoController;
         this.enabledRecordingButton = enabledRecordingButton;
         enabledRecordingButton(true);
         this.setSerialOutput = setSerialOutput;
@@ -34529,10 +34488,7 @@ class PowerTestController {
                 else {
                     this.inProgress = true;
                 }
-                // ina 0 and 1 seems to be the same
-                // ina 2 is something but not useful
-                const cmd = 'ina 0\n';
-                await this.servoShell.write(cmd);
+                await this.servoController.writeInaCommand();
                 await new Promise(r => setTimeout(r, this.INTERVAL_MS));
             }
         };
@@ -34540,7 +34496,7 @@ class PowerTestController {
     }
     async readLoop() {
         while (!this.halt) {
-            const currentPowerData = await this.parser.readData(this.servoShell.read);
+            const currentPowerData = await this.servoController.readData();
             if (currentPowerData === undefined)
                 continue;
             this.setSerialOutput(currentPowerData.originalData);
@@ -34550,7 +34506,7 @@ class PowerTestController {
         }
     }
     async startMeasurement(isSerial) {
-        await this.servoShell.open(isSerial);
+        await this.servoController.servoShell.open(isSerial);
         this.changeHaltFlag(false);
         this.kickWriteLoop();
         this.readLoop();
@@ -34558,7 +34514,7 @@ class PowerTestController {
     async stopMeasurement() {
         this.changeHaltFlag(true);
         this.inProgress = false;
-        await this.servoShell.close();
+        await this.servoController.servoShell.close();
     }
     analyzePowerData() {
         // https://dygraphs.com/jsdoc/symbols/Dygraph.html#xAxisRange
@@ -34581,7 +34537,7 @@ class PowerTestController {
         // `disconnect` event is fired when a Usb device is disconnected.
         // c.f. https://wicg.github.io/webusb/#disconnect (5.1. Events)
         navigator.usb.addEventListener('disconnect', () => {
-            if (!this.halt && !this.servoShell.isSerial) {
+            if (!this.halt && !this.servoController.servoShell.isSerial) {
                 //  No need to call close() for the Usb servoPort here because the
                 //  specification says that
                 // the servoPort will be closed automatically when a device is disconnected.
@@ -34592,8 +34548,8 @@ class PowerTestController {
         });
         // event when you disconnect serial port
         navigator.serial.addEventListener('disconnect', async () => {
-            if (!this.halt && this.servoShell.isSerial) {
-                await this.servoShell.close();
+            if (!this.halt && this.servoController.servoShell.isSerial) {
+                await this.servoController.servoShell.close();
                 this.changeHaltFlag(true);
                 this.inProgress = false;
                 this.enabledRecordingButton(this.halt);
@@ -34606,16 +34562,75 @@ exports.PowerTestController = PowerTestController;
 
 /***/ }),
 
+/***/ "./src/servoController.ts":
+/*!********************************!*\
+  !*** ./src/servoController.ts ***!
+  \********************************/
+/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.ServoController = void 0;
+const operatePort_1 = __webpack_require__(/*! ./operatePort */ "./src/operatePort.ts");
+class ServoController {
+    constructor() {
+        // ina 0 and 1 seems to be the same
+        // ina 2 is something but not useful
+        this.INA_COMMAND = 'ina 0\n';
+        this.output = '';
+        this.servoShell = new operatePort_1.OperatePort(0x18d1, 0x520d);
+    }
+    async readData() {
+        for (;;) {
+            try {
+                const s = await this.servoShell.read;
+                this.output += s;
+                const splitted = this.output
+                    .split('\n')
+                    .filter(s => s.trim().length > 10);
+                if (splitted.length > 0 &&
+                    splitted[splitted.length - 1].indexOf('Alert limit') >= 0) {
+                    const powerString = splitted.find(s => s.startsWith('Power'));
+                    if (powerString === undefined)
+                        return undefined;
+                    const power = parseInt(powerString.split('=>')[1].trim().split(' ')[0]);
+                    const parseResult = {
+                        power: power,
+                        originalData: this.output,
+                    };
+                    this.output = '';
+                    return parseResult;
+                }
+            }
+            catch (e) {
+                // break the loop here because `disconnect` event is not called in Chrome
+                // for some reason when the loop continues. And no need to throw error
+                // here because it is thrown in readFn.
+                return undefined;
+            }
+        }
+    }
+    async writeInaCommand() {
+        await this.servoShell.write(this.INA_COMMAND);
+    }
+}
+exports.ServoController = ServoController;
+
+
+/***/ }),
+
 /***/ "./src/testRunner.ts":
 /*!***************************!*\
   !*** ./src/testRunner.ts ***!
   \***************************/
-/***/ ((__unused_webpack_module, exports) => {
+/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.testRunner = void 0;
+const operatePort_1 = __webpack_require__(/*! ./operatePort */ "./src/operatePort.ts");
 class testRunner {
     constructor(dut) {
         this.isOpened = false;
@@ -34630,6 +34645,7 @@ function workload () {
 echo "start"
 workload 10 1> ./test_out.log 2> ./test_err.log
 echo "end"\n`;
+        this.dut = new operatePort_1.OperatePort(0x18d1, 0x504a);
         this.dut = dut;
     }
     async readDutLoop(addMessageToConsole) {

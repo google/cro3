@@ -1,14 +1,21 @@
+import {OperatePort} from './operatePort';
+
 type parseData = {
   power: number;
   originalData: string;
 };
 
-export class DataParser {
+export class ServoController {
+  // ina 0 and 1 seems to be the same
+  // ina 2 is something but not useful
+  private INA_COMMAND = 'ina 0\n';
   private output = '';
-  public async readData(readFn: () => Promise<string>) {
+  public servoShell = new OperatePort(0x18d1, 0x520d);
+
+  public async readData() {
     for (;;) {
       try {
-        const s = await readFn();
+        const s = await this.servoShell.read;
         this.output += s;
         const splitted = this.output
           .split('\n')
@@ -36,5 +43,8 @@ export class DataParser {
         return undefined;
       }
     }
+  }
+  public async writeInaCommand() {
+    await this.servoShell.write(this.INA_COMMAND);
   }
 }

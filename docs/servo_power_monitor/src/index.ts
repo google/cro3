@@ -6,6 +6,7 @@ import {OperatePort} from './operatePort';
 import {PowerTestController} from './powerTestController';
 import moment from 'moment';
 import {testRunner} from './testRunner';
+import {ServoController} from './servoController';
 
 window.addEventListener('DOMContentLoaded', () => {
   const requestUsbButton = document.getElementById(
@@ -43,26 +44,25 @@ window.addEventListener('DOMContentLoaded', () => {
     'serial_output'
   ) as HTMLDivElement;
 
-  requestSerialButton.addEventListener('click', () => {
-    controller.startMeasurement(true);
-  });
-
-  const servoShell = new OperatePort(0x18d1, 0x520d);
-  const controller = new PowerTestController(
-    servoShell,
+  const servoController = new ServoController();
+  const testController = new PowerTestController(
+    servoController,
     enabledRecordingButton,
     setSerialOutput
   );
   const dutShell = new OperatePort(0x18d1, 0x504a);
   const runner = new testRunner(dutShell);
-
-  controller.setupDisconnectEvent();
+  testController.setupDisconnectEvent();
   runner.setupDisconnectEvent();
+
+  requestSerialButton.addEventListener('click', () => {
+    testController.startMeasurement(true);
+  });
   requestUsbButton.addEventListener('click', () => {
-    controller.startMeasurement(false);
+    testController.startMeasurement(false);
   });
   haltButton.addEventListener('click', () => {
-    controller.stopMeasurement();
+    testController.stopMeasurement();
   });
   selectDutSerialButton.addEventListener('click', () => {
     runner.selectPort(addMessageToConsole);
@@ -70,13 +70,13 @@ window.addEventListener('DOMContentLoaded', () => {
   dutCommandForm.addEventListener('submit', e => formSubmit(e));
   dutCommandInput.addEventListener('keydown', e => sendCancel(e));
   analyzeButton.addEventListener('click', () => {
-    controller.analyzePowerData();
+    testController.analyzePowerData();
   });
   executeScriptButton.addEventListener('click', () => executeScript());
   dropZone.addEventListener('dragover', e => handleDragOver(e), false);
   dropZone.addEventListener('drop', e => handleFileSelect(e), false);
   downloadButton.addEventListener('click', () => {
-    const dataStr = controller.exportPowerData();
+    const dataStr = testController.exportPowerData();
     setDownloadAnchor(dataStr);
   });
   popupCloseButton.addEventListener('click', () => {
@@ -145,7 +145,7 @@ window.addEventListener('DOMContentLoaded', () => {
     }
     const r = new FileReader();
     r.addEventListener('load', () => {
-      controller.loadPowerData(r.result as string);
+      testController.loadPowerData(r.result as string);
     });
     r.readAsText(file);
   }

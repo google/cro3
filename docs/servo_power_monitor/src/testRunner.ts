@@ -13,7 +13,7 @@ function workload () {
 echo "start"
 workload 10 1> ./test_out.log 2> ./test_err.log
 echo "end"\n`;
-  private dut: OperatePort;
+  public dut = new OperatePort(0x18d1, 0x504a);
   constructor(dut: OperatePort) {
     this.dut = dut;
   }

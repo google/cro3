@@ -1,26 +1,23 @@
-import {DataParser} from './dataParser';
-import {OperatePort} from './operatePort';
+import {ServoController} from './servoController';
 import {Graph} from './graph';
 import {Histogram} from './histogram';
 
 export class PowerTestController {
   private INTERVAL_MS = 100;
-  private halt = true;
+  public halt = true;
   private inProgress = false;
-  private servoShell: OperatePort;
-  private parser: DataParser;
+  private servoController: ServoController;
   private powerData: Array<Array<Date | number>> = [];
   private graph = new Graph();
   private histogram = new Histogram();
   private enabledRecordingButton: (flag: boolean) => void;
   private setSerialOutput: (s: string) => void;
   constructor(
-    servoShell: OperatePort,
+    servoController: ServoController,
     enabledRecordingButton: (flag: boolean) => void,
     setSerialOutput: (s: string) => void
   ) {
-    this.servoShell = servoShell;
-    this.parser = new DataParser();
+    this.servoController = servoController;
     this.enabledRecordingButton = enabledRecordingButton;
     enabledRecordingButton(true);
     this.setSerialOutput = setSerialOutput;
@@ -37,11 +34,7 @@ export class PowerTestController {
         } else {
           this.inProgress = true;
         }
-
-        // ina 0 and 1 seems to be the same
-        // ina 2 is something but not useful
-        const cmd = 'ina 0\n';
-        await this.servoShell.write(cmd);
+        await this.servoController.writeInaCommand();
         await new Promise(r => setTimeout(r, this.INTERVAL_MS));
       }
     };
@@ -49,7 +42,7 @@ export class PowerTestController {
   }
   private async readLoop() {
     while (!this.halt) {
-      const currentPowerData = await this.parser.readData(this.servoShell.read);
+      const currentPowerData = await this.servoController.readData();
       if (currentPowerData === undefined) continue;
       this.setSerialOutput(currentPowerData.originalData);
       const e: Array<Date | number> = [new Date(), currentPowerData.power];
@@ -58,7 +51,7 @@ export class PowerTestController {
     }
   }
   public async startMeasurement(isSerial: boolean) {
-    await this.servoShell.open(isSerial);
+    await this.servoController.servoShell.open(isSerial);
     this.changeHaltFlag(false);
     this.kickWriteLoop();
     this.readLoop();
@@ -66,7 +59,7 @@ export class PowerTestController {
   public async stopMeasurement() {
     this.changeHaltFlag(true);
     this.inProgress = false;
-    await this.servoShell.close();
+    await this.servoController.servoShell.close();
   }
   public analyzePowerData() {
     // https://dygraphs.com/jsdoc/symbols/Dygraph.html#xAxisRange
@@ -90,7 +83,7 @@ export class PowerTestController {
     // `disconnect` event is fired when a Usb device is disconnected.
     // c.f. https://wicg.github.io/webusb/#disconnect (5.1. Events)
     navigator.usb.addEventListener('disconnect', () => {
-      if (!this.halt && !this.servoShell.isSerial) {
+      if (!this.halt && !this.servoController.servoShell.isSerial) {
         //  No need to call close() for the Usb servoPort here because the
         //  specification says that
         // the servoPort will be closed automatically when a device is disconnected.
@@ -101,8 +94,8 @@ export class PowerTestController {
     });
     // event when you disconnect serial port
     navigator.serial.addEventListener('disconnect', async () => {
-      if (!this.halt && this.servoShell.isSerial) {
-        await this.servoShell.close();
+      if (!this.halt && this.servoController.servoShell.isSerial) {
+        await this.servoController.servoShell.close();
         this.changeHaltFlag(true);
         this.inProgress = false;
         this.enabledRecordingButton(this.halt);
