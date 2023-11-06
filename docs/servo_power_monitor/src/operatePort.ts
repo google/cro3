@@ -6,11 +6,11 @@ interface PortInterface {
 }
 
 class OperateSerialPort implements PortInterface {
-  port?: SerialPort;
-  reader = new ReadableStreamDefaultReader(new ReadableStream());
-  encoder = new TextEncoder();
-  decoder = new TextDecoder();
-  async open(usbVendorId: number, usbProductId: number) {
+  private port?: SerialPort;
+  private reader = new ReadableStreamDefaultReader(new ReadableStream());
+  private encoder = new TextEncoder();
+  private decoder = new TextDecoder();
+  public async open(usbVendorId: number, usbProductId: number) {
     this.port = await navigator.serial
       .requestPort({
         filters: [{usbVendorId: usbVendorId, usbProductId: usbProductId}],
@@ -21,7 +21,7 @@ class OperateSerialPort implements PortInterface {
       });
     await this.port.open({baudRate: 115200});
   }
-  async close() {
+  public async close() {
     if (this.port === undefined) return;
     await this.reader.cancel();
     await this.reader.releaseLock();
@@ -32,7 +32,7 @@ class OperateSerialPort implements PortInterface {
       throw e;
     }
   }
-  async read() {
+  public async read() {
     if (this.port === undefined) return '';
     const readable = this.port.readable;
     if (readable === null) return '';
@@ -55,7 +55,7 @@ class OperateSerialPort implements PortInterface {
       this.reader.releaseLock();
     }
   }
-  async write(s: string) {
+  public async write(s: string) {
     if (this.port === undefined) return;
     const writable = this.port.writable;
     if (writable === null) return;
@@ -67,15 +67,15 @@ class OperateSerialPort implements PortInterface {
 
 class OperateUsbPort implements PortInterface {
   halt = false;
-  device?: USBDevice;
-  usb_interface = 0;
-  ep = this.usb_interface + 1;
-  encoder = new TextEncoder();
-  decoder = new TextDecoder();
+  private device?: USBDevice;
+  private usb_interface = 0;
+  private ep = this.usb_interface + 1;
+  private encoder = new TextEncoder();
+  private decoder = new TextDecoder();
   changeHaltFlag(flag: boolean) {
     this.halt = flag;
   }
-  async open(vendorId: number, productId: number) {
+  public async open(vendorId: number, productId: number) {
     this.device = await navigator.usb
       .requestDevice({
         filters: [{vendorId: vendorId, productId: productId}],
@@ -88,7 +88,7 @@ class OperateUsbPort implements PortInterface {
     await this.device.selectConfiguration(1);
     await this.device.claimInterface(this.usb_interface);
   }
-  async close() {
+  public async close() {
     if (this.device === undefined) return;
     try {
       await this.device.close();
@@ -96,7 +96,7 @@ class OperateUsbPort implements PortInterface {
       console.error(e);
     }
   }
-  async read() {
+  public async read() {
     if (this.device === undefined) return '';
     try {
       const result = await this.device.transferIn(this.ep, 64);
@@ -121,22 +121,22 @@ class OperateUsbPort implements PortInterface {
       return '';
     }
   }
-  async write(s: string) {
+  public async write(s: string) {
     if (this.device === undefined) return;
     await this.device.transferOut(this.ep, this.encoder.encode(s));
   }
 }
 
 export class OperatePort {
-  vendorId: number;
-  productId: number;
-  currentDevice?: OperateSerialPort | OperateUsbPort;
-  isSerial = false;
+  private vendorId: number;
+  private productId: number;
+  private currentDevice?: OperateSerialPort | OperateUsbPort;
+  public isSerial = false;
   constructor(vendorId: number, productId: number) {
     this.vendorId = vendorId;
     this.productId = productId;
   }
-  async open(isSerial: boolean) {
+  public async open(isSerial: boolean) {
     if (isSerial) {
       this.currentDevice = new OperateSerialPort();
     } else {
@@ -145,15 +145,15 @@ export class OperatePort {
     await this.currentDevice.open(this.vendorId, this.productId);
     this.isSerial = isSerial;
   }
-  async close() {
+  public async close() {
     if (this.currentDevice === undefined) return;
     this.currentDevice.close();
   }
-  async read() {
+  public async read() {
     if (this.currentDevice === undefined) return '';
     return this.currentDevice.read();
   }
-  async write(s: string) {
+  public async write(s: string) {
     if (this.currentDevice === undefined) return;
     this.currentDevice.write(s);
   }

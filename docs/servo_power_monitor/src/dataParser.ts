@@ -1,21 +1,14 @@
-import {OperatePort} from './operatePort';
-
 type parseData = {
   power: number;
   originalData: string;
 };
 
 export class DataParser {
-  servoShell: OperatePort;
-  output = '';
-
-  constructor(servoShell: OperatePort) {
-    this.servoShell = servoShell;
-  }
-  async readData() {
+  private output = '';
+  public async readData(readFn: () => Promise<string>) {
     for (;;) {
       try {
-        const s = await this.servoShell.read();
+        const s = await readFn();
         this.output += s;
         const splitted = this.output
           .split('\n')

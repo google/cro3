@@ -1,8 +1,8 @@
 import Dygraph from 'dygraphs';
 
 export class Graph {
-  g = new Dygraph('graph', [], {});
-  updateGraph(powerData: Array<Array<Date | number>>) {
+  private g = new Dygraph('graph', [], {});
+  public updateGraph(powerData: Array<Array<Date | number>>) {
     if (powerData !== undefined && powerData.length > 0) {
       const toolTip = document.querySelector('#tooltip');
       if (toolTip !== null) {
@@ -33,5 +33,9 @@ export class Graph {
       },
       false
     );
+  }
+  public returnXrange() {
+    console.log(this.g.xAxisExtremes());
+    return this.g.xAxisRange();
   }
 }

@@ -33852,15 +33852,13 @@ webpackContext.id = "./node_modules/moment/locale sync recursive ^\\.\\/.*$";
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.DataParser = void 0;
 class DataParser {
-    constructor(servoShell, setSerialOutput) {
+    constructor() {
         this.output = '';
-        this.servoShell = servoShell;
-        this.setSerialOutput = setSerialOutput;
     }
-    async readData() {
+    async readData(readFn) {
         for (;;) {
             try {
-                const s = await this.servoShell.read();
+                const s = await readFn();
                 this.output += s;
                 const splitted = this.output
                     .split('\n')
@@ -33871,9 +33869,12 @@ class DataParser {
                     if (powerString === undefined)
                         return undefined;
                     const power = parseInt(powerString.split('=>')[1].trim().split(' ')[0]);
-                    this.setSerialOutput(this.output);
+                    const parseResult = {
+                        power: power,
+                        originalData: this.output,
+                    };
                     this.output = '';
-                    return power;
+                    return parseResult;
                 }
             }
             catch (e) {
@@ -33935,6 +33936,10 @@ class Graph {
                 highlight_period(10, 10);
             },
         }, false);
+    }
+    returnXrange() {
+        console.log(this.g.xAxisExtremes());
+        return this.g.xAxisRange();
     }
 }
 exports.Graph = Graph;
@@ -34175,8 +34180,8 @@ const moment_1 = __importDefault(__webpack_require__(/*! moment */ "./node_modul
 const testRunner_1 = __webpack_require__(/*! ./testRunner */ "./src/testRunner.ts");
 window.addEventListener('DOMContentLoaded', () => {
     const servoShell = new operatePort_1.OperatePort(0x18d1, 0x520d);
-    const dutShell = new operatePort_1.OperatePort(0x18d1, 0x504a);
     const controller = new powerTestController_1.PowerTestController(servoShell, enabledRecordingButton, setSerialOutput);
+    const dutShell = new operatePort_1.OperatePort(0x18d1, 0x504a);
     const runner = new testRunner_1.testRunner(dutShell);
     controller.setupDisconnectEvent();
     runner.setupDisconnectEvent();
@@ -34224,6 +34229,9 @@ window.addEventListener('DOMContentLoaded', () => {
     function enabledRecordingButton(halt) {
         requestUsbButton.disabled = !halt;
         requestSerialButton.disabled = !halt;
+        haltButton.disabled = halt;
+        downloadButton.disabled = !halt;
+        analyzeButton.disabled = !halt;
     }
     function setSerialOutput(s) {
         serial_output.textContent = s;
@@ -34246,7 +34254,7 @@ window.addEventListener('DOMContentLoaded', () => {
             overlay.classList.remove('closed');
             return;
         }
-        await runner.sendCommand(readInputValue() + '\n');
+        await runner.executeCommand(readInputValue() + '\n');
     }
     // send cancel command to serial port when ctrl+C is pressed in input area
     async function sendCancel(e) {
@@ -34255,7 +34263,7 @@ window.addEventListener('DOMContentLoaded', () => {
             return;
         }
         if (e.ctrlKey && e.key === 'c') {
-            await runner.sendCommand(runner.CANCEL_CMD);
+            await runner.sendCancel();
         }
     }
     function addMessageToConsole(s) {
@@ -34503,8 +34511,9 @@ class PowerTestController {
         this.graph = new graph_1.Graph();
         this.histogram = new histogram_1.Histogram();
         this.servoShell = servoShell;
-        this.parser = new dataParser_1.DataParser(servoShell, setSerialOutput);
+        this.parser = new dataParser_1.DataParser();
         this.enabledRecordingButton = enabledRecordingButton;
+        this.setSerialOutput = setSerialOutput;
     }
     changeHaltFlag(flag) {
         this.halt = flag;
@@ -34530,10 +34539,11 @@ class PowerTestController {
     }
     async readLoop() {
         while (!this.halt) {
-            const currentPowerData = await this.parser.readData();
+            const currentPowerData = await this.parser.readData(this.servoShell.read);
             if (currentPowerData === undefined)
                 continue;
-            const e = [new Date(), currentPowerData];
+            this.setSerialOutput(currentPowerData.originalData);
+            const e = [new Date(), currentPowerData.power];
             this.powerData.push(e);
             this.graph.updateGraph(this.powerData);
         }
@@ -34551,8 +34561,7 @@ class PowerTestController {
     }
     analyzePowerData() {
         // https://dygraphs.com/jsdoc/symbols/Dygraph.html#xAxisRange
-        const xrange = this.graph.g.xAxisRange();
-        console.log(this.graph.g.xAxisExtremes());
+        const xrange = this.graph.returnXrange();
         const left = xrange[0];
         const right = xrange[1];
         this.histogram.paintHistogram(left, right, this.powerData);
@@ -34640,8 +34649,11 @@ echo "end"\n`;
         await this.dut.write('EOF\n');
         await this.dut.write('bash ./example.sh\n');
     }
-    async sendCommand(s) {
+    async executeCommand(s) {
         await this.dut.write(s);
+    }
+    async sendCancel() {
+        await this.dut.write(this.CANCEL_CMD);
     }
     setupDisconnectEvent() {
         navigator.serial.addEventListener('disconnect', async () => {

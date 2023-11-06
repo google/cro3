@@ -85,6 +85,9 @@ window.addEventListener('DOMContentLoaded', () => {
   function enabledRecordingButton(halt: boolean) {
     requestUsbButton.disabled = !halt;
     requestSerialButton.disabled = !halt;
+    haltButton.disabled = halt;
+    downloadButton.disabled = !halt;
+    analyzeButton.disabled = !halt;
   }
   function setSerialOutput(s: string) {
     serial_output.textContent = s;
@@ -107,7 +110,7 @@ window.addEventListener('DOMContentLoaded', () => {
       overlay.classList.remove('closed');
       return;
     }
-    await runner.sendCommand(readInputValue() + '\n');
+    await runner.executeCommand(readInputValue() + '\n');
   }
   // send cancel command to serial port when ctrl+C is pressed in input area
   async function sendCancel(e: KeyboardEvent) {
@@ -116,7 +119,7 @@ window.addEventListener('DOMContentLoaded', () => {
       return;
     }
     if (e.ctrlKey && e.key === 'c') {
-      await runner.sendCommand(runner.CANCEL_CMD);
+      await runner.sendCancel();
     }
   }
   function addMessageToConsole(s: string) {

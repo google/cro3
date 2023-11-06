@@ -4,31 +4,31 @@ import {Graph} from './graph';
 import {Histogram} from './histogram';
 
 export class PowerTestController {
-  INTERVAL_MS = 100;
-  halt = false;
-  inProgress = false;
-  servoShell: OperatePort;
-  parser: DataParser;
-  powerData: Array<Array<Date | number>> = [];
-  graph = new Graph();
-  histogram = new Histogram();
-  enabledRecordingButton: (flag: boolean) => void;
-  setSerialOutput: (s: string) => void;
+  private INTERVAL_MS = 100;
+  private halt = false;
+  private inProgress = false;
+  private servoShell: OperatePort;
+  private parser: DataParser;
+  private powerData: Array<Array<Date | number>> = [];
+  private graph = new Graph();
+  private histogram = new Histogram();
+  private enabledRecordingButton: (flag: boolean) => void;
+  private setSerialOutput: (s: string) => void;
   constructor(
     servoShell: OperatePort,
     enabledRecordingButton: (flag: boolean) => void,
     setSerialOutput: (s: string) => void
   ) {
     this.servoShell = servoShell;
-    this.parser = new DataParser(servoShell);
+    this.parser = new DataParser();
     this.enabledRecordingButton = enabledRecordingButton;
     this.setSerialOutput = setSerialOutput;
   }
-  changeHaltFlag(flag: boolean) {
+  private changeHaltFlag(flag: boolean) {
     this.halt = flag;
     this.enabledRecordingButton(flag);
   }
-  kickWriteLoop() {
+  private kickWriteLoop() {
     const f = async () => {
       while (!this.halt) {
         if (this.inProgress) {
@@ -46,9 +46,9 @@ export class PowerTestController {
     };
     setTimeout(f, this.INTERVAL_MS);
   }
-  async readLoop() {
+  private async readLoop() {
     while (!this.halt) {
-      const currentPowerData = await this.parser.readData();
+      const currentPowerData = await this.parser.readData(this.servoShell.read);
       if (currentPowerData === undefined) continue;
       this.setSerialOutput(currentPowerData.originalData);
       const e: Array<Date | number> = [new Date(), currentPowerData.power];
@@ -56,37 +56,36 @@ export class PowerTestController {
       this.graph.updateGraph(this.powerData);
     }
   }
-  async startMeasurement(isSerial: boolean) {
+  public async startMeasurement(isSerial: boolean) {
     await this.servoShell.open(isSerial);
     this.changeHaltFlag(false);
     this.kickWriteLoop();
     this.readLoop();
   }
-  async stopMeasurement() {
+  public async stopMeasurement() {
     this.changeHaltFlag(true);
     this.inProgress = false;
     await this.servoShell.close();
   }
-  analyzePowerData() {
+  public analyzePowerData() {
     // https://dygraphs.com/jsdoc/symbols/Dygraph.html#xAxisRange
-    const xrange = this.graph.g.xAxisRange();
-    console.log(this.graph.g.xAxisExtremes());
+    const xrange = this.graph.returnXrange();
     const left = xrange[0];
     const right = xrange[1];
     this.histogram.paintHistogram(left, right, this.powerData);
   }
-  loadPowerData(s: string) {
+  public loadPowerData(s: string) {
     const data = JSON.parse(s);
     this.powerData = data.power.map((d: string) => [new Date(d[0]), d[1]]);
     this.graph.updateGraph(this.powerData);
   }
-  exportPowerData() {
+  public exportPowerData() {
     const dataStr =
       'data:text/json;charset=utf-8,' +
       encodeURIComponent(JSON.stringify({power: this.powerData}));
     return dataStr;
   }
-  setupDisconnectEvent() {
+  public setupDisconnectEvent() {
     // `disconnect` event is fired when a Usb device is disconnected.
     // c.f. https://wicg.github.io/webusb/#disconnect (5.1. Events)
     navigator.usb.addEventListener('disconnect', () => {

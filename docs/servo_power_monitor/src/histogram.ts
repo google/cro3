@@ -2,8 +2,8 @@ import * as d3 from 'd3';
 import moment from 'moment';
 
 export class Histogram {
-  ranges: Array<Array<number>> = [];
-  paintHistogram(
+  private ranges: Array<Array<number>> = [];
+  public paintHistogram(
     t0: number,
     t1: number,
     powerData: Array<Array<Date | number>>
