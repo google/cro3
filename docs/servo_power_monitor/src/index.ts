@@ -8,17 +8,6 @@ import moment from 'moment';
 import {testRunner} from './testRunner';
 
 window.addEventListener('DOMContentLoaded', () => {
-  const servoShell = new OperatePort(0x18d1, 0x520d);
-  const controller = new PowerTestController(
-    servoShell,
-    enabledRecordingButton,
-    setSerialOutput
-  );
-  const dutShell = new OperatePort(0x18d1, 0x504a);
-  const runner = new testRunner(dutShell);
-  controller.setupDisconnectEvent();
-  runner.setupDisconnectEvent();
-
   const requestUsbButton = document.getElementById(
     'request-device'
   ) as HTMLButtonElement;
@@ -57,6 +46,18 @@ window.addEventListener('DOMContentLoaded', () => {
   requestSerialButton.addEventListener('click', () => {
     controller.startMeasurement(true);
   });
+
+  const servoShell = new OperatePort(0x18d1, 0x520d);
+  const controller = new PowerTestController(
+    servoShell,
+    enabledRecordingButton,
+    setSerialOutput
+  );
+  const dutShell = new OperatePort(0x18d1, 0x504a);
+  const runner = new testRunner(dutShell);
+
+  controller.setupDisconnectEvent();
+  runner.setupDisconnectEvent();
   requestUsbButton.addEventListener('click', () => {
     controller.startMeasurement(false);
   });

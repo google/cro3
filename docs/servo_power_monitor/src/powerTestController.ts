@@ -5,7 +5,7 @@ import {Histogram} from './histogram';
 
 export class PowerTestController {
   private INTERVAL_MS = 100;
-  private halt = false;
+  private halt = true;
   private inProgress = false;
   private servoShell: OperatePort;
   private parser: DataParser;
@@ -22,6 +22,7 @@ export class PowerTestController {
     this.servoShell = servoShell;
     this.parser = new DataParser();
     this.enabledRecordingButton = enabledRecordingButton;
+    enabledRecordingButton(true);
     this.setSerialOutput = setSerialOutput;
   }
   private changeHaltFlag(flag: boolean) {

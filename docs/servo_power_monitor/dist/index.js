@@ -34179,12 +34179,6 @@ const powerTestController_1 = __webpack_require__(/*! ./powerTestController */ "
 const moment_1 = __importDefault(__webpack_require__(/*! moment */ "./node_modules/moment/moment.js"));
 const testRunner_1 = __webpack_require__(/*! ./testRunner */ "./src/testRunner.ts");
 window.addEventListener('DOMContentLoaded', () => {
-    const servoShell = new operatePort_1.OperatePort(0x18d1, 0x520d);
-    const controller = new powerTestController_1.PowerTestController(servoShell, enabledRecordingButton, setSerialOutput);
-    const dutShell = new operatePort_1.OperatePort(0x18d1, 0x504a);
-    const runner = new testRunner_1.testRunner(dutShell);
-    controller.setupDisconnectEvent();
-    runner.setupDisconnectEvent();
     const requestUsbButton = document.getElementById('request-device');
     const requestSerialButton = document.getElementById('requestSerialButton');
     const haltButton = document.getElementById('haltButton');
@@ -34202,6 +34196,12 @@ window.addEventListener('DOMContentLoaded', () => {
     requestSerialButton.addEventListener('click', () => {
         controller.startMeasurement(true);
     });
+    const servoShell = new operatePort_1.OperatePort(0x18d1, 0x520d);
+    const controller = new powerTestController_1.PowerTestController(servoShell, enabledRecordingButton, setSerialOutput);
+    const dutShell = new operatePort_1.OperatePort(0x18d1, 0x504a);
+    const runner = new testRunner_1.testRunner(dutShell);
+    controller.setupDisconnectEvent();
+    runner.setupDisconnectEvent();
     requestUsbButton.addEventListener('click', () => {
         controller.startMeasurement(false);
     });
@@ -34505,7 +34505,7 @@ const histogram_1 = __webpack_require__(/*! ./histogram */ "./src/histogram.ts")
 class PowerTestController {
     constructor(servoShell, enabledRecordingButton, setSerialOutput) {
         this.INTERVAL_MS = 100;
-        this.halt = false;
+        this.halt = true;
         this.inProgress = false;
         this.powerData = [];
         this.graph = new graph_1.Graph();
@@ -34513,6 +34513,7 @@ class PowerTestController {
         this.servoShell = servoShell;
         this.parser = new dataParser_1.DataParser();
         this.enabledRecordingButton = enabledRecordingButton;
+        enabledRecordingButton(true);
         this.setSerialOutput = setSerialOutput;
     }
     changeHaltFlag(flag) {
