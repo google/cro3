@@ -34602,7 +34602,6 @@ class ServoController {
                 // break the loop here because `disconnect` event is not called in Chrome
                 // for some reason when the loop continues. And no need to throw error
                 // here because it is thrown in readFn.
-                console.error(e);
                 return undefined;
             }
         }
