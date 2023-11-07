@@ -11,11 +11,12 @@ export class ServoController {
   private INA_COMMAND = 'ina 0\n';
   private output = '';
   public servoShell = new OperatePort(0x18d1, 0x520d);
-
+  public halt = true;
   public async readData() {
     for (;;) {
+      if (this.halt) return undefined;
       try {
-        const s = await this.servoShell.read;
+        const s = await this.servoShell.read();
         this.output += s;
         const splitted = this.output
           .split('\n')
@@ -40,6 +41,7 @@ export class ServoController {
         // break the loop here because `disconnect` event is not called in Chrome
         // for some reason when the loop continues. And no need to throw error
         // here because it is thrown in readFn.
+        console.error(e);
         return undefined;
       }
     }

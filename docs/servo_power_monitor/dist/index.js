@@ -34307,6 +34307,7 @@ class OperateSerialPort {
         this.reader = readable.getReader();
         try {
             for (;;) {
+                // console.log('portread');
                 const { value, done } = await this.reader.read();
                 if (done) {
                     // |reader| has been canceled.
@@ -34364,15 +34365,6 @@ class OperateUsbPort {
         if (this.device === undefined)
             return;
         try {
-            // This sets the DTR (data terminal ready) signal low to indicate to the device that the host has disconnected.
-            // NOTE: investigate whether it stops the error with closing device while waiting for transferIn
-            await this.device.controlTransferOut({
-                requestType: 'class',
-                recipient: 'interface',
-                request: 0x22,
-                value: 0x00,
-                index: this.interfaceNum,
-            });
             await this.device.close();
         }
         catch (e) {
@@ -34398,13 +34390,11 @@ class OperateUsbPort {
             // If halt is true, it's when the stop button is pressed. Therefore,
             // we can ignore the error.
             // NOTE: investigate the way not to use halt flag because it makes the implementation complicated
-            // if (!this.halt) {
-            //   console.error(e);
-            //   throw e;
-            // }
-            // return '';
-            console.error(e);
-            throw e;
+            if (!this.halt) {
+                console.error(e);
+                throw e;
+            }
+            return '';
         }
     }
     async write(s) {
@@ -34477,7 +34467,8 @@ class PowerTestController {
     }
     changeHaltFlag(flag) {
         this.halt = flag;
-        this.enabledRecordingButton(flag);
+        this.servoController.halt = flag;
+        this.enabledRecordingButton(this.halt);
     }
     kickWriteLoop() {
         const f = async () => {
@@ -34497,6 +34488,7 @@ class PowerTestController {
     async readLoop() {
         while (!this.halt) {
             const currentPowerData = await this.servoController.readData();
+            this.inProgress = false;
             if (currentPowerData === undefined)
                 continue;
             this.setSerialOutput(currentPowerData.originalData);
@@ -34580,11 +34572,14 @@ class ServoController {
         this.INA_COMMAND = 'ina 0\n';
         this.output = '';
         this.servoShell = new operatePort_1.OperatePort(0x18d1, 0x520d);
+        this.halt = true;
     }
     async readData() {
         for (;;) {
+            if (this.halt)
+                return undefined;
             try {
-                const s = await this.servoShell.read;
+                const s = await this.servoShell.read();
                 this.output += s;
                 const splitted = this.output
                     .split('\n')
@@ -34607,6 +34602,7 @@ class ServoController {
                 // break the loop here because `disconnect` event is not called in Chrome
                 // for some reason when the loop continues. And no need to throw error
                 // here because it is thrown in readFn.
+                console.error(e);
                 return undefined;
             }
         }

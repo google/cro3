@@ -1,8 +1,8 @@
 interface PortInterface {
-  open: (usbVendorId: number, usbProductId: number) => Promise<void>;
-  close: () => Promise<void>;
-  read: () => Promise<string>;
-  write: (s: string) => Promise<void>;
+  open(usbVendorId: number, usbProductId: number): Promise<void>;
+  close(): Promise<void>;
+  read(): Promise<string>;
+  write(s: string): Promise<void>;
 }
 
 class OperateSerialPort implements PortInterface {
@@ -39,6 +39,7 @@ class OperateSerialPort implements PortInterface {
     this.reader = readable.getReader();
     try {
       for (;;) {
+        // console.log('portread');
         const {value, done} = await this.reader.read();
         if (done) {
           // |reader| has been canceled.
@@ -91,15 +92,6 @@ class OperateUsbPort implements PortInterface {
   public async close() {
     if (this.device === undefined) return;
     try {
-      // This sets the DTR (data terminal ready) signal low to indicate to the device that the host has disconnected.
-      // NOTE: investigate whether it stops the error with closing device while waiting for transferIn
-      await this.device.controlTransferOut({
-        requestType: 'class',
-        recipient: 'interface',
-        request: 0x22,
-        value: 0x00,
-        index: this.interfaceNum,
-      });
       await this.device.close();
     } catch (e) {
       console.error(e);
@@ -122,13 +114,11 @@ class OperateUsbPort implements PortInterface {
       // we can ignore the error.
 
       // NOTE: investigate the way not to use halt flag because it makes the implementation complicated
-      // if (!this.halt) {
-      //   console.error(e);
-      //   throw e;
-      // }
-      // return '';
-      console.error(e);
-      throw e;
+      if (!this.halt) {
+        console.error(e);
+        throw e;
+      }
+      return '';
     }
   }
   public async write(s: string) {

@@ -24,7 +24,8 @@ export class PowerTestController {
   }
   private changeHaltFlag(flag: boolean) {
     this.halt = flag;
-    this.enabledRecordingButton(flag);
+    this.servoController.halt = flag;
+    this.enabledRecordingButton(this.halt);
   }
   private kickWriteLoop() {
     const f = async () => {
@@ -43,6 +44,7 @@ export class PowerTestController {
   private async readLoop() {
     while (!this.halt) {
       const currentPowerData = await this.servoController.readData();
+      this.inProgress = false;
       if (currentPowerData === undefined) continue;
       this.setSerialOutput(currentPowerData.originalData);
       const e: Array<Date | number> = [new Date(), currentPowerData.power];
