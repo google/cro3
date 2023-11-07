@@ -33856,15 +33856,13 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.Graph = void 0;
 const dygraphs_1 = __importDefault(__webpack_require__(/*! dygraphs */ "./node_modules/dygraphs/index.js"));
 class Graph {
-    constructor() {
+    constructor(ui) {
         this.g = new dygraphs_1.default('graph', [], {});
+        this.ui = ui;
     }
     updateGraph(powerData) {
         if (powerData !== undefined && powerData.length > 0) {
-            const toolTip = document.querySelector('#tooltip');
-            if (toolTip !== null) {
-                toolTip.classList.add('hidden');
-            }
+            this.ui.hideToolTip();
         }
         // currentData = data;
         this.g.updateOptions({
@@ -34117,142 +34115,102 @@ exports.Histogram = Histogram;
 
 "use strict";
 
-// while true ; do { echo "do nothing for 5 sec" ; sleep 5 ; echo "yes for 5 sec
-// without displaying" ; timeout 5 yes > /dev/null ; } ; done ectool
-// chargecontrol idle ectool chargecontrol normal
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+// while true ; do { echo "do nothing for 5 sec" ; sleep 5 ; echo "yes for 5 sec
+// without displaying" ; timeout 5 yes > /dev/null ; } ; done ectool
+// chargecontrol idle ectool chargecontrol normal
+const moment_1 = __importDefault(__webpack_require__(/*! moment */ "./node_modules/moment/moment.js"));
 const operatePort_1 = __webpack_require__(/*! ./operatePort */ "./src/operatePort.ts");
 const powerTestController_1 = __webpack_require__(/*! ./powerTestController */ "./src/powerTestController.ts");
-const moment_1 = __importDefault(__webpack_require__(/*! moment */ "./node_modules/moment/moment.js"));
 const testRunner_1 = __webpack_require__(/*! ./testRunner */ "./src/testRunner.ts");
 const servoController_1 = __webpack_require__(/*! ./servoController */ "./src/servoController.ts");
+const ui_1 = __webpack_require__(/*! ./ui */ "./src/ui.ts");
 window.addEventListener('DOMContentLoaded', () => {
-    const requestUsbButton = document.getElementById('request-device');
-    const requestSerialButton = document.getElementById('requestSerialButton');
-    const haltButton = document.getElementById('haltButton');
-    const downloadButton = document.getElementById('downloadButton');
-    const analyzeButton = document.getElementById('analyzeButton');
-    const selectDutSerialButton = document.getElementById('selectDutSerialButton');
-    const dutCommandForm = document.getElementById('dutCommandForm');
-    const dutCommandInput = document.getElementById('dutCommandInput');
-    const popupCloseButton = document.getElementById('popup-close');
-    const overlay = document.querySelector('#popup-overlay');
-    const messages = document.getElementById('messages');
-    const executeScriptButton = document.getElementById('executeScriptButton');
-    const dropZone = document.getElementById('dropZone');
-    const serial_output = document.getElementById('serial_output');
+    const ui = new ui_1.Ui();
     const servoController = new servoController_1.ServoController();
-    const testController = new powerTestController_1.PowerTestController(servoController, enabledRecordingButton, setSerialOutput);
+    const testController = new powerTestController_1.PowerTestController(ui, servoController);
     const dutShell = new operatePort_1.OperatePort(0x18d1, 0x504a);
-    const runner = new testRunner_1.testRunner(dutShell);
+    const runner = new testRunner_1.testRunner(ui, dutShell);
     testController.setupDisconnectEvent();
     runner.setupDisconnectEvent();
-    requestSerialButton.addEventListener('click', () => {
+    ui.requestSerialButton.addEventListener('click', () => {
         testController.startMeasurement(true);
     });
-    requestUsbButton.addEventListener('click', () => {
+    ui.requestUsbButton.addEventListener('click', () => {
         testController.startMeasurement(false);
     });
-    haltButton.addEventListener('click', () => {
+    ui.haltButton.addEventListener('click', () => {
         testController.stopMeasurement();
     });
-    selectDutSerialButton.addEventListener('click', () => {
-        runner.selectPort(addMessageToConsole);
+    ui.selectDutSerialButton.addEventListener('click', () => {
+        runner.selectPort();
     });
-    dutCommandForm.addEventListener('submit', e => formSubmit(e));
-    dutCommandInput.addEventListener('keydown', e => sendCancel(e));
-    analyzeButton.addEventListener('click', () => {
-        testController.analyzePowerData();
-    });
-    executeScriptButton.addEventListener('click', () => executeScript());
-    dropZone.addEventListener('dragover', e => handleDragOver(e), false);
-    dropZone.addEventListener('drop', e => handleFileSelect(e), false);
-    downloadButton.addEventListener('click', () => {
-        const dataStr = testController.exportPowerData();
-        setDownloadAnchor(dataStr);
-    });
-    popupCloseButton.addEventListener('click', () => {
-        overlay.classList.add('closed');
-    });
-    function enabledRecordingButton(halt) {
-        requestUsbButton.disabled = !halt;
-        requestSerialButton.disabled = !halt;
-        haltButton.disabled = halt;
-        downloadButton.disabled = !halt;
-        analyzeButton.disabled = !halt;
-    }
-    function setSerialOutput(s) {
-        serial_output.textContent = s;
-    }
-    function readInputValue() {
-        const res = dutCommandInput.value;
-        dutCommandInput.value = '';
-        return res;
-    }
-    function executeScript() {
-        if (!runner.isOpened) {
-            overlay.classList.remove('closed');
-            return;
-        }
-        runner.executeScript();
-    }
-    async function formSubmit(e) {
+    ui.dutCommandForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         if (!runner.isOpened) {
-            overlay.classList.remove('closed');
+            ui.overlay.classList.remove('closed');
             return;
         }
-        await runner.executeCommand(readInputValue() + '\n');
-    }
+        await runner.executeCommand(ui.readInputValue() + '\n');
+    });
     // send cancel command to serial port when ctrl+C is pressed in input area
-    async function sendCancel(e) {
+    ui.dutCommandInput.addEventListener('keydown', async (e) => {
         if (!runner.isOpened) {
-            overlay.classList.remove('closed');
+            ui.overlay.classList.remove('closed');
             return;
         }
         if (e.ctrlKey && e.key === 'c') {
             await runner.sendCancel();
         }
-    }
-    function addMessageToConsole(s) {
-        messages.textContent += s;
-        messages.scrollTo(0, messages.scrollHeight);
-    }
-    function handleDragOver(evt) {
-        evt.stopPropagation();
-        evt.preventDefault();
-        const eventDataTransfer = evt.dataTransfer;
+    });
+    ui.analyzeButton.addEventListener('click', () => {
+        testController.analyzePowerData();
+    });
+    ui.executeScriptButton.addEventListener('click', () => {
+        if (!runner.isOpened) {
+            ui.overlay.classList.remove('closed');
+            return;
+        }
+        runner.executeScript();
+    });
+    ui.dropZone.addEventListener('dragover', e => {
+        e.stopPropagation();
+        e.preventDefault();
+        const eventDataTransfer = e.dataTransfer;
         if (eventDataTransfer === null)
             return;
         eventDataTransfer.dropEffect = 'copy'; // Explicitly show this is a copy.
-    }
-    function handleFileSelect(evt) {
-        evt.stopPropagation();
-        evt.preventDefault();
-        const eventDataTransfer = evt.dataTransfer;
+    }, false);
+    ui.dropZone.addEventListener('drop', e => {
+        e.stopPropagation();
+        e.preventDefault();
+        const eventDataTransfer = e.dataTransfer;
         if (eventDataTransfer === null)
             return;
         const file = eventDataTransfer.files[0];
-        if (file === undefined) {
+        if (file === undefined)
             return;
-        }
         const r = new FileReader();
         r.addEventListener('load', () => {
             testController.loadPowerData(r.result);
         });
         r.readAsText(file);
-    }
-    function setDownloadAnchor(dataStr) {
+    }, false);
+    ui.downloadButton.addEventListener('click', () => {
+        const dataStr = testController.exportPowerData();
         const dlAnchorElem = document.getElementById('downloadAnchorElem');
         if (dlAnchorElem === null)
             return;
         dlAnchorElem.setAttribute('href', dataStr);
         dlAnchorElem.setAttribute('download', `power_${(0, moment_1.default)().format()}.json`);
         dlAnchorElem.click();
-    }
+    });
+    ui.popupCloseButton.addEventListener('click', () => {
+        ui.overlay.classList.add('closed');
+    });
 });
 
 
@@ -34453,22 +34411,20 @@ exports.PowerTestController = void 0;
 const graph_1 = __webpack_require__(/*! ./graph */ "./src/graph.ts");
 const histogram_1 = __webpack_require__(/*! ./histogram */ "./src/histogram.ts");
 class PowerTestController {
-    constructor(servoController, enabledRecordingButton, setSerialOutput) {
+    constructor(ui, servoController) {
         this.INTERVAL_MS = 100;
         this.halt = true;
         this.inProgress = false;
         this.powerData = [];
-        this.graph = new graph_1.Graph();
         this.histogram = new histogram_1.Histogram();
+        this.ui = ui;
         this.servoController = servoController;
-        this.enabledRecordingButton = enabledRecordingButton;
-        enabledRecordingButton(true);
-        this.setSerialOutput = setSerialOutput;
+        this.graph = new graph_1.Graph(ui);
     }
     changeHaltFlag(flag) {
         this.halt = flag;
         this.servoController.halt = flag;
-        this.enabledRecordingButton(this.halt);
+        this.ui.enabledRecordingButton(this.halt);
     }
     kickWriteLoop() {
         const f = async () => {
@@ -34491,7 +34447,7 @@ class PowerTestController {
             this.inProgress = false;
             if (currentPowerData === undefined)
                 continue;
-            this.setSerialOutput(currentPowerData.originalData);
+            this.ui.setSerialOutput(currentPowerData.originalData);
             const e = [new Date(), currentPowerData.power];
             this.powerData.push(e);
             this.graph.updateGraph(this.powerData);
@@ -34535,7 +34491,7 @@ class PowerTestController {
                 // the servoPort will be closed automatically when a device is disconnected.
                 this.changeHaltFlag(true);
                 this.inProgress = false;
-                this.enabledRecordingButton(this.halt);
+                this.ui.enabledRecordingButton(this.halt);
             }
         });
         // event when you disconnect serial port
@@ -34544,7 +34500,7 @@ class PowerTestController {
                 await this.servoController.servoShell.close();
                 this.changeHaltFlag(true);
                 this.inProgress = false;
-                this.enabledRecordingButton(this.halt);
+                this.ui.enabledRecordingButton(this.halt);
             }
         });
     }
@@ -34627,7 +34583,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.testRunner = void 0;
 const operatePort_1 = __webpack_require__(/*! ./operatePort */ "./src/operatePort.ts");
 class testRunner {
-    constructor(dut) {
+    constructor(ui, dut) {
         this.isOpened = false;
         this.CANCEL_CMD = '\x03\n';
         // shell script
@@ -34641,19 +34597,20 @@ echo "start"
 workload 10 1> ./test_out.log 2> ./test_err.log
 echo "end"\n`;
         this.dut = new operatePort_1.OperatePort(0x18d1, 0x504a);
+        this.ui = ui;
         this.dut = dut;
     }
-    async readDutLoop(addMessageToConsole) {
-        addMessageToConsole('DutPort is selected');
+    async readDutLoop() {
+        this.ui.addMessageToConsole('DutPort is selected');
         for (;;) {
             const chunk = await this.dut.read();
-            addMessageToConsole(chunk);
+            this.ui.addMessageToConsole(chunk);
         }
     }
-    async selectPort(addMessageToConsole) {
+    async selectPort() {
         await this.dut.open(true);
         this.isOpened = true;
-        this.readDutLoop(addMessageToConsole);
+        this.readDutLoop();
     }
     async executeScript() {
         await this.dut.write('cat > ./example.sh << EOF\n');
@@ -34677,6 +34634,62 @@ echo "end"\n`;
     }
 }
 exports.testRunner = testRunner;
+
+
+/***/ }),
+
+/***/ "./src/ui.ts":
+/*!*******************!*\
+  !*** ./src/ui.ts ***!
+  \*******************/
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.Ui = void 0;
+class Ui {
+    constructor() {
+        this.requestUsbButton = document.getElementById('request-device');
+        this.requestSerialButton = document.getElementById('requestSerialButton');
+        this.haltButton = document.getElementById('haltButton');
+        this.downloadButton = document.getElementById('downloadButton');
+        this.analyzeButton = document.getElementById('analyzeButton');
+        this.selectDutSerialButton = document.getElementById('selectDutSerialButton');
+        this.dutCommandForm = document.getElementById('dutCommandForm');
+        this.dutCommandInput = document.getElementById('dutCommandInput');
+        this.popupCloseButton = document.getElementById('popup-close');
+        this.overlay = document.querySelector('#popup-overlay');
+        this.messages = document.getElementById('messages');
+        this.executeScriptButton = document.getElementById('executeScriptButton');
+        this.dropZone = document.getElementById('dropZone');
+        this.serial_output = document.getElementById('serial_output');
+        this.toolTip = document.getElementById('tooltip');
+    }
+    enabledRecordingButton(halt) {
+        this.requestUsbButton.disabled = !halt;
+        this.requestSerialButton.disabled = !halt;
+        this.haltButton.disabled = halt;
+        this.downloadButton.disabled = !halt;
+        this.analyzeButton.disabled = !halt;
+    }
+    setSerialOutput(s) {
+        this.serial_output.textContent = s;
+    }
+    readInputValue() {
+        const res = this.dutCommandInput.value;
+        this.dutCommandInput.value = '';
+        return res;
+    }
+    addMessageToConsole(s) {
+        this.messages.textContent += s;
+        this.messages.scrollTo(0, this.messages.scrollHeight);
+    }
+    hideToolTip() {
+        this.toolTip.classList.add('hidden');
+    }
+}
+exports.Ui = Ui;
 
 
 /***/ }),

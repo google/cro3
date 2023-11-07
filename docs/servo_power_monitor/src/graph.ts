@@ -1,13 +1,15 @@
 import Dygraph from 'dygraphs';
+import {Ui} from './ui';
 
 export class Graph {
+  private ui: Ui;
   private g = new Dygraph('graph', [], {});
+  constructor(ui: Ui) {
+    this.ui = ui;
+  }
   public updateGraph(powerData: Array<Array<Date | number>>) {
     if (powerData !== undefined && powerData.length > 0) {
-      const toolTip = document.querySelector('#tooltip');
-      if (toolTip !== null) {
-        toolTip.classList.add('hidden');
-      }
+      this.ui.hideToolTip();
     }
     // currentData = data;
     this.g.updateOptions(

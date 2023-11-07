@@ -1,31 +1,26 @@
 import {ServoController} from './servoController';
 import {Graph} from './graph';
 import {Histogram} from './histogram';
+import {Ui} from './ui';
 
 export class PowerTestController {
   private INTERVAL_MS = 100;
   public halt = true;
   private inProgress = false;
+  private ui: Ui;
   private servoController: ServoController;
   private powerData: Array<Array<Date | number>> = [];
-  private graph = new Graph();
+  private graph: Graph;
   private histogram = new Histogram();
-  private enabledRecordingButton: (flag: boolean) => void;
-  private setSerialOutput: (s: string) => void;
-  constructor(
-    servoController: ServoController,
-    enabledRecordingButton: (flag: boolean) => void,
-    setSerialOutput: (s: string) => void
-  ) {
+  constructor(ui: Ui, servoController: ServoController) {
+    this.ui = ui;
     this.servoController = servoController;
-    this.enabledRecordingButton = enabledRecordingButton;
-    enabledRecordingButton(true);
-    this.setSerialOutput = setSerialOutput;
+    this.graph = new Graph(ui);
   }
   private changeHaltFlag(flag: boolean) {
     this.halt = flag;
     this.servoController.halt = flag;
-    this.enabledRecordingButton(this.halt);
+    this.ui.enabledRecordingButton(this.halt);
   }
   private kickWriteLoop() {
     const f = async () => {
@@ -46,7 +41,7 @@ export class PowerTestController {
       const currentPowerData = await this.servoController.readData();
       this.inProgress = false;
       if (currentPowerData === undefined) continue;
-      this.setSerialOutput(currentPowerData.originalData);
+      this.ui.setSerialOutput(currentPowerData.originalData);
       const e: Array<Date | number> = [new Date(), currentPowerData.power];
       this.powerData.push(e);
       this.graph.updateGraph(this.powerData);
@@ -91,7 +86,7 @@ export class PowerTestController {
         // the servoPort will be closed automatically when a device is disconnected.
         this.changeHaltFlag(true);
         this.inProgress = false;
-        this.enabledRecordingButton(this.halt);
+        this.ui.enabledRecordingButton(this.halt);
       }
     });
     // event when you disconnect serial port
@@ -100,7 +95,7 @@ export class PowerTestController {
         await this.servoController.servoShell.close();
         this.changeHaltFlag(true);
         this.inProgress = false;
-        this.enabledRecordingButton(this.halt);
+        this.ui.enabledRecordingButton(this.halt);
       }
     });
   }

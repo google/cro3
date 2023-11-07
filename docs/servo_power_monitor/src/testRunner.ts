@@ -1,4 +1,5 @@
 import {OperatePort} from './operatePort';
+import {Ui} from './ui';
 
 export class testRunner {
   public isOpened = false;
@@ -13,21 +14,23 @@ function workload () {
 echo "start"
 workload 10 1> ./test_out.log 2> ./test_err.log
 echo "end"\n`;
+  private ui: Ui;
   public dut = new OperatePort(0x18d1, 0x504a);
-  constructor(dut: OperatePort) {
+  constructor(ui: Ui, dut: OperatePort) {
+    this.ui = ui;
     this.dut = dut;
   }
-  private async readDutLoop(addMessageToConsole: (s: string) => void) {
-    addMessageToConsole('DutPort is selected');
+  private async readDutLoop() {
+    this.ui.addMessageToConsole('DutPort is selected');
     for (;;) {
       const chunk = await this.dut.read();
-      addMessageToConsole(chunk);
+      this.ui.addMessageToConsole(chunk);
     }
   }
-  public async selectPort(addMessageToConsole: (s: string) => void) {
+  public async selectPort() {
     await this.dut.open(true);
     this.isOpened = true;
-    this.readDutLoop(addMessageToConsole);
+    this.readDutLoop();
   }
   public async executeScript() {
     await this.dut.write('cat > ./example.sh << EOF\n');
