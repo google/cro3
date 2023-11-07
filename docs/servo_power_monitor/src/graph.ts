@@ -1,9 +1,12 @@
-import Dygraph from 'dygraphs';
+import Dygraph, {dygraphs} from 'dygraphs';
 import {Ui} from './ui';
+
+type AnnotationText = 'start' | 'end';
 
 export class Graph {
   private ui: Ui;
   private g = new Dygraph('graph', [], {});
+  private annotations: dygraphs.Annotation[] = [];
   constructor(ui: Ui) {
     this.ui = ui;
   }
@@ -35,6 +38,15 @@ export class Graph {
       },
       false
     );
+  }
+  public addAnnotation(text: AnnotationText) {
+    this.annotations.push({
+      series: 'power',
+      x: new Date().getTime(),
+      shortText: text === 'start' ? 'S' : 'E',
+      text: text,
+    });
+    this.g.setAnnotations(this.annotations);
   }
   public returnXrange() {
     console.log(this.g.xAxisExtremes());
