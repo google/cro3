@@ -47,8 +47,8 @@ export class PowerTestController {
       this.graph.updateGraph(this.powerData);
     }
   }
-  public async startMeasurement(isSerial: boolean) {
-    await this.servoController.servoShell.open(isSerial);
+  public async startMeasurement() {
+    await this.servoController.servoShell.open();
     this.changeHaltFlag(false);
     this.kickWriteLoop();
     this.readLoop();
@@ -77,20 +77,9 @@ export class PowerTestController {
     return dataStr;
   }
   public setupDisconnectEvent() {
-    // `disconnect` event is fired when a Usb device is disconnected.
-    // c.f. https://wicg.github.io/webusb/#disconnect (5.1. Events)
-    navigator.usb.addEventListener('disconnect', () => {
-      if (!this.halt && !this.servoController.servoShell.isSerial) {
-        //  No need to call close() for the Usb servoPort here because the
-        //  specification says that
-        // the servoPort will be closed automatically when a device is disconnected.
-        this.changeHaltFlag(true);
-        this.inProgress = false;
-      }
-    });
     // event when you disconnect serial port
     navigator.serial.addEventListener('disconnect', async () => {
-      if (!this.halt && this.servoController.servoShell.isSerial) {
+      if (!this.halt) {
         this.changeHaltFlag(true);
         this.inProgress = false;
         await this.servoController.servoShell.close();

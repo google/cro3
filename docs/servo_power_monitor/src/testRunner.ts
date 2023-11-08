@@ -28,7 +28,7 @@ echo "end"\n`;
     }
   }
   public async selectPort() {
-    await this.dut.open(true);
+    await this.dut.open();
     this.isOpened = true;
     this.readDutLoop();
   }

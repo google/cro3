@@ -34128,19 +34128,18 @@ const powerTestController_1 = __webpack_require__(/*! ./powerTestController */ "
 const testRunner_1 = __webpack_require__(/*! ./testRunner */ "./src/testRunner.ts");
 const servoController_1 = __webpack_require__(/*! ./servoController */ "./src/servoController.ts");
 const ui_1 = __webpack_require__(/*! ./ui */ "./src/ui.ts");
+const graph_1 = __webpack_require__(/*! ./graph */ "./src/graph.ts");
 window.addEventListener('DOMContentLoaded', () => {
     const ui = new ui_1.Ui();
+    const graph = new graph_1.Graph(ui);
     const servoController = new servoController_1.ServoController();
-    const testController = new powerTestController_1.PowerTestController(ui, servoController);
+    const testController = new powerTestController_1.PowerTestController(ui, graph, servoController);
     const dutShell = new operatePort_1.OperatePort(0x18d1, 0x504a);
     const runner = new testRunner_1.testRunner(ui, dutShell);
     testController.setupDisconnectEvent();
     runner.setupDisconnectEvent();
     ui.requestSerialButton.addEventListener('click', () => {
-        testController.startMeasurement(true);
-    });
-    ui.requestUsbButton.addEventListener('click', () => {
-        testController.startMeasurement(false);
+        testController.startMeasurement();
     });
     ui.haltButton.addEventListener('click', () => {
         testController.stopMeasurement();
@@ -34223,16 +34222,20 @@ window.addEventListener('DOMContentLoaded', () => {
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.OperatePort = void 0;
-class OperateSerialPort {
-    constructor() {
+class OperatePort {
+    constructor(usbVendorId, usbProductId) {
         this.reader = new ReadableStreamDefaultReader(new ReadableStream());
         this.encoder = new TextEncoder();
         this.decoder = new TextDecoder();
+        this.usbVendorId = usbVendorId;
+        this.usbProductId = usbProductId;
     }
-    async open(usbVendorId, usbProductId) {
+    async open() {
         this.port = await navigator.serial
             .requestPort({
-            filters: [{ usbVendorId: usbVendorId, usbProductId: usbProductId }],
+            filters: [
+                { usbVendorId: this.usbVendorId, usbProductId: this.usbProductId },
+            ],
         })
             .catch(e => {
             console.error(e);
@@ -34292,104 +34295,6 @@ class OperateSerialPort {
         writer.releaseLock();
     }
 }
-class OperateUsbPort {
-    constructor() {
-        this.halt = false;
-        this.interfaceNum = 0;
-        this.ep = this.interfaceNum + 1;
-        this.encoder = new TextEncoder();
-        this.decoder = new TextDecoder();
-    }
-    changeHaltFlag(flag) {
-        this.halt = flag;
-    }
-    async open(vendorId, productId) {
-        this.device = await navigator.usb
-            .requestDevice({
-            filters: [{ vendorId: vendorId, productId: productId }],
-        })
-            .catch(e => {
-            console.error(e);
-            throw e;
-        });
-        await this.device.open();
-        await this.device.selectConfiguration(1);
-        await this.device.claimInterface(this.interfaceNum);
-    }
-    async close() {
-        if (this.device === undefined)
-            return;
-        try {
-            await this.device.close();
-        }
-        catch (e) {
-            console.error(e);
-        }
-    }
-    async read() {
-        if (this.device === undefined)
-            return '';
-        try {
-            const result = await this.device.transferIn(this.ep, 64);
-            if (result.status === 'stall') {
-                await this.device.clearHalt('in', this.ep);
-                throw result;
-            }
-            const resultData = result.data;
-            if (resultData === undefined)
-                return '';
-            const result_array = new Int8Array(resultData.buffer);
-            return this.decoder.decode(result_array);
-        }
-        catch (e) {
-            // If halt is true, it's when the stop button is pressed. Therefore,
-            // we can ignore the error.
-            // NOTE: investigate the way not to use halt flag because it makes the implementation complicated
-            if (!this.halt) {
-                console.error(e);
-                throw e;
-            }
-            return '';
-        }
-    }
-    async write(s) {
-        if (this.device === undefined)
-            return;
-        await this.device.transferOut(this.ep, this.encoder.encode(s));
-    }
-}
-class OperatePort {
-    constructor(vendorId, productId) {
-        this.isSerial = false;
-        this.vendorId = vendorId;
-        this.productId = productId;
-    }
-    async open(isSerial) {
-        if (isSerial) {
-            this.currentDevice = new OperateSerialPort();
-        }
-        else {
-            this.currentDevice = new OperateUsbPort();
-        }
-        await this.currentDevice.open(this.vendorId, this.productId);
-        this.isSerial = isSerial;
-    }
-    async close() {
-        if (this.currentDevice === undefined)
-            return;
-        await this.currentDevice.close();
-    }
-    async read() {
-        if (this.currentDevice === undefined)
-            return '';
-        return await this.currentDevice.read();
-    }
-    async write(s) {
-        if (this.currentDevice === undefined)
-            return;
-        await this.currentDevice.write(s);
-    }
-}
 exports.OperatePort = OperatePort;
 
 
@@ -34405,18 +34310,17 @@ exports.OperatePort = OperatePort;
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.PowerTestController = void 0;
-const graph_1 = __webpack_require__(/*! ./graph */ "./src/graph.ts");
 const histogram_1 = __webpack_require__(/*! ./histogram */ "./src/histogram.ts");
 class PowerTestController {
-    constructor(ui, servoController) {
+    constructor(ui, graph, servoController) {
         this.INTERVAL_MS = 100;
         this.halt = true;
         this.inProgress = false;
         this.powerData = [];
         this.histogram = new histogram_1.Histogram();
         this.ui = ui;
+        this.graph = graph;
         this.servoController = servoController;
-        this.graph = new graph_1.Graph(ui);
     }
     changeHaltFlag(flag) {
         this.halt = flag;
@@ -34450,8 +34354,8 @@ class PowerTestController {
             this.graph.updateGraph(this.powerData);
         }
     }
-    async startMeasurement(isSerial) {
-        await this.servoController.servoShell.open(isSerial);
+    async startMeasurement() {
+        await this.servoController.servoShell.open();
         this.changeHaltFlag(false);
         this.kickWriteLoop();
         this.readLoop();
@@ -34479,20 +34383,9 @@ class PowerTestController {
         return dataStr;
     }
     setupDisconnectEvent() {
-        // `disconnect` event is fired when a Usb device is disconnected.
-        // c.f. https://wicg.github.io/webusb/#disconnect (5.1. Events)
-        navigator.usb.addEventListener('disconnect', () => {
-            if (!this.halt && !this.servoController.servoShell.isSerial) {
-                //  No need to call close() for the Usb servoPort here because the
-                //  specification says that
-                // the servoPort will be closed automatically when a device is disconnected.
-                this.changeHaltFlag(true);
-                this.inProgress = false;
-            }
-        });
         // event when you disconnect serial port
         navigator.serial.addEventListener('disconnect', async () => {
-            if (!this.halt && this.servoController.servoShell.isSerial) {
+            if (!this.halt) {
                 this.changeHaltFlag(true);
                 this.inProgress = false;
                 await this.servoController.servoShell.close();
@@ -34603,7 +34496,7 @@ echo "end"\n`;
         }
     }
     async selectPort() {
-        await this.dut.open(true);
+        await this.dut.open();
         this.isOpened = true;
         this.readDutLoop();
     }

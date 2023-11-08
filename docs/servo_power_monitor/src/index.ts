@@ -20,10 +20,7 @@ window.addEventListener('DOMContentLoaded', () => {
   runner.setupDisconnectEvent();
 
   ui.requestSerialButton.addEventListener('click', () => {
-    testController.startMeasurement(true);
-  });
-  ui.requestUsbButton.addEventListener('click', () => {
-    testController.startMeasurement(false);
+    testController.startMeasurement();
   });
   ui.haltButton.addEventListener('click', () => {
     testController.stopMeasurement();
