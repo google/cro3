@@ -86,16 +86,14 @@ export class PowerTestController {
         // the servoPort will be closed automatically when a device is disconnected.
         this.changeHaltFlag(true);
         this.inProgress = false;
-        this.ui.enabledRecordingButton(this.halt);
       }
     });
     // event when you disconnect serial port
     navigator.serial.addEventListener('disconnect', async () => {
       if (!this.halt && this.servoController.servoShell.isSerial) {
-        await this.servoController.servoShell.close();
         this.changeHaltFlag(true);
         this.inProgress = false;
-        this.ui.enabledRecordingButton(this.halt);
+        await this.servoController.servoShell.close();
       }
     });
   }

@@ -147,14 +147,14 @@ export class OperatePort {
   }
   public async close() {
     if (this.currentDevice === undefined) return;
-    this.currentDevice.close();
+    await this.currentDevice.close();
   }
   public async read() {
     if (this.currentDevice === undefined) return '';
-    return this.currentDevice.read();
+    return await this.currentDevice.read();
   }
   public async write(s: string) {
     if (this.currentDevice === undefined) return;
-    this.currentDevice.write(s);
+    await this.currentDevice.write(s);
   }
 }

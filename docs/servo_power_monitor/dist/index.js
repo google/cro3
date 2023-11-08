@@ -34169,12 +34169,12 @@ window.addEventListener('DOMContentLoaded', () => {
     ui.analyzeButton.addEventListener('click', () => {
         testController.analyzePowerData();
     });
-    ui.executeScriptButton.addEventListener('click', () => {
+    ui.executeScriptButton.addEventListener('click', async () => {
         if (!runner.isOpened) {
             ui.overlay.classList.remove('closed');
             return;
         }
-        runner.executeScript();
+        await runner.executeScript();
     });
     ui.dropZone.addEventListener('dragover', e => {
         e.stopPropagation();
@@ -34201,12 +34201,9 @@ window.addEventListener('DOMContentLoaded', () => {
     }, false);
     ui.downloadButton.addEventListener('click', () => {
         const dataStr = testController.exportPowerData();
-        const dlAnchorElem = document.getElementById('downloadAnchorElem');
-        if (dlAnchorElem === null)
-            return;
-        dlAnchorElem.setAttribute('href', dataStr);
-        dlAnchorElem.setAttribute('download', `power_${(0, moment_1.default)().format()}.json`);
-        dlAnchorElem.click();
+        ui.dlAnchorElem.setAttribute('href', dataStr);
+        ui.dlAnchorElem.setAttribute('download', `power_${(0, moment_1.default)().format()}.json`);
+        ui.dlAnchorElem.click();
     });
     ui.popupCloseButton.addEventListener('click', () => {
         ui.overlay.classList.add('closed');
@@ -34380,17 +34377,17 @@ class OperatePort {
     async close() {
         if (this.currentDevice === undefined)
             return;
-        this.currentDevice.close();
+        await this.currentDevice.close();
     }
     async read() {
         if (this.currentDevice === undefined)
             return '';
-        return this.currentDevice.read();
+        return await this.currentDevice.read();
     }
     async write(s) {
         if (this.currentDevice === undefined)
             return;
-        this.currentDevice.write(s);
+        await this.currentDevice.write(s);
     }
 }
 exports.OperatePort = OperatePort;
@@ -34491,16 +34488,14 @@ class PowerTestController {
                 // the servoPort will be closed automatically when a device is disconnected.
                 this.changeHaltFlag(true);
                 this.inProgress = false;
-                this.ui.enabledRecordingButton(this.halt);
             }
         });
         // event when you disconnect serial port
         navigator.serial.addEventListener('disconnect', async () => {
             if (!this.halt && this.servoController.servoShell.isSerial) {
-                await this.servoController.servoShell.close();
                 this.changeHaltFlag(true);
                 this.inProgress = false;
-                this.ui.enabledRecordingButton(this.halt);
+                await this.servoController.servoShell.close();
             }
         });
     }
@@ -34664,6 +34659,7 @@ class Ui {
         this.executeScriptButton = document.getElementById('executeScriptButton');
         this.dropZone = document.getElementById('dropZone');
         this.serial_output = document.getElementById('serial_output');
+        this.dlAnchorElem = document.getElementById('downloadAnchorElem');
         this.toolTip = document.getElementById('tooltip');
     }
     enabledRecordingButton(halt) {

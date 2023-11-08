@@ -50,12 +50,12 @@ window.addEventListener('DOMContentLoaded', () => {
   ui.analyzeButton.addEventListener('click', () => {
     testController.analyzePowerData();
   });
-  ui.executeScriptButton.addEventListener('click', () => {
+  ui.executeScriptButton.addEventListener('click', async () => {
     if (!runner.isOpened) {
       ui.overlay.classList.remove('closed');
       return;
     }
-    runner.executeScript();
+    await runner.executeScript();
   });
   ui.dropZone.addEventListener(
     'dragover',
