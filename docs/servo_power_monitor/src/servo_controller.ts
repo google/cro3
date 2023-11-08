@@ -1,4 +1,4 @@
-import {OperatePort} from './operatePort';
+import {OperatePort} from './operate_port';
 
 type parseData = {
   power: number;

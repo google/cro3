@@ -1,4 +1,4 @@
-import {ServoController} from './servoController';
+import {ServoController} from './servo_controller';
 import {Graph} from './graph';
 import {Histogram} from './histogram';
 import {Ui} from './ui';

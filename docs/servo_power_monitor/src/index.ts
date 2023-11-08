@@ -2,10 +2,10 @@
 // without displaying" ; timeout 5 yes > /dev/null ; } ; done ectool
 // chargecontrol idle ectool chargecontrol normal
 import moment from 'moment';
-import {OperatePort} from './operatePort';
-import {PowerTestController} from './powerTestController';
-import {testRunner} from './testRunner';
-import {ServoController} from './servoController';
+import {OperatePort} from './operate_port';
+import {PowerTestController} from './power_test_controller';
+import {testRunner} from './test_runner';
+import {ServoController} from './servo_controller';
 import {Ui} from './ui';
 import {Graph} from './graph';
 

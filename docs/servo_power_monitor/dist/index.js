@@ -34123,19 +34123,19 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 // without displaying" ; timeout 5 yes > /dev/null ; } ; done ectool
 // chargecontrol idle ectool chargecontrol normal
 const moment_1 = __importDefault(__webpack_require__(/*! moment */ "./node_modules/moment/moment.js"));
-const operatePort_1 = __webpack_require__(/*! ./operatePort */ "./src/operatePort.ts");
-const powerTestController_1 = __webpack_require__(/*! ./powerTestController */ "./src/powerTestController.ts");
-const testRunner_1 = __webpack_require__(/*! ./testRunner */ "./src/testRunner.ts");
-const servoController_1 = __webpack_require__(/*! ./servoController */ "./src/servoController.ts");
+const operate_port_1 = __webpack_require__(/*! ./operate_port */ "./src/operate_port.ts");
+const power_test_controller_1 = __webpack_require__(/*! ./power_test_controller */ "./src/power_test_controller.ts");
+const test_runner_1 = __webpack_require__(/*! ./test_runner */ "./src/test_runner.ts");
+const servo_controller_1 = __webpack_require__(/*! ./servo_controller */ "./src/servo_controller.ts");
 const ui_1 = __webpack_require__(/*! ./ui */ "./src/ui.ts");
 const graph_1 = __webpack_require__(/*! ./graph */ "./src/graph.ts");
 window.addEventListener('DOMContentLoaded', () => {
     const ui = new ui_1.Ui();
     const graph = new graph_1.Graph(ui);
-    const servoController = new servoController_1.ServoController();
-    const testController = new powerTestController_1.PowerTestController(ui, graph, servoController);
-    const dutShell = new operatePort_1.OperatePort(0x18d1, 0x504a);
-    const runner = new testRunner_1.testRunner(ui, dutShell);
+    const servoController = new servo_controller_1.ServoController();
+    const testController = new power_test_controller_1.PowerTestController(ui, graph, servoController);
+    const dutShell = new operate_port_1.OperatePort(0x18d1, 0x504a);
+    const runner = new test_runner_1.testRunner(ui, dutShell);
     testController.setupDisconnectEvent();
     runner.setupDisconnectEvent();
     ui.requestSerialButton.addEventListener('click', () => {
@@ -34212,10 +34212,10 @@ window.addEventListener('DOMContentLoaded', () => {
 
 /***/ }),
 
-/***/ "./src/operatePort.ts":
-/*!****************************!*\
-  !*** ./src/operatePort.ts ***!
-  \****************************/
+/***/ "./src/operate_port.ts":
+/*!*****************************!*\
+  !*** ./src/operate_port.ts ***!
+  \*****************************/
 /***/ ((__unused_webpack_module, exports) => {
 
 "use strict";
@@ -34300,10 +34300,10 @@ exports.OperatePort = OperatePort;
 
 /***/ }),
 
-/***/ "./src/powerTestController.ts":
-/*!************************************!*\
-  !*** ./src/powerTestController.ts ***!
-  \************************************/
+/***/ "./src/power_test_controller.ts":
+/*!**************************************!*\
+  !*** ./src/power_test_controller.ts ***!
+  \**************************************/
 /***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
 "use strict";
@@ -34398,24 +34398,24 @@ exports.PowerTestController = PowerTestController;
 
 /***/ }),
 
-/***/ "./src/servoController.ts":
-/*!********************************!*\
-  !*** ./src/servoController.ts ***!
-  \********************************/
+/***/ "./src/servo_controller.ts":
+/*!*********************************!*\
+  !*** ./src/servo_controller.ts ***!
+  \*********************************/
 /***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.ServoController = void 0;
-const operatePort_1 = __webpack_require__(/*! ./operatePort */ "./src/operatePort.ts");
+const operate_port_1 = __webpack_require__(/*! ./operate_port */ "./src/operate_port.ts");
 class ServoController {
     constructor() {
         // ina 0 and 1 seems to be the same
         // ina 2 is something but not useful
         this.INA_COMMAND = 'ina 0\n';
         this.output = '';
-        this.servoShell = new operatePort_1.OperatePort(0x18d1, 0x520d);
+        this.servoShell = new operate_port_1.OperatePort(0x18d1, 0x520d);
         this.halt = true;
     }
     async readData() {
@@ -34459,17 +34459,17 @@ exports.ServoController = ServoController;
 
 /***/ }),
 
-/***/ "./src/testRunner.ts":
-/*!***************************!*\
-  !*** ./src/testRunner.ts ***!
-  \***************************/
+/***/ "./src/test_runner.ts":
+/*!****************************!*\
+  !*** ./src/test_runner.ts ***!
+  \****************************/
 /***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.testRunner = void 0;
-const operatePort_1 = __webpack_require__(/*! ./operatePort */ "./src/operatePort.ts");
+const operate_port_1 = __webpack_require__(/*! ./operate_port */ "./src/operate_port.ts");
 class testRunner {
     constructor(ui, dut) {
         this.isOpened = false;
@@ -34484,7 +34484,7 @@ function workload () {
 echo "start"
 workload 10 1> ./test_out.log 2> ./test_err.log
 echo "end"\n`;
-        this.dut = new operatePort_1.OperatePort(0x18d1, 0x504a);
+        this.dut = new operate_port_1.OperatePort(0x18d1, 0x504a);
         this.ui = ui;
         this.dut = dut;
     }
