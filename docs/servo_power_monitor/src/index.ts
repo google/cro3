@@ -15,7 +15,7 @@ window.addEventListener('DOMContentLoaded', () => {
   const servoController = new ServoController();
   const testController = new PowerTestController(ui, graph, servoController);
   const dutShell = new OperatePort(0x18d1, 0x504a);
-  const runner = new testRunner(ui, dutShell);
+  const runner = new testRunner(ui, graph, dutShell);
   testController.setupDisconnectEvent();
   runner.setupDisconnectEvent();
 

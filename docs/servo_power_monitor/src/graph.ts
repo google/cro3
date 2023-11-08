@@ -1,4 +1,4 @@
-import Dygraph, {dygraphs} from 'dygraphs';
+import Dygraph from 'dygraphs';
 import {Ui} from './ui';
 
 type AnnotationText = 'start' | 'end';
@@ -6,11 +6,15 @@ type AnnotationText = 'start' | 'end';
 export class Graph {
   private ui: Ui;
   private g = new Dygraph('graph', [], {});
-  private annotations: dygraphs.Annotation[] = [];
+  private annotations;
+  private annotationFlag = false;
+  private annotationText: AnnotationText = 'start';
   constructor(ui: Ui) {
     this.ui = ui;
+    this.annotations = this.g.annotations();
+    console.log(this.annotations);
   }
-  public updateGraph(powerData: Array<Array<Date | number>>) {
+  public updateGraph(powerData: Array<Array<number>>) {
     if (powerData !== undefined && powerData.length > 0) {
       this.ui.hideToolTip();
     }
@@ -38,14 +42,25 @@ export class Graph {
       },
       false
     );
+    if (this.annotationFlag) {
+      this.addAnnotation(powerData[powerData.length - 1][0]);
+      this.g.setAnnotations(this.annotations);
+      this.annotationFlag = false;
+    }
   }
-  public addAnnotation(text: AnnotationText) {
-    this.annotations.push({
-      series: 'power',
-      x: new Date().getTime(),
-      shortText: text === 'start' ? 'S' : 'E',
-      text: text,
-    });
+  public setAnnotationFlag(text: AnnotationText) {
+    this.annotationFlag = true;
+    this.annotationText = text;
+  }
+  private addAnnotation(xval: number) {
+    const newAnnotation = {
+      series: 'ina0',
+      xval: xval,
+      shortText: this.annotationText === 'start' ? 'S' : 'E',
+      text: this.annotationText,
+    };
+    this.annotations.push(newAnnotation);
+    console.log(this.annotations);
     this.g.setAnnotations(this.annotations);
   }
   public returnXrange() {

@@ -33858,7 +33858,11 @@ const dygraphs_1 = __importDefault(__webpack_require__(/*! dygraphs */ "./node_m
 class Graph {
     constructor(ui) {
         this.g = new dygraphs_1.default('graph', [], {});
+        this.annotationFlag = false;
+        this.annotationText = 'start';
         this.ui = ui;
+        this.annotations = this.g.annotations();
+        console.log(this.annotations);
     }
     updateGraph(powerData) {
         if (powerData !== undefined && powerData.length > 0) {
@@ -33884,6 +33888,26 @@ class Graph {
                 highlight_period(10, 10);
             },
         }, false);
+        if (this.annotationFlag) {
+            this.addAnnotation(powerData[powerData.length - 1][0]);
+            this.g.setAnnotations(this.annotations);
+            this.annotationFlag = false;
+        }
+    }
+    setAnnotationFlag(text) {
+        this.annotationFlag = true;
+        this.annotationText = text;
+    }
+    addAnnotation(xval) {
+        const newAnnotation = {
+            series: 'ina0',
+            xval: xval,
+            shortText: this.annotationText === 'start' ? 'S' : 'E',
+            text: this.annotationText,
+        };
+        this.annotations.push(newAnnotation);
+        console.log(this.annotations);
+        this.g.setAnnotations(this.annotations);
     }
     returnXrange() {
         console.log(this.g.xAxisExtremes());
@@ -34135,7 +34159,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const servoController = new servo_controller_1.ServoController();
     const testController = new power_test_controller_1.PowerTestController(ui, graph, servoController);
     const dutShell = new operate_port_1.OperatePort(0x18d1, 0x504a);
-    const runner = new test_runner_1.testRunner(ui, dutShell);
+    const runner = new test_runner_1.testRunner(ui, graph, dutShell);
     testController.setupDisconnectEvent();
     runner.setupDisconnectEvent();
     ui.requestSerialButton.addEventListener('click', () => {
@@ -34349,7 +34373,7 @@ class PowerTestController {
             if (currentPowerData === undefined)
                 continue;
             this.ui.setSerialOutput(currentPowerData.originalData);
-            const e = [new Date(), currentPowerData.power];
+            const e = [new Date().getTime(), currentPowerData.power];
             this.powerData.push(e);
             this.graph.updateGraph(this.powerData);
         }
@@ -34471,7 +34495,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.testRunner = void 0;
 const operate_port_1 = __webpack_require__(/*! ./operate_port */ "./src/operate_port.ts");
 class testRunner {
-    constructor(ui, dut) {
+    constructor(ui, graph, dut) {
         this.isOpened = false;
         this.CANCEL_CMD = '\x03\n';
         // shell script
@@ -34486,12 +34510,19 @@ workload 10 1> ./test_out.log 2> ./test_err.log
 echo "end"\n`;
         this.dut = new operate_port_1.OperatePort(0x18d1, 0x504a);
         this.ui = ui;
+        this.graph = graph;
         this.dut = dut;
     }
     async readDutLoop() {
         this.ui.addMessageToConsole('DutPort is selected');
         for (;;) {
             const chunk = await this.dut.read();
+            if (chunk.includes('start')) {
+                this.graph.setAnnotationFlag('start');
+            }
+            else if (chunk.includes('end')) {
+                this.graph.setAnnotationFlag('end');
+            }
             this.ui.addMessageToConsole(chunk);
         }
     }

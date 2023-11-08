@@ -9,7 +9,7 @@ export class PowerTestController {
   private inProgress = false;
   private ui: Ui;
   private servoController: ServoController;
-  private powerData: Array<Array<Date | number>> = [];
+  private powerData: Array<Array<number>> = [];
   private graph: Graph;
   private histogram = new Histogram();
   constructor(ui: Ui, graph: Graph, servoController: ServoController) {
@@ -42,7 +42,7 @@ export class PowerTestController {
       this.inProgress = false;
       if (currentPowerData === undefined) continue;
       this.ui.setSerialOutput(currentPowerData.originalData);
-      const e: Array<Date | number> = [new Date(), currentPowerData.power];
+      const e: Array<number> = [new Date().getTime(), currentPowerData.power];
       this.powerData.push(e);
       this.graph.updateGraph(this.powerData);
     }

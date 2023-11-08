@@ -1,3 +1,4 @@
+import {Graph} from './graph';
 import {OperatePort} from './operate_port';
 import {Ui} from './ui';
 
@@ -15,15 +16,22 @@ echo "start"
 workload 10 1> ./test_out.log 2> ./test_err.log
 echo "end"\n`;
   private ui: Ui;
+  private graph: Graph;
   public dut = new OperatePort(0x18d1, 0x504a);
-  constructor(ui: Ui, dut: OperatePort) {
+  constructor(ui: Ui, graph: Graph, dut: OperatePort) {
     this.ui = ui;
+    this.graph = graph;
     this.dut = dut;
   }
   private async readDutLoop() {
     this.ui.addMessageToConsole('DutPort is selected');
     for (;;) {
       const chunk = await this.dut.read();
+      if (chunk.includes('start')) {
+        this.graph.setAnnotationFlag('start');
+      } else if (chunk.includes('end')) {
+        this.graph.setAnnotationFlag('end');
+      }
       this.ui.addMessageToConsole(chunk);
     }
   }
