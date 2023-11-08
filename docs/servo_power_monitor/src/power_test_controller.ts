@@ -4,6 +4,15 @@ import {Histogram} from './histogram';
 import {Ui} from './ui';
 
 export type PowerDataType = [Date, number];
+export type AnnotationText = 'start' | 'end';
+export class AnnotationData {
+  text: AnnotationText;
+  time: number;
+  constructor(text: AnnotationText, time: number) {
+    this.text = text;
+    this.time = time;
+  }
+}
 
 export class PowerTestController {
   private INTERVAL_MS = 100;
@@ -71,14 +80,17 @@ export class PowerTestController {
     const data = JSON.parse(s);
     this.powerData = data.power.map((d: string) => [new Date(d[0]), d[1]]);
     this.graph.updateGraph(this.powerData);
+    // this.graph.updateAnnotation(data.annotation);
   }
   public exportPowerData() {
     const dataStr =
       'data:text/json;charset=utf-8,' +
       encodeURIComponent(
         JSON.stringify({
-          power: this.powerData,
-          annotation: this.graph.annotations.map(d => [d.x, d.text]),
+          power: this.powerData.map(d => [d[0].getTime(), d[1]]),
+          // annotation: this.graph.annotations.map(
+          //   d => new AnnotationData(d.text, d.x)
+          // ),
         })
       );
     return dataStr;

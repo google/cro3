@@ -9,7 +9,7 @@ export class testRunner {
   private scripts = `#!/bin/bash -e
 function workload () {
   ectool chargecontrol idle
-  stress-ng -c 1 -t \\$1
+  stress-ng -c 1 -t $1
   echo "workload"
 }
 echo "start"
@@ -42,9 +42,9 @@ echo "end"\n`;
   }
   public async executeScript() {
     await this.dut.write('cat > ./example.sh << EOF\n');
-    await this.dut.write(this.scripts);
+    await this.dut.write(btoa(this.scripts) + '\n');
     await this.dut.write('EOF\n');
-    await this.dut.write('bash ./example.sh\n');
+    await this.dut.write('base64 -d ./example.sh | bash\n');
   }
   public async executeCommand(s: string) {
     await this.dut.write(s);

@@ -1,8 +1,6 @@
 import Dygraph from 'dygraphs';
 import {Ui} from './ui';
-import {PowerDataType} from './power_test_controller';
-
-type AnnotationText = 'start' | 'end';
+import {AnnotationText, PowerDataType} from './power_test_controller';
 
 export class Graph {
   private ui: Ui;
@@ -55,21 +53,24 @@ export class Graph {
     const newAnnotation = {
       series: 'ina0',
       x: x.getTime(),
-      shortText: this.annotationText === 'start' ? 'S' : 'E',
+      shortText: this.annotationText[0],
       text: this.annotationText,
     };
     this.annotations.push(newAnnotation);
     this.g.setAnnotations(this.annotations);
   }
-  public updateAnnotation(annotations: Array<number|string>) {
-    this.annotations = annotations.map(d => {
-      series: 'ina0',
-      x: d[0],
-      shortText: d[1] === 'start' ? 'S' : 'E',
-      text: d[1],
-    });
-    this.g.setAnnotations(this.annotations);
-  }
+  // public updateAnnotation(annotations: Array<AnnotationDataType>) {
+  //   this.annotations = annotations.map(d => {
+  //     console.log(d.text);
+  //     return {
+  //       series: 'ina0',
+  //       x: d.time,
+  //       shortText: d.text[0],
+  //       text: d.text,
+  //     };
+  //   });
+  //   this.g.setAnnotations(this.annotations);
+  // }
   public returnXrange() {
     console.log(this.g.xAxisExtremes());
     return this.g.xAxisRange();
