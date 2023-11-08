@@ -33876,7 +33876,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.stopMeasurement = exports.downloadJSONFile = exports.disconnectSerialPort = exports.disconnectUsbPort = exports.requestSerial = exports.executeScript = exports.cancelSubmit = exports.formSubmit = exports.selectDutSerial = exports.handleDragOver = exports.handleFileSelect = exports.analyzePowerData = void 0;
+exports.stopMeasurement = exports.downloadJSONFile = exports.disconnectSerialPort = exports.requestSerial = exports.executeScript = exports.cancelSubmit = exports.formSubmit = exports.selectDutSerial = exports.handleDragOver = exports.handleFileSelect = exports.analyzePowerData = void 0;
 const d3 = __importStar(__webpack_require__(/*! d3 */ "./node_modules/d3/src/index.js"));
 const dygraphs_1 = __importDefault(__webpack_require__(/*! dygraphs */ "./node_modules/dygraphs/index.js"));
 const moment_1 = __importDefault(__webpack_require__(/*! moment */ "./node_modules/moment/moment.js"));
@@ -34337,11 +34337,9 @@ async function executeScript() {
     }
 }
 exports.executeScript = executeScript;
-let isSerial = false;
 async function requestSerial() {
     halt = false;
     await openServoSerialPort();
-    isSerial = true;
     (0, ui_1.enabledRecordingButton)(halt);
     await writeServoSerialPort('help\n');
     // TODO: Implement something to check the validity of servo serial port
@@ -34349,22 +34347,11 @@ async function requestSerial() {
     readLoop(async () => readServoSerialPort());
 }
 exports.requestSerial = requestSerial;
-async function disconnectUsbPort() {
-    if (!halt && !isSerial) {
-        //  No need to call close() for the Usb servoPort here because the
-        //  specification says that
-        // the servoPort will be closed automatically when a device is disconnected.
-        halt = true;
-        inProgress = false;
-        (0, ui_1.enabledRecordingButton)(halt);
-    }
-}
-exports.disconnectUsbPort = disconnectUsbPort;
 async function disconnectSerialPort() {
-    if (!halt && isSerial) {
-        await closeServoSerialPort();
+    if (!halt) {
         halt = true;
         inProgress = false;
+        await closeServoSerialPort();
         (0, ui_1.enabledRecordingButton)(halt);
     }
     if (isDutOpened) {
@@ -68882,9 +68869,6 @@ window.addEventListener('DOMContentLoaded', () => {
     (0, ui_1.inputAddKeydownEvent)(async (e) => (0, main_1.cancelSubmit)(e));
     (0, ui_1.executeScriptAddClickEvent)(main_1.executeScript);
     (0, ui_1.requestSerialAddClickEvent)(main_1.requestSerial);
-    // `disconnect` event is fired when a Usb device is disconnected.
-    // c.f. https://wicg.github.io/webusb/#disconnect (5.1. Events)
-    navigator.usb.addEventListener('disconnect', main_1.disconnectUsbPort);
     // event when you disconnect serial port
     navigator.serial.addEventListener('disconnect', main_1.disconnectSerialPort);
     (0, ui_1.downloadAddClickEvent)(main_1.downloadJSONFile);

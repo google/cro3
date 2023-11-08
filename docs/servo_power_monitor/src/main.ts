@@ -494,12 +494,9 @@ export async function executeScript() {
   }
 }
 
-let isSerial = false;
-
 export async function requestSerial() {
   halt = false;
   await openServoSerialPort();
-  isSerial = true;
   enabledRecordingButton(halt);
   await writeServoSerialPort('help\n');
   // TODO: Implement something to check the validity of servo serial port
@@ -508,22 +505,11 @@ export async function requestSerial() {
   readLoop(async () => readServoSerialPort());
 }
 
-export async function disconnectUsbPort() {
-  if (!halt && !isSerial) {
-    //  No need to call close() for the Usb servoPort here because the
-    //  specification says that
-    // the servoPort will be closed automatically when a device is disconnected.
-    halt = true;
-    inProgress = false;
-    enabledRecordingButton(halt);
-  }
-}
-
 export async function disconnectSerialPort() {
-  if (!halt && isSerial) {
-    await closeServoSerialPort();
+  if (!halt) {
     halt = true;
     inProgress = false;
+    await closeServoSerialPort();
     enabledRecordingButton(halt);
   }
   if (isDutOpened) {

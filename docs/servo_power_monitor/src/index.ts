@@ -10,7 +10,6 @@ import {
   formSubmit,
   selectDutSerial,
   requestSerial,
-  disconnectUsbPort,
   disconnectSerialPort,
   downloadJSONFile,
   stopMeasurement,
@@ -37,9 +36,6 @@ window.addEventListener('DOMContentLoaded', () => {
   inputAddKeydownEvent(async e => cancelSubmit(e));
   executeScriptAddClickEvent(executeScript);
   requestSerialAddClickEvent(requestSerial);
-  // `disconnect` event is fired when a Usb device is disconnected.
-  // c.f. https://wicg.github.io/webusb/#disconnect (5.1. Events)
-  navigator.usb.addEventListener('disconnect', disconnectUsbPort);
   // event when you disconnect serial port
   navigator.serial.addEventListener('disconnect', disconnectSerialPort);
   downloadAddClickEvent(downloadJSONFile);
