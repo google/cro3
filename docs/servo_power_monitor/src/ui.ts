@@ -23,7 +23,7 @@ export class Ui {
   public popupCloseButton = document.getElementById(
     'popup-close'
   ) as HTMLButtonElement;
-  public overlay = document.querySelector('#popup-overlay') as HTMLDivElement;
+  public overlay = document.getElementById('popup-overlay') as HTMLDivElement;
   public messages = document.getElementById('messages') as HTMLDivElement;
   public executeScriptButton = document.getElementById(
     'executeScriptButton'

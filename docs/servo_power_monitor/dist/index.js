@@ -34546,7 +34546,7 @@ class Ui {
         this.dutCommandForm = document.getElementById('dutCommandForm');
         this.dutCommandInput = document.getElementById('dutCommandInput');
         this.popupCloseButton = document.getElementById('popup-close');
-        this.overlay = document.querySelector('#popup-overlay');
+        this.overlay = document.getElementById('popup-overlay');
         this.messages = document.getElementById('messages');
         this.executeScriptButton = document.getElementById('executeScriptButton');
         this.dropZone = document.getElementById('dropZone');
