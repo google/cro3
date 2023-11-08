@@ -33876,7 +33876,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.stopMeasurement = exports.downloadJSONFile = exports.disconnectSerialPort = exports.disconnectUsbPort = exports.requestSerial = exports.requestUsb = exports.executeScript = exports.cancelSubmit = exports.formSubmit = exports.selectDutSerial = exports.handleDragOver = exports.handleFileSelect = exports.analyzePowerData = void 0;
+exports.stopMeasurement = exports.downloadJSONFile = exports.disconnectSerialPort = exports.disconnectUsbPort = exports.requestSerial = exports.executeScript = exports.cancelSubmit = exports.formSubmit = exports.selectDutSerial = exports.handleDragOver = exports.handleFileSelect = exports.analyzePowerData = void 0;
 const d3 = __importStar(__webpack_require__(/*! d3 */ "./node_modules/d3/src/index.js"));
 const dygraphs_1 = __importDefault(__webpack_require__(/*! dygraphs */ "./node_modules/dygraphs/index.js"));
 const moment_1 = __importDefault(__webpack_require__(/*! moment */ "./node_modules/moment/moment.js"));
@@ -34016,54 +34016,6 @@ async function writeDutSerialPort(s) {
     const writer = writable.getWriter();
     await writer.write(encoder.encode(s));
     writer.releaseLock();
-}
-let device;
-const usb_interface = 0;
-const ep = usb_interface + 1;
-async function openUsbPort() {
-    device = await navigator.usb
-        .requestDevice({ filters: [{ vendorId: 0x18d1, productId: 0x520d }] })
-        .catch(e => {
-        console.error(e);
-        throw e;
-    });
-    await device.open();
-    await device.selectConfiguration(1);
-    await device.claimInterface(usb_interface);
-}
-async function closeUsbPort() {
-    try {
-        await device.close();
-    }
-    catch (e) {
-        console.error(e);
-    }
-}
-async function writeUsbPort(s) {
-    await device.transferOut(ep, encoder.encode(s));
-}
-async function readUsbPort() {
-    try {
-        const result = await device.transferIn(ep, 64);
-        if (result.status === 'stall') {
-            await device.clearHalt('in', ep);
-            throw result;
-        }
-        const resultData = result.data;
-        if (resultData === undefined)
-            return '';
-        const result_array = new Int8Array(resultData.buffer);
-        return utf8decoder.decode(result_array);
-    }
-    catch (e) {
-        // If halt is true, it's when the stop button is pressed. Therefore,
-        // we can ignore the error.
-        if (!halt) {
-            console.error(e);
-            throw e;
-        }
-        return '';
-    }
 }
 let currentData;
 function updateGraph(g, data) {
@@ -34386,22 +34338,6 @@ async function executeScript() {
 }
 exports.executeScript = executeScript;
 let isSerial = false;
-async function requestUsb() {
-    halt = false;
-    await openUsbPort();
-    isSerial = false;
-    (0, ui_1.enabledRecordingButton)(halt);
-    try {
-        kickWriteLoop(async (s) => writeUsbPort(s));
-        readLoop(async () => readUsbPort());
-    }
-    catch (err) {
-        console.error(`Disconnected: ${err}`);
-        halt = true;
-        (0, ui_1.enabledRecordingButton)(halt);
-    }
-}
-exports.requestUsb = requestUsb;
 async function requestSerial() {
     halt = false;
     await openServoSerialPort();
@@ -34446,12 +34382,7 @@ exports.downloadJSONFile = downloadJSONFile;
 async function stopMeasurement() {
     halt = true;
     inProgress = false;
-    if (isSerial) {
-        await closeServoSerialPort();
-    }
-    else {
-        await closeUsbPort();
-    }
+    await closeServoSerialPort();
     (0, ui_1.enabledRecordingButton)(halt);
 }
 exports.stopMeasurement = stopMeasurement;
@@ -34471,9 +34402,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.dropZoneAddDropEvent = exports.dropZoneAddDragoverEvent = exports.setDownloadAnchor = exports.analyzeAddClickEvent = exports.downloadAddClickEvent = exports.readInputValue = exports.inputAddKeydownEvent = exports.formAddSubmitEvent = exports.executeScriptAddClickEvent = exports.selectDutSerialAddClickEvent = exports.addMessageToConsole = exports.closePopup = exports.setPopupCloseButton = exports.enabledRecordingButton = exports.haltAddClickEvent = exports.requestUsbAddClickEvent = exports.requestSerialAddClickEvent = void 0;
+exports.dropZoneAddDropEvent = exports.dropZoneAddDragoverEvent = exports.setDownloadAnchor = exports.analyzeAddClickEvent = exports.downloadAddClickEvent = exports.readInputValue = exports.inputAddKeydownEvent = exports.formAddSubmitEvent = exports.executeScriptAddClickEvent = exports.selectDutSerialAddClickEvent = exports.addMessageToConsole = exports.closePopup = exports.setPopupCloseButton = exports.enabledRecordingButton = exports.haltAddClickEvent = exports.requestSerialAddClickEvent = void 0;
 const moment_1 = __importDefault(__webpack_require__(/*! moment */ "./node_modules/moment/moment.js"));
-const requestUsbButton = document.getElementById('request-device');
 const requestSerialButton = document.getElementById('requestSerialButton');
 const haltButton = document.getElementById('haltButton');
 const downloadButton = document.getElementById('downloadButton');
@@ -34490,16 +34420,11 @@ function requestSerialAddClickEvent(fn) {
     requestSerialButton.addEventListener('click', fn);
 }
 exports.requestSerialAddClickEvent = requestSerialAddClickEvent;
-function requestUsbAddClickEvent(fn) {
-    requestUsbButton.addEventListener('click', fn);
-}
-exports.requestUsbAddClickEvent = requestUsbAddClickEvent;
 function haltAddClickEvent(fn) {
     haltButton.addEventListener('click', fn);
 }
 exports.haltAddClickEvent = haltAddClickEvent;
 function enabledRecordingButton(halt) {
-    requestUsbButton.disabled = !halt;
     requestSerialButton.disabled = !halt;
 }
 exports.enabledRecordingButton = enabledRecordingButton;
@@ -68956,7 +68881,6 @@ window.addEventListener('DOMContentLoaded', () => {
     (0, ui_1.formAddSubmitEvent)(async (e) => (0, main_1.formSubmit)(e));
     (0, ui_1.inputAddKeydownEvent)(async (e) => (0, main_1.cancelSubmit)(e));
     (0, ui_1.executeScriptAddClickEvent)(main_1.executeScript);
-    (0, ui_1.requestUsbAddClickEvent)(main_1.requestUsb);
     (0, ui_1.requestSerialAddClickEvent)(main_1.requestSerial);
     // `disconnect` event is fired when a Usb device is disconnected.
     // c.f. https://wicg.github.io/webusb/#disconnect (5.1. Events)
