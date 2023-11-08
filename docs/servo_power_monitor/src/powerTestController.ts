@@ -12,10 +12,10 @@ export class PowerTestController {
   private powerData: Array<Array<Date | number>> = [];
   private graph: Graph;
   private histogram = new Histogram();
-  constructor(ui: Ui, servoController: ServoController) {
+  constructor(ui: Ui, graph: Graph, servoController: ServoController) {
     this.ui = ui;
+    this.graph = graph;
     this.servoController = servoController;
-    this.graph = new Graph(ui);
   }
   private changeHaltFlag(flag: boolean) {
     this.halt = flag;

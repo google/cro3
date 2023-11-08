@@ -7,11 +7,13 @@ import {PowerTestController} from './powerTestController';
 import {testRunner} from './testRunner';
 import {ServoController} from './servoController';
 import {Ui} from './ui';
+import {Graph} from './graph';
 
 window.addEventListener('DOMContentLoaded', () => {
   const ui = new Ui();
+  const graph = new Graph(ui);
   const servoController = new ServoController();
-  const testController = new PowerTestController(ui, servoController);
+  const testController = new PowerTestController(ui, graph, servoController);
   const dutShell = new OperatePort(0x18d1, 0x504a);
   const runner = new testRunner(ui, dutShell);
   testController.setupDisconnectEvent();
