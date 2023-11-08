@@ -1,7 +1,4 @@
 export class Ui {
-  public requestUsbButton = document.getElementById(
-    'request-device'
-  ) as HTMLButtonElement;
   public requestSerialButton = document.getElementById(
     'requestSerialButton'
   ) as HTMLButtonElement;
@@ -41,7 +38,6 @@ export class Ui {
   public toolTip = document.getElementById('tooltip') as HTMLDivElement;
 
   public enabledRecordingButton(halt: boolean) {
-    this.requestUsbButton.disabled = !halt;
     this.requestSerialButton.disabled = !halt;
     this.haltButton.disabled = halt;
     this.downloadButton.disabled = !halt;

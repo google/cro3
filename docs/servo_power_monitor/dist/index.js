@@ -34538,7 +34538,6 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.Ui = void 0;
 class Ui {
     constructor() {
-        this.requestUsbButton = document.getElementById('request-device');
         this.requestSerialButton = document.getElementById('requestSerialButton');
         this.haltButton = document.getElementById('haltButton');
         this.downloadButton = document.getElementById('downloadButton');
@@ -34556,7 +34555,6 @@ class Ui {
         this.toolTip = document.getElementById('tooltip');
     }
     enabledRecordingButton(halt) {
-        this.requestUsbButton.disabled = !halt;
         this.requestSerialButton.disabled = !halt;
         this.haltButton.disabled = halt;
         this.downloadButton.disabled = !halt;
