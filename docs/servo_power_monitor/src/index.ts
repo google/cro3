@@ -9,7 +9,6 @@ import {
   executeScript,
   formSubmit,
   selectDutSerial,
-  requestUsb,
   requestSerial,
   disconnectUsbPort,
   disconnectSerialPort,
@@ -27,7 +26,6 @@ import {
   haltAddClickEvent,
   inputAddKeydownEvent,
   requestSerialAddClickEvent,
-  requestUsbAddClickEvent,
   selectDutSerialAddClickEvent,
   setPopupCloseButton,
 } from './ui';
@@ -38,7 +36,6 @@ window.addEventListener('DOMContentLoaded', () => {
   formAddSubmitEvent(async e => formSubmit(e));
   inputAddKeydownEvent(async e => cancelSubmit(e));
   executeScriptAddClickEvent(executeScript);
-  requestUsbAddClickEvent(requestUsb);
   requestSerialAddClickEvent(requestSerial);
   // `disconnect` event is fired when a Usb device is disconnected.
   // c.f. https://wicg.github.io/webusb/#disconnect (5.1. Events)

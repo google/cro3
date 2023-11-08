@@ -146,56 +146,6 @@ async function writeDutSerialPort(s: string) {
   writer.releaseLock();
 }
 
-let device: USBDevice;
-const usb_interface = 0;
-const ep = usb_interface + 1;
-
-async function openUsbPort() {
-  device = await navigator.usb
-    .requestDevice({filters: [{vendorId: 0x18d1, productId: 0x520d}]})
-    .catch(e => {
-      console.error(e);
-      throw e;
-    });
-  await device.open();
-  await device.selectConfiguration(1);
-  await device.claimInterface(usb_interface);
-}
-
-async function closeUsbPort() {
-  try {
-    await device.close();
-  } catch (e) {
-    console.error(e);
-  }
-}
-
-async function writeUsbPort(s: string) {
-  await device.transferOut(ep, encoder.encode(s));
-}
-
-async function readUsbPort() {
-  try {
-    const result = await device.transferIn(ep, 64);
-    if (result.status === 'stall') {
-      await device.clearHalt('in', ep);
-      throw result;
-    }
-    const resultData = result.data;
-    if (resultData === undefined) return '';
-    const result_array = new Int8Array(resultData.buffer);
-    return utf8decoder.decode(result_array);
-  } catch (e) {
-    // If halt is true, it's when the stop button is pressed. Therefore,
-    // we can ignore the error.
-    if (!halt) {
-      console.error(e);
-      throw e;
-    }
-    return '';
-  }
-}
-
 let currentData: Array<Array<Date | number>>;
 function updateGraph(g: Dygraph, data: Array<Array<Date | number>>) {
   if (data !== undefined && data.length > 0) {
@@ -546,21 +496,6 @@ export async function executeScript() {
 
 let isSerial = false;
 
-export async function requestUsb() {
-  halt = false;
-  await openUsbPort();
-  isSerial = false;
-  enabledRecordingButton(halt);
-  try {
-    kickWriteLoop(async s => writeUsbPort(s));
-    readLoop(async () => readUsbPort());
-  } catch (err) {
-    console.error(`Disconnected: ${err}`);
-    halt = true;
-    enabledRecordingButton(halt);
-  }
-}
-
 export async function requestSerial() {
   halt = false;
   await openServoSerialPort();
@@ -607,10 +542,6 @@ export function downloadJSONFile() {
 export async function stopMeasurement() {
   halt = true;
   inProgress = false;
-  if (isSerial) {
-    await closeServoSerialPort();
-  } else {
-    await closeUsbPort();
-  }
+  await closeServoSerialPort();
   enabledRecordingButton(halt);
 }
