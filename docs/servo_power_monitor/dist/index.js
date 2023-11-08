@@ -21841,7 +21841,11 @@ window.addEventListener('DOMContentLoaded', () => {
     const servoController = new servo_controller_1.ServoController();
     const testController = new power_test_controller_1.PowerTestController(ui, graph, servoController);
     const dutShell = new operate_port_1.OperatePort(0x18d1, 0x504a);
+<<<<<<< HEAD
     const runner = new test_runner_1.testRunner(ui, graph, dutShell);
+=======
+    const runner = new test_runner_1.testRunner(ui, dutShell);
+>>>>>>> upstream/main
     testController.setupDisconnectEvent();
     runner.setupDisconnectEvent();
     ui.requestSerialButton.addEventListener('click', () => {
@@ -21894,10 +21898,17 @@ window.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         const eventDataTransfer = e.dataTransfer;
         if (eventDataTransfer === null)
+<<<<<<< HEAD
             return;
         const file = eventDataTransfer.files[0];
         if (file === undefined)
             return;
+=======
+            return;
+        const file = eventDataTransfer.files[0];
+        if (file === undefined)
+            return;
+>>>>>>> upstream/main
         const r = new FileReader();
         r.addEventListener('load', () => {
             testController.loadPowerData(r.result);
@@ -22085,10 +22096,14 @@ class PowerTestController {
     }
     exportPowerData() {
         const dataStr = 'data:text/json;charset=utf-8,' +
+<<<<<<< HEAD
             encodeURIComponent(JSON.stringify({
                 power: this.powerData,
                 annotation: this.graph.annotations.map(d => [d.x, d.text]),
             }));
+=======
+            encodeURIComponent(JSON.stringify({ power: this.powerData }));
+>>>>>>> upstream/main
         return dataStr;
     }
     setupDisconnectEvent() {
@@ -22180,7 +22195,11 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.testRunner = void 0;
 const operate_port_1 = __webpack_require__(/*! ./operate_port */ "./src/operate_port.ts");
 class testRunner {
+<<<<<<< HEAD
     constructor(ui, graph, dut) {
+=======
+    constructor(ui, dut) {
+>>>>>>> upstream/main
         this.isOpened = false;
         this.CANCEL_CMD = '\x03\n';
         // shell script
@@ -22195,19 +22214,25 @@ workload 10 1> ./test_out.log 2> ./test_err.log
 echo "end"\n`;
         this.dut = new operate_port_1.OperatePort(0x18d1, 0x504a);
         this.ui = ui;
+<<<<<<< HEAD
         this.graph = graph;
+=======
+>>>>>>> upstream/main
         this.dut = dut;
     }
     async readDutLoop() {
         this.ui.addMessageToConsole('DutPort is selected');
         for (;;) {
             const chunk = await this.dut.read();
+<<<<<<< HEAD
             if (chunk.includes('start')) {
                 this.graph.setAnnotationFlag('start');
             }
             else if (chunk.includes('end')) {
                 this.graph.setAnnotationFlag('end');
             }
+=======
+>>>>>>> upstream/main
             this.ui.addMessageToConsole(chunk);
         }
     }
