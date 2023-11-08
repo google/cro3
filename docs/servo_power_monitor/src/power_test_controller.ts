@@ -3,13 +3,15 @@ import {Graph} from './graph';
 import {Histogram} from './histogram';
 import {Ui} from './ui';
 
+export type PowerDataType = [Date, number];
+
 export class PowerTestController {
   private INTERVAL_MS = 100;
   public halt = true;
   private inProgress = false;
   private ui: Ui;
   private servoController: ServoController;
-  private powerData: Array<Array<number>> = [];
+  private powerData: Array<PowerDataType> = [];
   private graph: Graph;
   private histogram = new Histogram();
   constructor(ui: Ui, graph: Graph, servoController: ServoController) {
@@ -42,7 +44,7 @@ export class PowerTestController {
       this.inProgress = false;
       if (currentPowerData === undefined) continue;
       this.ui.setSerialOutput(currentPowerData.originalData);
-      const e: Array<number> = [new Date().getTime(), currentPowerData.power];
+      const e: PowerDataType = [new Date(), currentPowerData.power];
       this.powerData.push(e);
       this.graph.updateGraph(this.powerData);
     }
@@ -73,7 +75,12 @@ export class PowerTestController {
   public exportPowerData() {
     const dataStr =
       'data:text/json;charset=utf-8,' +
-      encodeURIComponent(JSON.stringify({power: this.powerData}));
+      encodeURIComponent(
+        JSON.stringify({
+          power: this.powerData,
+          annotation: this.graph.annotations.map(d => [d.x, d.text]),
+        })
+      );
     return dataStr;
   }
   public setupDisconnectEvent() {

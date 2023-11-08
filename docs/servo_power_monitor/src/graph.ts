@@ -1,20 +1,20 @@
 import Dygraph from 'dygraphs';
 import {Ui} from './ui';
+import {PowerDataType} from './power_test_controller';
 
 type AnnotationText = 'start' | 'end';
 
 export class Graph {
   private ui: Ui;
-  private g = new Dygraph('graph', [], {});
-  private annotations;
-  private annotationFlag = false;
+  public g = new Dygraph('graph', [], {});
+  public annotations;
+  public annotationFlag = false;
   private annotationText: AnnotationText = 'start';
   constructor(ui: Ui) {
     this.ui = ui;
     this.annotations = this.g.annotations();
-    console.log(this.annotations);
   }
-  public updateGraph(powerData: Array<Array<number>>) {
+  public updateGraph(powerData: Array<PowerDataType>) {
     if (powerData !== undefined && powerData.length > 0) {
       this.ui.hideToolTip();
     }
@@ -44,7 +44,6 @@ export class Graph {
     );
     if (this.annotationFlag) {
       this.addAnnotation(powerData[powerData.length - 1][0]);
-      this.g.setAnnotations(this.annotations);
       this.annotationFlag = false;
     }
   }
@@ -52,15 +51,23 @@ export class Graph {
     this.annotationFlag = true;
     this.annotationText = text;
   }
-  private addAnnotation(xval: number) {
+  private addAnnotation(x: Date) {
     const newAnnotation = {
       series: 'ina0',
-      xval: xval,
+      x: x.getTime(),
       shortText: this.annotationText === 'start' ? 'S' : 'E',
       text: this.annotationText,
     };
     this.annotations.push(newAnnotation);
-    console.log(this.annotations);
+    this.g.setAnnotations(this.annotations);
+  }
+  public updateAnnotation(annotations: Array<number|string>) {
+    this.annotations = annotations.map(d => {
+      series: 'ina0',
+      x: d[0],
+      shortText: d[1] === 'start' ? 'S' : 'E',
+      text: d[1],
+    });
     this.g.setAnnotations(this.annotations);
   }
   public returnXrange() {
