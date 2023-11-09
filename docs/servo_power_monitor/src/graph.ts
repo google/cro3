@@ -40,7 +40,10 @@ export class Graph {
       false
     );
     if (this.annotationFlag) {
-      this.addAnnotation(powerData[powerData.length - 1][0]);
+      this.addAnnotation(
+        powerData[powerData.length - 1][0].getTime(),
+        this.annotationText
+      );
       this.annotationFlag = false;
     }
   }
@@ -48,15 +51,27 @@ export class Graph {
     this.annotationFlag = true;
     this.annotationText = text;
   }
-  private addAnnotation(x: Date) {
+  public addAnnotation(x: number, text: string) {
     const newAnnotation = {
       series: 'ina0',
-      x: x.getTime(),
-      shortText: this.annotationText[0],
-      text: this.annotationText,
+      x: x,
+      shortText: text[0],
+      text: text,
     };
     this.annotations.push(newAnnotation);
     this.g.setAnnotations(this.annotations);
+  }
+  public findAnnotationPoint(
+    powerData: Array<PowerData>,
+    time: Date,
+    text: string
+  ) {
+    for (const powerDataElement of powerData) {
+      if (time < powerDataElement[0]) {
+        this.addAnnotation(powerDataElement[0].getTime(), text);
+        break;
+      }
+    }
   }
   public returnXrange() {
     console.log(this.g.xAxisExtremes());

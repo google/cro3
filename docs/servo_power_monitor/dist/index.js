@@ -33887,7 +33887,7 @@ class Graph {
             },
         }, false);
         if (this.annotationFlag) {
-            this.addAnnotation(powerData[powerData.length - 1][0]);
+            this.addAnnotation(powerData[powerData.length - 1][0].getTime(), this.annotationText);
             this.annotationFlag = false;
         }
     }
@@ -33895,15 +33895,23 @@ class Graph {
         this.annotationFlag = true;
         this.annotationText = text;
     }
-    addAnnotation(x) {
+    addAnnotation(x, text) {
         const newAnnotation = {
             series: 'ina0',
-            x: x.getTime(),
-            shortText: this.annotationText[0],
-            text: this.annotationText,
+            x: x,
+            shortText: text[0],
+            text: text,
         };
         this.annotations.push(newAnnotation);
         this.g.setAnnotations(this.annotations);
+    }
+    findAnnotationPoint(powerData, time, text) {
+        for (const powerDataElement of powerData) {
+            if (time < powerDataElement[0]) {
+                this.addAnnotation(powerDataElement[0].getTime(), text);
+                break;
+            }
+        }
     }
     returnXrange() {
         console.log(this.g.xAxisExtremes());
@@ -34383,11 +34391,11 @@ class PowerTestController {
             const dutData = await this.runner.readData();
             if (dutData.includes('start')) {
                 this.graph.setAnnotationFlag('start');
-                this.annotationList.push(['start', new Date()]);
+                this.annotationList.push([new Date(), 'start']);
             }
             else if (dutData.includes('end')) {
                 this.graph.setAnnotationFlag('end');
-                this.annotationList.push(['end', new Date()]);
+                this.annotationList.push([new Date(), 'end']);
             }
             this.ui.addMessageToConsole(dutData);
         }
@@ -34417,16 +34425,15 @@ class PowerTestController {
     }
     loadPowerData(s) {
         const data = JSON.parse(s);
-        console.log(data);
         this.powerData = data.power.map((d) => [
             new Date(d.time),
             d.power,
         ]);
-        this.annotationList = data.power.map((d) => [
-            d.text,
-            new Date(d.time),
-        ]);
+        this.annotationList = data.annotation.map((d) => [new Date(d.time), d.text]);
         this.graph.updateGraph(this.powerData);
+        for (const ann of this.annotationList) {
+            this.graph.findAnnotationPoint(this.powerData, ann[0], ann[1]);
+        }
     }
     exportPowerData() {
         const dataStr = 'data:text/json;charset=utf-8,' +
@@ -34439,8 +34446,8 @@ class PowerTestController {
                 }),
                 annotation: this.annotationList.map(d => {
                     return {
-                        text: d[0],
-                        time: d[1].getTime(),
+                        time: d[0].getTime(),
+                        text: d[1],
                     };
                 }),
             }));
