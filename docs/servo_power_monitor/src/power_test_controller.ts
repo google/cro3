@@ -2,17 +2,11 @@ import {ServoController} from './servo_controller';
 import {Graph} from './graph';
 import {Histogram} from './histogram';
 import {Ui} from './ui';
+import {TestRunner} from './test_runner';
 
-export type PowerDataType = [Date, number];
+export type PowerData = [Date, number];
 export type AnnotationText = 'start' | 'end';
-export class AnnotationData {
-  text: AnnotationText;
-  time: number;
-  constructor(text: AnnotationText, time: number) {
-    this.text = text;
-    this.time = time;
-  }
-}
+export type AnnotationData = [AnnotationText, Date];
 
 export class PowerTestController {
   private INTERVAL_MS = 100;
@@ -20,13 +14,21 @@ export class PowerTestController {
   private inProgress = false;
   private ui: Ui;
   private servoController: ServoController;
-  private powerData: Array<PowerDataType> = [];
+  private runner: TestRunner;
+  private powerData: Array<PowerData> = [];
+  private annotationList: Array<AnnotationData> = [];
   private graph: Graph;
   private histogram = new Histogram();
-  constructor(ui: Ui, graph: Graph, servoController: ServoController) {
+  constructor(
+    ui: Ui,
+    graph: Graph,
+    servoController: ServoController,
+    runner: TestRunner
+  ) {
     this.ui = ui;
     this.graph = graph;
     this.servoController = servoController;
+    this.runner = runner;
   }
   private changeHaltFlag(flag: boolean) {
     this.halt = flag;
@@ -53,9 +55,23 @@ export class PowerTestController {
       this.inProgress = false;
       if (currentPowerData === undefined) continue;
       this.ui.setSerialOutput(currentPowerData.originalData);
-      const e: PowerDataType = [new Date(), currentPowerData.power];
+      const e: PowerData = [new Date(), currentPowerData.power];
       this.powerData.push(e);
       this.graph.updateGraph(this.powerData);
+    }
+  }
+  private async readDutLoop() {
+    this.ui.addMessageToConsole('DutPort is selected');
+    for (;;) {
+      const dutData = await this.runner.readData();
+      if (dutData.includes('start')) {
+        this.graph.setAnnotationFlag('start');
+        this.annotationList.push(['start', new Date()]);
+      } else if (dutData.includes('end')) {
+        this.graph.setAnnotationFlag('end');
+        this.annotationList.push(['end', new Date()]);
+      }
+      this.ui.addMessageToConsole(dutData);
     }
   }
   public async startMeasurement() {
@@ -69,6 +85,11 @@ export class PowerTestController {
     this.inProgress = false;
     await this.servoController.servoShell.close();
   }
+  public async selectPort() {
+    await this.runner.dut.open();
+    this.runner.isOpened = true;
+    this.readDutLoop();
+  }
   public analyzePowerData() {
     // https://dygraphs.com/jsdoc/symbols/Dygraph.html#xAxisRange
     const xrange = this.graph.returnXrange();
@@ -78,7 +99,15 @@ export class PowerTestController {
   }
   public loadPowerData(s: string) {
     const data = JSON.parse(s);
-    this.powerData = data.power.map((d: string) => [new Date(d[0]), d[1]]);
+    console.log(data);
+    this.powerData = data.power.map((d: {time: number; power: number}) => [
+      new Date(d.time),
+      d.power,
+    ]);
+    this.annotationList = data.power.map((d: {text: string; time: number}) => [
+      d.text,
+      new Date(d.time),
+    ]);
     this.graph.updateGraph(this.powerData);
   }
   public exportPowerData() {
@@ -86,7 +115,18 @@ export class PowerTestController {
       'data:text/json;charset=utf-8,' +
       encodeURIComponent(
         JSON.stringify({
-          power: this.powerData.map(d => [d[0].getTime(), d[1]]),
+          power: this.powerData.map(d => {
+            return {
+              time: d[0].getTime(),
+              power: d[1],
+            };
+          }),
+          annotation: this.annotationList.map(d => {
+            return {
+              text: d[0],
+              time: d[1].getTime(),
+            };
+          }),
         })
       );
     return dataStr;

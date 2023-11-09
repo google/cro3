@@ -33867,7 +33867,6 @@ class Graph {
         if (powerData !== undefined && powerData.length > 0) {
             this.ui.hideToolTip();
         }
-        // currentData = data;
         this.g.updateOptions({
             file: powerData,
             labels: ['t', 'ina0'],
@@ -33906,18 +33905,6 @@ class Graph {
         this.annotations.push(newAnnotation);
         this.g.setAnnotations(this.annotations);
     }
-    // public updateAnnotation(annotations: Array<AnnotationDataType>) {
-    //   this.annotations = annotations.map(d => {
-    //     console.log(d.text);
-    //     return {
-    //       series: 'ina0',
-    //       x: d.time,
-    //       shortText: d.text[0],
-    //       text: d.text,
-    //     };
-    //   });
-    //   this.g.setAnnotations(this.annotations);
-    // }
     returnXrange() {
         console.log(this.g.xAxisExtremes());
         return this.g.xAxisRange();
@@ -34166,9 +34153,9 @@ window.addEventListener('DOMContentLoaded', () => {
     const ui = new ui_1.Ui();
     const graph = new graph_1.Graph(ui);
     const servoController = new servo_controller_1.ServoController();
-    const testController = new power_test_controller_1.PowerTestController(ui, graph, servoController);
     const dutShell = new operate_port_1.OperatePort(0x18d1, 0x504a);
-    const runner = new test_runner_1.testRunner(ui, graph, dutShell);
+    const runner = new test_runner_1.TestRunner(ui, graph, dutShell);
+    const testController = new power_test_controller_1.PowerTestController(ui, graph, servoController, runner);
     testController.setupDisconnectEvent();
     runner.setupDisconnectEvent();
     ui.requestSerialButton.addEventListener('click', () => {
@@ -34178,7 +34165,7 @@ window.addEventListener('DOMContentLoaded', () => {
         testController.stopMeasurement();
     });
     ui.selectDutSerialButton.addEventListener('click', () => {
-        runner.selectPort();
+        testController.selectPort();
     });
     ui.dutCommandForm.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -34206,6 +34193,7 @@ window.addEventListener('DOMContentLoaded', () => {
             ui.overlay.classList.remove('closed');
             return;
         }
+        await runner.copyScriptToDut();
         await runner.executeScript();
     });
     ui.dropZone.addEventListener('dragover', e => {
@@ -34342,25 +34330,20 @@ exports.OperatePort = OperatePort;
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.PowerTestController = exports.AnnotationData = void 0;
+exports.PowerTestController = void 0;
 const histogram_1 = __webpack_require__(/*! ./histogram */ "./src/histogram.ts");
-class AnnotationData {
-    constructor(text, time) {
-        this.text = text;
-        this.time = time;
-    }
-}
-exports.AnnotationData = AnnotationData;
 class PowerTestController {
-    constructor(ui, graph, servoController) {
+    constructor(ui, graph, servoController, runner) {
         this.INTERVAL_MS = 100;
         this.halt = true;
         this.inProgress = false;
         this.powerData = [];
+        this.annotationList = [];
         this.histogram = new histogram_1.Histogram();
         this.ui = ui;
         this.graph = graph;
         this.servoController = servoController;
+        this.runner = runner;
     }
     changeHaltFlag(flag) {
         this.halt = flag;
@@ -34394,6 +34377,21 @@ class PowerTestController {
             this.graph.updateGraph(this.powerData);
         }
     }
+    async readDutLoop() {
+        this.ui.addMessageToConsole('DutPort is selected');
+        for (;;) {
+            const dutData = await this.runner.readData();
+            if (dutData.includes('start')) {
+                this.graph.setAnnotationFlag('start');
+                this.annotationList.push(['start', new Date()]);
+            }
+            else if (dutData.includes('end')) {
+                this.graph.setAnnotationFlag('end');
+                this.annotationList.push(['end', new Date()]);
+            }
+            this.ui.addMessageToConsole(dutData);
+        }
+    }
     async startMeasurement() {
         await this.servoController.servoShell.open();
         this.changeHaltFlag(false);
@@ -34405,6 +34403,11 @@ class PowerTestController {
         this.inProgress = false;
         await this.servoController.servoShell.close();
     }
+    async selectPort() {
+        await this.runner.dut.open();
+        this.runner.isOpened = true;
+        this.readDutLoop();
+    }
     analyzePowerData() {
         // https://dygraphs.com/jsdoc/symbols/Dygraph.html#xAxisRange
         const xrange = this.graph.returnXrange();
@@ -34414,17 +34417,32 @@ class PowerTestController {
     }
     loadPowerData(s) {
         const data = JSON.parse(s);
-        this.powerData = data.power.map((d) => [new Date(d[0]), d[1]]);
+        console.log(data);
+        this.powerData = data.power.map((d) => [
+            new Date(d.time),
+            d.power,
+        ]);
+        this.annotationList = data.power.map((d) => [
+            d.text,
+            new Date(d.time),
+        ]);
         this.graph.updateGraph(this.powerData);
-        // this.graph.updateAnnotation(data.annotation);
     }
     exportPowerData() {
         const dataStr = 'data:text/json;charset=utf-8,' +
             encodeURIComponent(JSON.stringify({
-                power: this.powerData.map(d => [d[0].getTime(), d[1]]),
-                // annotation: this.graph.annotations.map(
-                //   d => new AnnotationData(d.text, d.x)
-                // ),
+                power: this.powerData.map(d => {
+                    return {
+                        time: d[0].getTime(),
+                        power: d[1],
+                    };
+                }),
+                annotation: this.annotationList.map(d => {
+                    return {
+                        text: d[0],
+                        time: d[1].getTime(),
+                    };
+                }),
             }));
         return dataStr;
     }
@@ -34514,9 +34532,9 @@ exports.ServoController = ServoController;
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.testRunner = void 0;
+exports.TestRunner = void 0;
 const operate_port_1 = __webpack_require__(/*! ./operate_port */ "./src/operate_port.ts");
-class testRunner {
+class TestRunner {
     constructor(ui, graph, dut) {
         this.isOpened = false;
         this.CANCEL_CMD = '\x03\n';
@@ -34535,28 +34553,16 @@ echo "end"\n`;
         this.graph = graph;
         this.dut = dut;
     }
-    async readDutLoop() {
-        this.ui.addMessageToConsole('DutPort is selected');
-        for (;;) {
-            const chunk = await this.dut.read();
-            if (chunk.includes('start')) {
-                this.graph.setAnnotationFlag('start');
-            }
-            else if (chunk.includes('end')) {
-                this.graph.setAnnotationFlag('end');
-            }
-            this.ui.addMessageToConsole(chunk);
-        }
+    async readData() {
+        const chunk = await this.dut.read();
+        return chunk;
     }
-    async selectPort() {
-        await this.dut.open();
-        this.isOpened = true;
-        this.readDutLoop();
-    }
-    async executeScript() {
+    async copyScriptToDut() {
         await this.dut.write('cat > ./example.sh << EOF\n');
         await this.dut.write(btoa(this.scripts) + '\n');
         await this.dut.write('EOF\n');
+    }
+    async executeScript() {
         await this.dut.write('base64 -d ./example.sh | bash\n');
     }
     async executeCommand(s) {
@@ -34574,7 +34580,7 @@ echo "end"\n`;
         });
     }
 }
-exports.testRunner = testRunner;
+exports.TestRunner = TestRunner;
 
 
 /***/ }),

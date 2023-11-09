@@ -2,7 +2,7 @@ import {Graph} from './graph';
 import {OperatePort} from './operate_port';
 import {Ui} from './ui';
 
-export class testRunner {
+export class TestRunner {
   public isOpened = false;
   private CANCEL_CMD = '\x03\n';
   // shell script
@@ -23,22 +23,9 @@ echo "end"\n`;
     this.graph = graph;
     this.dut = dut;
   }
-  private async readDutLoop() {
-    this.ui.addMessageToConsole('DutPort is selected');
-    for (;;) {
-      const chunk = await this.dut.read();
-      if (chunk.includes('start')) {
-        this.graph.setAnnotationFlag('start');
-      } else if (chunk.includes('end')) {
-        this.graph.setAnnotationFlag('end');
-      }
-      this.ui.addMessageToConsole(chunk);
-    }
-  }
-  public async selectPort() {
-    await this.dut.open();
-    this.isOpened = true;
-    this.readDutLoop();
+  public async readData() {
+    const chunk = await this.dut.read();
+    return chunk;
   }
   public async copyScriptToDut() {
     await this.dut.write('cat > ./example.sh << EOF\n');

@@ -1,6 +1,6 @@
 import Dygraph from 'dygraphs';
 import {Ui} from './ui';
-import {AnnotationText, PowerDataType} from './power_test_controller';
+import {AnnotationText, PowerData} from './power_test_controller';
 
 export class Graph {
   private ui: Ui;
@@ -12,7 +12,7 @@ export class Graph {
     this.ui = ui;
     this.annotations = this.g.annotations();
   }
-  public updateGraph(powerData: Array<PowerDataType>) {
+  public updateGraph(powerData: Array<PowerData>) {
     if (powerData !== undefined && powerData.length > 0) {
       this.ui.hideToolTip();
     }
