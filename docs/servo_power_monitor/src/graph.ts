@@ -16,7 +16,6 @@ export class Graph {
     if (powerData !== undefined && powerData.length > 0) {
       this.ui.hideToolTip();
     }
-    // currentData = data;
     this.g.updateOptions(
       {
         file: powerData,
@@ -59,18 +58,6 @@ export class Graph {
     this.annotations.push(newAnnotation);
     this.g.setAnnotations(this.annotations);
   }
-  // public updateAnnotation(annotations: Array<AnnotationDataType>) {
-  //   this.annotations = annotations.map(d => {
-  //     console.log(d.text);
-  //     return {
-  //       series: 'ina0',
-  //       x: d.time,
-  //       shortText: d.text[0],
-  //       text: d.text,
-  //     };
-  //   });
-  //   this.g.setAnnotations(this.annotations);
-  // }
   public returnXrange() {
     console.log(this.g.xAxisExtremes());
     return this.g.xAxisRange();

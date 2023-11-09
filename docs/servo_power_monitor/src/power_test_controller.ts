@@ -80,7 +80,6 @@ export class PowerTestController {
     const data = JSON.parse(s);
     this.powerData = data.power.map((d: string) => [new Date(d[0]), d[1]]);
     this.graph.updateGraph(this.powerData);
-    // this.graph.updateAnnotation(data.annotation);
   }
   public exportPowerData() {
     const dataStr =
@@ -88,9 +87,6 @@ export class PowerTestController {
       encodeURIComponent(
         JSON.stringify({
           power: this.powerData.map(d => [d[0].getTime(), d[1]]),
-          // annotation: this.graph.annotations.map(
-          //   d => new AnnotationData(d.text, d.x)
-          // ),
         })
       );
     return dataStr;
