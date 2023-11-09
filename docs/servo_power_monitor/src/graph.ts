@@ -61,11 +61,17 @@ export class Graph {
     this.annotationText = text;
   }
   public addAnnotation(x: number, text: string) {
+    function capitalize(str: string) {
+      return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+    }
+    const capitalizedText = capitalize(text);
     const newAnnotation = {
       series: 'ina0',
       x: x,
-      shortText: text[0],
-      text: text,
+      shortText: capitalizedText,
+      text: capitalizedText,
+      width: 36,
+      cssClass: 'annotation',
     };
     this.annotations.push(newAnnotation);
     this.g.setAnnotations(this.annotations);
