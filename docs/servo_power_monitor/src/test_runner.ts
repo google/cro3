@@ -40,10 +40,12 @@ echo "end"\n`;
     this.isOpened = true;
     this.readDutLoop();
   }
-  public async executeScript() {
+  public async copyScriptToDut() {
     await this.dut.write('cat > ./example.sh << EOF\n');
     await this.dut.write(btoa(this.scripts) + '\n');
     await this.dut.write('EOF\n');
+  }
+  public async executeScript() {
     await this.dut.write('base64 -d ./example.sh | bash\n');
   }
   public async executeCommand(s: string) {

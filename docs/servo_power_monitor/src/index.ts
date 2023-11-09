@@ -54,6 +54,7 @@ window.addEventListener('DOMContentLoaded', () => {
       ui.overlay.classList.remove('closed');
       return;
     }
+    await runner.copyScriptToDut();
     await runner.executeScript();
   });
   ui.dropZone.addEventListener(
