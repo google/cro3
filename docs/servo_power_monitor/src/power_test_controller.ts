@@ -60,6 +60,7 @@ export class PowerTestController {
     }
   }
   private async readDutLoop() {
+    this.runner.executeCommand('\n');
     this.ui.addMessageToConsole('DutPort is selected');
     for (;;) {
       const dutData = await this.runner.readData();
