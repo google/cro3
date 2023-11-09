@@ -4,9 +4,9 @@ import {Histogram} from './histogram';
 import {Ui} from './ui';
 import {TestRunner} from './test_runner';
 
-export type PowerData = [Date, number];
+export type PowerData = [number, number];
 export type AnnotationText = 'start' | 'end';
-export type AnnotationData = [Date, AnnotationText];
+export type AnnotationData = [number, AnnotationText];
 export class PowerTestController {
   private INTERVAL_MS = 100;
   public halt = true;
@@ -54,7 +54,7 @@ export class PowerTestController {
       this.inProgress = false;
       if (currentPowerData === undefined) continue;
       this.ui.setSerialOutput(currentPowerData.originalData);
-      const e: PowerData = [new Date(), currentPowerData.power];
+      const e: PowerData = [new Date().getTime(), currentPowerData.power];
       this.powerData.push(e);
       this.graph.updateGraph(this.powerData);
     }
@@ -65,10 +65,10 @@ export class PowerTestController {
       const dutData = await this.runner.readData();
       if (dutData.includes('start')) {
         this.graph.setAnnotationFlag('start');
-        this.annotationList.push([new Date(), 'start']);
+        this.annotationList.push([new Date().getTime(), 'start']);
       } else if (dutData.includes('end')) {
         this.graph.setAnnotationFlag('end');
-        this.annotationList.push([new Date(), 'end']);
+        this.annotationList.push([new Date().getTime(), 'end']);
       }
       this.ui.addMessageToConsole(dutData);
     }
@@ -99,11 +99,11 @@ export class PowerTestController {
   public loadPowerData(s: string) {
     const data = JSON.parse(s);
     this.powerData = data.power.map((d: {time: number; power: number}) => [
-      new Date(d.time),
+      d.time,
       d.power,
     ]);
     this.annotationList = data.annotation.map(
-      (d: {text: string; time: number}) => [new Date(d.time), d.text]
+      (d: {text: string; time: number}) => [d.time, d.text]
     );
     this.graph.updateGraph(this.powerData);
     for (const ann of this.annotationList) {
@@ -116,16 +116,10 @@ export class PowerTestController {
       encodeURIComponent(
         JSON.stringify({
           power: this.powerData.map(d => {
-            return {
-              time: d[0].getTime(),
-              power: d[1],
-            };
+            return {time: d[0], power: d[1]};
           }),
           annotation: this.annotationList.map(d => {
-            return {
-              time: d[0].getTime(),
-              text: d[1],
-            };
+            return {time: d[0], text: d[1]};
           }),
         })
       );

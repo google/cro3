@@ -21,10 +21,19 @@ export class Graph {
         file: powerData,
         labels: ['t', 'ina0'],
         showRoller: true,
+        xlabel: 'Relative Time (s)',
         ylabel: 'Power (mW)',
         legend: 'always',
         showRangeSelector: true,
         connectSeparatedPoints: true,
+        axes: {
+          x: {
+            axisLabelFormatter: function (d) {
+              const relativeTime = (d as number) - powerData[0][0];
+              return (relativeTime / 1000).toLocaleString();
+            },
+          },
+        },
         underlayCallback: function (canvas, area, g) {
           canvas.fillStyle = 'rgba(255, 255, 102, 1.0)';
 
@@ -41,7 +50,7 @@ export class Graph {
     );
     if (this.annotationFlag) {
       this.addAnnotation(
-        powerData[powerData.length - 1][0].getTime(),
+        powerData[powerData.length - 1][0],
         this.annotationText
       );
       this.annotationFlag = false;
@@ -63,12 +72,12 @@ export class Graph {
   }
   public findAnnotationPoint(
     powerData: Array<PowerData>,
-    time: Date,
+    time: number,
     text: string
   ) {
     for (const powerDataElement of powerData) {
       if (time < powerDataElement[0]) {
-        this.addAnnotation(powerDataElement[0].getTime(), text);
+        this.addAnnotation(powerDataElement[0], text);
         break;
       }
     }
