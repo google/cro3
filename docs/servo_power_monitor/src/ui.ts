@@ -1,103 +1,61 @@
-import moment from 'moment';
+export class Ui {
+  public requestSerialButton = document.getElementById(
+    'requestSerialButton'
+  ) as HTMLButtonElement;
+  public haltButton = document.getElementById(
+    'haltButton'
+  ) as HTMLButtonElement;
+  public downloadButton = document.getElementById(
+    'downloadButton'
+  ) as HTMLButtonElement;
+  public analyzeButton = document.getElementById(
+    'analyzeButton'
+  ) as HTMLButtonElement;
+  public selectDutSerialButton = document.getElementById(
+    'selectDutSerialButton'
+  ) as HTMLButtonElement;
+  public dutCommandForm = document.getElementById(
+    'dutCommandForm'
+  ) as HTMLFormElement;
+  public dutCommandInput = document.getElementById(
+    'dutCommandInput'
+  ) as HTMLInputElement;
+  public popupCloseButton = document.getElementById(
+    'popup-close'
+  ) as HTMLButtonElement;
+  public overlay = document.getElementById('popup-overlay') as HTMLDivElement;
+  public messages = document.getElementById('messages') as HTMLDivElement;
+  public executeScriptButton = document.getElementById(
+    'executeScriptButton'
+  ) as HTMLButtonElement;
+  public dropZone = document.getElementById('dropZone') as HTMLSpanElement;
+  public serial_output = document.getElementById(
+    'serial_output'
+  ) as HTMLDivElement;
+  public dlAnchorElem = document.getElementById(
+    'downloadAnchorElem'
+  ) as HTMLAnchorElement;
+  public toolTip = document.getElementById('tooltip') as HTMLDivElement;
 
-const requestSerialButton = document.getElementById(
-  'requestSerialButton'
-) as HTMLButtonElement;
-const haltButton = document.getElementById('haltButton') as HTMLButtonElement;
-const downloadButton = document.getElementById(
-  'downloadButton'
-) as HTMLButtonElement;
-const analyzeButton = document.getElementById(
-  'analyzeButton'
-) as HTMLButtonElement;
-const selectDutSerialButton = document.getElementById(
-  'selectDutSerialButton'
-) as HTMLButtonElement;
-const dutCommandForm = document.getElementById(
-  'dutCommandForm'
-) as HTMLFormElement;
-const dutCommandInput = document.getElementById(
-  'dutCommandInput'
-) as HTMLInputElement;
-const popupCloseButton = document.getElementById(
-  'popup-close'
-) as HTMLButtonElement;
-const overlay = document.querySelector('#popup-overlay') as HTMLDivElement;
-const messages = document.getElementById('messages') as HTMLDivElement;
-const executeScriptButton = document.getElementById(
-  'executeScriptButton'
-) as HTMLButtonElement;
-const dropZone = document.getElementById('dropZone') as HTMLSpanElement;
-
-export function requestSerialAddClickEvent(fn: () => Promise<void>) {
-  requestSerialButton.addEventListener('click', fn);
-}
-
-export function haltAddClickEvent(fn: () => Promise<void>) {
-  haltButton.addEventListener('click', fn);
-}
-
-export function enabledRecordingButton(halt: boolean) {
-  requestSerialButton.disabled = !halt;
-}
-
-export function setPopupCloseButton() {
-  popupCloseButton.addEventListener('click', () => {
-    overlay.classList.add('closed');
-  });
-}
-
-export function closePopup() {
-  overlay.classList.remove('closed');
-}
-
-export function addMessageToConsole(s: string) {
-  messages.textContent += s;
-  messages.scrollTo(0, messages.scrollHeight);
-}
-
-export function selectDutSerialAddClickEvent(fn: () => Promise<void>) {
-  selectDutSerialButton.addEventListener('click', fn);
-}
-
-export function executeScriptAddClickEvent(fn: () => Promise<void>) {
-  executeScriptButton.addEventListener('click', fn);
-}
-
-export function formAddSubmitEvent(fn: (e: Event) => Promise<void>) {
-  dutCommandForm.addEventListener('submit', fn);
-}
-
-export function inputAddKeydownEvent(fn: (e: KeyboardEvent) => Promise<void>) {
-  dutCommandInput.addEventListener('keydown', fn);
-}
-
-export function readInputValue() {
-  const res = dutCommandInput.value;
-  dutCommandInput.value = '';
-  return res;
-}
-
-export function downloadAddClickEvent(fn: () => void) {
-  downloadButton.addEventListener('click', fn);
-}
-
-export function analyzeAddClickEvent(fn: () => void) {
-  analyzeButton.addEventListener('click', fn);
-}
-
-export function setDownloadAnchor(dataStr: string) {
-  const dlAnchorElem = document.getElementById('downloadAnchorElem');
-  if (dlAnchorElem === null) return;
-  dlAnchorElem.setAttribute('href', dataStr);
-  dlAnchorElem.setAttribute('download', `power_${moment().format()}.json`);
-  dlAnchorElem.click();
-}
-
-export function dropZoneAddDragoverEvent(fn: (evt: DragEvent) => void) {
-  dropZone.addEventListener('dragover', fn, false);
-}
-
-export function dropZoneAddDropEvent(fn: (evt: DragEvent) => void) {
-  dropZone.addEventListener('drop', fn, false);
+  public enabledRecordingButton(halt: boolean) {
+    this.requestSerialButton.disabled = !halt;
+    this.haltButton.disabled = halt;
+    this.downloadButton.disabled = !halt;
+    this.analyzeButton.disabled = !halt;
+  }
+  public setSerialOutput(s: string) {
+    this.serial_output.textContent = s;
+  }
+  public readInputValue() {
+    const res = this.dutCommandInput.value;
+    this.dutCommandInput.value = '';
+    return res;
+  }
+  public addMessageToConsole(s: string) {
+    this.messages.textContent += s;
+    this.messages.scrollTo(0, this.messages.scrollHeight);
+  }
+  public hideToolTip() {
+    this.toolTip.classList.add('hidden');
+  }
 }
