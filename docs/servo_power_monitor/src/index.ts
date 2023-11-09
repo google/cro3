@@ -4,7 +4,7 @@
 import moment from 'moment';
 import {OperatePort} from './operate_port';
 import {PowerTestController} from './power_test_controller';
-import {testRunner} from './test_runner';
+import {TestRunner} from './test_runner';
 import {ServoController} from './servo_controller';
 import {Ui} from './ui';
 import {Graph} from './graph';
@@ -13,9 +13,14 @@ window.addEventListener('DOMContentLoaded', () => {
   const ui = new Ui();
   const graph = new Graph(ui);
   const servoController = new ServoController();
-  const testController = new PowerTestController(ui, graph, servoController);
   const dutShell = new OperatePort(0x18d1, 0x504a);
-  const runner = new testRunner(ui, dutShell);
+  const runner = new TestRunner(ui, graph, dutShell);
+  const testController = new PowerTestController(
+    ui,
+    graph,
+    servoController,
+    runner
+  );
   testController.setupDisconnectEvent();
   runner.setupDisconnectEvent();
 
@@ -26,7 +31,7 @@ window.addEventListener('DOMContentLoaded', () => {
     testController.stopMeasurement();
   });
   ui.selectDutSerialButton.addEventListener('click', () => {
-    runner.selectPort();
+    testController.selectPort();
   });
   ui.dutCommandForm.addEventListener('submit', async e => {
     e.preventDefault();
@@ -54,6 +59,7 @@ window.addEventListener('DOMContentLoaded', () => {
       ui.overlay.classList.remove('closed');
       return;
     }
+    await runner.copyScriptToDut();
     await runner.executeScript();
   });
   ui.dropZone.addEventListener(
