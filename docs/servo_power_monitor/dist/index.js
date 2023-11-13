@@ -33858,10 +33858,8 @@ const dygraphs_1 = __importDefault(__webpack_require__(/*! dygraphs */ "./node_m
 class Graph {
     constructor(ui) {
         this.g = new dygraphs_1.default('graph', [], {});
-        this.annotationFlag = false;
-        this.annotationText = 'start';
+        this.annotations = [];
         this.ui = ui;
-        this.annotations = this.g.annotations();
     }
     updateGraph(powerData) {
         if (powerData !== undefined && powerData.length > 0) {
@@ -33880,6 +33878,7 @@ class Graph {
                 x: {
                     axisLabelFormatter: function (d) {
                         const relativeTime = d - powerData[0][0];
+                        // relativeTime is divided by 1000 because the time data is recorded in miliseconds but x-axis is in seconds.
                         return (relativeTime / 1000).toLocaleString();
                     },
                 },
@@ -33895,14 +33894,6 @@ class Graph {
                 highlight_period(10, 10);
             },
         }, false);
-        if (this.annotationFlag) {
-            this.addAnnotation(powerData[powerData.length - 1][0], this.annotationText);
-            this.annotationFlag = false;
-        }
-    }
-    setAnnotationFlag(text) {
-        this.annotationFlag = true;
-        this.annotationText = text;
     }
     addAnnotation(x, text) {
         function capitalize(str) {
@@ -34406,12 +34397,12 @@ class PowerTestController {
         for (;;) {
             const dutData = await this.runner.readData();
             if (dutData.includes('start')) {
-                this.graph.setAnnotationFlag('start');
                 this.annotationList.push([new Date().getTime(), 'start']);
+                this.graph.addAnnotation(this.powerData[this.powerData.length - 1][0], 'start');
             }
             else if (dutData.includes('end')) {
-                this.graph.setAnnotationFlag('end');
                 this.annotationList.push([new Date().getTime(), 'end']);
+                this.graph.addAnnotation(this.powerData[this.powerData.length - 1][0], 'end');
             }
             this.ui.addMessageToConsole(dutData);
         }
