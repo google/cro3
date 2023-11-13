@@ -15,9 +15,7 @@ export class TestRunner {
     const customScript = this.ui.readInputScript();
     this.scripts = `#!/bin/bash -e
 function workload () {
-  ectool chargecontrol idle
   ${customScript}
-  echo "workload"
 }
 ectool chargecontrol idle
 sleep 3
