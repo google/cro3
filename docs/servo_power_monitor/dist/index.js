@@ -33858,21 +33858,31 @@ const dygraphs_1 = __importDefault(__webpack_require__(/*! dygraphs */ "./node_m
 class Graph {
     constructor(ui) {
         this.g = new dygraphs_1.default('graph', [], {});
+        this.annotations = [];
         this.ui = ui;
     }
-    updateGraph(powerData) {
-        if (powerData !== undefined && powerData.length > 0) {
+    updateGraph(powerDataList) {
+        if (powerDataList !== undefined && powerDataList.length > 0) {
             this.ui.hideToolTip();
         }
-        // currentData = data;
         this.g.updateOptions({
-            file: powerData,
+            file: powerDataList,
             labels: ['t', 'ina0'],
             showRoller: true,
+            xlabel: 'Relative Time (s)',
             ylabel: 'Power (mW)',
             legend: 'always',
             showRangeSelector: true,
             connectSeparatedPoints: true,
+            axes: {
+                x: {
+                    axisLabelFormatter: function (d) {
+                        const relativeTime = d - powerDataList[0][0];
+                        // relativeTime is divided by 1000 because the time data is recorded in milliseconds but x-axis is in seconds.
+                        return (relativeTime / 1000).toLocaleString();
+                    },
+                },
+            },
             underlayCallback: function (canvas, area, g) {
                 canvas.fillStyle = 'rgba(255, 255, 102, 1.0)';
                 function highlight_period(x_start, x_end) {
@@ -33884,6 +33894,32 @@ class Graph {
                 highlight_period(10, 10);
             },
         }, false);
+    }
+    addAnnotation(x, text) {
+        function capitalize(str) {
+            return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+        }
+        const capitalizedText = capitalize(text);
+        const newAnnotation = {
+            series: 'ina0',
+            x: x,
+            shortText: capitalizedText,
+            text: capitalizedText,
+            width: 36,
+            cssClass: 'annotation',
+        };
+        this.annotations.push(newAnnotation);
+        this.g.setAnnotations(this.annotations);
+    }
+    findAnnotationPoint(powerDataList, annotationList) {
+        for (const ann of annotationList) {
+            for (let i = powerDataList.length - 1; i >= 0; i--) {
+                if (ann[0] > powerDataList[i][0]) {
+                    this.addAnnotation(powerDataList[i][0], ann[1]);
+                    break;
+                }
+            }
+        }
     }
     returnXrange() {
         console.log(this.g.xAxisExtremes());
@@ -33937,7 +33973,7 @@ class Histogram {
     constructor() {
         this.ranges = [];
     }
-    paintHistogram(t0, t1, powerData) {
+    paintHistogram(t0, t1, powerDataList) {
         // constants
         const xtick = 40;
         const boxWidth = 10;
@@ -33955,7 +33991,7 @@ class Histogram {
             .append('g')
             .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
         // y axis and its label
-        const dataAll = powerData.map((e) => e[1]);
+        const dataAll = powerDataList.map((e) => e[1]);
         const dataMin = d3.min(dataAll);
         const dataMax = d3.max(dataAll);
         if (dataMin === undefined || dataMax === undefined)
@@ -33976,9 +34012,7 @@ class Histogram {
             // compute data and place of i-th series
             const left = this.ranges[i][0];
             const right = this.ranges[i][1];
-            const points = powerData.filter((e) => typeof e[0] !== 'number' &&
-                left <= e[0].getTime() &&
-                e[0].getTime() <= right);
+            const points = powerDataList.filter((e) => left <= e[0] && e[0] <= right);
             const data = points.map((e) => e[1]);
             const center = xtick * (i + 1);
             // Compute statistics
@@ -34133,9 +34167,9 @@ window.addEventListener('DOMContentLoaded', () => {
     const ui = new ui_1.Ui();
     const graph = new graph_1.Graph(ui);
     const servoController = new servo_controller_1.ServoController();
-    const testController = new power_test_controller_1.PowerTestController(ui, graph, servoController);
     const dutShell = new operate_port_1.OperatePort(0x18d1, 0x504a);
-    const runner = new test_runner_1.testRunner(ui, dutShell);
+    const runner = new test_runner_1.TestRunner(ui, dutShell);
+    const testController = new power_test_controller_1.PowerTestController(ui, graph, servoController, runner);
     testController.setupDisconnectEvent();
     runner.setupDisconnectEvent();
     ui.requestSerialButton.addEventListener('click', () => {
@@ -34145,7 +34179,7 @@ window.addEventListener('DOMContentLoaded', () => {
         testController.stopMeasurement();
     });
     ui.selectDutSerialButton.addEventListener('click', () => {
-        runner.selectPort();
+        testController.selectPort();
     });
     ui.dutCommandForm.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -34173,6 +34207,7 @@ window.addEventListener('DOMContentLoaded', () => {
             ui.overlay.classList.remove('closed');
             return;
         }
+        await runner.copyScriptToDut();
         await runner.executeScript();
     });
     ui.dropZone.addEventListener('dragover', e => {
@@ -34312,15 +34347,17 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.PowerTestController = void 0;
 const histogram_1 = __webpack_require__(/*! ./histogram */ "./src/histogram.ts");
 class PowerTestController {
-    constructor(ui, graph, servoController) {
+    constructor(ui, graph, servoController, runner) {
         this.INTERVAL_MS = 100;
         this.halt = true;
         this.inProgress = false;
-        this.powerData = [];
+        this.powerDataList = [];
+        this.annotationList = [];
         this.histogram = new histogram_1.Histogram();
         this.ui = ui;
         this.graph = graph;
         this.servoController = servoController;
+        this.runner = runner;
     }
     changeHaltFlag(flag) {
         this.halt = flag;
@@ -34349,9 +34386,25 @@ class PowerTestController {
             if (currentPowerData === undefined)
                 continue;
             this.ui.setSerialOutput(currentPowerData.originalData);
-            const e = [new Date(), currentPowerData.power];
-            this.powerData.push(e);
-            this.graph.updateGraph(this.powerData);
+            const e = [new Date().getTime(), currentPowerData.power];
+            this.powerDataList.push(e);
+            this.graph.updateGraph(this.powerDataList);
+        }
+    }
+    async readDutLoop() {
+        this.runner.executeCommand('\n');
+        this.ui.addMessageToConsole('DutPort is selected');
+        for (;;) {
+            const dutData = await this.runner.readData();
+            if (dutData.includes('start')) {
+                this.annotationList.push([new Date().getTime(), 'start']);
+                this.graph.addAnnotation(this.powerDataList[this.powerDataList.length - 1][0], 'start');
+            }
+            else if (dutData.includes('end')) {
+                this.annotationList.push([new Date().getTime(), 'end']);
+                this.graph.addAnnotation(this.powerDataList[this.powerDataList.length - 1][0], 'end');
+            }
+            this.ui.addMessageToConsole(dutData);
         }
     }
     async startMeasurement() {
@@ -34365,21 +34418,38 @@ class PowerTestController {
         this.inProgress = false;
         await this.servoController.servoShell.close();
     }
+    async selectPort() {
+        await this.runner.dut.open();
+        this.runner.isOpened = true;
+        this.readDutLoop();
+    }
     analyzePowerData() {
         // https://dygraphs.com/jsdoc/symbols/Dygraph.html#xAxisRange
         const xrange = this.graph.returnXrange();
         const left = xrange[0];
         const right = xrange[1];
-        this.histogram.paintHistogram(left, right, this.powerData);
+        this.histogram.paintHistogram(left, right, this.powerDataList);
     }
     loadPowerData(s) {
         const data = JSON.parse(s);
-        this.powerData = data.power.map((d) => [new Date(d[0]), d[1]]);
-        this.graph.updateGraph(this.powerData);
+        this.powerDataList = data.power.map((d) => [
+            d.time,
+            d.power,
+        ]);
+        this.annotationList = data.annotation.map((d) => [d.time, d.text]);
+        this.graph.updateGraph(this.powerDataList);
+        this.graph.findAnnotationPoint(this.powerDataList, this.annotationList);
     }
     exportPowerData() {
         const dataStr = 'data:text/json;charset=utf-8,' +
-            encodeURIComponent(JSON.stringify({ power: this.powerData }));
+            encodeURIComponent(JSON.stringify({
+                power: this.powerDataList.map(d => {
+                    return { time: d[0], power: d[1] };
+                }),
+                annotation: this.annotationList.map(d => {
+                    return { time: d[0], text: d[1] };
+                }),
+            }));
         return dataStr;
     }
     setupDisconnectEvent() {
@@ -34468,43 +34538,39 @@ exports.ServoController = ServoController;
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.testRunner = void 0;
+exports.TestRunner = void 0;
 const operate_port_1 = __webpack_require__(/*! ./operate_port */ "./src/operate_port.ts");
-class testRunner {
+class TestRunner {
     constructor(ui, dut) {
         this.isOpened = false;
         this.CANCEL_CMD = '\x03\n';
         // shell script
         this.scripts = `#!/bin/bash -e
 function workload () {
-  ectool chargecontrol idle
-  stress-ng -c 1 -t \\$1
-  echo "workload"
+  stress-ng -c 1 -t $1
 }
+ectool chargecontrol idle
+sleep 3
 echo "start"
 workload 10 1> ./test_out.log 2> ./test_err.log
-echo "end"\n`;
+echo "end"
+sleep 3
+ectool chargecontrol normal\n`;
         this.dut = new operate_port_1.OperatePort(0x18d1, 0x504a);
         this.ui = ui;
         this.dut = dut;
     }
-    async readDutLoop() {
-        this.ui.addMessageToConsole('DutPort is selected');
-        for (;;) {
-            const chunk = await this.dut.read();
-            this.ui.addMessageToConsole(chunk);
-        }
+    async readData() {
+        const chunk = await this.dut.read();
+        return chunk;
     }
-    async selectPort() {
-        await this.dut.open();
-        this.isOpened = true;
-        this.readDutLoop();
+    async copyScriptToDut() {
+        await this.dut.write('cat > ./example.sh << EOF\n');
+        await this.dut.write(btoa(this.scripts) + '\n');
+        await this.dut.write('EOF\n');
     }
     async executeScript() {
-        await this.dut.write('cat > ./example.sh << EOF\n');
-        await this.dut.write(this.scripts);
-        await this.dut.write('EOF\n');
-        await this.dut.write('bash ./example.sh\n');
+        await this.dut.write('base64 -d ./example.sh | bash\n');
     }
     async executeCommand(s) {
         await this.dut.write(s);
@@ -34521,7 +34587,7 @@ echo "end"\n`;
         });
     }
 }
-exports.testRunner = testRunner;
+exports.TestRunner = TestRunner;
 
 
 /***/ }),

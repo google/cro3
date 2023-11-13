@@ -1,26 +1,37 @@
-import Dygraph from 'dygraphs';
+import Dygraph, {dygraphs} from 'dygraphs';
 import {Ui} from './ui';
+import {AnnotationData, PowerData} from './power_test_controller';
 
 export class Graph {
   private ui: Ui;
-  private g = new Dygraph('graph', [], {});
+  public g = new Dygraph('graph', [], {});
+  public annotations: dygraphs.Annotation[] = [];
   constructor(ui: Ui) {
     this.ui = ui;
   }
-  public updateGraph(powerData: Array<Array<Date | number>>) {
-    if (powerData !== undefined && powerData.length > 0) {
+  public updateGraph(powerDataList: Array<PowerData>) {
+    if (powerDataList !== undefined && powerDataList.length > 0) {
       this.ui.hideToolTip();
     }
-    // currentData = data;
     this.g.updateOptions(
       {
-        file: powerData,
+        file: powerDataList,
         labels: ['t', 'ina0'],
         showRoller: true,
+        xlabel: 'Relative Time (s)',
         ylabel: 'Power (mW)',
         legend: 'always',
         showRangeSelector: true,
         connectSeparatedPoints: true,
+        axes: {
+          x: {
+            axisLabelFormatter: function (d) {
+              const relativeTime = (d as number) - powerDataList[0][0];
+              // relativeTime is divided by 1000 because the time data is recorded in milliseconds but x-axis is in seconds.
+              return (relativeTime / 1000).toLocaleString();
+            },
+          },
+        },
         underlayCallback: function (canvas, area, g) {
           canvas.fillStyle = 'rgba(255, 255, 102, 1.0)';
 
@@ -35,6 +46,35 @@ export class Graph {
       },
       false
     );
+  }
+  public addAnnotation(x: number, text: string) {
+    function capitalize(str: string) {
+      return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+    }
+    const capitalizedText = capitalize(text);
+    const newAnnotation = {
+      series: 'ina0',
+      x: x,
+      shortText: capitalizedText,
+      text: capitalizedText,
+      width: 36,
+      cssClass: 'annotation',
+    };
+    this.annotations.push(newAnnotation);
+    this.g.setAnnotations(this.annotations);
+  }
+  public findAnnotationPoint(
+    powerDataList: Array<PowerData>,
+    annotationList: Array<AnnotationData>
+  ) {
+    for (const ann of annotationList) {
+      for (let i = powerDataList.length - 1; i >= 0; i--) {
+        if (ann[0] > powerDataList[i][0]) {
+          this.addAnnotation(powerDataList[i][0], ann[1]);
+          break;
+        }
+      }
+    }
   }
   public returnXrange() {
     console.log(this.g.xAxisExtremes());
