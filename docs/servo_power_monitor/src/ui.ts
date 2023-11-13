@@ -15,8 +15,8 @@ export class Ui {
     'selectDutSerialButton'
   ) as HTMLButtonElement;
   public shellScriptInput = document.getElementById(
-      'shellScriptInput'
-    ) as HTMLTextAreaElement;
+    'shellScriptInput'
+  ) as HTMLTextAreaElement;
   public dutCommandForm = document.getElementById(
     'dutCommandForm'
   ) as HTMLFormElement;
