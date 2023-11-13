@@ -112,9 +112,7 @@ export class PowerTestController {
       (d: {text: string; time: number}) => [d.time, d.text]
     );
     this.graph.updateGraph(this.powerData);
-    for (const ann of this.annotationList) {
-      this.graph.findAnnotationPoint(this.powerData, ann[0], ann[1]);
-    }
+    this.graph.findAnnotationPoint(this.powerData, this.annotationList);
   }
   public exportPowerData() {
     const dataStr =

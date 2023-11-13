@@ -33911,11 +33911,13 @@ class Graph {
         this.annotations.push(newAnnotation);
         this.g.setAnnotations(this.annotations);
     }
-    findAnnotationPoint(powerData, time, text) {
-        for (const powerDataElement of powerData) {
-            if (time < powerDataElement[0]) {
-                this.addAnnotation(powerDataElement[0], text);
-                break;
+    findAnnotationPoint(powerData, annotationList) {
+        for (const ann of annotationList) {
+            for (let i = powerData.length - 1; i >= 0; i--) {
+                if (ann[0] > powerData[i][0]) {
+                    this.addAnnotation(powerData[i][0], ann[1]);
+                    break;
+                }
             }
         }
     }
@@ -34168,7 +34170,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const graph = new graph_1.Graph(ui);
     const servoController = new servo_controller_1.ServoController();
     const dutShell = new operate_port_1.OperatePort(0x18d1, 0x504a);
-    const runner = new test_runner_1.TestRunner(ui, graph, dutShell);
+    const runner = new test_runner_1.TestRunner(ui, dutShell);
     const testController = new power_test_controller_1.PowerTestController(ui, graph, servoController, runner);
     testController.setupDisconnectEvent();
     runner.setupDisconnectEvent();
@@ -34438,9 +34440,7 @@ class PowerTestController {
         ]);
         this.annotationList = data.annotation.map((d) => [d.time, d.text]);
         this.graph.updateGraph(this.powerData);
-        for (const ann of this.annotationList) {
-            this.graph.findAnnotationPoint(this.powerData, ann[0], ann[1]);
-        }
+        this.graph.findAnnotationPoint(this.powerData, this.annotationList);
     }
     exportPowerData() {
         const dataStr = 'data:text/json;charset=utf-8,' +
@@ -34543,22 +34543,23 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.TestRunner = void 0;
 const operate_port_1 = __webpack_require__(/*! ./operate_port */ "./src/operate_port.ts");
 class TestRunner {
-    constructor(ui, graph, dut) {
+    constructor(ui, dut) {
         this.isOpened = false;
         this.CANCEL_CMD = '\x03\n';
         // shell script
         this.scripts = `#!/bin/bash -e
 function workload () {
-  ectool chargecontrol idle
   stress-ng -c 1 -t $1
-  echo "workload"
 }
+ectool chargecontrol idle
+sleep 3
 echo "start"
 workload 10 1> ./test_out.log 2> ./test_err.log
-echo "end"\n`;
+echo "end"
+sleep 3
+ectool chargecontrol normal\n`;
         this.dut = new operate_port_1.OperatePort(0x18d1, 0x504a);
         this.ui = ui;
-        this.graph = graph;
         this.dut = dut;
     }
     async readData() {
