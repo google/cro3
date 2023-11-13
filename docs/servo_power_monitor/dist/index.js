@@ -34408,10 +34408,11 @@ class PowerTestController {
         }
     }
     async startMeasurement() {
-        await this.servoController.servoShell.open();
-        this.changeHaltFlag(false);
-        this.kickWriteLoop();
-        this.readLoop();
+        await this.runner.setScript();
+        // await this.servoController.servoShell.open();
+        // this.changeHaltFlag(false);
+        // this.kickWriteLoop();
+        // this.readLoop();
     }
     async stopMeasurement() {
         this.changeHaltFlag(true);
@@ -34544,21 +34545,25 @@ class TestRunner {
     constructor(ui, dut) {
         this.isOpened = false;
         this.CANCEL_CMD = '\x03\n';
-        // shell script
+        this.scripts = '';
+        this.dut = new operate_port_1.OperatePort(0x18d1, 0x504a);
+        this.ui = ui;
+        this.dut = dut;
+    }
+    setScript() {
+        const customScript = this.ui.readInputScript();
         this.scripts = `#!/bin/bash -e
 function workload () {
-  stress-ng -c 1 -t $1
+  ectool chargecontrol idle
+  ${customScript}
+  echo "workload"
 }
 ectool chargecontrol idle
 sleep 3
 echo "start"
 workload 10 1> ./test_out.log 2> ./test_err.log
-echo "end"
-sleep 3
-ectool chargecontrol normal\n`;
-        this.dut = new operate_port_1.OperatePort(0x18d1, 0x504a);
-        this.ui = ui;
-        this.dut = dut;
+echo "end"\n`;
+        console.log(this.scripts);
     }
     async readData() {
         const chunk = await this.dut.read();
@@ -34609,6 +34614,7 @@ class Ui {
         this.downloadButton = document.getElementById('downloadButton');
         this.analyzeButton = document.getElementById('analyzeButton');
         this.selectDutSerialButton = document.getElementById('selectDutSerialButton');
+        this.shellScriptInput = document.getElementById('shellScriptInput');
         this.dutCommandForm = document.getElementById('dutCommandForm');
         this.dutCommandInput = document.getElementById('dutCommandInput');
         this.popupCloseButton = document.getElementById('popup-close');
@@ -34633,6 +34639,9 @@ class Ui {
         const res = this.dutCommandInput.value;
         this.dutCommandInput.value = '';
         return res;
+    }
+    readInputScript() {
+        return this.shellScriptInput.value;
     }
     addMessageToConsole(s) {
         this.messages.textContent += s;
