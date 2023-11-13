@@ -34561,9 +34561,10 @@ function workload () {
 ectool chargecontrol idle
 sleep 3
 echo "start"
-workload 10 1> ./test_out.log 2> ./test_err.log
-echo "end"\n`;
-        console.log(this.scripts);
+workload 1> ./test_out.log 2> ./test_err.log
+echo "end"
+sleep 3
+ectool chargecontrol normal\n`;
     }
     async readData() {
         const chunk = await this.dut.read();
