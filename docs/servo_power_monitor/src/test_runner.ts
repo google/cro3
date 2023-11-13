@@ -1,4 +1,3 @@
-import {Graph} from './graph';
 import {OperatePort} from './operate_port';
 import {Ui} from './ui';
 
@@ -8,19 +7,19 @@ export class TestRunner {
   // shell script
   private scripts = `#!/bin/bash -e
 function workload () {
-  ectool chargecontrol idle
   stress-ng -c 1 -t $1
-  echo "workload"
 }
+ectool chargecontrol idle
+sleep 3
 echo "start"
 workload 10 1> ./test_out.log 2> ./test_err.log
-echo "end"\n`;
+echo "end"
+sleep 3
+ectool chargecontrol normal\n`;
   private ui: Ui;
-  private graph: Graph;
   public dut = new OperatePort(0x18d1, 0x504a);
-  constructor(ui: Ui, graph: Graph, dut: OperatePort) {
+  constructor(ui: Ui, dut: OperatePort) {
     this.ui = ui;
-    this.graph = graph;
     this.dut = dut;
   }
   public async readData() {

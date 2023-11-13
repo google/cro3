@@ -14,7 +14,7 @@ window.addEventListener('DOMContentLoaded', () => {
   const graph = new Graph(ui);
   const servoController = new ServoController();
   const dutShell = new OperatePort(0x18d1, 0x504a);
-  const runner = new TestRunner(ui, graph, dutShell);
+  const runner = new TestRunner(ui, dutShell);
   const testController = new PowerTestController(
     ui,
     graph,
