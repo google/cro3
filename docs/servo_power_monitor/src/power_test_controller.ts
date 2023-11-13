@@ -59,9 +59,8 @@ export class PowerTestController {
     }
   }
   private async readDutLoop() {
-    this.runner.executeCommand('\n');
-    this.ui.addMessageToConsole('DutPort is selected');
-    for (;;) {
+    // await this.runner.executeCommand('\n');
+    while (!this.halt) {
       const dutData = await this.runner.readData();
       if (dutData.includes('start')) {
         this.annotationList.push([new Date().getTime(), 'start']);
@@ -75,25 +74,28 @@ export class PowerTestController {
           this.powerDataList[this.powerDataList.length - 1][0],
           'end'
         );
+      } else if (dutData.includes('stop')) {
+        this.stopMeasurement();
+        break;
       }
       this.ui.addMessageToConsole(dutData);
     }
   }
   public async startMeasurement() {
     await this.servoController.servoShell.open();
+    await this.runner.openDutPort();
     this.changeHaltFlag(false);
+    this.readDutLoop();
     this.kickWriteLoop();
     this.readLoop();
+    await this.runner.copyScriptToDut();
+    await this.runner.executeScript();
   }
   public async stopMeasurement() {
     this.changeHaltFlag(true);
     this.inProgress = false;
     await this.servoController.servoShell.close();
-  }
-  public async selectPort() {
-    await this.runner.dut.open();
-    this.runner.isOpened = true;
-    this.readDutLoop();
+    await this.runner.closeDutPort();
   }
   public analyzePowerData() {
     // https://dygraphs.com/jsdoc/symbols/Dygraph.html#xAxisRange
@@ -136,6 +138,7 @@ export class PowerTestController {
         this.changeHaltFlag(true);
         this.inProgress = false;
         await this.servoController.servoShell.close();
+        await this.runner.dut.close();
       }
     });
   }

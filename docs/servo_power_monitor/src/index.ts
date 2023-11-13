@@ -22,20 +22,16 @@ window.addEventListener('DOMContentLoaded', () => {
     runner
   );
   testController.setupDisconnectEvent();
-  runner.setupDisconnectEvent();
 
   ui.requestSerialButton.addEventListener('click', () => {
     testController.startMeasurement();
   });
-  ui.haltButton.addEventListener('click', () => {
-    testController.stopMeasurement();
-  });
-  ui.selectDutSerialButton.addEventListener('click', () => {
-    testController.selectPort();
+  ui.haltButton.addEventListener('click', async () => {
+    await testController.stopMeasurement();
   });
   ui.dutCommandForm.addEventListener('submit', async e => {
     e.preventDefault();
-    if (!runner.isOpened) {
+    if (testController.halt) {
       ui.overlay.classList.remove('closed');
       return;
     }
@@ -43,7 +39,7 @@ window.addEventListener('DOMContentLoaded', () => {
   });
   // send cancel command to serial port when ctrl+C is pressed in input area
   ui.dutCommandInput.addEventListener('keydown', async e => {
-    if (!runner.isOpened) {
+    if (testController.halt) {
       ui.overlay.classList.remove('closed');
       return;
     }
@@ -53,14 +49,6 @@ window.addEventListener('DOMContentLoaded', () => {
   });
   ui.analyzeButton.addEventListener('click', () => {
     testController.analyzePowerData();
-  });
-  ui.executeScriptButton.addEventListener('click', async () => {
-    if (!runner.isOpened) {
-      ui.overlay.classList.remove('closed');
-      return;
-    }
-    await runner.copyScriptToDut();
-    await runner.executeScript();
   });
   ui.dropZone.addEventListener(
     'dragover',

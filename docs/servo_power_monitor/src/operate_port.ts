@@ -24,14 +24,15 @@ export class OperatePort {
   }
   public async close() {
     if (this.port === undefined) return;
-    await this.reader.cancel();
-    await this.reader.releaseLock();
-    try {
-      await this.port.close();
-    } catch (e) {
-      console.error(e);
-      throw e;
-    }
+    this.reader.closed
+      .then(async () => {
+        await this.reader.cancel();
+        await this.reader.releaseLock();
+        await this.close();
+      })
+      .catch(async () => {
+        await this.port?.close();
+      });
   }
   public async read() {
     if (this.port === undefined) return '';
