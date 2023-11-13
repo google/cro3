@@ -1,12 +1,13 @@
 import * as d3 from 'd3';
 import moment from 'moment';
+import {PowerData} from './power_test_controller';
 
 export class Histogram {
   private ranges: Array<Array<number>> = [];
   public paintHistogram(
     t0: number,
     t1: number,
-    powerData: Array<Array<Date | number>>
+    powerDataList: Array<PowerData>
   ) {
     // constants
     const xtick = 40;
@@ -28,8 +29,8 @@ export class Histogram {
       .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
 
     // y axis and its label
-    const dataAll: Array<number> = powerData.map(
-      (e: Array<Date | number>) => e[1] as number
+    const dataAll: Array<number> = powerDataList.map(
+      (e: PowerData) => e[1] as number
     );
     const dataMin = d3.min(dataAll);
     const dataMax = d3.max(dataAll);
@@ -52,16 +53,10 @@ export class Histogram {
       // compute data and place of i-th series
       const left = this.ranges[i][0];
       const right = this.ranges[i][1];
-      const points = powerData.filter(
-        (e: Array<Date | number>) =>
-          typeof e[0] !== 'number' &&
-          left <= e[0].getTime() &&
-          e[0].getTime() <= right
+      const points = powerDataList.filter(
+        (e: PowerData) => left <= e[0] && e[0] <= right
       );
-
-      const data: Array<number> = points.map(
-        (e: Array<Date | number>) => e[1] as number
-      );
+      const data: Array<number> = points.map((e: PowerData) => e[1]);
       const center = xtick * (i + 1);
 
       // Compute statistics

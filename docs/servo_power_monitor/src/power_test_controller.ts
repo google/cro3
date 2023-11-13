@@ -13,7 +13,7 @@ export class PowerTestController {
   private ui: Ui;
   private servoController: ServoController;
   private runner: TestRunner;
-  private powerData: Array<PowerData> = [];
+  private powerDataList: Array<PowerData> = [];
   private annotationList: Array<AnnotationData> = [];
   private graph: Graph;
   private histogram = new Histogram();
@@ -54,8 +54,8 @@ export class PowerTestController {
       if (currentPowerData === undefined) continue;
       this.ui.setSerialOutput(currentPowerData.originalData);
       const e: PowerData = [new Date().getTime(), currentPowerData.power];
-      this.powerData.push(e);
-      this.graph.updateGraph(this.powerData);
+      this.powerDataList.push(e);
+      this.graph.updateGraph(this.powerDataList);
     }
   }
   private async readDutLoop() {
@@ -66,13 +66,13 @@ export class PowerTestController {
       if (dutData.includes('start')) {
         this.annotationList.push([new Date().getTime(), 'start']);
         this.graph.addAnnotation(
-          this.powerData[this.powerData.length - 1][0],
+          this.powerDataList[this.powerDataList.length - 1][0],
           'start'
         );
       } else if (dutData.includes('end')) {
         this.annotationList.push([new Date().getTime(), 'end']);
         this.graph.addAnnotation(
-          this.powerData[this.powerData.length - 1][0],
+          this.powerDataList[this.powerDataList.length - 1][0],
           'end'
         );
       }
@@ -100,26 +100,26 @@ export class PowerTestController {
     const xrange = this.graph.returnXrange();
     const left = xrange[0];
     const right = xrange[1];
-    this.histogram.paintHistogram(left, right, this.powerData);
+    this.histogram.paintHistogram(left, right, this.powerDataList);
   }
   public loadPowerData(s: string) {
     const data = JSON.parse(s);
-    this.powerData = data.power.map((d: {time: number; power: number}) => [
+    this.powerDataList = data.power.map((d: {time: number; power: number}) => [
       d.time,
       d.power,
     ]);
     this.annotationList = data.annotation.map(
       (d: {text: string; time: number}) => [d.time, d.text]
     );
-    this.graph.updateGraph(this.powerData);
-    this.graph.findAnnotationPoint(this.powerData, this.annotationList);
+    this.graph.updateGraph(this.powerDataList);
+    this.graph.findAnnotationPoint(this.powerDataList, this.annotationList);
   }
   public exportPowerData() {
     const dataStr =
       'data:text/json;charset=utf-8,' +
       encodeURIComponent(
         JSON.stringify({
-          power: this.powerData.map(d => {
+          power: this.powerDataList.map(d => {
             return {time: d[0], power: d[1]};
           }),
           annotation: this.annotationList.map(d => {

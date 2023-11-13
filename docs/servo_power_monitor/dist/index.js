@@ -33861,12 +33861,12 @@ class Graph {
         this.annotations = [];
         this.ui = ui;
     }
-    updateGraph(powerData) {
-        if (powerData !== undefined && powerData.length > 0) {
+    updateGraph(powerDataList) {
+        if (powerDataList !== undefined && powerDataList.length > 0) {
             this.ui.hideToolTip();
         }
         this.g.updateOptions({
-            file: powerData,
+            file: powerDataList,
             labels: ['t', 'ina0'],
             showRoller: true,
             xlabel: 'Relative Time (s)',
@@ -33877,7 +33877,7 @@ class Graph {
             axes: {
                 x: {
                     axisLabelFormatter: function (d) {
-                        const relativeTime = d - powerData[0][0];
+                        const relativeTime = d - powerDataList[0][0];
                         // relativeTime is divided by 1000 because the time data is recorded in miliseconds but x-axis is in seconds.
                         return (relativeTime / 1000).toLocaleString();
                     },
@@ -33911,11 +33911,11 @@ class Graph {
         this.annotations.push(newAnnotation);
         this.g.setAnnotations(this.annotations);
     }
-    findAnnotationPoint(powerData, annotationList) {
+    findAnnotationPoint(powerDataList, annotationList) {
         for (const ann of annotationList) {
-            for (let i = powerData.length - 1; i >= 0; i--) {
-                if (ann[0] > powerData[i][0]) {
-                    this.addAnnotation(powerData[i][0], ann[1]);
+            for (let i = powerDataList.length - 1; i >= 0; i--) {
+                if (ann[0] > powerDataList[i][0]) {
+                    this.addAnnotation(powerDataList[i][0], ann[1]);
                     break;
                 }
             }
@@ -33973,7 +33973,7 @@ class Histogram {
     constructor() {
         this.ranges = [];
     }
-    paintHistogram(t0, t1, powerData) {
+    paintHistogram(t0, t1, powerDataList) {
         // constants
         const xtick = 40;
         const boxWidth = 10;
@@ -33991,7 +33991,7 @@ class Histogram {
             .append('g')
             .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
         // y axis and its label
-        const dataAll = powerData.map((e) => e[1]);
+        const dataAll = powerDataList.map((e) => e[1]);
         const dataMin = d3.min(dataAll);
         const dataMax = d3.max(dataAll);
         if (dataMin === undefined || dataMax === undefined)
@@ -34012,9 +34012,7 @@ class Histogram {
             // compute data and place of i-th series
             const left = this.ranges[i][0];
             const right = this.ranges[i][1];
-            const points = powerData.filter((e) => typeof e[0] !== 'number' &&
-                left <= e[0].getTime() &&
-                e[0].getTime() <= right);
+            const points = powerDataList.filter((e) => left <= e[0] && e[0] <= right);
             const data = points.map((e) => e[1]);
             const center = xtick * (i + 1);
             // Compute statistics
@@ -34353,7 +34351,7 @@ class PowerTestController {
         this.INTERVAL_MS = 100;
         this.halt = true;
         this.inProgress = false;
-        this.powerData = [];
+        this.powerDataList = [];
         this.annotationList = [];
         this.histogram = new histogram_1.Histogram();
         this.ui = ui;
@@ -34389,8 +34387,8 @@ class PowerTestController {
                 continue;
             this.ui.setSerialOutput(currentPowerData.originalData);
             const e = [new Date().getTime(), currentPowerData.power];
-            this.powerData.push(e);
-            this.graph.updateGraph(this.powerData);
+            this.powerDataList.push(e);
+            this.graph.updateGraph(this.powerDataList);
         }
     }
     async readDutLoop() {
@@ -34400,11 +34398,11 @@ class PowerTestController {
             const dutData = await this.runner.readData();
             if (dutData.includes('start')) {
                 this.annotationList.push([new Date().getTime(), 'start']);
-                this.graph.addAnnotation(this.powerData[this.powerData.length - 1][0], 'start');
+                this.graph.addAnnotation(this.powerDataList[this.powerDataList.length - 1][0], 'start');
             }
             else if (dutData.includes('end')) {
                 this.annotationList.push([new Date().getTime(), 'end']);
-                this.graph.addAnnotation(this.powerData[this.powerData.length - 1][0], 'end');
+                this.graph.addAnnotation(this.powerDataList[this.powerDataList.length - 1][0], 'end');
             }
             this.ui.addMessageToConsole(dutData);
         }
@@ -34430,22 +34428,22 @@ class PowerTestController {
         const xrange = this.graph.returnXrange();
         const left = xrange[0];
         const right = xrange[1];
-        this.histogram.paintHistogram(left, right, this.powerData);
+        this.histogram.paintHistogram(left, right, this.powerDataList);
     }
     loadPowerData(s) {
         const data = JSON.parse(s);
-        this.powerData = data.power.map((d) => [
+        this.powerDataList = data.power.map((d) => [
             d.time,
             d.power,
         ]);
         this.annotationList = data.annotation.map((d) => [d.time, d.text]);
-        this.graph.updateGraph(this.powerData);
-        this.graph.findAnnotationPoint(this.powerData, this.annotationList);
+        this.graph.updateGraph(this.powerDataList);
+        this.graph.findAnnotationPoint(this.powerDataList, this.annotationList);
     }
     exportPowerData() {
         const dataStr = 'data:text/json;charset=utf-8,' +
             encodeURIComponent(JSON.stringify({
-                power: this.powerData.map(d => {
+                power: this.powerDataList.map(d => {
                     return { time: d[0], power: d[1] };
                 }),
                 annotation: this.annotationList.map(d => {

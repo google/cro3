@@ -9,13 +9,13 @@ export class Graph {
   constructor(ui: Ui) {
     this.ui = ui;
   }
-  public updateGraph(powerData: Array<PowerData>) {
-    if (powerData !== undefined && powerData.length > 0) {
+  public updateGraph(powerDataList: Array<PowerData>) {
+    if (powerDataList !== undefined && powerDataList.length > 0) {
       this.ui.hideToolTip();
     }
     this.g.updateOptions(
       {
-        file: powerData,
+        file: powerDataList,
         labels: ['t', 'ina0'],
         showRoller: true,
         xlabel: 'Relative Time (s)',
@@ -26,7 +26,7 @@ export class Graph {
         axes: {
           x: {
             axisLabelFormatter: function (d) {
-              const relativeTime = (d as number) - powerData[0][0];
+              const relativeTime = (d as number) - powerDataList[0][0];
               // relativeTime is divided by 1000 because the time data is recorded in miliseconds but x-axis is in seconds.
               return (relativeTime / 1000).toLocaleString();
             },
@@ -64,13 +64,13 @@ export class Graph {
     this.g.setAnnotations(this.annotations);
   }
   public findAnnotationPoint(
-    powerData: Array<PowerData>,
+    powerDataList: Array<PowerData>,
     annotationList: Array<AnnotationData>
   ) {
     for (const ann of annotationList) {
-      for (let i = powerData.length - 1; i >= 0; i--) {
-        if (ann[0] > powerData[i][0]) {
-          this.addAnnotation(powerData[i][0], ann[1]);
+      for (let i = powerDataList.length - 1; i >= 0; i--) {
+        if (ann[0] > powerDataList[i][0]) {
+          this.addAnnotation(powerDataList[i][0], ann[1]);
           break;
         }
       }
