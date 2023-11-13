@@ -29,9 +29,7 @@ export class Histogram {
       .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
 
     // y axis and its label
-    const dataAll: Array<number> = powerDataList.map(
-      (e: PowerData) => e[1] as number
-    );
+    const dataAll: Array<number> = powerDataList.map((e: PowerData) => e[1]);
     const dataMin = d3.min(dataAll);
     const dataMax = d3.max(dataAll);
     if (dataMin === undefined || dataMax === undefined) return;
