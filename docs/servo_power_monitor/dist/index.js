@@ -34271,9 +34271,10 @@ class OperatePort {
             return;
         this.reader.closed
             .then(async () => {
+            var _a;
             await this.reader.cancel();
             await this.reader.releaseLock();
-            await this.close();
+            await ((_a = this.port) === null || _a === void 0 ? void 0 : _a.close());
         })
             .catch(async () => {
             var _a;

@@ -28,7 +28,7 @@ export class OperatePort {
       .then(async () => {
         await this.reader.cancel();
         await this.reader.releaseLock();
-        await this.close();
+        await this.port?.close();
       })
       .catch(async () => {
         await this.port?.close();
