@@ -33878,7 +33878,7 @@ class Graph {
                 x: {
                     axisLabelFormatter: function (d) {
                         const relativeTime = d - powerDataList[0][0];
-                        // relativeTime is divided by 1000 because the time data is recorded in miliseconds but x-axis is in seconds.
+                        // relativeTime is divided by 1000 because the time data is recorded in milliseconds but x-axis is in seconds.
                         return (relativeTime / 1000).toLocaleString();
                     },
                 },
