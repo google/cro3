@@ -1,16 +1,13 @@
-import Dygraph from 'dygraphs';
+import Dygraph, {dygraphs} from 'dygraphs';
 import {Ui} from './ui';
-import {AnnotationText, PowerData} from './power_test_controller';
+import {PowerData} from './power_test_controller';
 
 export class Graph {
   private ui: Ui;
   public g = new Dygraph('graph', [], {});
-  public annotations;
-  public annotationFlag = false;
-  private annotationText: AnnotationText = 'start';
+  public annotations: dygraphs.Annotation[] = [];
   constructor(ui: Ui) {
     this.ui = ui;
-    this.annotations = this.g.annotations();
   }
   public updateGraph(powerData: Array<PowerData>) {
     if (powerData !== undefined && powerData.length > 0) {
@@ -30,6 +27,7 @@ export class Graph {
           x: {
             axisLabelFormatter: function (d) {
               const relativeTime = (d as number) - powerData[0][0];
+              // relativeTime is divided by 1000 because the time data is recorded in miliseconds but x-axis is in seconds.
               return (relativeTime / 1000).toLocaleString();
             },
           },
@@ -48,17 +46,6 @@ export class Graph {
       },
       false
     );
-    if (this.annotationFlag) {
-      this.addAnnotation(
-        powerData[powerData.length - 1][0],
-        this.annotationText
-      );
-      this.annotationFlag = false;
-    }
-  }
-  public setAnnotationFlag(text: AnnotationText) {
-    this.annotationFlag = true;
-    this.annotationText = text;
   }
   public addAnnotation(x: number, text: string) {
     function capitalize(str: string) {

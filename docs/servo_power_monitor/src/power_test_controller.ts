@@ -5,8 +5,7 @@ import {Ui} from './ui';
 import {TestRunner} from './test_runner';
 
 export type PowerData = [number, number];
-export type AnnotationText = 'start' | 'end';
-export type AnnotationData = [number, AnnotationText];
+export type AnnotationData = [number, string];
 export class PowerTestController {
   private INTERVAL_MS = 100;
   public halt = true;
@@ -65,11 +64,17 @@ export class PowerTestController {
     for (;;) {
       const dutData = await this.runner.readData();
       if (dutData.includes('start')) {
-        this.graph.setAnnotationFlag('start');
         this.annotationList.push([new Date().getTime(), 'start']);
+        this.graph.addAnnotation(
+          this.powerData[this.powerData.length - 1][0],
+          'start'
+        );
       } else if (dutData.includes('end')) {
-        this.graph.setAnnotationFlag('end');
         this.annotationList.push([new Date().getTime(), 'end']);
+        this.graph.addAnnotation(
+          this.powerData[this.powerData.length - 1][0],
+          'end'
+        );
       }
       this.ui.addMessageToConsole(dutData);
     }
