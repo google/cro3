@@ -13,7 +13,6 @@ export class Config {
   public annotationList: Array<AnnotationData> = [];
   public graph: Graph;
   public customScript: string;
-  private script = '';
   public halt = true;
   private inProgress = false;
   constructor(
@@ -28,17 +27,6 @@ export class Config {
     this.servoController = servoController;
     this.runner = runner;
     this.customScript = customScript;
-    this.script = `#!/bin/bash -e
-function workload () {
-${customScript}
-}
-ectool chargecontrol idle
-sleep 3
-echo "start"
-workload 1> ./test_out.log 2> ./test_err.log
-echo "end"
-sleep 3
-ectool chargecontrol normal\n`;
   }
   private changeHaltFlag(flag: boolean) {
     this.halt = flag;
@@ -96,6 +84,8 @@ ectool chargecontrol normal\n`;
     this.kickWriteLoop();
     this.readLoop();
     this.readDutLoop();
+    await this.runner.copyScriptToDut(this.customScript);
+    await this.runner.executeScript();
   }
   public async stop() {
     this.changeHaltFlag(true);
