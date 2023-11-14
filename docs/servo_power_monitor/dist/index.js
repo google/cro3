@@ -34242,6 +34242,9 @@ window.addEventListener('DOMContentLoaded', () => {
     ui.popupCloseButton.addEventListener('click', () => {
         ui.overlay.classList.add('closed');
     });
+    ui.addConfigButton.addEventListener('click', () => {
+        ui.addConfigInputArea();
+    });
 });
 
 
@@ -34613,7 +34616,9 @@ class Ui {
         this.downloadButton = document.getElementById('download-button');
         this.analyzeButton = document.getElementById('analyze-button');
         this.selectDutSerialButton = document.getElementById('select-dut-serial-button');
+        this.shellScript = document.getElementById('shellScript');
         this.shellScriptInput = document.getElementById('shell-script-input');
+        this.addConfigButton = document.getElementById('addConfigButton');
         this.dutCommandForm = document.getElementById('dut-command-form');
         this.dutCommandInput = document.getElementById('dut-command-input');
         this.popupCloseButton = document.getElementById('popup-close');
@@ -34624,6 +34629,7 @@ class Ui {
         this.serialOutput = document.getElementById('serial-output');
         this.dlAnchorElem = document.getElementById('download-anchor');
         this.toolTip = document.getElementById('tooltip');
+        this.configNum = 1;
     }
     enabledRecordingButton(halt) {
         this.requestSerialButton.disabled = !halt;
@@ -34641,6 +34647,14 @@ class Ui {
     }
     readInputScript() {
         return this.shellScriptInput.value;
+    }
+    addConfigInputArea() {
+        this.configNum += 1;
+        const newLabelElem = document.createElement('label');
+        newLabelElem.textContent = `config+workload(${this.configNum}):`;
+        const newTextAreaElem = document.createElement('textarea');
+        newLabelElem.appendChild(newTextAreaElem);
+        this.shellScript.appendChild(newLabelElem);
     }
     addMessageToConsole(s) {
         this.messages.textContent += s;
