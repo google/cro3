@@ -13,6 +13,10 @@ button {
 
 }
 
+ul {
+  list-style-type: none;
+}
+
 .dygraph-legend {
   font-size: 14px;
   z-index: 10;

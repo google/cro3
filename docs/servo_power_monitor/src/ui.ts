@@ -16,7 +16,7 @@ export class Ui {
   ) as HTMLButtonElement;
   private shellScript = document.getElementById(
     'shellScript'
-  ) as HTMLDivElement;
+  ) as HTMLUListElement;
   public shellScriptInput = document.getElementById(
     'shellScriptInput'
   ) as HTMLTextAreaElement;
@@ -77,11 +77,13 @@ export class Ui {
   }
   public addConfigInputArea() {
     this.configNum += 1;
+    const newListElem = document.createElement('li');
     const newLabelElem = document.createElement('label');
     newLabelElem.textContent = `config+workload(${this.configNum}):`;
+    newListElem.appendChild(newLabelElem);
     const newTextAreaElem = document.createElement('textarea');
-    newLabelElem.appendChild(newTextAreaElem);
-    this.shellScript.appendChild(newLabelElem);
+    newListElem.appendChild(newTextAreaElem);
+    this.shellScript.appendChild(newListElem);
   }
   public deleteConfigInputArea() {
     if (this.configNum <= 1) return;
