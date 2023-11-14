@@ -34702,11 +34702,13 @@ class Ui {
     }
     addConfigInputArea() {
         this.configNum += 1;
+        const newListElem = document.createElement('li');
         const newLabelElem = document.createElement('label');
         newLabelElem.textContent = `config+workload(${this.configNum}):`;
+        newListElem.appendChild(newLabelElem);
         const newTextAreaElem = document.createElement('textarea');
-        newLabelElem.appendChild(newTextAreaElem);
-        this.shellScript.appendChild(newLabelElem);
+        newListElem.appendChild(newTextAreaElem);
+        this.shellScript.appendChild(newListElem);
     }
     deleteConfigInputArea() {
         if (this.configNum <= 1)
