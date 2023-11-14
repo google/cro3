@@ -47,14 +47,6 @@ window.addEventListener('DOMContentLoaded', () => {
   // ui.analyzeButton.addEventListener('click', () => {
   //   testController.analyzePowerData();
   // });
-  ui.executeScriptButton.addEventListener('click', async () => {
-    if (!runner.isOpened) {
-      ui.overlay.classList.remove('closed');
-      return;
-    }
-    await runner.copyScriptToDut();
-    await runner.executeScript();
-  });
   ui.dropZone.addEventListener(
     'dragover',
     e => {
