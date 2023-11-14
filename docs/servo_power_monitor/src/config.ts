@@ -75,11 +75,16 @@ export class Config {
           this.powerDataList[this.powerDataList.length - 1][0],
           'end'
         );
+      } else if (dutData.includes('end')) {
+        this.stop();
+        break;
       }
       this.ui.addMessageToConsole(dutData);
     }
   }
   public async start() {
+    await this.servoController.servoShell.open();
+    await this.runner.openDutPort();
     this.changeHaltFlag(false);
     this.kickWriteLoop();
     this.readLoop();
@@ -90,5 +95,7 @@ export class Config {
   public async stop() {
     this.changeHaltFlag(true);
     this.inProgress = false;
+    await this.servoController.servoShell.close();
+    await this.runner.dut.close();
   }
 }

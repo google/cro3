@@ -10,6 +10,14 @@ export class TestRunner {
     this.ui = ui;
     this.dut = dut;
   }
+  public async openDutPort() {
+    await this.dut.open();
+    this.ui.addMessageToConsole('DutPort is opened');
+  }
+  public async closeDutPort() {
+    await this.dut.close();
+    this.ui.addMessageToConsole('DutPort is closed');
+  }
   public async readData() {
     const chunk = await this.dut.read();
     return chunk;
@@ -25,6 +33,7 @@ echo "start"
 workload 1> ./test_out.log 2> ./test_err.log
 echo "end"
 sleep 3
+echo "stop"
 ectool chargecontrol normal\n`;
     await this.dut.write('cat > ./example.sh << EOF\n');
     await this.dut.write(btoa(script) + '\n');
