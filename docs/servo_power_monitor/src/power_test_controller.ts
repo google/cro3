@@ -3,32 +3,12 @@ import {Graph} from './graph';
 import {Histogram} from './histogram';
 import {Ui} from './ui';
 import {TestRunner} from './test_runner';
+import {Config} from './config';
 
 export type PowerData = [number, number];
 export type AnnotationData = [number, string];
 
-class Config {
-  private powerDataList: Array<PowerData> = [];
-  private script = '';
-  constructor(customScript: string) {
-    this.script = `#!/bin/bash -e
-function workload () {
-${customScript}
-}
-ectool chargecontrol idle
-sleep 3
-echo "start"
-workload 1> ./test_out.log 2> ./test_err.log
-echo "end"
-sleep 3
-ectool chargecontrol normal\n`;
-  }
-}
-
 export class PowerTestController {
-  private INTERVAL_MS = 100;
-  public halt = true;
-  private inProgress = false;
   private ui: Ui;
   private servoController: ServoController;
   private runner: TestRunner;
@@ -36,8 +16,9 @@ export class PowerTestController {
   private annotationList: Array<AnnotationData> = [];
   private graph: Graph;
   private histogram = new Histogram();
-  private configNum = 1;
   private configList: Array<Config> = [];
+  private currentConfigNum = 0;
+  private isMeasuresing = false;
   constructor(
     ui: Ui,
     graph: Graph,
@@ -49,43 +30,20 @@ export class PowerTestController {
     this.servoController = servoController;
     this.runner = runner;
   }
-  private changeHaltFlag(flag: boolean) {
-    this.halt = flag;
-    this.servoController.halt = flag;
-    this.ui.enabledRecordingButton(this.halt);
-  }
+
   public setConfig() {
     const shellScriptContents = this.ui.readInputShellScript();
     for (let i = 0; i < this.ui.configNum; i++) {
-      const newConfig = new Config(shellScriptContents[i]);
+      const newConfig = new Config(
+        this.ui,
+        this.graph,
+        this.servoController,
+        this.runner,
+        shellScriptContents[i]
+      );
       this.configList.push(newConfig);
     }
     console.log(this.configList);
-  }
-  private kickWriteLoop() {
-    const f = async () => {
-      while (!this.halt) {
-        if (this.inProgress) {
-          console.error('previous request is in progress! skip...');
-        } else {
-          this.inProgress = true;
-        }
-        await this.servoController.writeInaCommand();
-        await new Promise(r => setTimeout(r, this.INTERVAL_MS));
-      }
-    };
-    setTimeout(f, this.INTERVAL_MS);
-  }
-  private async readLoop() {
-    while (!this.halt) {
-      const currentPowerData = await this.servoController.readData();
-      this.inProgress = false;
-      if (currentPowerData === undefined) continue;
-      this.ui.setSerialOutput(currentPowerData.originalData);
-      const e: PowerData = [new Date().getTime(), currentPowerData.power];
-      this.powerDataList.push(e);
-      this.graph.updateGraph(this.powerDataList);
-    }
   }
   private async readDutLoop() {
     this.runner.executeCommand('\n');
@@ -111,13 +69,13 @@ export class PowerTestController {
   public async startMeasurement() {
     await this.setConfig();
     await this.servoController.servoShell.open();
-    this.changeHaltFlag(false);
-    this.kickWriteLoop();
-    this.readLoop();
+    for (let i = 0; i < this.ui.configNum; i++) {
+      this.configList[i].start();
+      this.currentConfigNum = i;
+    }
   }
   public async stopMeasurement() {
-    this.changeHaltFlag(true);
-    this.inProgress = false;
+    await this.configList[this.currentConfigNum].stop();
     await this.servoController.servoShell.close();
   }
   public async selectPort() {
@@ -162,9 +120,8 @@ export class PowerTestController {
   public setupDisconnectEvent() {
     // event when you disconnect serial port
     navigator.serial.addEventListener('disconnect', async () => {
-      if (!this.halt) {
-        this.changeHaltFlag(true);
-        this.inProgress = false;
+      if (this.isMeasuresing) {
+        this.isMeasuresing = false;
         await this.servoController.servoShell.close();
       }
     });
