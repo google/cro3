@@ -37,10 +37,9 @@ export class PowerTestController {
   }
   public async startMeasurement() {
     await this.setConfig();
-    await this.servoController.servoShell.open();
     for (let i = 0; i < this.ui.configNum; i++) {
       this.currentConfigNum = i;
-      this.configList[i].start();
+      await this.configList[i].start();
     }
   }
   public async stopMeasurement() {
