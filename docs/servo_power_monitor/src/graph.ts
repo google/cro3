@@ -4,10 +4,14 @@ import {AnnotationData, PowerData} from './power_test_controller';
 
 export class Graph {
   private ui: Ui;
-  public g = new Dygraph('graph', [], {});
+  public g: Dygraph;
   public annotations: dygraphs.Annotation[] = [];
-  constructor(ui: Ui) {
+  constructor(ui: Ui, divName: string) {
     this.ui = ui;
+    this.g = new Dygraph(divName, [], {
+      width: 960,
+      height: 480,
+    });
   }
   public updateGraph(powerDataList: Array<PowerData>) {
     if (powerDataList !== undefined && powerDataList.length > 0) {
@@ -18,6 +22,8 @@ export class Graph {
         file: powerDataList,
         labels: ['t', 'ina0'],
         showRoller: true,
+        width: 960,
+        height: 480,
         xlabel: 'Relative Time (s)',
         ylabel: 'Power (mW)',
         legend: 'always',

@@ -1,5 +1,5 @@
 import {Graph} from './graph';
-import {PowerData} from './power_test_controller';
+import {AnnotationData, PowerData} from './power_test_controller';
 import {ServoController} from './servo_controller';
 import {TestRunner} from './test_runner';
 import {Ui} from './ui';
@@ -9,22 +9,25 @@ export class Config {
   private ui: Ui;
   private servoController: ServoController;
   private runner: TestRunner;
-  private powerDataList: Array<PowerData> = [];
-  private graph: Graph;
+  public powerDataList: Array<PowerData> = [];
+  public annotationList: Array<AnnotationData> = [];
+  public graph: Graph;
+  public customScript: string;
   private script = '';
   public halt = true;
   private inProgress = false;
   constructor(
     ui: Ui,
-    graph: Graph,
     servoController: ServoController,
     runner: TestRunner,
+    configNum: number,
     customScript: string
   ) {
     this.ui = ui;
-    this.graph = graph;
+    this.graph = new Graph(ui, `graph${configNum}`);
     this.servoController = servoController;
     this.runner = runner;
+    this.customScript = customScript;
     this.script = `#!/bin/bash -e
 function workload () {
 ${customScript}
@@ -67,10 +70,32 @@ ectool chargecontrol normal\n`;
       this.graph.updateGraph(this.powerDataList);
     }
   }
+  private async readDutLoop() {
+    this.runner.executeCommand('\n');
+    this.ui.addMessageToConsole('DutPort is selected');
+    for (;;) {
+      const dutData = await this.runner.readData();
+      if (dutData.includes('start')) {
+        this.annotationList.push([new Date().getTime(), 'start']);
+        this.graph.addAnnotation(
+          this.powerDataList[this.powerDataList.length - 1][0],
+          'start'
+        );
+      } else if (dutData.includes('end')) {
+        this.annotationList.push([new Date().getTime(), 'end']);
+        this.graph.addAnnotation(
+          this.powerDataList[this.powerDataList.length - 1][0],
+          'end'
+        );
+      }
+      this.ui.addMessageToConsole(dutData);
+    }
+  }
   public async start() {
     this.changeHaltFlag(false);
     this.kickWriteLoop();
     this.readLoop();
+    this.readDutLoop();
   }
   public async stop() {
     this.changeHaltFlag(true);

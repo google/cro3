@@ -7,20 +7,13 @@ import {PowerTestController} from './power_test_controller';
 import {TestRunner} from './test_runner';
 import {ServoController} from './servo_controller';
 import {Ui} from './ui';
-import {Graph} from './graph';
 
 window.addEventListener('DOMContentLoaded', () => {
   const ui = new Ui();
-  const graph = new Graph(ui);
   const servoController = new ServoController();
   const dutShell = new OperatePort(0x18d1, 0x504a);
   const runner = new TestRunner(ui, dutShell);
-  const testController = new PowerTestController(
-    ui,
-    graph,
-    servoController,
-    runner
-  );
+  const testController = new PowerTestController(ui, servoController, runner);
   testController.setupDisconnectEvent();
   runner.setupDisconnectEvent();
 
@@ -51,9 +44,9 @@ window.addEventListener('DOMContentLoaded', () => {
       await runner.sendCancel();
     }
   });
-  ui.analyzeButton.addEventListener('click', () => {
-    testController.analyzePowerData();
-  });
+  // ui.analyzeButton.addEventListener('click', () => {
+  //   testController.analyzePowerData();
+  // });
   ui.executeScriptButton.addEventListener('click', async () => {
     if (!runner.isOpened) {
       ui.overlay.classList.remove('closed');
