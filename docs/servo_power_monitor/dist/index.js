@@ -34349,6 +34349,23 @@ exports.OperatePort = OperatePort;
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.PowerTestController = void 0;
 const histogram_1 = __webpack_require__(/*! ./histogram */ "./src/histogram.ts");
+class Config {
+    constructor(customScript) {
+        this.powerDataList = [];
+        this.script = '';
+        this.script = `#!/bin/bash -e
+function workload () {
+${customScript}
+}
+ectool chargecontrol idle
+sleep 3
+echo "start"
+workload 1> ./test_out.log 2> ./test_err.log
+echo "end"
+sleep 3
+ectool chargecontrol normal\n`;
+    }
+}
 class PowerTestController {
     constructor(ui, graph, servoController, runner) {
         this.INTERVAL_MS = 100;
@@ -34357,6 +34374,8 @@ class PowerTestController {
         this.powerDataList = [];
         this.annotationList = [];
         this.histogram = new histogram_1.Histogram();
+        this.configNum = 1;
+        this.configList = [];
         this.ui = ui;
         this.graph = graph;
         this.servoController = servoController;
@@ -34366,6 +34385,14 @@ class PowerTestController {
         this.halt = flag;
         this.servoController.halt = flag;
         this.ui.enabledRecordingButton(this.halt);
+    }
+    setConfig() {
+        const shellScriptContents = this.ui.readInputShellScript();
+        for (let i = 0; i < this.ui.configNum; i++) {
+            const newConfig = new Config(shellScriptContents[i]);
+            this.configList.push(newConfig);
+        }
+        console.log(this.configList);
     }
     kickWriteLoop() {
         const f = async () => {
@@ -34411,7 +34438,7 @@ class PowerTestController {
         }
     }
     async startMeasurement() {
-        await this.runner.setScript();
+        await this.setConfig();
         await this.servoController.servoShell.open();
         this.changeHaltFlag(false);
         this.kickWriteLoop();
@@ -34553,20 +34580,6 @@ class TestRunner {
         this.ui = ui;
         this.dut = dut;
     }
-    setScript() {
-        const customScript = this.ui.readInputScript();
-        this.scripts = `#!/bin/bash -e
-function workload () {
-  ${customScript}
-}
-ectool chargecontrol idle
-sleep 3
-echo "start"
-workload 1> ./test_out.log 2> ./test_err.log
-echo "end"
-sleep 3
-ectool chargecontrol normal\n`;
-    }
     async readData() {
         const chunk = await this.dut.read();
         return chunk;
@@ -34645,8 +34658,14 @@ class Ui {
         this.dutCommandInput.value = '';
         return res;
     }
-    readInputScript() {
-        return this.shellScriptInput.value;
+    readInputShellScript() {
+        const textAreas = this.shellScript.getElementsByTagName('textarea');
+        const shellScriptContents = [];
+        for (let i = 0; i < textAreas.length; i++) {
+            shellScriptContents.push(textAreas[i].value);
+            console.log(textAreas[i].value);
+        }
+        return shellScriptContents;
     }
     addConfigInputArea() {
         this.configNum += 1;

@@ -11,20 +11,6 @@ export class TestRunner {
     this.ui = ui;
     this.dut = dut;
   }
-  public setScript() {
-    const customScript = this.ui.readInputScript();
-    this.scripts = `#!/bin/bash -e
-function workload () {
-  ${customScript}
-}
-ectool chargecontrol idle
-sleep 3
-echo "start"
-workload 1> ./test_out.log 2> ./test_err.log
-echo "end"
-sleep 3
-ectool chargecontrol normal\n`;
-  }
   public async readData() {
     const chunk = await this.dut.read();
     return chunk;
