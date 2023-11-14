@@ -33845,23 +33845,26 @@ webpackContext.id = "./node_modules/moment/locale sync recursive ^\\.\\/.*$";
 /*!***********************!*\
   !*** ./src/config.ts ***!
   \***********************/
-/***/ ((__unused_webpack_module, exports) => {
+/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.Config = void 0;
+const graph_1 = __webpack_require__(/*! ./graph */ "./src/graph.ts");
 class Config {
-    constructor(ui, graph, servoController, runner, customScript) {
+    constructor(ui, servoController, runner, configNum, customScript) {
         this.INTERVAL_MS = 100;
         this.powerDataList = [];
+        this.annotationList = [];
         this.script = '';
         this.halt = true;
         this.inProgress = false;
         this.ui = ui;
-        this.graph = graph;
+        this.graph = new graph_1.Graph(ui, `graph${configNum}`);
         this.servoController = servoController;
         this.runner = runner;
+        this.customScript = customScript;
         this.script = `#!/bin/bash -e
 function workload () {
 ${customScript}
@@ -33906,10 +33909,27 @@ ectool chargecontrol normal\n`;
             this.graph.updateGraph(this.powerDataList);
         }
     }
+    async readDutLoop() {
+        this.runner.executeCommand('\n');
+        this.ui.addMessageToConsole('DutPort is selected');
+        for (;;) {
+            const dutData = await this.runner.readData();
+            if (dutData.includes('start')) {
+                this.annotationList.push([new Date().getTime(), 'start']);
+                this.graph.addAnnotation(this.powerDataList[this.powerDataList.length - 1][0], 'start');
+            }
+            else if (dutData.includes('end')) {
+                this.annotationList.push([new Date().getTime(), 'end']);
+                this.graph.addAnnotation(this.powerDataList[this.powerDataList.length - 1][0], 'end');
+            }
+            this.ui.addMessageToConsole(dutData);
+        }
+    }
     async start() {
         this.changeHaltFlag(false);
         this.kickWriteLoop();
         this.readLoop();
+        this.readDutLoop();
     }
     async stop() {
         this.changeHaltFlag(true);
@@ -33936,10 +33956,13 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.Graph = void 0;
 const dygraphs_1 = __importDefault(__webpack_require__(/*! dygraphs */ "./node_modules/dygraphs/index.js"));
 class Graph {
-    constructor(ui) {
-        this.g = new dygraphs_1.default('graph', [], {});
+    constructor(ui, divName) {
         this.annotations = [];
         this.ui = ui;
+        this.g = new dygraphs_1.default(divName, [], {
+            width: 960,
+            height: 480,
+        });
     }
     updateGraph(powerDataList) {
         if (powerDataList !== undefined && powerDataList.length > 0) {
@@ -33949,6 +33972,8 @@ class Graph {
             file: powerDataList,
             labels: ['t', 'ina0'],
             showRoller: true,
+            width: 960,
+            height: 480,
             xlabel: 'Relative Time (s)',
             ylabel: 'Power (mW)',
             legend: 'always',
@@ -34242,14 +34267,12 @@ const power_test_controller_1 = __webpack_require__(/*! ./power_test_controller 
 const test_runner_1 = __webpack_require__(/*! ./test_runner */ "./src/test_runner.ts");
 const servo_controller_1 = __webpack_require__(/*! ./servo_controller */ "./src/servo_controller.ts");
 const ui_1 = __webpack_require__(/*! ./ui */ "./src/ui.ts");
-const graph_1 = __webpack_require__(/*! ./graph */ "./src/graph.ts");
 window.addEventListener('DOMContentLoaded', () => {
     const ui = new ui_1.Ui();
-    const graph = new graph_1.Graph(ui);
     const servoController = new servo_controller_1.ServoController();
     const dutShell = new operate_port_1.OperatePort(0x18d1, 0x504a);
     const runner = new test_runner_1.TestRunner(ui, dutShell);
-    const testController = new power_test_controller_1.PowerTestController(ui, graph, servoController, runner);
+    const testController = new power_test_controller_1.PowerTestController(ui, servoController, runner);
     testController.setupDisconnectEvent();
     runner.setupDisconnectEvent();
     ui.requestSerialButton.addEventListener('click', () => {
@@ -34279,9 +34302,9 @@ window.addEventListener('DOMContentLoaded', () => {
             await runner.sendCancel();
         }
     });
-    ui.analyzeButton.addEventListener('click', () => {
-        testController.analyzePowerData();
-    });
+    // ui.analyzeButton.addEventListener('click', () => {
+    //   testController.analyzePowerData();
+    // });
     ui.executeScriptButton.addEventListener('click', async () => {
         if (!runner.isOpened) {
             ui.overlay.classList.remove('closed');
@@ -34434,41 +34457,22 @@ exports.PowerTestController = void 0;
 const histogram_1 = __webpack_require__(/*! ./histogram */ "./src/histogram.ts");
 const config_1 = __webpack_require__(/*! ./config */ "./src/config.ts");
 class PowerTestController {
-    constructor(ui, graph, servoController, runner) {
-        this.powerDataList = [];
-        this.annotationList = [];
+    constructor(ui, servoController, runner) {
         this.histogram = new histogram_1.Histogram();
         this.configList = [];
         this.currentConfigNum = 0;
         this.isMeasuresing = false;
         this.ui = ui;
-        this.graph = graph;
         this.servoController = servoController;
         this.runner = runner;
     }
     setConfig() {
         const shellScriptContents = this.ui.readInputShellScript();
         for (let i = 0; i < this.ui.configNum; i++) {
-            const newConfig = new config_1.Config(this.ui, this.graph, this.servoController, this.runner, shellScriptContents[i]);
+            const newConfig = new config_1.Config(this.ui, this.servoController, this.runner, i, shellScriptContents[i]);
             this.configList.push(newConfig);
         }
         console.log(this.configList);
-    }
-    async readDutLoop() {
-        this.runner.executeCommand('\n');
-        this.ui.addMessageToConsole('DutPort is selected');
-        for (;;) {
-            const dutData = await this.runner.readData();
-            if (dutData.includes('start')) {
-                this.annotationList.push([new Date().getTime(), 'start']);
-                this.graph.addAnnotation(this.powerDataList[this.powerDataList.length - 1][0], 'start');
-            }
-            else if (dutData.includes('end')) {
-                this.annotationList.push([new Date().getTime(), 'end']);
-                this.graph.addAnnotation(this.powerDataList[this.powerDataList.length - 1][0], 'end');
-            }
-            this.ui.addMessageToConsole(dutData);
-        }
     }
     async startMeasurement() {
         await this.setConfig();
@@ -34485,35 +34489,40 @@ class PowerTestController {
     async selectPort() {
         await this.runner.dut.open();
         this.runner.isOpened = true;
-        this.readDutLoop();
+        // this.readDutLoop();
     }
-    analyzePowerData() {
-        // https://dygraphs.com/jsdoc/symbols/Dygraph.html#xAxisRange
-        const xrange = this.graph.returnXrange();
-        const left = xrange[0];
-        const right = xrange[1];
-        this.histogram.paintHistogram(left, right, this.powerDataList);
-    }
+    // public analyzePowerData() {
+    //   // https://dygraphs.com/jsdoc/symbols/Dygraph.html#xAxisRange
+    //   const xrange = this.graph.returnXrange();
+    //   const left = xrange[0];
+    //   const right = xrange[1];
+    //   this.histogram.paintHistogram(left, right, this.powerDataList);
+    // }
     loadPowerData(s) {
         const data = JSON.parse(s);
-        this.powerDataList = data.power.map((d) => [
-            d.time,
-            d.power,
-        ]);
-        this.annotationList = data.annotation.map((d) => [d.time, d.text]);
-        this.graph.updateGraph(this.powerDataList);
-        this.graph.findAnnotationPoint(this.powerDataList, this.annotationList);
+        this.configList = [];
+        this.ui.configNum = data.length;
+        for (let i = 0; i < data.length; i++) {
+            const configData = data[i];
+            const newConfig = new config_1.Config(this.ui, this.servoController, this.runner, i, configData.config);
+            newConfig.powerDataList = configData.power.map((d) => [d.time, d.power]);
+            newConfig.annotationList = configData.annotation.map((d) => [d.time, d.text]);
+            newConfig.graph.updateGraph(newConfig.powerDataList);
+            newConfig.graph.findAnnotationPoint(newConfig.powerDataList, newConfig.annotationList);
+            this.configList.push(newConfig);
+        }
     }
     exportPowerData() {
         const dataStr = 'data:text/json;charset=utf-8,' +
-            encodeURIComponent(JSON.stringify({
-                power: this.powerDataList.map(d => {
+            encodeURIComponent(JSON.stringify(this.configList.map(e => ({
+                config: e.customScript,
+                power: e.powerDataList.map(d => {
                     return { time: d[0], power: d[1] };
                 }),
-                annotation: this.annotationList.map(d => {
+                annotation: e.annotationList.map(d => {
                     return { time: d[0], text: d[1] };
                 }),
-            }));
+            }))));
         return dataStr;
     }
     setupDisconnectEvent() {
@@ -34661,7 +34670,7 @@ class Ui {
         this.downloadButton = document.getElementById('downloadButton');
         this.analyzeButton = document.getElementById('analyzeButton');
         this.selectDutSerialButton = document.getElementById('selectDutSerialButton');
-        this.shellScript = document.getElementById('shellScript');
+        this.shellScriptList = document.getElementById('shellScriptList');
         this.shellScriptInput = document.getElementById('shellScriptInput');
         this.addConfigButton = document.getElementById('addConfigButton');
         this.deleteConfigButton = document.getElementById('deleteConfigButton');
@@ -34675,6 +34684,7 @@ class Ui {
         this.serial_output = document.getElementById('serial_output');
         this.dlAnchorElem = document.getElementById('downloadAnchorElem');
         this.toolTip = document.getElementById('tooltip');
+        this.graphList = document.getElementById('graphList');
         this.configNum = 1;
     }
     enabledRecordingButton(halt) {
@@ -34692,7 +34702,7 @@ class Ui {
         return res;
     }
     readInputShellScript() {
-        const textAreas = this.shellScript.getElementsByTagName('textarea');
+        const textAreas = this.shellScriptList.getElementsByTagName('textarea');
         const shellScriptContents = [];
         for (let i = 0; i < textAreas.length; i++) {
             shellScriptContents.push(textAreas[i].value);
@@ -34702,21 +34712,29 @@ class Ui {
     }
     addConfigInputArea() {
         this.configNum += 1;
-        const newListElem = document.createElement('li');
+        const newConfigListElem = document.createElement('li');
         const newLabelElem = document.createElement('label');
         newLabelElem.textContent = `config+workload(${this.configNum}):`;
+        newConfigListElem.appendChild(newLabelElem);
         const newTextAreaElem = document.createElement('textarea');
-        newLabelElem.appendChild(newTextAreaElem);
-        newListElem.appendChild(newLabelElem);
-        this.shellScript.appendChild(newListElem);
+        newConfigListElem.appendChild(newTextAreaElem);
+        this.shellScriptList.appendChild(newConfigListElem);
+        const newGraphListElem = document.createElement('li');
+        const newGraphElem = document.createElement('div');
+        newGraphElem.id = `graph${this.configNum}`;
+        newGraphListElem.appendChild(newGraphElem);
+        this.graphList.appendChild(newGraphListElem);
     }
     deleteConfigInputArea() {
         if (this.configNum <= 1)
             return;
-        if (this.shellScript.lastChild === null)
+        if (this.shellScriptList.lastChild === null)
+            return;
+        if (this.graphList.lastChild === null)
             return;
         this.configNum -= 1;
-        this.shellScript.removeChild(this.shellScript.lastChild);
+        this.shellScriptList.removeChild(this.shellScriptList.lastChild);
+        this.graphList.removeChild(this.graphList.lastChild);
     }
     addMessageToConsole(s) {
         this.messages.textContent += s;

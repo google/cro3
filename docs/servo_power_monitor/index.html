@@ -26,7 +26,7 @@
   <div id="config">
     <button id="addConfigButton">Add config</button>
     <button id="deleteConfigButton">Delete config</button>
-    <ul id="shellScript">
+    <ul id="shellScriptList">
       <li>
         <label>config+workload(1):</label>
         <textarea></textarea>
@@ -49,7 +49,12 @@
       <button id="popup-close">close</button>
     </div>
   </div>
-  <div id="graph"></div>
+  <ul id="graphList">
+    <li>
+      <div id="graph0"></div>
+    </li>
+  </ul>
+
   <span id="dropZone">Drop .json here</span>
   <script src='./dist/index.js'></script>
 </body>

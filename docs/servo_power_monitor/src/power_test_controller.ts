@@ -12,21 +12,12 @@ export class PowerTestController {
   private ui: Ui;
   private servoController: ServoController;
   private runner: TestRunner;
-  private powerDataList: Array<PowerData> = [];
-  private annotationList: Array<AnnotationData> = [];
-  private graph: Graph;
   private histogram = new Histogram();
   private configList: Array<Config> = [];
   private currentConfigNum = 0;
   private isMeasuresing = false;
-  constructor(
-    ui: Ui,
-    graph: Graph,
-    servoController: ServoController,
-    runner: TestRunner
-  ) {
+  constructor(ui: Ui, servoController: ServoController, runner: TestRunner) {
     this.ui = ui;
-    this.graph = graph;
     this.servoController = servoController;
     this.runner = runner;
   }
@@ -36,35 +27,14 @@ export class PowerTestController {
     for (let i = 0; i < this.ui.configNum; i++) {
       const newConfig = new Config(
         this.ui,
-        this.graph,
         this.servoController,
         this.runner,
+        i,
         shellScriptContents[i]
       );
       this.configList.push(newConfig);
     }
     console.log(this.configList);
-  }
-  private async readDutLoop() {
-    this.runner.executeCommand('\n');
-    this.ui.addMessageToConsole('DutPort is selected');
-    for (;;) {
-      const dutData = await this.runner.readData();
-      if (dutData.includes('start')) {
-        this.annotationList.push([new Date().getTime(), 'start']);
-        this.graph.addAnnotation(
-          this.powerDataList[this.powerDataList.length - 1][0],
-          'start'
-        );
-      } else if (dutData.includes('end')) {
-        this.annotationList.push([new Date().getTime(), 'end']);
-        this.graph.addAnnotation(
-          this.powerDataList[this.powerDataList.length - 1][0],
-          'end'
-        );
-      }
-      this.ui.addMessageToConsole(dutData);
-    }
   }
   public async startMeasurement() {
     await this.setConfig();
@@ -81,39 +51,57 @@ export class PowerTestController {
   public async selectPort() {
     await this.runner.dut.open();
     this.runner.isOpened = true;
-    this.readDutLoop();
+    // this.readDutLoop();
   }
-  public analyzePowerData() {
-    // https://dygraphs.com/jsdoc/symbols/Dygraph.html#xAxisRange
-    const xrange = this.graph.returnXrange();
-    const left = xrange[0];
-    const right = xrange[1];
-    this.histogram.paintHistogram(left, right, this.powerDataList);
-  }
+  // public analyzePowerData() {
+  //   // https://dygraphs.com/jsdoc/symbols/Dygraph.html#xAxisRange
+  //   const xrange = this.graph.returnXrange();
+  //   const left = xrange[0];
+  //   const right = xrange[1];
+  //   this.histogram.paintHistogram(left, right, this.powerDataList);
+  // }
   public loadPowerData(s: string) {
     const data = JSON.parse(s);
-    this.powerDataList = data.power.map((d: {time: number; power: number}) => [
-      d.time,
-      d.power,
-    ]);
-    this.annotationList = data.annotation.map(
-      (d: {text: string; time: number}) => [d.time, d.text]
-    );
-    this.graph.updateGraph(this.powerDataList);
-    this.graph.findAnnotationPoint(this.powerDataList, this.annotationList);
+    this.configList = [];
+    this.ui.configNum = data.length;
+    for (let i = 0; i < data.length; i++) {
+      const configData = data[i];
+      const newConfig = new Config(
+        this.ui,
+        this.servoController,
+        this.runner,
+        i,
+        configData.config
+      );
+      newConfig.powerDataList = configData.power.map(
+        (d: {time: number; power: number}) => [d.time, d.power]
+      );
+      newConfig.annotationList = configData.annotation.map(
+        (d: {text: string; time: number}) => [d.time, d.text]
+      );
+      newConfig.graph.updateGraph(newConfig.powerDataList);
+      newConfig.graph.findAnnotationPoint(
+        newConfig.powerDataList,
+        newConfig.annotationList
+      );
+      this.configList.push(newConfig);
+    }
   }
   public exportPowerData() {
     const dataStr =
       'data:text/json;charset=utf-8,' +
       encodeURIComponent(
-        JSON.stringify({
-          power: this.powerDataList.map(d => {
-            return {time: d[0], power: d[1]};
-          }),
-          annotation: this.annotationList.map(d => {
-            return {time: d[0], text: d[1]};
-          }),
-        })
+        JSON.stringify(
+          this.configList.map(e => ({
+            config: e.customScript,
+            power: e.powerDataList.map(d => {
+              return {time: d[0], power: d[1]};
+            }),
+            annotation: e.annotationList.map(d => {
+              return {time: d[0], text: d[1]};
+            }),
+          }))
+        )
       );
     return dataStr;
   }
