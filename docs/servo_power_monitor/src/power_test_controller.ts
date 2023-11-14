@@ -68,7 +68,7 @@ export class PowerTestController {
         this.ui,
         this.servoController,
         this.runner,
-        i+1,
+        i + 1,
         configData.config
       );
       newConfig.powerDataList = configData.power.map(
