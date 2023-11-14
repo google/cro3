@@ -75,7 +75,7 @@ export class Config {
           this.powerDataList[this.powerDataList.length - 1][0],
           'end'
         );
-      } else if (dutData.includes('end')) {
+      } else if (dutData.includes('stop')) {
         this.stop();
         break;
       }
