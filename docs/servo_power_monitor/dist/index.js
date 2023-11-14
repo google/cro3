@@ -33857,7 +33857,6 @@ class Config {
         this.INTERVAL_MS = 100;
         this.powerDataList = [];
         this.annotationList = [];
-        this.script = '';
         this.halt = true;
         this.inProgress = false;
         this.ui = ui;
@@ -33865,17 +33864,6 @@ class Config {
         this.servoController = servoController;
         this.runner = runner;
         this.customScript = customScript;
-        this.script = `#!/bin/bash -e
-function workload () {
-${customScript}
-}
-ectool chargecontrol idle
-sleep 3
-echo "start"
-workload 1> ./test_out.log 2> ./test_err.log
-echo "end"
-sleep 3
-ectool chargecontrol normal\n`;
     }
     changeHaltFlag(flag) {
         this.halt = flag;
@@ -33930,6 +33918,8 @@ ectool chargecontrol normal\n`;
         this.kickWriteLoop();
         this.readLoop();
         this.readDutLoop();
+        await this.runner.copyScriptToDut(this.customScript);
+        await this.runner.executeScript();
     }
     async stop() {
         this.changeHaltFlag(true);
@@ -34305,14 +34295,6 @@ window.addEventListener('DOMContentLoaded', () => {
     // ui.analyzeButton.addEventListener('click', () => {
     //   testController.analyzePowerData();
     // });
-    ui.executeScriptButton.addEventListener('click', async () => {
-        if (!runner.isOpened) {
-            ui.overlay.classList.remove('closed');
-            return;
-        }
-        await runner.copyScriptToDut();
-        await runner.executeScript();
-    });
     ui.dropZone.addEventListener('dragover', e => {
         e.stopPropagation();
         e.preventDefault();
@@ -34478,8 +34460,8 @@ class PowerTestController {
         await this.setConfig();
         await this.servoController.servoShell.open();
         for (let i = 0; i < this.ui.configNum; i++) {
-            this.configList[i].start();
             this.currentConfigNum = i;
+            this.configList[i].start();
         }
     }
     async stopMeasurement() {
@@ -34501,10 +34483,10 @@ class PowerTestController {
     loadPowerData(s) {
         const data = JSON.parse(s);
         this.configList = [];
-        this.ui.configNum = data.length;
         for (let i = 0; i < data.length; i++) {
+            this.ui.addConfigInputArea();
             const configData = data[i];
-            const newConfig = new config_1.Config(this.ui, this.servoController, this.runner, i, configData.config);
+            const newConfig = new config_1.Config(this.ui, this.servoController, this.runner, i + 1, configData.config);
             newConfig.powerDataList = configData.power.map((d) => [d.time, d.power]);
             newConfig.annotationList = configData.annotation.map((d) => [d.time, d.text]);
             newConfig.graph.updateGraph(newConfig.powerDataList);
@@ -34616,7 +34598,6 @@ class TestRunner {
     constructor(ui, dut) {
         this.isOpened = false;
         this.CANCEL_CMD = '\x03\n';
-        this.scripts = '';
         this.dut = new operate_port_1.OperatePort(0x18d1, 0x504a);
         this.ui = ui;
         this.dut = dut;
@@ -34625,9 +34606,20 @@ class TestRunner {
         const chunk = await this.dut.read();
         return chunk;
     }
-    async copyScriptToDut() {
+    async copyScriptToDut(customScript) {
+        const script = `#!/bin/bash -e
+function workload () {
+  ${customScript}
+}
+ectool chargecontrol idle
+sleep 3
+echo "start"
+workload 1> ./test_out.log 2> ./test_err.log
+echo "end"
+sleep 3
+ectool chargecontrol normal\n`;
         await this.dut.write('cat > ./example.sh << EOF\n');
-        await this.dut.write(btoa(this.scripts) + '\n');
+        await this.dut.write(btoa(script) + '\n');
         await this.dut.write('EOF\n');
     }
     async executeScript() {
@@ -34685,7 +34677,7 @@ class Ui {
         this.dlAnchorElem = document.getElementById('downloadAnchorElem');
         this.toolTip = document.getElementById('tooltip');
         this.graphList = document.getElementById('graphList');
-        this.configNum = 1;
+        this.configNum = 0;
     }
     enabledRecordingButton(halt) {
         this.requestSerialButton.disabled = !halt;
@@ -34726,7 +34718,7 @@ class Ui {
         this.graphList.appendChild(newGraphListElem);
     }
     deleteConfigInputArea() {
-        if (this.configNum <= 1)
+        if (this.configNum <= 0)
             return;
         if (this.shellScriptList.lastChild === null)
             return;
