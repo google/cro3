@@ -33841,6 +33841,86 @@ webpackContext.id = "./node_modules/moment/locale sync recursive ^\\.\\/.*$";
 
 /***/ }),
 
+/***/ "./src/config.ts":
+/*!***********************!*\
+  !*** ./src/config.ts ***!
+  \***********************/
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.Config = void 0;
+class Config {
+    constructor(ui, graph, servoController, runner, customScript) {
+        this.INTERVAL_MS = 100;
+        this.powerDataList = [];
+        this.script = '';
+        this.halt = true;
+        this.inProgress = false;
+        this.ui = ui;
+        this.graph = graph;
+        this.servoController = servoController;
+        this.runner = runner;
+        this.script = `#!/bin/bash -e
+function workload () {
+${customScript}
+}
+ectool chargecontrol idle
+sleep 3
+echo "start"
+workload 1> ./test_out.log 2> ./test_err.log
+echo "end"
+sleep 3
+ectool chargecontrol normal\n`;
+    }
+    changeHaltFlag(flag) {
+        this.halt = flag;
+        this.servoController.halt = flag;
+        this.ui.enabledRecordingButton(this.halt);
+    }
+    kickWriteLoop() {
+        const f = async () => {
+            while (!this.halt) {
+                if (this.inProgress) {
+                    console.error('previous request is in progress! skip...');
+                }
+                else {
+                    this.inProgress = true;
+                }
+                await this.servoController.writeInaCommand();
+                await new Promise(r => setTimeout(r, this.INTERVAL_MS));
+            }
+        };
+        setTimeout(f, this.INTERVAL_MS);
+    }
+    async readLoop() {
+        while (!this.halt) {
+            const currentPowerData = await this.servoController.readData();
+            this.inProgress = false;
+            if (currentPowerData === undefined)
+                continue;
+            this.ui.setSerialOutput(currentPowerData.originalData);
+            const e = [new Date().getTime(), currentPowerData.power];
+            this.powerDataList.push(e);
+            this.graph.updateGraph(this.powerDataList);
+        }
+    }
+    async start() {
+        this.changeHaltFlag(false);
+        this.kickWriteLoop();
+        this.readLoop();
+    }
+    async stop() {
+        this.changeHaltFlag(true);
+        this.inProgress = false;
+    }
+}
+exports.Config = Config;
+
+
+/***/ }),
+
 /***/ "./src/graph.ts":
 /*!**********************!*\
   !*** ./src/graph.ts ***!
@@ -34245,6 +34325,9 @@ window.addEventListener('DOMContentLoaded', () => {
     ui.addConfigButton.addEventListener('click', () => {
         ui.addConfigInputArea();
     });
+    ui.deleteConfigButton.addEventListener('click', () => {
+        ui.deleteConfigInputArea();
+    });
 });
 
 
@@ -34349,77 +34432,27 @@ exports.OperatePort = OperatePort;
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.PowerTestController = void 0;
 const histogram_1 = __webpack_require__(/*! ./histogram */ "./src/histogram.ts");
-class Config {
-    constructor(customScript) {
-        this.powerDataList = [];
-        this.script = '';
-        this.script = `#!/bin/bash -e
-function workload () {
-${customScript}
-}
-ectool chargecontrol idle
-sleep 3
-echo "start"
-workload 1> ./test_out.log 2> ./test_err.log
-echo "end"
-sleep 3
-ectool chargecontrol normal\n`;
-    }
-}
+const config_1 = __webpack_require__(/*! ./config */ "./src/config.ts");
 class PowerTestController {
     constructor(ui, graph, servoController, runner) {
-        this.INTERVAL_MS = 100;
-        this.halt = true;
-        this.inProgress = false;
         this.powerDataList = [];
         this.annotationList = [];
         this.histogram = new histogram_1.Histogram();
-        this.configNum = 1;
         this.configList = [];
+        this.currentConfigNum = 0;
+        this.isMeasuresing = false;
         this.ui = ui;
         this.graph = graph;
         this.servoController = servoController;
         this.runner = runner;
     }
-    changeHaltFlag(flag) {
-        this.halt = flag;
-        this.servoController.halt = flag;
-        this.ui.enabledRecordingButton(this.halt);
-    }
     setConfig() {
         const shellScriptContents = this.ui.readInputShellScript();
         for (let i = 0; i < this.ui.configNum; i++) {
-            const newConfig = new Config(shellScriptContents[i]);
+            const newConfig = new config_1.Config(this.ui, this.graph, this.servoController, this.runner, shellScriptContents[i]);
             this.configList.push(newConfig);
         }
         console.log(this.configList);
-    }
-    kickWriteLoop() {
-        const f = async () => {
-            while (!this.halt) {
-                if (this.inProgress) {
-                    console.error('previous request is in progress! skip...');
-                }
-                else {
-                    this.inProgress = true;
-                }
-                await this.servoController.writeInaCommand();
-                await new Promise(r => setTimeout(r, this.INTERVAL_MS));
-            }
-        };
-        setTimeout(f, this.INTERVAL_MS);
-    }
-    async readLoop() {
-        while (!this.halt) {
-            const currentPowerData = await this.servoController.readData();
-            this.inProgress = false;
-            if (currentPowerData === undefined)
-                continue;
-            this.ui.setSerialOutput(currentPowerData.originalData);
-            const e = [new Date().getTime(), currentPowerData.power];
-            this.powerDataList.push(e);
-            this.graph.updateGraph(this.powerDataList);
-        }
     }
     async readDutLoop() {
         this.runner.executeCommand('\n');
@@ -34440,13 +34473,13 @@ class PowerTestController {
     async startMeasurement() {
         await this.setConfig();
         await this.servoController.servoShell.open();
-        this.changeHaltFlag(false);
-        this.kickWriteLoop();
-        this.readLoop();
+        for (let i = 0; i < this.ui.configNum; i++) {
+            this.configList[i].start();
+            this.currentConfigNum = i;
+        }
     }
     async stopMeasurement() {
-        this.changeHaltFlag(true);
-        this.inProgress = false;
+        await this.configList[this.currentConfigNum].stop();
         await this.servoController.servoShell.close();
     }
     async selectPort() {
@@ -34486,9 +34519,8 @@ class PowerTestController {
     setupDisconnectEvent() {
         // event when you disconnect serial port
         navigator.serial.addEventListener('disconnect', async () => {
-            if (!this.halt) {
-                this.changeHaltFlag(true);
-                this.inProgress = false;
+            if (this.isMeasuresing) {
+                this.isMeasuresing = false;
                 await this.servoController.servoShell.close();
             }
         });
@@ -34632,6 +34664,7 @@ class Ui {
         this.shellScript = document.getElementById('shellScript');
         this.shellScriptInput = document.getElementById('shellScriptInput');
         this.addConfigButton = document.getElementById('addConfigButton');
+        this.deleteConfigButton = document.getElementById('deleteConfigButton');
         this.dutCommandForm = document.getElementById('dutCommandForm');
         this.dutCommandInput = document.getElementById('dutCommandInput');
         this.popupCloseButton = document.getElementById('popup-close');
@@ -34674,6 +34707,14 @@ class Ui {
         const newTextAreaElem = document.createElement('textarea');
         newLabelElem.appendChild(newTextAreaElem);
         this.shellScript.appendChild(newLabelElem);
+    }
+    deleteConfigInputArea() {
+        if (this.configNum <= 1)
+            return;
+        if (this.shellScript.lastChild === null)
+            return;
+        this.configNum -= 1;
+        this.shellScript.removeChild(this.shellScript.lastChild);
     }
     addMessageToConsole(s) {
         this.messages.textContent += s;

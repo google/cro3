@@ -102,4 +102,7 @@ window.addEventListener('DOMContentLoaded', () => {
   ui.addConfigButton.addEventListener('click', () => {
     ui.addConfigInputArea();
   });
+  ui.deleteConfigButton.addEventListener('click', () => {
+    ui.deleteConfigInputArea();
+  });
 });

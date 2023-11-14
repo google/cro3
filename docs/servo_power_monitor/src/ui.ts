@@ -23,6 +23,9 @@ export class Ui {
   public addConfigButton = document.getElementById(
     'addConfigButton'
   ) as HTMLButtonElement;
+  public deleteConfigButton = document.getElementById(
+    'deleteConfigButton'
+  ) as HTMLButtonElement;
   public dutCommandForm = document.getElementById(
     'dutCommandForm'
   ) as HTMLFormElement;
@@ -79,6 +82,12 @@ export class Ui {
     const newTextAreaElem = document.createElement('textarea');
     newLabelElem.appendChild(newTextAreaElem);
     this.shellScript.appendChild(newLabelElem);
+  }
+  public deleteConfigInputArea() {
+    if (this.configNum <= 1) return;
+    if (this.shellScript.lastChild === null) return;
+    this.configNum -= 1;
+    this.shellScript.removeChild(this.shellScript.lastChild);
   }
   public addMessageToConsole(s: string) {
     this.messages.textContent += s;
