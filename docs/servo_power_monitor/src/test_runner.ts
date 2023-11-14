@@ -2,7 +2,6 @@ import {OperatePort} from './operate_port';
 import {Ui} from './ui';
 
 export class TestRunner {
-  public isOpened = false;
   private CANCEL_CMD = '\x03\n';
   private scripts = '';
   private ui: Ui;
@@ -23,7 +22,16 @@ echo "start"
 workload 1> ./test_out.log 2> ./test_err.log
 echo "end"
 sleep 3
+echo "stop"
 ectool chargecontrol normal\n`;
+  }
+  public async openDutPort() {
+    await this.dut.open();
+    this.ui.addMessageToConsole('DutPort is opened');
+  }
+  public async closeDutPort() {
+    await this.dut.close();
+    this.ui.addMessageToConsole('DutPort is closed');
   }
   public async readData() {
     const chunk = await this.dut.read();
@@ -42,13 +50,5 @@ ectool chargecontrol normal\n`;
   }
   public async sendCancel() {
     await this.dut.write(this.CANCEL_CMD);
-  }
-  public setupDisconnectEvent() {
-    navigator.serial.addEventListener('disconnect', async () => {
-      if (this.isOpened) {
-        await this.dut.close();
-        this.isOpened = false;
-      }
-    });
   }
 }
