@@ -99,4 +99,7 @@ window.addEventListener('DOMContentLoaded', () => {
   ui.popupCloseButton.addEventListener('click', () => {
     ui.overlay.classList.add('closed');
   });
+  ui.addConfigButton.addEventListener('click', () => {
+    ui.addConfigInputArea();
+  });
 });

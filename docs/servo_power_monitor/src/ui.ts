@@ -14,9 +14,15 @@ export class Ui {
   public selectDutSerialButton = document.getElementById(
     'selectDutSerialButton'
   ) as HTMLButtonElement;
+  private shellScript = document.getElementById(
+    'shellScript'
+  ) as HTMLDivElement;
   public shellScriptInput = document.getElementById(
     'shellScriptInput'
   ) as HTMLTextAreaElement;
+  public addConfigButton = document.getElementById(
+    'addConfigButton'
+  ) as HTMLButtonElement;
   public dutCommandForm = document.getElementById(
     'dutCommandForm'
   ) as HTMLFormElement;
@@ -39,6 +45,7 @@ export class Ui {
     'downloadAnchorElem'
   ) as HTMLAnchorElement;
   public toolTip = document.getElementById('tooltip') as HTMLDivElement;
+  private configNum = 1;
 
   public enabledRecordingButton(halt: boolean) {
     this.requestSerialButton.disabled = !halt;
@@ -56,6 +63,14 @@ export class Ui {
   }
   public readInputScript() {
     return this.shellScriptInput.value;
+  }
+  public addConfigInputArea() {
+    this.configNum += 1;
+    const newLabelElem = document.createElement('label');
+    newLabelElem.textContent = `config+workload(${this.configNum}):`;
+    const newTextAreaElem = document.createElement('textarea');
+    newLabelElem.appendChild(newTextAreaElem);
+    this.shellScript.appendChild(newLabelElem);
   }
   public addMessageToConsole(s: string) {
     this.messages.textContent += s;
