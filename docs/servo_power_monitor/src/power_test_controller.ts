@@ -39,8 +39,8 @@ export class PowerTestController {
     await this.setConfig();
     await this.servoController.servoShell.open();
     for (let i = 0; i < this.ui.configNum; i++) {
-      this.configList[i].start();
       this.currentConfigNum = i;
+      this.configList[i].start();
     }
   }
   public async stopMeasurement() {
@@ -62,14 +62,14 @@ export class PowerTestController {
   public loadPowerData(s: string) {
     const data = JSON.parse(s);
     this.configList = [];
-    this.ui.configNum = data.length;
     for (let i = 0; i < data.length; i++) {
+      this.ui.addConfigInputArea();
       const configData = data[i];
       const newConfig = new Config(
         this.ui,
         this.servoController,
         this.runner,
-        i,
+        i+1,
         configData.config
       );
       newConfig.powerDataList = configData.power.map(

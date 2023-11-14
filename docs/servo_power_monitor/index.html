@@ -22,27 +22,33 @@
     <button id='download-button'>Mark</button>
     <button id='analyze-button'>Analyze displayed range</button>
   </div>
-  <div id="shell-script">
+  <<<<<<< HEAD <div id="shell-script">
     <p>config+workload:</p>
     <textarea id="shell-script-input"></textarea>
-  </div>
-  <div id="backlog">
-    <span id="serial-output" class="log"></span>
-    <span id="d3area"></span>
-    <span id="console">
-      <div id="messages"></div>
-      <form id="dut-command-form" action="">
-        <input id="dut-command-input" autocomplete="off" /><button>Send</button>
-      </form>
-    </span>
-  </div>
-  <div id="popup-overlay" class="closed">
-    <div id="popup-window">
-      <p id="popup-text">DUT serial port is not selected</p>
-      <button id="popup-close">close</button>
+    =======
+    <div id="config">
+      <button id="addConfigButton">Add config</button>
+      <button id="deleteConfigButton">Delete config</button>
+      <ul id="shellScriptList"></ul>
+      >>>>>>> 74467d6 (modify load for multiple data)
     </div>
-  </div>
-  <div id="graph"></div>
-  <span id="drop-zone">Drop .json here</span>
-  <script src='./dist/index.js'></script>
+    <div id="backlog">
+      <span id="serial-output" class="log"></span>
+      <span id="d3area"></span>
+      <span id="console">
+        <div id="messages"></div>
+        <form id="dut-command-form" action="">
+          <input id="dut-command-input" autocomplete="off" /><button>Send</button>
+        </form>
+      </span>
+    </div>
+    <div id="popup-overlay" class="closed">
+      <div id="popup-window">
+        <p id="popup-text">DUT serial port is not selected</p>
+        <button id="popup-close">close</button>
+      </div>
+    </div>
+    <div id="graph"></div>
+    <span id="drop-zone">Drop .json here</span>
+    <script src='./dist/index.js'></script>
 </body>

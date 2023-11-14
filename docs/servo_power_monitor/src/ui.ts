@@ -49,7 +49,7 @@ export class Ui {
   ) as HTMLAnchorElement;
   public toolTip = document.getElementById('tooltip') as HTMLDivElement;
   private graphList = document.getElementById('graphList') as HTMLUListElement;
-  public configNum = 1;
+  public configNum = 0;
 
   public enabledRecordingButton(halt: boolean) {
     this.requestSerialButton.disabled = !halt;
@@ -92,7 +92,7 @@ export class Ui {
     this.graphList.appendChild(newGraphListElem);
   }
   public deleteConfigInputArea() {
-    if (this.configNum <= 1) return;
+    if (this.configNum <= 0) return;
     if (this.shellScriptList.lastChild === null) return;
     if (this.graphList.lastChild === null) return;
     this.configNum -= 1;
