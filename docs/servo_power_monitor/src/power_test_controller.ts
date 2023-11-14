@@ -6,6 +6,25 @@ import {TestRunner} from './test_runner';
 
 export type PowerData = [number, number];
 export type AnnotationData = [number, string];
+
+class Config {
+  private powerDataList: Array<PowerData> = [];
+  private script = '';
+  constructor(customScript: string) {
+    this.script = `#!/bin/bash -e
+function workload () {
+${customScript}
+}
+ectool chargecontrol idle
+sleep 3
+echo "start"
+workload 1> ./test_out.log 2> ./test_err.log
+echo "end"
+sleep 3
+ectool chargecontrol normal\n`;
+  }
+}
+
 export class PowerTestController {
   private INTERVAL_MS = 100;
   public halt = true;
@@ -17,6 +36,8 @@ export class PowerTestController {
   private annotationList: Array<AnnotationData> = [];
   private graph: Graph;
   private histogram = new Histogram();
+  private configNum = 1;
+  private configList: Array<Config> = [];
   constructor(
     ui: Ui,
     graph: Graph,
@@ -32,6 +53,14 @@ export class PowerTestController {
     this.halt = flag;
     this.servoController.halt = flag;
     this.ui.enabledRecordingButton(this.halt);
+  }
+  public setConfig() {
+    const shellScriptContents = this.ui.readInputShellScript();
+    for (let i = 0; i < this.ui.configNum; i++) {
+      const newConfig = new Config(shellScriptContents[i]);
+      this.configList.push(newConfig);
+    }
+    console.log(this.configList);
   }
   private kickWriteLoop() {
     const f = async () => {
@@ -80,7 +109,7 @@ export class PowerTestController {
     }
   }
   public async startMeasurement() {
-    await this.runner.setScript();
+    await this.setConfig();
     await this.servoController.servoShell.open();
     this.changeHaltFlag(false);
     this.kickWriteLoop();

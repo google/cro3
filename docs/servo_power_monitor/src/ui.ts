@@ -45,7 +45,7 @@ export class Ui {
     'downloadAnchorElem'
   ) as HTMLAnchorElement;
   public toolTip = document.getElementById('tooltip') as HTMLDivElement;
-  private configNum = 1;
+  public configNum = 1;
 
   public enabledRecordingButton(halt: boolean) {
     this.requestSerialButton.disabled = !halt;
@@ -61,8 +61,16 @@ export class Ui {
     this.dutCommandInput.value = '';
     return res;
   }
-  public readInputScript() {
-    return this.shellScriptInput.value;
+  public readInputShellScript() {
+    const textAreas = this.shellScript.getElementsByTagName(
+      'textarea'
+    ) as HTMLCollectionOf<HTMLTextAreaElement>;
+    const shellScriptContents: Array<string> = [];
+    for (let i = 0; i < textAreas.length; i++) {
+      shellScriptContents.push(textAreas[i].value);
+      console.log(textAreas[i].value);
+    }
+    return shellScriptContents;
   }
   public addConfigInputArea() {
     this.configNum += 1;
