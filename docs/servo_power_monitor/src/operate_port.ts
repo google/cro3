@@ -22,17 +22,15 @@ export class OperatePort {
       });
     await this.port.open({baudRate: 115200});
   }
+  public async closeWhileReading() {
+    if (this.port === undefined) return;
+    await this.reader.cancel();
+    await this.reader.releaseLock();
+    await this.port.close();
+  }
   public async close() {
     if (this.port === undefined) return;
-    this.reader.closed
-      .then(async () => {
-        await this.reader.cancel();
-        await this.reader.releaseLock();
-        await this.port?.close();
-      })
-      .catch(async () => {
-        await this.port?.close();
-      });
+    await this.port.close();
   }
   public async read() {
     if (this.port === undefined) return '';
@@ -41,7 +39,6 @@ export class OperatePort {
     this.reader = readable.getReader();
     try {
       for (;;) {
-        // console.log('portread');
         const {value, done} = await this.reader.read();
         if (done) {
           // |reader| has been canceled.

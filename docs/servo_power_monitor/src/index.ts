@@ -26,8 +26,8 @@ window.addEventListener('DOMContentLoaded', () => {
   ui.requestSerialButton.addEventListener('click', () => {
     testController.startMeasurement();
   });
-  ui.haltButton.addEventListener('click', async () => {
-    await testController.stopMeasurement();
+  ui.haltButton.addEventListener('click', () => {
+    testController.stopMeasurement();
   });
   ui.dutCommandForm.addEventListener('submit', async e => {
     e.preventDefault();

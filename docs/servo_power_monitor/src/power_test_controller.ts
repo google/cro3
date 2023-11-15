@@ -76,16 +76,15 @@ export class PowerTestController {
         );
       } else if (dutData.includes('stop')) {
         this.stopMeasurement();
-        break;
       }
       this.ui.addMessageToConsole(dutData);
     }
   }
   public async startMeasurement() {
     await this.runner.setScript();
-    await this.servoController.servoShell.open();
+    await this.servoController.openServoPort();
     await this.runner.openDutPort();
-    this.changeHaltFlag(false);
+    await this.changeHaltFlag(false);
     this.readDutLoop();
     this.kickWriteLoop();
     this.readLoop();
@@ -95,7 +94,7 @@ export class PowerTestController {
   public async stopMeasurement() {
     this.changeHaltFlag(true);
     this.inProgress = false;
-    await this.servoController.servoShell.close();
+    await this.servoController.closeServoPort();
     await this.runner.closeDutPort();
   }
   public analyzePowerData() {

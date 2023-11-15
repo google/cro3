@@ -3,6 +3,7 @@ import {Ui} from './ui';
 
 export class TestRunner {
   private CANCEL_CMD = '\x03\n';
+  private isOpened = false;
   private scripts = '';
   private ui: Ui;
   public dut = new OperatePort(0x18d1, 0x504a);
@@ -16,22 +17,26 @@ export class TestRunner {
 function workload () {
   ${customScript}
 }
-ectool chargecontrol idle
+ectool chargecontrol idle 1> ./test_out.log 2> ./test_err.log
 sleep 3
 echo "start"
 workload 1> ./test_out.log 2> ./test_err.log
 echo "end"
 sleep 3
 echo "stop"
-ectool chargecontrol normal\n`;
+ectool chargecontrol normal 1> ./test_out.log 2> ./test_err.log\n`;
   }
   public async openDutPort() {
+    if (this.isOpened) return;
     await this.dut.open();
-    this.ui.addMessageToConsole('DutPort is opened');
+    this.ui.addMessageToConsole('DutPort is opened\n');
+    this.isOpened = true;
   }
   public async closeDutPort() {
+    if (!this.isOpened) return;
     await this.dut.close();
-    this.ui.addMessageToConsole('DutPort is closed');
+    this.ui.addMessageToConsole('DutPort is closed\n');
+    this.isOpened = false;
   }
   public async readData() {
     const chunk = await this.dut.read();
