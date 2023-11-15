@@ -77,19 +77,21 @@ export class Ui {
     newConfigListElem.innerHTML =
       '<label>script:</label><textarea>sleep 3</textarea><button>delete</button>';
     this.shellScriptList.appendChild(newConfigListElem);
-    const newGraphListElem = document.createElement('li');
-    newGraphListElem.innerHTML = `<div id="graph${this.configNum}"></div>`;
-    this.graphList.appendChild(newGraphListElem);
-
     const newButtonElem = newConfigListElem.querySelector(
       'button'
     ) as HTMLButtonElement;
     newButtonElem.addEventListener('click', () => {
       this.configNum -= 1;
       newConfigListElem.remove();
-      newGraphListElem.remove();
     });
     this.configNum += 1;
+  }
+  public createGraphList() {
+    for (let i = 0; i < this.configNum; i++) {
+      const newGraphListElem = document.createElement('li');
+      newGraphListElem.innerHTML = `<div id="graph${i}"></div>`;
+      this.graphList.appendChild(newGraphListElem);
+    }
   }
   public addMessageToConsole(s: string) {
     this.messages.textContent += s;
