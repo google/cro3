@@ -28,7 +28,7 @@ ectool chargecontrol normal 1> ./test_out.log 2> ./test_err.log\n`;
   public async openDutPort() {
     if (this.isOpened) return;
     await this.dut.open();
-    this.ui.addMessageToConsole('DutPort is opened\n');
+    console.log('dutPort is opened\n');
     this.isOpened = true;
     await this.dut.write('ectool chargecontrol idle\n');
   }
@@ -36,7 +36,7 @@ ectool chargecontrol normal 1> ./test_out.log 2> ./test_err.log\n`;
     if (!this.isOpened) return;
     await this.dut.write('ectool chargecontrol normal\n');
     await this.dut.close();
-    this.ui.addMessageToConsole('DutPort is closed\n');
+    console.log('dutPort is closed\n');
     this.isOpened = false;
   }
   public async readData() {

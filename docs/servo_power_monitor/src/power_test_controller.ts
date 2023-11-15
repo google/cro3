@@ -59,7 +59,6 @@ export class PowerTestController {
     }
   }
   private async readDutLoop() {
-    // await this.runner.executeCommand('\n');
     while (!this.halt) {
       const dutData = await this.runner.readData();
       if (dutData.includes('start')) {
@@ -75,9 +74,9 @@ export class PowerTestController {
           'end'
         );
       } else if (dutData.includes('stop')) {
-        this.stopMeasurement();
+        await this.stopMeasurement();
       }
-      this.ui.addMessageToConsole(dutData);
+      await this.ui.addMessageToConsole(dutData);
     }
   }
   public async startMeasurement() {
