@@ -59,8 +59,6 @@ export class Config {
     }
   }
   private async readDutLoop() {
-    this.runner.executeCommand('\n');
-    this.ui.addMessageToConsole('DutPort is selected');
     for (;;) {
       const dutData = await this.runner.readData();
       if (dutData.includes('start')) {
@@ -76,26 +74,26 @@ export class Config {
           'end'
         );
       } else if (dutData.includes('stop')) {
-        this.stop();
-        break;
+        await this.stop();
       }
       this.ui.addMessageToConsole(dutData);
     }
   }
   public async start() {
-    await this.servoController.servoShell.open();
+    await this.servoController.openServoPort();
     await this.runner.openDutPort();
-    this.changeHaltFlag(false);
+    await this.changeHaltFlag(false);
     this.kickWriteLoop();
     this.readLoop();
-    this.readDutLoop();
+    const readDutLoopInst = this.readDutLoop();
     await this.runner.copyScriptToDut(this.customScript);
     await this.runner.executeScript();
+    await readDutLoopInst;
   }
   public async stop() {
     this.changeHaltFlag(true);
     this.inProgress = false;
-    await this.servoController.servoShell.close();
-    await this.runner.dut.close();
+    await this.servoController.closeServoPort();
+    await this.runner.closeDutPort();
   }
 }

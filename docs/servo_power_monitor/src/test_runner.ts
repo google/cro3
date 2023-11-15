@@ -2,8 +2,8 @@ import {OperatePort} from './operate_port';
 import {Ui} from './ui';
 
 export class TestRunner {
-  public isOpened = false;
   private CANCEL_CMD = '\x03\n';
+  private isOpened = false;
   private ui: Ui;
   public dut = new OperatePort(0x18d1, 0x504a);
   constructor(ui: Ui, dut: OperatePort) {
@@ -11,12 +11,17 @@ export class TestRunner {
     this.dut = dut;
   }
   public async openDutPort() {
+    if (this.isOpened) return;
     await this.dut.open();
-    this.ui.addMessageToConsole('DutPort is opened');
+    this.ui.addMessageToConsole('DutPort is opened\n');
+    this.isOpened = true;
   }
   public async closeDutPort() {
+    if (!this.isOpened) return;
     await this.dut.close();
-    this.ui.addMessageToConsole('DutPort is closed');
+    console.log('dut is closed2');
+    this.ui.addMessageToConsole('DutPort is closed\n');
+    this.isOpened = false;
   }
   public async readData() {
     const chunk = await this.dut.read();
