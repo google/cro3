@@ -23,12 +23,9 @@ window.addEventListener('DOMContentLoaded', () => {
   ui.haltButton.addEventListener('click', () => {
     testController.stopMeasurement();
   });
-  ui.selectDutSerialButton.addEventListener('click', () => {
-    testController.selectPort();
-  });
   ui.dutCommandForm.addEventListener('submit', async e => {
     e.preventDefault();
-    if (!runner.isOpened) {
+    if (testController.isMeasuring) {
       ui.overlay.classList.remove('closed');
       return;
     }
@@ -36,7 +33,7 @@ window.addEventListener('DOMContentLoaded', () => {
   });
   // send cancel command to serial port when ctrl+C is pressed in input area
   ui.dutCommandInput.addEventListener('keydown', async e => {
-    if (!runner.isOpened) {
+    if (testController.isMeasuring) {
       ui.overlay.classList.remove('closed');
       return;
     }

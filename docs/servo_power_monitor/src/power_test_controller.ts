@@ -14,7 +14,7 @@ export class PowerTestController {
   private histogram = new Histogram();
   private configList: Array<Config> = [];
   private currentConfigNum = 0;
-  private isMeasuresing = false;
+  public isMeasuring = false;
   constructor(ui: Ui, servoController: ServoController, runner: TestRunner) {
     this.ui = ui;
     this.servoController = servoController;
@@ -28,28 +28,24 @@ export class PowerTestController {
         this.ui,
         this.servoController,
         this.runner,
-        i,
+        i + 1,
         shellScriptContents[i]
       );
       this.configList.push(newConfig);
     }
-    console.log(this.configList);
   }
   public async startMeasurement() {
+    await this.servoController.servoShell.select();
+    await this.runner.dut.select();
     await this.setConfig();
     for (let i = 0; i < this.ui.configNum; i++) {
       this.currentConfigNum = i;
+      console.log(`start running config${i}`);
       await this.configList[i].start();
     }
   }
   public async stopMeasurement() {
     await this.configList[this.currentConfigNum].stop();
-    await this.servoController.servoShell.close();
-  }
-  public async selectPort() {
-    await this.runner.dut.open();
-    this.runner.isOpened = true;
-    // this.readDutLoop();
   }
   // public analyzePowerData() {
   //   // https://dygraphs.com/jsdoc/symbols/Dygraph.html#xAxisRange
@@ -106,9 +102,9 @@ export class PowerTestController {
   public setupDisconnectEvent() {
     // event when you disconnect serial port
     navigator.serial.addEventListener('disconnect', async () => {
-      if (this.isMeasuresing) {
-        this.isMeasuresing = false;
-        await this.servoController.servoShell.close();
+      if (this.isMeasuring) {
+        this.isMeasuring = false;
+        await this.servoController.closeServoPort();
       }
     });
   }
