@@ -80,6 +80,7 @@ export class PowerTestController {
     }
   }
   public async startMeasurement() {
+    await this.runner.setScript();
     await this.servoController.servoShell.open();
     this.changeHaltFlag(false);
     this.kickWriteLoop();

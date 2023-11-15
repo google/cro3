@@ -4,23 +4,26 @@ import {Ui} from './ui';
 export class TestRunner {
   public isOpened = false;
   private CANCEL_CMD = '\x03\n';
-  // shell script
-  private scripts = `#!/bin/bash -e
-function workload () {
-  stress-ng -c 1 -t $1
-}
-ectool chargecontrol idle
-sleep 3
-echo "start"
-workload 10 1> ./test_out.log 2> ./test_err.log
-echo "end"
-sleep 3
-ectool chargecontrol normal\n`;
+  private scripts = '';
   private ui: Ui;
   public dut = new OperatePort(0x18d1, 0x504a);
   constructor(ui: Ui, dut: OperatePort) {
     this.ui = ui;
     this.dut = dut;
+  }
+  public setScript() {
+    const customScript = this.ui.readInputScript();
+    this.scripts = `#!/bin/bash -e
+function workload () {
+  ${customScript}
+}
+ectool chargecontrol idle
+sleep 3
+echo "start"
+workload 1> ./test_out.log 2> ./test_err.log
+echo "end"
+sleep 3
+ectool chargecontrol normal\n`;
   }
   public async readData() {
     const chunk = await this.dut.read();

@@ -14,6 +14,9 @@ export class Ui {
   public selectDutSerialButton = document.getElementById(
     'selectDutSerialButton'
   ) as HTMLButtonElement;
+  public shellScriptInput = document.getElementById(
+    'shellScriptInput'
+  ) as HTMLTextAreaElement;
   public dutCommandForm = document.getElementById(
     'dutCommandForm'
   ) as HTMLFormElement;
@@ -50,6 +53,9 @@ export class Ui {
     const res = this.dutCommandInput.value;
     this.dutCommandInput.value = '';
     return res;
+  }
+  public readInputScript() {
+    return this.shellScriptInput.value;
   }
   public addMessageToConsole(s: string) {
     this.messages.textContent += s;
