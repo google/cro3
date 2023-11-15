@@ -28,7 +28,7 @@ export class PowerTestController {
         this.ui,
         this.servoController,
         this.runner,
-        i + 1,
+        i,
         shellScriptContents[i]
       );
       this.configList.push(newConfig);
@@ -47,13 +47,6 @@ export class PowerTestController {
   public async stopMeasurement() {
     await this.configList[this.currentConfigNum].stop();
   }
-  // public analyzePowerData() {
-  //   // https://dygraphs.com/jsdoc/symbols/Dygraph.html#xAxisRange
-  //   const xrange = this.graph.returnXrange();
-  //   const left = xrange[0];
-  //   const right = xrange[1];
-  //   this.histogram.paintHistogram(left, right, this.powerDataList);
-  // }
   public loadPowerData(s: string) {
     const data = JSON.parse(s);
     this.configList = [];
@@ -64,7 +57,7 @@ export class PowerTestController {
         this.ui,
         this.servoController,
         this.runner,
-        i + 1,
+        i,
         configData.config
       );
       newConfig.powerDataList = configData.power.map(
