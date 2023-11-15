@@ -69,13 +69,11 @@ export class Ui {
     const shellScriptContents: Array<string> = [];
     for (let i = 0; i < textAreas.length; i++) {
       shellScriptContents.push(textAreas[i].value);
-      console.log(textAreas[i].value);
     }
     return shellScriptContents;
   }
   public addConfigInputArea() {
     const newConfigListElem = document.createElement('li');
-    newConfigListElem.id = `shellScript${this.configNum}`;
     newConfigListElem.innerHTML =
       '<label>script:</label><textarea>sleep 3</textarea><button>delete</button>';
     this.shellScriptList.appendChild(newConfigListElem);
