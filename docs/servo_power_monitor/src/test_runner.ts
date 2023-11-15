@@ -19,7 +19,6 @@ export class TestRunner {
   public async closeDutPort() {
     if (!this.isOpened) return;
     await this.dut.close();
-    console.log('dut is closed2');
     this.ui.addMessageToConsole('DutPort is closed\n');
     this.isOpened = false;
   }
