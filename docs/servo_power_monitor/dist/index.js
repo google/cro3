@@ -34295,9 +34295,6 @@ window.addEventListener('DOMContentLoaded', () => {
             await runner.sendCancel();
         }
     });
-    // ui.analyzeButton.addEventListener('click', () => {
-    //   testController.analyzePowerData();
-    // });
     ui.dropZone.addEventListener('dragover', e => {
         e.stopPropagation();
         e.preventDefault();
@@ -34332,9 +34329,6 @@ window.addEventListener('DOMContentLoaded', () => {
     });
     ui.addConfigButton.addEventListener('click', () => {
         ui.addConfigInputArea();
-    });
-    ui.deleteConfigButton.addEventListener('click', () => {
-        ui.deleteConfigInputArea();
     });
 });
 
@@ -34457,7 +34451,7 @@ class PowerTestController {
     setConfig() {
         const shellScriptContents = this.ui.readInputShellScript();
         for (let i = 0; i < this.ui.configNum; i++) {
-            const newConfig = new config_1.Config(this.ui, this.servoController, this.runner, i + 1, shellScriptContents[i]);
+            const newConfig = new config_1.Config(this.ui, this.servoController, this.runner, i, shellScriptContents[i]);
             this.configList.push(newConfig);
         }
     }
@@ -34474,20 +34468,13 @@ class PowerTestController {
     async stopMeasurement() {
         await this.configList[this.currentConfigNum].stop();
     }
-    // public analyzePowerData() {
-    //   // https://dygraphs.com/jsdoc/symbols/Dygraph.html#xAxisRange
-    //   const xrange = this.graph.returnXrange();
-    //   const left = xrange[0];
-    //   const right = xrange[1];
-    //   this.histogram.paintHistogram(left, right, this.powerDataList);
-    // }
     loadPowerData(s) {
         const data = JSON.parse(s);
         this.configList = [];
         for (let i = 0; i < data.length; i++) {
             this.ui.addConfigInputArea();
             const configData = data[i];
-            const newConfig = new config_1.Config(this.ui, this.servoController, this.runner, i + 1, configData.config);
+            const newConfig = new config_1.Config(this.ui, this.servoController, this.runner, i, configData.config);
             newConfig.powerDataList = configData.power.map((d) => [d.time, d.power]);
             newConfig.annotationList = configData.annotation.map((d) => [d.time, d.text]);
             newConfig.graph.updateGraph(newConfig.powerDataList);
@@ -34696,7 +34683,6 @@ class Ui {
         this.shellScriptList = document.getElementById('shellScriptList');
         this.shellScriptInput = document.getElementById('shellScriptInput');
         this.addConfigButton = document.getElementById('addConfigButton');
-        this.deleteConfigButton = document.getElementById('deleteConfigButton');
         this.dutCommandForm = document.getElementById('dutCommandForm');
         this.dutCommandInput = document.getElementById('dutCommandInput');
         this.popupCloseButton = document.getElementById('popup-close');
@@ -34734,31 +34720,21 @@ class Ui {
         return shellScriptContents;
     }
     addConfigInputArea() {
-        this.configNum += 1;
         const newConfigListElem = document.createElement('li');
-        const newLabelElem = document.createElement('label');
-        newLabelElem.textContent = `config+workload(${this.configNum}):`;
-        newConfigListElem.appendChild(newLabelElem);
-        const newTextAreaElem = document.createElement('textarea');
-        newTextAreaElem.value = 'sleep 3';
-        newConfigListElem.appendChild(newTextAreaElem);
+        newConfigListElem.id = `shellScript${this.configNum}`;
+        newConfigListElem.innerHTML =
+            '<label>script:</label><textarea>sleep 3</textarea><button>delete</button>';
         this.shellScriptList.appendChild(newConfigListElem);
         const newGraphListElem = document.createElement('li');
-        const newGraphElem = document.createElement('div');
-        newGraphElem.id = `graph${this.configNum}`;
-        newGraphListElem.appendChild(newGraphElem);
+        newGraphListElem.innerHTML = `<div id="graph${this.configNum}"></div>`;
         this.graphList.appendChild(newGraphListElem);
-    }
-    deleteConfigInputArea() {
-        if (this.configNum <= 0)
-            return;
-        if (this.shellScriptList.lastChild === null)
-            return;
-        if (this.graphList.lastChild === null)
-            return;
-        this.configNum -= 1;
-        this.shellScriptList.removeChild(this.shellScriptList.lastChild);
-        this.graphList.removeChild(this.graphList.lastChild);
+        const newButtonElem = newConfigListElem.querySelector('button');
+        newButtonElem.addEventListener('click', () => {
+            this.configNum -= 1;
+            newConfigListElem.remove();
+            newGraphListElem.remove();
+        });
+        this.configNum += 1;
     }
     addMessageToConsole(s) {
         this.messages.textContent += s;

@@ -131,6 +131,10 @@ body {
   position: relative;
 }
 
+#shellScriptList {
+  list-style-type: decimal;
+}
+
 #tooltip {
   position: fixed;
   top: 50%;

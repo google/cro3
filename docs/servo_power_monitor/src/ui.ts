@@ -23,9 +23,6 @@ export class Ui {
   public addConfigButton = document.getElementById(
     'addConfigButton'
   ) as HTMLButtonElement;
-  public deleteConfigButton = document.getElementById(
-    'deleteConfigButton'
-  ) as HTMLButtonElement;
   public dutCommandForm = document.getElementById(
     'dutCommandForm'
   ) as HTMLFormElement;
@@ -77,28 +74,24 @@ export class Ui {
     return shellScriptContents;
   }
   public addConfigInputArea() {
-    this.configNum += 1;
     const newConfigListElem = document.createElement('li');
-    const newLabelElem = document.createElement('label');
-    newLabelElem.textContent = `config+workload(${this.configNum}):`;
-    newConfigListElem.appendChild(newLabelElem);
-    const newTextAreaElem = document.createElement('textarea');
-    newTextAreaElem.value = 'sleep 3';
-    newConfigListElem.appendChild(newTextAreaElem);
+    newConfigListElem.id = `shellScript${this.configNum}`;
+    newConfigListElem.innerHTML =
+      '<label>script:</label><textarea>sleep 3</textarea><button>delete</button>';
     this.shellScriptList.appendChild(newConfigListElem);
     const newGraphListElem = document.createElement('li');
-    const newGraphElem = document.createElement('div');
-    newGraphElem.id = `graph${this.configNum}`;
-    newGraphListElem.appendChild(newGraphElem);
+    newGraphListElem.innerHTML = `<div id="graph${this.configNum}"></div>`;
     this.graphList.appendChild(newGraphListElem);
-  }
-  public deleteConfigInputArea() {
-    if (this.configNum <= 0) return;
-    if (this.shellScriptList.lastChild === null) return;
-    if (this.graphList.lastChild === null) return;
-    this.configNum -= 1;
-    this.shellScriptList.removeChild(this.shellScriptList.lastChild);
-    this.graphList.removeChild(this.graphList.lastChild);
+
+    const newButtonElem = newConfigListElem.querySelector(
+      'button'
+    ) as HTMLButtonElement;
+    newButtonElem.addEventListener('click', () => {
+      this.configNum -= 1;
+      newConfigListElem.remove();
+      newGraphListElem.remove();
+    });
+    this.configNum += 1;
   }
   public addMessageToConsole(s: string) {
     this.messages.textContent += s;
