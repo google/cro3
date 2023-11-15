@@ -83,6 +83,7 @@ export class Ui {
     newLabelElem.textContent = `config+workload(${this.configNum}):`;
     newConfigListElem.appendChild(newLabelElem);
     const newTextAreaElem = document.createElement('textarea');
+    newTextAreaElem.value = 'sleep 3';
     newConfigListElem.appendChild(newTextAreaElem);
     this.shellScriptList.appendChild(newConfigListElem);
     const newGraphListElem = document.createElement('li');

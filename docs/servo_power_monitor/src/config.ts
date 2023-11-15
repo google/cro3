@@ -59,7 +59,7 @@ export class Config {
     }
   }
   private async readDutLoop() {
-    for (;;) {
+    while (!this.halt) {
       const dutData = await this.runner.readData();
       if (dutData.includes('start')) {
         this.annotationList.push([new Date().getTime(), 'start']);

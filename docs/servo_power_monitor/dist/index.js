@@ -33898,7 +33898,7 @@ class Config {
         }
     }
     async readDutLoop() {
-        for (;;) {
+        while (!this.halt) {
             const dutData = await this.runner.readData();
             if (dutData.includes('start')) {
                 this.annotationList.push([new Date().getTime(), 'start']);
@@ -34387,7 +34387,6 @@ class OperatePort {
         if (this.port === undefined)
             return;
         await this.port.close();
-        console.log('dut is closed');
     }
     async read() {
         if (this.port === undefined)
@@ -34630,7 +34629,6 @@ class TestRunner {
         if (!this.isOpened)
             return;
         await this.dut.close();
-        console.log('dut is closed2');
         this.ui.addMessageToConsole('DutPort is closed\n');
         this.isOpened = false;
     }
@@ -34742,6 +34740,7 @@ class Ui {
         newLabelElem.textContent = `config+workload(${this.configNum}):`;
         newConfigListElem.appendChild(newLabelElem);
         const newTextAreaElem = document.createElement('textarea');
+        newTextAreaElem.value = 'sleep 3';
         newConfigListElem.appendChild(newTextAreaElem);
         this.shellScriptList.appendChild(newConfigListElem);
         const newGraphListElem = document.createElement('li');

@@ -34,7 +34,6 @@ export class OperatePort {
   public async close() {
     if (this.port === undefined) return;
     await this.port.close();
-    console.log('dut is closed');
   }
   public async read() {
     if (this.port === undefined) return '';
