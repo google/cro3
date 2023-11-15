@@ -33911,7 +33911,7 @@ class Config {
             else if (dutData.includes('stop')) {
                 await this.stop();
             }
-            this.ui.addMessageToConsole(dutData);
+            await this.ui.addMessageToConsole(dutData);
         }
     }
     async start() {
@@ -34450,6 +34450,7 @@ class PowerTestController {
     }
     setConfig() {
         const shellScriptContents = this.ui.readInputShellScript();
+        this.ui.createGraphList();
         for (let i = 0; i < this.ui.configNum; i++) {
             const newConfig = new config_1.Config(this.ui, this.servoController, this.runner, i, shellScriptContents[i]);
             this.configList.push(newConfig);
@@ -34723,16 +34724,19 @@ class Ui {
         newConfigListElem.innerHTML =
             '<label>script:</label><textarea>sleep 3</textarea><button>delete</button>';
         this.shellScriptList.appendChild(newConfigListElem);
-        const newGraphListElem = document.createElement('li');
-        newGraphListElem.innerHTML = `<div id="graph${this.configNum}"></div>`;
-        this.graphList.appendChild(newGraphListElem);
         const newButtonElem = newConfigListElem.querySelector('button');
         newButtonElem.addEventListener('click', () => {
             this.configNum -= 1;
             newConfigListElem.remove();
-            newGraphListElem.remove();
         });
         this.configNum += 1;
+    }
+    createGraphList() {
+        for (let i = 0; i < this.configNum; i++) {
+            const newGraphListElem = document.createElement('li');
+            newGraphListElem.innerHTML = `<div id="graph${i}"></div>`;
+            this.graphList.appendChild(newGraphListElem);
+        }
     }
     addMessageToConsole(s) {
         this.messages.textContent += s;

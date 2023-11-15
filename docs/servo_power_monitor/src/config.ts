@@ -76,7 +76,7 @@ export class Config {
       } else if (dutData.includes('stop')) {
         await this.stop();
       }
-      this.ui.addMessageToConsole(dutData);
+      await this.ui.addMessageToConsole(dutData);
     }
   }
   public async start() {

@@ -23,6 +23,7 @@ export class PowerTestController {
 
   public setConfig() {
     const shellScriptContents = this.ui.readInputShellScript();
+    this.ui.createGraphList();
     for (let i = 0; i < this.ui.configNum; i++) {
       const newConfig = new Config(
         this.ui,
