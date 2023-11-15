@@ -41,9 +41,6 @@ window.addEventListener('DOMContentLoaded', () => {
       await runner.sendCancel();
     }
   });
-  // ui.analyzeButton.addEventListener('click', () => {
-  //   testController.analyzePowerData();
-  // });
   ui.dropZone.addEventListener(
     'dragover',
     e => {
