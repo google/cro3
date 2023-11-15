@@ -34447,8 +34447,8 @@ class PowerTestController {
             if (!this.halt) {
                 this.changeHaltFlag(true);
                 this.inProgress = false;
-                await this.servoController.servoShell.close();
-                await this.runner.dut.close();
+                await this.servoController.servoShell.closeWhileReading();
+                await this.runner.dut.closeWhileReading();
             }
         });
     }
@@ -34560,7 +34560,6 @@ class TestRunner {
 function workload () {
   ${customScript}
 }
-ectool chargecontrol idle 1> ./test_out.log 2> ./test_err.log
 sleep 3
 echo "start"
 workload 1> ./test_out.log 2> ./test_err.log
@@ -34575,10 +34574,12 @@ ectool chargecontrol normal 1> ./test_out.log 2> ./test_err.log\n`;
         await this.dut.open();
         this.ui.addMessageToConsole('DutPort is opened\n');
         this.isOpened = true;
+        await this.dut.write('ectool chargecontrol idle\n');
     }
     async closeDutPort() {
         if (!this.isOpened)
             return;
+        await this.dut.write('ectool chargecontrol normal\n');
         await this.dut.close();
         this.ui.addMessageToConsole('DutPort is closed\n');
         this.isOpened = false;

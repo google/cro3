@@ -137,8 +137,8 @@ export class PowerTestController {
       if (!this.halt) {
         this.changeHaltFlag(true);
         this.inProgress = false;
-        await this.servoController.servoShell.close();
-        await this.runner.dut.close();
+        await this.servoController.servoShell.closeWhileReading();
+        await this.runner.dut.closeWhileReading();
       }
     });
   }
