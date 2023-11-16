@@ -15,9 +15,15 @@ jobs:
       with:
         node-version: '18.x'
     - uses: actions/checkout@v4
-    - name: Build
+    - name: Build for Test Page
+      working-directory: ./docs/servo_power_test/
+      run: npm install
+    - name: Run tests for Test Page
+      working-directory: ./docs/servo_power_test/
+      run: npm run lint
+    - name: Build for Monitor Page
       working-directory: ./docs/servo_power_monitor/
       run: npm install
-    - name: Run tests
+    - name: Run tests for Monitor Page
       working-directory: ./docs/servo_power_monitor/
       run: npm run lint
