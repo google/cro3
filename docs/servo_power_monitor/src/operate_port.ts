@@ -22,14 +22,14 @@ export class OperatePort {
       });
     await this.port.open({baudRate: 115200});
   }
-  public async closeWhileReading() {
-    if (this.port === undefined) return;
-    await this.reader.cancel();
-    await this.reader.releaseLock();
-    await this.port.close();
-  }
   public async close() {
     if (this.port === undefined) return;
+    await this.reader
+      .cancel()
+      .then(async () => {
+        await this.reader.releaseLock();
+      })
+      .catch(() => {}); // when the reader stream is already locked, do nothing.
     await this.port.close();
   }
   public async read() {

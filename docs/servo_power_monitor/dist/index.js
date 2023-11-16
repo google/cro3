@@ -34266,16 +34266,15 @@ class OperatePort {
         });
         await this.port.open({ baudRate: 115200 });
     }
-    async closeWhileReading() {
-        if (this.port === undefined)
-            return;
-        await this.reader.cancel();
-        await this.reader.releaseLock();
-        await this.port.close();
-    }
     async close() {
         if (this.port === undefined)
             return;
+        await this.reader
+            .cancel()
+            .then(async () => {
+            await this.reader.releaseLock();
+        })
+            .catch(() => { }); // when the reader stream is already locked, do nothing.
         await this.port.close();
     }
     async read() {
@@ -34446,8 +34445,8 @@ class PowerTestController {
             if (!this.halt) {
                 this.changeHaltFlag(true);
                 this.inProgress = false;
-                await this.servoController.servoShell.closeWhileReading();
-                await this.runner.dut.closeWhileReading();
+                await this.servoController.servoShell.close();
+                await this.runner.dut.close();
             }
         });
     }
@@ -34488,7 +34487,7 @@ class ServoController {
     async closeServoPort() {
         if (!this.isOpened)
             return;
-        await this.servoShell.closeWhileReading();
+        await this.servoShell.close();
         console.log('servoPort is closed');
         this.isOpened = false;
     }

@@ -21,7 +21,7 @@ export class ServoController {
   }
   public async closeServoPort() {
     if (!this.isOpened) return;
-    await this.servoShell.closeWhileReading();
+    await this.servoShell.close();
     console.log('servoPort is closed');
     this.isOpened = false;
   }
