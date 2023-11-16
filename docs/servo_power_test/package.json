@@ -1,0 +1,38 @@
+{
+  "name": "cr50",
+  "version": "1.0.0",
+  "description": "Power measurment tool",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "gts lint src/*.ts",
+    "compile": "webpack",
+    "fix": "gts fix src/*.ts",
+    "prepare": "npm run compile",
+    "pretest": "npm run compile",
+    "posttest": "npm run lint"
+  },
+  "author": "hikalium",
+  "license": "MIT",
+  "dependencies": {
+    "@types/w3c-web-serial": "^1.0.3",
+    "@types/w3c-web-usb": "^1.0.6",
+    "d3": "^7.8.4",
+    "dygraphs": "^2.2.1",
+    "eslint": "*",
+    "moment": "^2.25.1",
+    "ts-loader": "^9.5.0"
+  },
+  "devDependencies": {
+    "@types/d3": "^7.4.0",
+    "@types/dygraphs": "^2.1.4",
+    "eslint-webpack-plugin": "^4.0.1",
+    "gts": "^5.2.0",
+    "typescript": "~5.0.0",
+    "webpack-cli": "^5.1.4",
+    "@types/node": "20.8.2"
+  },
+  "engines": {
+    "node": ">= 11.0.0"
+  }
+}
