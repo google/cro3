@@ -1,7 +1,7 @@
 {
-  "name": "cr50",
+  "name": "servo_power_test",
   "version": "1.0.0",
-  "description": "Power measurment tool",
+  "description": "Power measurment testing tool",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
@@ -12,7 +12,7 @@
     "pretest": "npm run compile",
     "posttest": "npm run lint"
   },
-  "author": "hikalium",
+  "author": "wtrgjadmw",
   "license": "MIT",
   "dependencies": {
     "@types/w3c-web-serial": "^1.0.3",

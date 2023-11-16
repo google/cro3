@@ -1,7 +1,7 @@
 {
-  "name": "cr50",
+  "name": "servo_power_monitor",
   "version": "1.0.0",
-  "description": "Power measurment tool",
+  "description": "Power measurment monitoring tool",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
