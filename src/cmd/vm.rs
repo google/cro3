@@ -4,7 +4,10 @@
 // license that can be found in the LICENSE file or at
 // https://developers.google.com/open-source/licenses/bsd
 
+use std::process::Command;
+
 use anyhow::anyhow;
+use anyhow::Context;
 use anyhow::Result;
 use argh::FromArgs;
 use lium::config::Config;
@@ -65,8 +68,8 @@ pub struct ArgsSetup {
     extra_args: Vec<String>,
 }
 
-fn run_setup(_args: &ArgsSetup) -> Result<()> {
-    Ok(())
+fn run_setup(args: &ArgsSetup) -> Result<()> {
+    run_betty("setup", &args.extra_args)
 }
 
 #[derive(FromArgs, PartialEq, Debug)]
@@ -126,7 +129,7 @@ fn run_start(args: &ArgsStart) -> Result<()> {
     let extra_args = &args.extra_args;
     options.append(&mut extra_args.clone());
 
-    Ok(())
+    run_betty("start", &options)
 }
 
 #[derive(FromArgs, PartialEq, Debug)]
@@ -150,6 +153,24 @@ fn run_push(args: &ArgsPush) -> Result<()> {
 
     let extra_args = &args.extra_args;
     options.append(&mut extra_args.clone());
+
+    run_betty("push", &options)
+}
+
+fn run_betty(subcommand: &str, options: &[String]) -> Result<()> {
+    let cmd = Command::new("./betty.sh")
+        .arg(subcommand)
+        .args(options)
+        .spawn()
+        .context("Failed to execute betty.sh")?;
+
+    let result = cmd
+        .wait_with_output()
+        .context("Failed to wait for betty.sh")?;
+
+    if !result.status.success() {
+        println!("betty.sh failed")
+    }
 
     Ok(())
 }
