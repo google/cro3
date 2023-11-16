@@ -1,0 +1,246 @@
+body {
+  background-color: #222;
+  color: #fff;
+  font-family: sans-serif;
+}
+
+button {
+  color: #fff;
+  background-color: #333;
+  padding: 4px;
+  padding-left: 0.7em;
+  padding-right: 0.7em;
+
+}
+
+.dygraph-legend {
+  font-size: 14px;
+  z-index: 10;
+  width: 250px;
+  background: #222;
+  line-height: normal;
+  text-align: left;
+  margin-left: 300px;
+  overflow: hidden;
+}
+
+.dygraph-legend[dir="rtl"] {
+  text-align: right;
+}
+
+/* styles for a solid line in the legend */
+.dygraph-legend-line {
+  display: inline-block;
+  position: relative;
+  bottom: .5ex;
+  padding-left: 1em;
+  height: 1px;
+  border-bottom-width: 2px;
+  border-bottom-style: solid;
+  /* border-bottom-color is set based on the series color */
+}
+
+/* styles for a dashed line in the legend, e.g. when strokePattern is set */
+.dygraph-legend-dash {
+  display: inline-block;
+  position: relative;
+  bottom: .5ex;
+  height: 1px;
+  border-bottom-width: 2px;
+  border-bottom-style: solid;
+  /* border-bottom-color is set based on the series color */
+  /* margin-right is set based on the stroke pattern */
+  /* padding-left is set based on the stroke pattern */
+}
+
+.dygraph-roller {
+  position: absolute;
+  z-index: 10;
+}
+
+/* This class is shared by all annotations, including those with icons */
+.dygraph-annotation {
+  position: absolute;
+  z-index: 10;
+  overflow: hidden;
+}
+
+/* This class only applies to annotations without icons */
+/* Old class name: .dygraphDefaultAnnotation */
+.dygraph-default-annotation {
+  border: 1px solid #fff;
+  background-color: white;
+  text-align: center;
+}
+
+.dygraph-axis-label {
+  /* position: absolute; */
+  /* font-size: 14px; */
+  z-index: 10;
+  line-height: normal;
+  overflow: hidden;
+  color: #fff;
+  /* replaces old axisLabelColor option */
+}
+
+.dygraph-axis-label-x {}
+
+.dygraph-axis-label-y {}
+
+.dygraph-axis-label-y2 {}
+
+.dygraph-title {
+  font-weight: bold;
+  z-index: 10;
+  text-align: center;
+  /* font-size: based on titleHeight option */
+}
+
+.dygraph-xlabel {
+  text-align: center;
+  /* font-size: based on xLabelHeight option */
+}
+
+/* For y-axis label */
+.dygraph-label-rotate-left {
+  text-align: center;
+  /* See http://caniuse.com/#feat=transforms2d */
+  transform: rotate(90deg);
+  -webkit-transform: rotate(90deg);
+  -moz-transform: rotate(90deg);
+  -o-transform: rotate(90deg);
+  -ms-transform: rotate(90deg);
+}
+
+/* For y2-axis label */
+.dygraph-label-rotate-right {
+  text-align: center;
+  /* See http://caniuse.com/#feat=transforms2d */
+  transform: rotate(-90deg);
+  -webkit-transform: rotate(-90deg);
+  -moz-transform: rotate(-90deg);
+  -o-transform: rotate(-90deg);
+  -ms-transform: rotate(-90deg);
+}
+
+body {
+  position: relative;
+}
+
+#tooltip {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: #333;
+  padding: 1rem;
+  z-index: 2;
+}
+
+#tooltip.hidden {
+  display: none;
+}
+
+#backlog {
+  margin-top: 1rem;
+  width: 100vw;
+  padding: 0;
+  box-sizing: border-box;
+  display: flex;
+}
+
+#backlog span {
+  display: inline-block;
+  border: 1px solid #aaa;
+  padding: 1rem;
+  min-height: 100px;
+  height: 300px;
+}
+
+.log {
+  font-family: monospace;
+  border: none;
+  width: 26%;
+}
+
+#shellScript p {
+  margin-top: 2px;
+  margin-bottom: 2px;
+}
+
+#d3area {
+  width: 50%;
+  overflow-y: scroll;
+}
+
+#console {
+  height: 100%;
+  width: 24%;
+}
+
+#messages {
+  list-style-type: none;
+  height: 80%;
+  box-sizing: border-box;
+  overflow-x: scroll;
+  overflow-y: scroll;
+  padding: 4px;
+  margin: 4px;
+  border: 1px solid #aaa;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+#popup-overlay {
+  position: fixed;
+  width: 100%;
+  height: 100vh;
+  top: 0;
+  left: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.closed {
+  display: none;
+}
+
+#popup-window {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  padding: 20px;
+  background-color: #333;
+  border-radius: 4px;
+  align-items: center;
+  transform: translate(-50%, -50%);
+}
+
+.close {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  cursor: pointer;
+}
+
+#dropZone {
+  position: absolute;
+  float: right;
+  border: 1px solid #aaa;
+  padding: 4px;
+  margin: 4px;
+  text-align: right;
+  height: 20px;
+  padding: 8px;
+  margin: 0px;
+  width: 20%;
+  top: 0;
+  right: 0;
+}
+
+#graph {
+  height: 500px;
+  width: auto;
+  left: 0;
+  right: 0;
+}
