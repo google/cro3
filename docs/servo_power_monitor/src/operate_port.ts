@@ -24,13 +24,14 @@ export class OperatePort {
   }
   public async close() {
     if (this.port === undefined) return;
-    await this.reader
-      .cancel()
-      .then(async () => {
-        await this.reader.releaseLock();
-      })
-      .catch(() => {}); // when the reader stream is already locked, do nothing.
-    await this.port.close();
+    await this.reader.cancel();
+    await this.reader.releaseLock();
+    try {
+      await this.port.close();
+    } catch (e) {
+      console.error(e);
+      throw e;
+    }
   }
   public async read() {
     if (this.port === undefined) return '';
@@ -39,13 +40,14 @@ export class OperatePort {
     this.reader = readable.getReader();
     try {
       for (;;) {
+        // console.log('portread');
         const {value, done} = await this.reader.read();
         if (done) {
           // |reader| has been canceled.
           this.reader.releaseLock();
           return '';
         }
-        return this.decoder.decode(value, {stream: true});
+        return this.decoder.decode(value);
       }
     } catch (error) {
       this.reader.releaseLock();

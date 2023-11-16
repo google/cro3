@@ -34171,15 +34171,19 @@ window.addEventListener('DOMContentLoaded', () => {
     const runner = new test_runner_1.TestRunner(ui, dutShell);
     const testController = new power_test_controller_1.PowerTestController(ui, graph, servoController, runner);
     testController.setupDisconnectEvent();
+    runner.setupDisconnectEvent();
     ui.requestSerialButton.addEventListener('click', () => {
         testController.startMeasurement();
     });
     ui.haltButton.addEventListener('click', () => {
         testController.stopMeasurement();
     });
+    ui.selectDutSerialButton.addEventListener('click', () => {
+        testController.selectPort();
+    });
     ui.dutCommandForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        if (testController.halt) {
+        if (!runner.isOpened) {
             ui.overlay.classList.remove('closed');
             return;
         }
@@ -34187,7 +34191,7 @@ window.addEventListener('DOMContentLoaded', () => {
     });
     // send cancel command to serial port when ctrl+C is pressed in input area
     ui.dutCommandInput.addEventListener('keydown', async (e) => {
-        if (testController.halt) {
+        if (!runner.isOpened) {
             ui.overlay.classList.remove('closed');
             return;
         }
@@ -34197,6 +34201,14 @@ window.addEventListener('DOMContentLoaded', () => {
     });
     ui.analyzeButton.addEventListener('click', () => {
         testController.analyzePowerData();
+    });
+    ui.executeScriptButton.addEventListener('click', async () => {
+        if (!runner.isOpened) {
+            ui.overlay.classList.remove('closed');
+            return;
+        }
+        await runner.copyScriptToDut();
+        await runner.executeScript();
     });
     ui.dropZone.addEventListener('dragover', e => {
         e.stopPropagation();
@@ -34269,13 +34281,15 @@ class OperatePort {
     async close() {
         if (this.port === undefined)
             return;
-        await this.reader
-            .cancel()
-            .then(async () => {
-            await this.reader.releaseLock();
-        })
-            .catch(() => { }); // when the reader stream is already locked, do nothing.
-        await this.port.close();
+        await this.reader.cancel();
+        await this.reader.releaseLock();
+        try {
+            await this.port.close();
+        }
+        catch (e) {
+            console.error(e);
+            throw e;
+        }
     }
     async read() {
         if (this.port === undefined)
@@ -34286,13 +34300,14 @@ class OperatePort {
         this.reader = readable.getReader();
         try {
             for (;;) {
+                // console.log('portread');
                 const { value, done } = await this.reader.read();
                 if (done) {
                     // |reader| has been canceled.
                     this.reader.releaseLock();
                     return '';
                 }
-                return this.decoder.decode(value, { stream: true });
+                return this.decoder.decode(value);
             }
         }
         catch (error) {
@@ -34377,47 +34392,37 @@ class PowerTestController {
         }
     }
     async readDutLoop() {
-        while (!this.halt) {
+        this.runner.executeCommand('\n');
+        this.ui.addMessageToConsole('DutPort is selected');
+        for (;;) {
             const dutData = await this.runner.readData();
-            try {
-                if (dutData.includes('start')) {
-                    this.annotationList.push([new Date().getTime(), 'start']);
-                    this.graph.addAnnotation(this.powerDataList[this.powerDataList.length - 1][0], 'start');
-                }
-                else if (dutData.includes('end')) {
-                    this.annotationList.push([new Date().getTime(), 'end']);
-                    this.graph.addAnnotation(this.powerDataList[this.powerDataList.length - 1][0], 'end');
-                }
-                else if (dutData.includes('stop')) {
-                    await this.stopMeasurement();
-                }
+            if (dutData.includes('start')) {
+                this.annotationList.push([new Date().getTime(), 'start']);
+                this.graph.addAnnotation(this.powerDataList[this.powerDataList.length - 1][0], 'start');
             }
-            catch (e) {
-                console.error(e);
-                throw e;
+            else if (dutData.includes('end')) {
+                this.annotationList.push([new Date().getTime(), 'end']);
+                this.graph.addAnnotation(this.powerDataList[this.powerDataList.length - 1][0], 'end');
             }
-            finally {
-                await this.ui.addMessageToConsole(dutData);
-            }
+            this.ui.addMessageToConsole(dutData);
         }
     }
     async startMeasurement() {
         await this.runner.setScript();
-        await this.servoController.openServoPort();
-        await this.runner.openDutPort();
-        await this.changeHaltFlag(false);
-        this.readDutLoop();
+        await this.servoController.servoShell.open();
+        this.changeHaltFlag(false);
         this.kickWriteLoop();
         this.readLoop();
-        await this.runner.copyScriptToDut();
-        await this.runner.executeScript();
     }
     async stopMeasurement() {
-        await this.runner.sendCancel();
         this.changeHaltFlag(true);
         this.inProgress = false;
-        await this.servoController.closeServoPort();
-        await this.runner.closeDutPort();
+        await this.servoController.servoShell.close();
+    }
+    async selectPort() {
+        await this.runner.dut.open();
+        this.runner.isOpened = true;
+        this.readDutLoop();
     }
     analyzePowerData() {
         // https://dygraphs.com/jsdoc/symbols/Dygraph.html#xAxisRange
@@ -34452,7 +34457,9 @@ class PowerTestController {
         // event when you disconnect serial port
         navigator.serial.addEventListener('disconnect', async () => {
             if (!this.halt) {
-                this.stopMeasurement();
+                this.changeHaltFlag(true);
+                this.inProgress = false;
+                await this.servoController.servoShell.close();
             }
         });
     }
@@ -34478,24 +34485,9 @@ class ServoController {
         // ina 0 and 1 seems to be the same
         // ina 2 is something but not useful
         this.INA_COMMAND = 'ina 0\n';
-        this.isOpened = false;
         this.output = '';
         this.servoShell = new operate_port_1.OperatePort(0x18d1, 0x520d);
         this.halt = true;
-    }
-    async openServoPort() {
-        if (this.isOpened)
-            return;
-        await this.servoShell.open();
-        console.log('servoPort is opened');
-        this.isOpened = true;
-    }
-    async closeServoPort() {
-        if (!this.isOpened)
-            return;
-        await this.servoShell.close();
-        console.log('servoPort is closed');
-        this.isOpened = false;
     }
     async readData() {
         for (;;) {
@@ -34551,8 +34543,8 @@ exports.TestRunner = void 0;
 const operate_port_1 = __webpack_require__(/*! ./operate_port */ "./src/operate_port.ts");
 class TestRunner {
     constructor(ui, dut) {
-        this.CANCEL_CMD = '\x03\n';
         this.isOpened = false;
+        this.CANCEL_CMD = '\x03\n';
         this.scripts = '';
         this.dut = new operate_port_1.OperatePort(0x18d1, 0x504a);
         this.ui = ui;
@@ -34564,29 +34556,13 @@ class TestRunner {
 function workload () {
   ${customScript}
 }
+ectool chargecontrol idle
 sleep 3
 echo "start"
 workload 1> ./test_out.log 2> ./test_err.log
 echo "end"
 sleep 3
-echo "stop"
-ectool chargecontrol normal 1> ./test_out.log 2> ./test_err.log\n`;
-    }
-    async openDutPort() {
-        if (this.isOpened)
-            return;
-        await this.dut.open();
-        console.log('dutPort is opened\n');
-        this.isOpened = true;
-        await this.dut.write('ectool chargecontrol idle\n');
-    }
-    async closeDutPort() {
-        if (!this.isOpened)
-            return;
-        await this.dut.write('ectool chargecontrol normal\n');
-        await this.dut.close();
-        console.log('dutPort is closed\n');
-        this.isOpened = false;
+ectool chargecontrol normal\n`;
     }
     async readData() {
         const chunk = await this.dut.read();
@@ -34605,6 +34581,14 @@ ectool chargecontrol normal 1> ./test_out.log 2> ./test_err.log\n`;
     }
     async sendCancel() {
         await this.dut.write(this.CANCEL_CMD);
+    }
+    setupDisconnectEvent() {
+        navigator.serial.addEventListener('disconnect', async () => {
+            if (this.isOpened) {
+                await this.dut.close();
+                this.isOpened = false;
+            }
+        });
     }
 }
 exports.TestRunner = TestRunner;

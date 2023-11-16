@@ -59,42 +59,49 @@ export class PowerTestController {
     }
   }
   private async readDutLoop() {
-    this.runner.executeCommand('\n');
-    this.ui.addMessageToConsole('DutPort is selected');
-    for (;;) {
+    while (!this.halt) {
       const dutData = await this.runner.readData();
-      if (dutData.includes('start')) {
-        this.annotationList.push([new Date().getTime(), 'start']);
-        this.graph.addAnnotation(
-          this.powerDataList[this.powerDataList.length - 1][0],
-          'start'
-        );
-      } else if (dutData.includes('end')) {
-        this.annotationList.push([new Date().getTime(), 'end']);
-        this.graph.addAnnotation(
-          this.powerDataList[this.powerDataList.length - 1][0],
-          'end'
-        );
+      try {
+        if (dutData.includes('start')) {
+          this.annotationList.push([new Date().getTime(), 'start']);
+          this.graph.addAnnotation(
+            this.powerDataList[this.powerDataList.length - 1][0],
+            'start'
+          );
+        } else if (dutData.includes('end')) {
+          this.annotationList.push([new Date().getTime(), 'end']);
+          this.graph.addAnnotation(
+            this.powerDataList[this.powerDataList.length - 1][0],
+            'end'
+          );
+        } else if (dutData.includes('stop')) {
+          await this.stopMeasurement();
+        }
+      } catch (e) {
+        console.error(e);
+        throw e;
+      } finally {
+        await this.ui.addMessageToConsole(dutData);
       }
-      this.ui.addMessageToConsole(dutData);
     }
   }
   public async startMeasurement() {
     await this.runner.setScript();
-    await this.servoController.servoShell.open();
-    this.changeHaltFlag(false);
+    await this.servoController.openServoPort();
+    await this.runner.openDutPort();
+    await this.changeHaltFlag(false);
+    this.readDutLoop();
     this.kickWriteLoop();
     this.readLoop();
+    await this.runner.copyScriptToDut();
+    await this.runner.executeScript();
   }
   public async stopMeasurement() {
+    await this.runner.sendCancel();
     this.changeHaltFlag(true);
     this.inProgress = false;
-    await this.servoController.servoShell.close();
-  }
-  public async selectPort() {
-    await this.runner.dut.open();
-    this.runner.isOpened = true;
-    this.readDutLoop();
+    await this.servoController.closeServoPort();
+    await this.runner.closeDutPort();
   }
   public analyzePowerData() {
     // https://dygraphs.com/jsdoc/symbols/Dygraph.html#xAxisRange
@@ -134,9 +141,7 @@ export class PowerTestController {
     // event when you disconnect serial port
     navigator.serial.addEventListener('disconnect', async () => {
       if (!this.halt) {
-        this.changeHaltFlag(true);
-        this.inProgress = false;
-        await this.servoController.servoShell.close();
+        this.stopMeasurement();
       }
     });
   }

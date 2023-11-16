@@ -9,22 +9,9 @@ export class ServoController {
   // ina 0 and 1 seems to be the same
   // ina 2 is something but not useful
   private INA_COMMAND = 'ina 0\n';
-  private isOpened = false;
   private output = '';
   public servoShell = new OperatePort(0x18d1, 0x520d);
   public halt = true;
-  public async openServoPort() {
-    if (this.isOpened) return;
-    await this.servoShell.open();
-    console.log('servoPort is opened');
-    this.isOpened = true;
-  }
-  public async closeServoPort() {
-    if (!this.isOpened) return;
-    await this.servoShell.close();
-    console.log('servoPort is closed');
-    this.isOpened = false;
-  }
   public async readData() {
     for (;;) {
       if (this.halt) return undefined;
