@@ -34175,7 +34175,7 @@ window.addEventListener('DOMContentLoaded', () => {
         testController.startMeasurement();
     });
     ui.haltButton.addEventListener('click', () => {
-        testController.stopMeasurement(true);
+        testController.stopMeasurement();
     });
     ui.dutCommandForm.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -34404,9 +34404,8 @@ class PowerTestController {
         await this.runner.copyScriptToDut();
         await this.runner.executeScript();
     }
-    async stopMeasurement(abortFlag = false) {
-        if (abortFlag)
-            await this.runner.sendCancel();
+    async stopMeasurement() {
+        await this.runner.sendCancel();
         this.changeHaltFlag(true);
         this.inProgress = false;
         await this.servoController.closeServoPort();
@@ -34445,7 +34444,7 @@ class PowerTestController {
         // event when you disconnect serial port
         navigator.serial.addEventListener('disconnect', async () => {
             if (!this.halt) {
-                this.stopMeasurement(true);
+                this.stopMeasurement();
             }
         });
     }

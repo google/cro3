@@ -27,7 +27,7 @@ window.addEventListener('DOMContentLoaded', () => {
     testController.startMeasurement();
   });
   ui.haltButton.addEventListener('click', () => {
-    testController.stopMeasurement(true);
+    testController.stopMeasurement();
   });
   ui.dutCommandForm.addEventListener('submit', async e => {
     e.preventDefault();
