@@ -61,22 +61,28 @@ export class PowerTestController {
   private async readDutLoop() {
     while (!this.halt) {
       const dutData = await this.runner.readData();
-      if (dutData.includes('start')) {
-        this.annotationList.push([new Date().getTime(), 'start']);
-        this.graph.addAnnotation(
-          this.powerDataList[this.powerDataList.length - 1][0],
-          'start'
-        );
-      } else if (dutData.includes('end')) {
-        this.annotationList.push([new Date().getTime(), 'end']);
-        this.graph.addAnnotation(
-          this.powerDataList[this.powerDataList.length - 1][0],
-          'end'
-        );
-      } else if (dutData.includes('stop')) {
-        await this.stopMeasurement();
+      try {
+        if (dutData.includes('start')) {
+          this.annotationList.push([new Date().getTime(), 'start']);
+          this.graph.addAnnotation(
+            this.powerDataList[this.powerDataList.length - 1][0],
+            'start'
+          );
+        } else if (dutData.includes('end')) {
+          this.annotationList.push([new Date().getTime(), 'end']);
+          this.graph.addAnnotation(
+            this.powerDataList[this.powerDataList.length - 1][0],
+            'end'
+          );
+        } else if (dutData.includes('stop')) {
+          await this.stopMeasurement();
+        }
+      } catch (e) {
+        console.error(e);
+        throw e;
+      } finally {
+        await this.ui.addMessageToConsole(dutData);
       }
-      await this.ui.addMessageToConsole(dutData);
     }
   }
   public async startMeasurement() {
