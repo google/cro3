@@ -45,7 +45,7 @@ export class OperatePort {
           this.reader.releaseLock();
           return '';
         }
-        return this.decoder.decode(value);
+        return this.decoder.decode(value, {stream: true});
       }
     } catch (error) {
       this.reader.releaseLock();

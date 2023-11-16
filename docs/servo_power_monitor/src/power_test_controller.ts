@@ -90,7 +90,8 @@ export class PowerTestController {
     await this.runner.copyScriptToDut();
     await this.runner.executeScript();
   }
-  public async stopMeasurement() {
+  public async stopMeasurement(abortFlag = false) {
+    if (abortFlag) await this.runner.sendCancel();
     this.changeHaltFlag(true);
     this.inProgress = false;
     await this.servoController.closeServoPort();
@@ -134,10 +135,7 @@ export class PowerTestController {
     // event when you disconnect serial port
     navigator.serial.addEventListener('disconnect', async () => {
       if (!this.halt) {
-        this.changeHaltFlag(true);
-        this.inProgress = false;
-        await this.servoController.servoShell.close();
-        await this.runner.dut.close();
+        this.stopMeasurement(true);
       }
     });
   }
