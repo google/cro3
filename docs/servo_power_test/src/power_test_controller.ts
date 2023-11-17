@@ -61,9 +61,10 @@ export class PowerTestController {
   }
   public loadPowerData(s: string) {
     const data = JSON.parse(s);
+    this.ui.configNum = data.length;
+    this.ui.createGraphList();
     this.configList = [];
     for (let i = 0; i < data.length; i++) {
-      this.ui.addConfigInputArea();
       const configData = data[i];
       const newConfig = new Config(
         this.ui,
@@ -83,6 +84,7 @@ export class PowerTestController {
         newConfig.powerDataList,
         newConfig.annotationList
       );
+      this.ui.loadConfigInputArea(configData.config);
       this.configList.push(newConfig);
     }
   }

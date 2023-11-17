@@ -34499,15 +34499,17 @@ class PowerTestController {
     }
     loadPowerData(s) {
         const data = JSON.parse(s);
+        this.ui.configNum = data.length;
+        this.ui.createGraphList();
         this.configList = [];
         for (let i = 0; i < data.length; i++) {
-            this.ui.addConfigInputArea();
             const configData = data[i];
             const newConfig = new config_1.Config(this.ui, this.servoController, this.runner, i, configData.config);
             newConfig.powerDataList = configData.power.map((d) => [d.time, d.power]);
             newConfig.annotationList = configData.annotation.map((d) => [d.time, d.text]);
             newConfig.graph.updateGraph(newConfig.powerDataList);
             newConfig.graph.findAnnotationPoint(newConfig.powerDataList, newConfig.annotationList);
+            this.ui.loadConfigInputArea(configData.config);
             this.configList.push(newConfig);
         }
     }
@@ -34751,6 +34753,12 @@ class Ui {
             newConfigListElem.remove();
         });
         this.configNum += 1;
+    }
+    loadConfigInputArea(config) {
+        const newConfigListElem = document.createElement('li');
+        newConfigListElem.innerHTML =
+            `<label>script:</label><textarea>${config}</textarea><button>delete</button>`;
+        this.shellScriptList.appendChild(newConfigListElem);
     }
     createGraphList() {
         for (let i = 0; i < this.configNum; i++) {

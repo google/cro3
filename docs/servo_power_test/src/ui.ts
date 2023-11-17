@@ -86,6 +86,12 @@ export class Ui {
     });
     this.configNum += 1;
   }
+  public loadConfigInputArea(config: string) {
+    const newConfigListElem = document.createElement('li');
+    newConfigListElem.innerHTML =
+      `<label>script:</label><textarea>${config}</textarea><button>delete</button>`;
+    this.shellScriptList.appendChild(newConfigListElem);
+  }
   public createGraphList() {
     for (let i = 0; i < this.configNum; i++) {
       const newGraphListElem = document.createElement('li');
