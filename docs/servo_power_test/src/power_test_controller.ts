@@ -45,6 +45,7 @@ export class PowerTestController {
     await this.runner.dut.close();
   }
   public async startMeasurement() {
+    if (this.ui.configNum === 0) return;
     await this.servoController.servoShell.select();
     await this.runner.dut.select();
     await this.initializePort();
