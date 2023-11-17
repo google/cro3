@@ -7,10 +7,12 @@
 use std::process::Command;
 
 use anyhow::anyhow;
+use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
 use argh::FromArgs;
 use lium::config::Config;
+use whoami;
 
 #[derive(FromArgs, PartialEq, Debug)]
 /// create a virtual machine
@@ -81,7 +83,93 @@ pub struct ArgsSetup {
 }
 
 fn run_setup(args: &ArgsSetup) -> Result<()> {
-    run_betty("setup", &args.extra_args)
+    println!("Updating packages...");
+    let update_package = Command::new("sudo")
+        .args(["apt", "update"])
+        .spawn()
+        .context("Failed to execute sudo apt update")?;
+    update_package
+        .wait_with_output()
+        .context("Failed to wait for updating packages")?;
+
+    println!("Enable KVM...");
+    enable_kvm()?;
+
+    println!("Installing python3-pip, python3-venv...");
+    let install_python_package = Command::new("sudo")
+        .args(["apt", "install", "python3-pip", "python3-venv"])
+        .spawn()
+        .context("Failed to execute sudo apt install")?;
+    install_python_package
+        .wait_with_output()
+        .context("Failed to wait for installing packages")?;
+
+    println!("Running betty.sh...");
+    run_betty("setup", &args.extra_args)?;
+
+    println!("Running gcloud auth login...");
+    let gcloud_auth = Command::new("gcloud")
+        .args(["auth", "login"])
+        .spawn()
+        .context("Failed to execute gcloud login gcloud")?;
+    gcloud_auth
+        .wait_with_output()
+        .context("Failed to wait for gcloud auth login")?;
+
+    Ok(())
+}
+
+fn enable_kvm() -> Result<()> {
+    let username = whoami::username();
+
+    println!("Installing kvm support...");
+    let install_kvm_support = Command::new("sudo")
+        .args(["apt-get", "install", "qemu-system-x86"])
+        .spawn()
+        .context("Failed to install kvm support")?;
+    install_kvm_support
+        .wait_with_output()
+        .context("Failed to wait for installing kvm support")?;
+
+    println!("Load Kernel modules...");
+    let load_kernel_module = Command::new("sudo")
+        .args(["modprobe", "kvm-intel"])
+        .spawn()
+        .context("Failed to load kernel modules")?;
+    load_kernel_module
+        .wait_with_output()
+        .context("Failed to wait for loading kernel modules")?;
+
+    println!("Adding the user to the kvm local group...");
+    let add_to_kvm_group = Command::new("sudo")
+        .args(["adduser", &username, "kvm"])
+        .spawn()
+        .context("Failed to add the user to the kvm local group")?;
+    add_to_kvm_group
+        .wait_with_output()
+        .context("Failed to wait for adding the user to the kvm local group")?;
+
+    let is_kvm_enable = Command::new("bash")
+        .args([
+            "-c",
+            "[[ -e /dev/kvm ]] && grep '^flags' /proc/cpuinfo | grep -qE 'vmx|svm'",
+        ])
+        .status()
+        .context("Failed to verify that KVM is working")?;
+    if !is_kvm_enable.success() {
+        bail!("KVM is not working");
+    }
+
+    println!("Give the user access to /dev/kvm...");
+    let set_access = Command::new("sudo")
+        .args(["setfacl", "-m", &format!("u:{}:rw", username), "/dev/kvm"])
+        .spawn()
+        .context("Failed to execute setfacl")?;
+    set_access
+        .wait_with_output()
+        .context("Failed to wait for setting access")?;
+
+    Ok(())
 }
 
 #[derive(FromArgs, PartialEq, Debug)]
