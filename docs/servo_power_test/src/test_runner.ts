@@ -4,10 +4,6 @@ import {Ui} from './ui';
 export class TestRunner {
   private CANCEL_CMD = '\x03\n';
   private isOpened = false;
-<<<<<<< HEAD
-=======
-  private scripts = '';
->>>>>>> upstream/main
   private ui: Ui;
   public dut = new OperatePort(0x18d1, 0x504a);
   constructor(ui: Ui, dut: OperatePort) {
