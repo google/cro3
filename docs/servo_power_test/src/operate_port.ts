@@ -25,14 +25,14 @@ export class OperatePort {
     if (this.port === undefined) return;
     await this.port.open({baudRate: 115200});
   }
-  public async closeWhileReading() {
-    if (this.port === undefined) return;
-    await this.reader.cancel();
-    await this.reader.releaseLock();
-    await this.port.close();
-  }
   public async close() {
     if (this.port === undefined) return;
+    await this.reader
+      .cancel()
+      .then(async () => {
+        await this.reader.releaseLock();
+      })
+      .catch(() => {}); // when the reader stream is already locked, do nothing.
     await this.port.close();
   }
   public async read() {
@@ -52,11 +52,11 @@ export class OperatePort {
         return this.decoder.decode(value);
       }
     } catch (error) {
-      this.reader.releaseLock();
+      await this.reader.releaseLock();
       console.error(error);
       throw error;
     } finally {
-      this.reader.releaseLock();
+      await this.reader.releaseLock();
     }
   }
   public async write(s: string) {
@@ -64,7 +64,14 @@ export class OperatePort {
     const writable = this.port.writable;
     if (writable === null) return;
     const writer = writable.getWriter();
-    await writer.write(this.encoder.encode(s));
-    writer.releaseLock();
+    try {
+      await writer.write(this.encoder.encode(s));
+    } catch (error) {
+      writer.releaseLock();
+      console.error(error);
+      throw error;
+    } finally {
+      writer.releaseLock();
+    }
   }
 }

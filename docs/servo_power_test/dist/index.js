@@ -33914,7 +33914,14 @@ class Config {
             await this.ui.addMessageToConsole(dutData);
         }
     }
+    async initializePort() {
+        await this.servoController.openServoPort();
+        await this.servoController.closeServoPort();
+        await this.runner.openDutPort();
+        await this.runner.closeDutPort();
+    }
     async start() {
+        await this.initializePort();
         await this.servoController.openServoPort();
         await this.runner.openDutPort();
         await this.changeHaltFlag(false);
@@ -33926,6 +33933,9 @@ class Config {
         await readDutLoopInst;
     }
     async stop() {
+        await this.runner.sendCancel();
+        await this.runner.sendCancel();
+        this.changeHaltFlag(true);
         this.changeHaltFlag(true);
         this.inProgress = false;
         await this.servoController.closeServoPort();
@@ -34370,16 +34380,15 @@ class OperatePort {
             return;
         await this.port.open({ baudRate: 115200 });
     }
-    async closeWhileReading() {
-        if (this.port === undefined)
-            return;
-        await this.reader.cancel();
-        await this.reader.releaseLock();
-        await this.port.close();
-    }
     async close() {
         if (this.port === undefined)
             return;
+        await this.reader
+            .cancel()
+            .then(async () => {
+            await this.reader.releaseLock();
+        })
+            .catch(() => { }); // when the reader stream is already locked, do nothing.
         await this.port.close();
     }
     async read() {
@@ -34402,12 +34411,12 @@ class OperatePort {
             }
         }
         catch (error) {
-            this.reader.releaseLock();
+            await this.reader.releaseLock();
             console.error(error);
             throw error;
         }
         finally {
-            this.reader.releaseLock();
+            await this.reader.releaseLock();
         }
     }
     async write(s) {
@@ -34417,8 +34426,17 @@ class OperatePort {
         if (writable === null)
             return;
         const writer = writable.getWriter();
-        await writer.write(this.encoder.encode(s));
-        writer.releaseLock();
+        try {
+            await writer.write(this.encoder.encode(s));
+        }
+        catch (error) {
+            writer.releaseLock();
+            console.error(error);
+            throw error;
+        }
+        finally {
+            writer.releaseLock();
+        }
     }
 }
 exports.OperatePort = OperatePort;
@@ -34542,7 +34560,7 @@ class ServoController {
     async closeServoPort() {
         if (!this.isOpened)
             return;
-        await this.servoShell.closeWhileReading();
+        await this.servoShell.close();
         console.log('servoPort is closed');
         this.isOpened = false;
     }
@@ -34610,14 +34628,14 @@ class TestRunner {
         if (this.isOpened)
             return;
         await this.dut.open();
-        this.ui.addMessageToConsole('DutPort is opened\n');
+        console.log('DutPort is opened\n');
         this.isOpened = true;
     }
     async closeDutPort() {
         if (!this.isOpened)
             return;
         await this.dut.close();
-        this.ui.addMessageToConsole('DutPort is closed\n');
+        console.log('DutPort is closed\n');
         this.isOpened = false;
     }
     async readData() {

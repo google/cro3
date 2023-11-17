@@ -13,13 +13,13 @@ export class TestRunner {
   public async openDutPort() {
     if (this.isOpened) return;
     await this.dut.open();
-    this.ui.addMessageToConsole('DutPort is opened\n');
+    console.log('DutPort is opened\n');
     this.isOpened = true;
   }
   public async closeDutPort() {
     if (!this.isOpened) return;
     await this.dut.close();
-    this.ui.addMessageToConsole('DutPort is closed\n');
+    console.log('DutPort is closed\n');
     this.isOpened = false;
   }
   public async readData() {

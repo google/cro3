@@ -79,7 +79,14 @@ export class Config {
       await this.ui.addMessageToConsole(dutData);
     }
   }
+  public async initializePort() {
+    await this.servoController.openServoPort();
+    await this.servoController.closeServoPort();
+    await this.runner.openDutPort();
+    await this.runner.closeDutPort();
+  }
   public async start() {
+    await this.initializePort();
     await this.servoController.openServoPort();
     await this.runner.openDutPort();
     await this.changeHaltFlag(false);
@@ -91,6 +98,9 @@ export class Config {
     await readDutLoopInst;
   }
   public async stop() {
+    await this.runner.sendCancel();
+    await this.runner.sendCancel();
+    this.changeHaltFlag(true);
     this.changeHaltFlag(true);
     this.inProgress = false;
     await this.servoController.closeServoPort();
