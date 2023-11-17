@@ -7,13 +7,20 @@ import {PowerTestController} from './power_test_controller';
 import {TestRunner} from './test_runner';
 import {ServoController} from './servo_controller';
 import {Ui} from './ui';
+import {Graph} from './graph';
 
 window.addEventListener('DOMContentLoaded', () => {
   const ui = new Ui();
+  const graph = new Graph(ui);
   const servoController = new ServoController();
   const dutShell = new OperatePort(0x18d1, 0x504a);
   const runner = new TestRunner(ui, dutShell);
-  const testController = new PowerTestController(ui, servoController, runner);
+  const testController = new PowerTestController(
+    ui,
+    graph,
+    servoController,
+    runner
+  );
   testController.setupDisconnectEvent();
   runner.setupDisconnectEvent();
 
@@ -23,9 +30,12 @@ window.addEventListener('DOMContentLoaded', () => {
   ui.haltButton.addEventListener('click', () => {
     testController.stopMeasurement();
   });
+  ui.selectDutSerialButton.addEventListener('click', () => {
+    testController.selectPort();
+  });
   ui.dutCommandForm.addEventListener('submit', async e => {
     e.preventDefault();
-    if (testController.isMeasuring) {
+    if (!runner.isOpened) {
       ui.overlay.classList.remove('closed');
       return;
     }
@@ -33,13 +43,24 @@ window.addEventListener('DOMContentLoaded', () => {
   });
   // send cancel command to serial port when ctrl+C is pressed in input area
   ui.dutCommandInput.addEventListener('keydown', async e => {
-    if (testController.isMeasuring) {
+    if (!runner.isOpened) {
       ui.overlay.classList.remove('closed');
       return;
     }
     if (e.ctrlKey && e.key === 'c') {
       await runner.sendCancel();
     }
+  });
+  ui.analyzeButton.addEventListener('click', () => {
+    testController.analyzePowerData();
+  });
+  ui.executeScriptButton.addEventListener('click', async () => {
+    if (!runner.isOpened) {
+      ui.overlay.classList.remove('closed');
+      return;
+    }
+    await runner.copyScriptToDut();
+    await runner.executeScript();
   });
   ui.dropZone.addEventListener(
     'dragover',
@@ -77,8 +98,5 @@ window.addEventListener('DOMContentLoaded', () => {
   });
   ui.popupCloseButton.addEventListener('click', () => {
     ui.overlay.classList.add('closed');
-  });
-  ui.addConfigButton.addEventListener('click', () => {
-    ui.addConfigInputArea();
   });
 });

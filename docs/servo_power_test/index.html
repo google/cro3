@@ -15,16 +15,14 @@
   <div id="controlDiv">
     <a id="downloadAnchorElem" style="display:none"></a>
     <button id='requestSerialButton'>Start</button>
-    <button id='selectDutSerialButton'>Select DUT Port</button>
-    <button id='executeScriptButton'>Execute scripts</button>
-    <button id='haltButton'>Stop</button>
+    <button id='haltButton'>Cancel</button>
     <button id='downloadButton'>Download</button>
     <button id='downloadButton'>Mark</button>
     <button id='analyzeButton'>Analyze displayed range</button>
   </div>
-  <div id="shellScript">
-    <p>config+workload:</p>
-    <textarea id="shellScriptInput"></textarea>
+  <div id="config">
+    <button id="addConfigButton">Add config</button>
+    <ul id="shellScriptList"></ul>
   </div>
   <div id="backlog">
     <span id="serial_output" class="log"></span>
@@ -42,7 +40,8 @@
       <button id="popup-close">close</button>
     </div>
   </div>
-  <div id="graph"></div>
+  <ul id="graphList"></ul>
+
   <span id="dropZone">Drop .json here</span>
   <script src='./dist/index.js'></script>
 </body>

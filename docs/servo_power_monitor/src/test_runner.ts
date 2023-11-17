@@ -2,32 +2,18 @@ import {OperatePort} from './operate_port';
 import {Ui} from './ui';
 
 export class TestRunner {
+  public isOpened = false;
   private CANCEL_CMD = '\x03\n';
-  private isOpened = false;
+  private scripts = '';
   private ui: Ui;
   public dut = new OperatePort(0x18d1, 0x504a);
   constructor(ui: Ui, dut: OperatePort) {
     this.ui = ui;
     this.dut = dut;
   }
-  public async openDutPort() {
-    if (this.isOpened) return;
-    await this.dut.open();
-    this.ui.addMessageToConsole('DutPort is opened\n');
-    this.isOpened = true;
-  }
-  public async closeDutPort() {
-    if (!this.isOpened) return;
-    await this.dut.close();
-    this.ui.addMessageToConsole('DutPort is closed\n');
-    this.isOpened = false;
-  }
-  public async readData() {
-    const chunk = await this.dut.read();
-    return chunk;
-  }
-  public async copyScriptToDut(customScript: string) {
-    const script = `#!/bin/bash -e
+  public setScript() {
+    const customScript = this.ui.readInputScript();
+    this.scripts = `#!/bin/bash -e
 function workload () {
   ${customScript}
 }
@@ -37,10 +23,15 @@ echo "start"
 workload 1> ./test_out.log 2> ./test_err.log
 echo "end"
 sleep 3
-echo "stop"
 ectool chargecontrol normal\n`;
+  }
+  public async readData() {
+    const chunk = await this.dut.read();
+    return chunk;
+  }
+  public async copyScriptToDut() {
     await this.dut.write('cat > ./example.sh << EOF\n');
-    await this.dut.write(btoa(script) + '\n');
+    await this.dut.write(btoa(this.scripts) + '\n');
     await this.dut.write('EOF\n');
   }
   public async executeScript() {

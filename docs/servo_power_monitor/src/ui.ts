@@ -14,15 +14,9 @@ export class Ui {
   public selectDutSerialButton = document.getElementById(
     'selectDutSerialButton'
   ) as HTMLButtonElement;
-  private shellScriptList = document.getElementById(
-    'shellScriptList'
-  ) as HTMLUListElement;
   public shellScriptInput = document.getElementById(
     'shellScriptInput'
   ) as HTMLTextAreaElement;
-  public addConfigButton = document.getElementById(
-    'addConfigButton'
-  ) as HTMLButtonElement;
   public dutCommandForm = document.getElementById(
     'dutCommandForm'
   ) as HTMLFormElement;
@@ -45,8 +39,6 @@ export class Ui {
     'downloadAnchorElem'
   ) as HTMLAnchorElement;
   public toolTip = document.getElementById('tooltip') as HTMLDivElement;
-  private graphList = document.getElementById('graphList') as HTMLUListElement;
-  public configNum = 0;
 
   public enabledRecordingButton(halt: boolean) {
     this.requestSerialButton.disabled = !halt;
@@ -62,36 +54,8 @@ export class Ui {
     this.dutCommandInput.value = '';
     return res;
   }
-  public readInputShellScript() {
-    const textAreas = this.shellScriptList.getElementsByTagName(
-      'textarea'
-    ) as HTMLCollectionOf<HTMLTextAreaElement>;
-    const shellScriptContents: Array<string> = [];
-    for (let i = 0; i < textAreas.length; i++) {
-      shellScriptContents.push(textAreas[i].value);
-    }
-    return shellScriptContents;
-  }
-  public addConfigInputArea() {
-    const newConfigListElem = document.createElement('li');
-    newConfigListElem.innerHTML =
-      '<label>script:</label><textarea>sleep 3</textarea><button>delete</button>';
-    this.shellScriptList.appendChild(newConfigListElem);
-    const newButtonElem = newConfigListElem.querySelector(
-      'button'
-    ) as HTMLButtonElement;
-    newButtonElem.addEventListener('click', () => {
-      this.configNum -= 1;
-      newConfigListElem.remove();
-    });
-    this.configNum += 1;
-  }
-  public createGraphList() {
-    for (let i = 0; i < this.configNum; i++) {
-      const newGraphListElem = document.createElement('li');
-      newGraphListElem.innerHTML = `<div id="graph${i}"></div>`;
-      this.graphList.appendChild(newGraphListElem);
-    }
+  public readInputScript() {
+    return this.shellScriptInput.value;
   }
   public addMessageToConsole(s: string) {
     this.messages.textContent += s;
