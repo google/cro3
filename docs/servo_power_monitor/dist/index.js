@@ -33841,102 +33841,6 @@ webpackContext.id = "./node_modules/moment/locale sync recursive ^\\.\\/.*$";
 
 /***/ }),
 
-/***/ "./src/config.ts":
-/*!***********************!*\
-  !*** ./src/config.ts ***!
-  \***********************/
-/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.Config = void 0;
-const graph_1 = __webpack_require__(/*! ./graph */ "./src/graph.ts");
-class Config {
-    constructor(ui, servoController, runner, configNum, customScript) {
-        this.INTERVAL_MS = 100;
-        this.powerDataList = [];
-        this.annotationList = [];
-        this.halt = true;
-        this.inProgress = false;
-        this.ui = ui;
-        this.graph = new graph_1.Graph(ui, `graph${configNum}`);
-        this.servoController = servoController;
-        this.runner = runner;
-        this.customScript = customScript;
-    }
-    changeHaltFlag(flag) {
-        this.halt = flag;
-        this.servoController.halt = flag;
-        this.ui.enabledRecordingButton(this.halt);
-    }
-    kickWriteLoop() {
-        const f = async () => {
-            while (!this.halt) {
-                if (this.inProgress) {
-                    console.error('previous request is in progress! skip...');
-                }
-                else {
-                    this.inProgress = true;
-                }
-                await this.servoController.writeInaCommand();
-                await new Promise(r => setTimeout(r, this.INTERVAL_MS));
-            }
-        };
-        setTimeout(f, this.INTERVAL_MS);
-    }
-    async readLoop() {
-        while (!this.halt) {
-            const currentPowerData = await this.servoController.readData();
-            this.inProgress = false;
-            if (currentPowerData === undefined)
-                continue;
-            this.ui.setSerialOutput(currentPowerData.originalData);
-            const e = [new Date().getTime(), currentPowerData.power];
-            this.powerDataList.push(e);
-            this.graph.updateGraph(this.powerDataList);
-        }
-    }
-    async readDutLoop() {
-        while (!this.halt) {
-            const dutData = await this.runner.readData();
-            if (dutData.includes('start')) {
-                this.annotationList.push([new Date().getTime(), 'start']);
-                this.graph.addAnnotation(this.powerDataList[this.powerDataList.length - 1][0], 'start');
-            }
-            else if (dutData.includes('end')) {
-                this.annotationList.push([new Date().getTime(), 'end']);
-                this.graph.addAnnotation(this.powerDataList[this.powerDataList.length - 1][0], 'end');
-            }
-            else if (dutData.includes('stop')) {
-                await this.stop();
-            }
-            await this.ui.addMessageToConsole(dutData);
-        }
-    }
-    async start() {
-        await this.servoController.openServoPort();
-        await this.runner.openDutPort();
-        await this.changeHaltFlag(false);
-        this.kickWriteLoop();
-        this.readLoop();
-        const readDutLoopInst = this.readDutLoop();
-        await this.runner.copyScriptToDut(this.customScript);
-        await this.runner.executeScript();
-        await readDutLoopInst;
-    }
-    async stop() {
-        this.changeHaltFlag(true);
-        this.inProgress = false;
-        await this.servoController.closeServoPort();
-        await this.runner.closeDutPort();
-    }
-}
-exports.Config = Config;
-
-
-/***/ }),
-
 /***/ "./src/graph.ts":
 /*!**********************!*\
   !*** ./src/graph.ts ***!
@@ -33952,13 +33856,10 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.Graph = void 0;
 const dygraphs_1 = __importDefault(__webpack_require__(/*! dygraphs */ "./node_modules/dygraphs/index.js"));
 class Graph {
-    constructor(ui, divName) {
+    constructor(ui) {
+        this.g = new dygraphs_1.default('graph', [], {});
         this.annotations = [];
         this.ui = ui;
-        this.g = new dygraphs_1.default(divName, [], {
-            width: 960,
-            height: 480,
-        });
     }
     updateGraph(powerDataList) {
         if (powerDataList !== undefined && powerDataList.length > 0) {
@@ -33968,8 +33869,6 @@ class Graph {
             file: powerDataList,
             labels: ['t', 'ina0'],
             showRoller: true,
-            width: 960,
-            height: 480,
             xlabel: 'Relative Time (s)',
             ylabel: 'Power (mW)',
             legend: 'always',
@@ -34263,12 +34162,14 @@ const power_test_controller_1 = __webpack_require__(/*! ./power_test_controller 
 const test_runner_1 = __webpack_require__(/*! ./test_runner */ "./src/test_runner.ts");
 const servo_controller_1 = __webpack_require__(/*! ./servo_controller */ "./src/servo_controller.ts");
 const ui_1 = __webpack_require__(/*! ./ui */ "./src/ui.ts");
+const graph_1 = __webpack_require__(/*! ./graph */ "./src/graph.ts");
 window.addEventListener('DOMContentLoaded', () => {
     const ui = new ui_1.Ui();
+    const graph = new graph_1.Graph(ui);
     const servoController = new servo_controller_1.ServoController();
     const dutShell = new operate_port_1.OperatePort(0x18d1, 0x504a);
     const runner = new test_runner_1.TestRunner(ui, dutShell);
-    const testController = new power_test_controller_1.PowerTestController(ui, servoController, runner);
+    const testController = new power_test_controller_1.PowerTestController(ui, graph, servoController, runner);
     testController.setupDisconnectEvent();
     runner.setupDisconnectEvent();
     ui.requestSerialButton.addEventListener('click', () => {
@@ -34277,9 +34178,12 @@ window.addEventListener('DOMContentLoaded', () => {
     ui.haltButton.addEventListener('click', () => {
         testController.stopMeasurement();
     });
+    ui.selectDutSerialButton.addEventListener('click', () => {
+        testController.selectPort();
+    });
     ui.dutCommandForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        if (testController.isMeasuring) {
+        if (!runner.isOpened) {
             ui.overlay.classList.remove('closed');
             return;
         }
@@ -34287,13 +34191,24 @@ window.addEventListener('DOMContentLoaded', () => {
     });
     // send cancel command to serial port when ctrl+C is pressed in input area
     ui.dutCommandInput.addEventListener('keydown', async (e) => {
-        if (testController.isMeasuring) {
+        if (!runner.isOpened) {
             ui.overlay.classList.remove('closed');
             return;
         }
         if (e.ctrlKey && e.key === 'c') {
             await runner.sendCancel();
         }
+    });
+    ui.analyzeButton.addEventListener('click', () => {
+        testController.analyzePowerData();
+    });
+    ui.executeScriptButton.addEventListener('click', async () => {
+        if (!runner.isOpened) {
+            ui.overlay.classList.remove('closed');
+            return;
+        }
+        await runner.copyScriptToDut();
+        await runner.executeScript();
     });
     ui.dropZone.addEventListener('dragover', e => {
         e.stopPropagation();
@@ -34327,9 +34242,6 @@ window.addEventListener('DOMContentLoaded', () => {
     ui.popupCloseButton.addEventListener('click', () => {
         ui.overlay.classList.add('closed');
     });
-    ui.addConfigButton.addEventListener('click', () => {
-        ui.addConfigInputArea();
-    });
 });
 
 
@@ -34353,7 +34265,7 @@ class OperatePort {
         this.usbVendorId = usbVendorId;
         this.usbProductId = usbProductId;
     }
-    async select() {
+    async open() {
         this.port = await navigator.serial
             .requestPort({
             filters: [
@@ -34364,23 +34276,20 @@ class OperatePort {
             console.error(e);
             throw e;
         });
-    }
-    async open() {
-        if (this.port === undefined)
-            return;
         await this.port.open({ baudRate: 115200 });
-    }
-    async closeWhileReading() {
-        if (this.port === undefined)
-            return;
-        await this.reader.cancel();
-        await this.reader.releaseLock();
-        await this.port.close();
     }
     async close() {
         if (this.port === undefined)
             return;
-        await this.port.close();
+        await this.reader.cancel();
+        await this.reader.releaseLock();
+        try {
+            await this.port.close();
+        }
+        catch (e) {
+            console.error(e);
+            throw e;
+        }
     }
     async read() {
         if (this.port === undefined)
@@ -34437,71 +34346,120 @@ exports.OperatePort = OperatePort;
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.PowerTestController = void 0;
 const histogram_1 = __webpack_require__(/*! ./histogram */ "./src/histogram.ts");
-const config_1 = __webpack_require__(/*! ./config */ "./src/config.ts");
 class PowerTestController {
-    constructor(ui, servoController, runner) {
+    constructor(ui, graph, servoController, runner) {
+        this.INTERVAL_MS = 100;
+        this.halt = true;
+        this.inProgress = false;
+        this.powerDataList = [];
+        this.annotationList = [];
         this.histogram = new histogram_1.Histogram();
-        this.configList = [];
-        this.currentConfigNum = 0;
-        this.isMeasuring = false;
         this.ui = ui;
+        this.graph = graph;
         this.servoController = servoController;
         this.runner = runner;
     }
-    setConfig() {
-        const shellScriptContents = this.ui.readInputShellScript();
-        this.ui.createGraphList();
-        for (let i = 0; i < this.ui.configNum; i++) {
-            const newConfig = new config_1.Config(this.ui, this.servoController, this.runner, i, shellScriptContents[i]);
-            this.configList.push(newConfig);
+    changeHaltFlag(flag) {
+        this.halt = flag;
+        this.servoController.halt = flag;
+        this.ui.enabledRecordingButton(this.halt);
+    }
+    kickWriteLoop() {
+        const f = async () => {
+            while (!this.halt) {
+                if (this.inProgress) {
+                    console.error('previous request is in progress! skip...');
+                }
+                else {
+                    this.inProgress = true;
+                }
+                await this.servoController.writeInaCommand();
+                await new Promise(r => setTimeout(r, this.INTERVAL_MS));
+            }
+        };
+        setTimeout(f, this.INTERVAL_MS);
+    }
+    async readLoop() {
+        while (!this.halt) {
+            const currentPowerData = await this.servoController.readData();
+            this.inProgress = false;
+            if (currentPowerData === undefined)
+                continue;
+            this.ui.setSerialOutput(currentPowerData.originalData);
+            const e = [new Date().getTime(), currentPowerData.power];
+            this.powerDataList.push(e);
+            this.graph.updateGraph(this.powerDataList);
+        }
+    }
+    async readDutLoop() {
+        this.runner.executeCommand('\n');
+        this.ui.addMessageToConsole('DutPort is selected');
+        for (;;) {
+            const dutData = await this.runner.readData();
+            if (dutData.includes('start')) {
+                this.annotationList.push([new Date().getTime(), 'start']);
+                this.graph.addAnnotation(this.powerDataList[this.powerDataList.length - 1][0], 'start');
+            }
+            else if (dutData.includes('end')) {
+                this.annotationList.push([new Date().getTime(), 'end']);
+                this.graph.addAnnotation(this.powerDataList[this.powerDataList.length - 1][0], 'end');
+            }
+            this.ui.addMessageToConsole(dutData);
         }
     }
     async startMeasurement() {
-        await this.servoController.servoShell.select();
-        await this.runner.dut.select();
-        await this.setConfig();
-        for (let i = 0; i < this.ui.configNum; i++) {
-            this.currentConfigNum = i;
-            console.log(`start running config${i}`);
-            await this.configList[i].start();
-        }
+        await this.runner.setScript();
+        await this.servoController.servoShell.open();
+        this.changeHaltFlag(false);
+        this.kickWriteLoop();
+        this.readLoop();
     }
     async stopMeasurement() {
-        await this.configList[this.currentConfigNum].stop();
+        this.changeHaltFlag(true);
+        this.inProgress = false;
+        await this.servoController.servoShell.close();
+    }
+    async selectPort() {
+        await this.runner.dut.open();
+        this.runner.isOpened = true;
+        this.readDutLoop();
+    }
+    analyzePowerData() {
+        // https://dygraphs.com/jsdoc/symbols/Dygraph.html#xAxisRange
+        const xrange = this.graph.returnXrange();
+        const left = xrange[0];
+        const right = xrange[1];
+        this.histogram.paintHistogram(left, right, this.powerDataList);
     }
     loadPowerData(s) {
         const data = JSON.parse(s);
-        this.configList = [];
-        for (let i = 0; i < data.length; i++) {
-            this.ui.addConfigInputArea();
-            const configData = data[i];
-            const newConfig = new config_1.Config(this.ui, this.servoController, this.runner, i, configData.config);
-            newConfig.powerDataList = configData.power.map((d) => [d.time, d.power]);
-            newConfig.annotationList = configData.annotation.map((d) => [d.time, d.text]);
-            newConfig.graph.updateGraph(newConfig.powerDataList);
-            newConfig.graph.findAnnotationPoint(newConfig.powerDataList, newConfig.annotationList);
-            this.configList.push(newConfig);
-        }
+        this.powerDataList = data.power.map((d) => [
+            d.time,
+            d.power,
+        ]);
+        this.annotationList = data.annotation.map((d) => [d.time, d.text]);
+        this.graph.updateGraph(this.powerDataList);
+        this.graph.findAnnotationPoint(this.powerDataList, this.annotationList);
     }
     exportPowerData() {
         const dataStr = 'data:text/json;charset=utf-8,' +
-            encodeURIComponent(JSON.stringify(this.configList.map(e => ({
-                config: e.customScript,
-                power: e.powerDataList.map(d => {
+            encodeURIComponent(JSON.stringify({
+                power: this.powerDataList.map(d => {
                     return { time: d[0], power: d[1] };
                 }),
-                annotation: e.annotationList.map(d => {
+                annotation: this.annotationList.map(d => {
                     return { time: d[0], text: d[1] };
                 }),
-            }))));
+            }));
         return dataStr;
     }
     setupDisconnectEvent() {
         // event when you disconnect serial port
         navigator.serial.addEventListener('disconnect', async () => {
-            if (this.isMeasuring) {
-                this.isMeasuring = false;
-                await this.servoController.closeServoPort();
+            if (!this.halt) {
+                this.changeHaltFlag(true);
+                this.inProgress = false;
+                await this.servoController.servoShell.close();
             }
         });
     }
@@ -34527,24 +34485,9 @@ class ServoController {
         // ina 0 and 1 seems to be the same
         // ina 2 is something but not useful
         this.INA_COMMAND = 'ina 0\n';
-        this.isOpened = false;
         this.output = '';
         this.servoShell = new operate_port_1.OperatePort(0x18d1, 0x520d);
         this.halt = true;
-    }
-    async openServoPort() {
-        if (this.isOpened)
-            return;
-        await this.servoShell.open();
-        console.log('servoPort is opened');
-        this.isOpened = true;
-    }
-    async closeServoPort() {
-        if (!this.isOpened)
-            return;
-        await this.servoShell.closeWhileReading();
-        console.log('servoPort is closed');
-        this.isOpened = false;
     }
     async readData() {
         for (;;) {
@@ -34600,32 +34543,16 @@ exports.TestRunner = void 0;
 const operate_port_1 = __webpack_require__(/*! ./operate_port */ "./src/operate_port.ts");
 class TestRunner {
     constructor(ui, dut) {
-        this.CANCEL_CMD = '\x03\n';
         this.isOpened = false;
+        this.CANCEL_CMD = '\x03\n';
+        this.scripts = '';
         this.dut = new operate_port_1.OperatePort(0x18d1, 0x504a);
         this.ui = ui;
         this.dut = dut;
     }
-    async openDutPort() {
-        if (this.isOpened)
-            return;
-        await this.dut.open();
-        this.ui.addMessageToConsole('DutPort is opened\n');
-        this.isOpened = true;
-    }
-    async closeDutPort() {
-        if (!this.isOpened)
-            return;
-        await this.dut.close();
-        this.ui.addMessageToConsole('DutPort is closed\n');
-        this.isOpened = false;
-    }
-    async readData() {
-        const chunk = await this.dut.read();
-        return chunk;
-    }
-    async copyScriptToDut(customScript) {
-        const script = `#!/bin/bash -e
+    setScript() {
+        const customScript = this.ui.readInputScript();
+        this.scripts = `#!/bin/bash -e
 function workload () {
   ${customScript}
 }
@@ -34635,10 +34562,15 @@ echo "start"
 workload 1> ./test_out.log 2> ./test_err.log
 echo "end"
 sleep 3
-echo "stop"
 ectool chargecontrol normal\n`;
+    }
+    async readData() {
+        const chunk = await this.dut.read();
+        return chunk;
+    }
+    async copyScriptToDut() {
         await this.dut.write('cat > ./example.sh << EOF\n');
-        await this.dut.write(btoa(script) + '\n');
+        await this.dut.write(btoa(this.scripts) + '\n');
         await this.dut.write('EOF\n');
     }
     async executeScript() {
@@ -34681,9 +34613,7 @@ class Ui {
         this.downloadButton = document.getElementById('download-button');
         this.analyzeButton = document.getElementById('analyze-button');
         this.selectDutSerialButton = document.getElementById('select-dut-serial-button');
-        this.shellScriptList = document.getElementById('shellScriptList');
         this.shellScriptInput = document.getElementById('shell-script-input');
-        this.addConfigButton = document.getElementById('addConfigButton');
         this.dutCommandForm = document.getElementById('dut-command-form');
         this.dutCommandInput = document.getElementById('dut-command-input');
         this.popupCloseButton = document.getElementById('popup-close');
@@ -34694,8 +34624,6 @@ class Ui {
         this.serialOutput = document.getElementById('serial-output');
         this.dlAnchorElem = document.getElementById('download-anchor');
         this.toolTip = document.getElementById('tooltip');
-        this.graphList = document.getElementById('graphList');
-        this.configNum = 0;
     }
     enabledRecordingButton(halt) {
         this.requestSerialButton.disabled = !halt;
@@ -34711,32 +34639,8 @@ class Ui {
         this.dutCommandInput.value = '';
         return res;
     }
-    readInputShellScript() {
-        const textAreas = this.shellScriptList.getElementsByTagName('textarea');
-        const shellScriptContents = [];
-        for (let i = 0; i < textAreas.length; i++) {
-            shellScriptContents.push(textAreas[i].value);
-        }
-        return shellScriptContents;
-    }
-    addConfigInputArea() {
-        const newConfigListElem = document.createElement('li');
-        newConfigListElem.innerHTML =
-            '<label>script:</label><textarea>sleep 3</textarea><button>delete</button>';
-        this.shellScriptList.appendChild(newConfigListElem);
-        const newButtonElem = newConfigListElem.querySelector('button');
-        newButtonElem.addEventListener('click', () => {
-            this.configNum -= 1;
-            newConfigListElem.remove();
-        });
-        this.configNum += 1;
-    }
-    createGraphList() {
-        for (let i = 0; i < this.configNum; i++) {
-            const newGraphListElem = document.createElement('li');
-            newGraphListElem.innerHTML = `<div id="graph${i}"></div>`;
-            this.graphList.appendChild(newGraphListElem);
-        }
+    readInputScript() {
+        return this.shellScriptInput.value;
     }
     addMessageToConsole(s) {
         this.messages.textContent += s;

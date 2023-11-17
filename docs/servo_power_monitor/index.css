@@ -13,10 +13,6 @@ button {
 
 }
 
-ul {
-  list-style-type: none;
-}
-
 .dygraph-legend {
   font-size: 14px;
   z-index: 10;
@@ -129,10 +125,6 @@ ul {
 
 body {
   position: relative;
-}
-
-#shellScriptList {
-  list-style-type: decimal;
 }
 
 #tooltip {

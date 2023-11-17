@@ -9,7 +9,7 @@ export class OperatePort {
     this.usbVendorId = usbVendorId;
     this.usbProductId = usbProductId;
   }
-  public async select() {
+  public async open() {
     this.port = await navigator.serial
       .requestPort({
         filters: [
@@ -20,20 +20,18 @@ export class OperatePort {
         console.error(e);
         throw e;
       });
-  }
-  public async open() {
-    if (this.port === undefined) return;
     await this.port.open({baudRate: 115200});
-  }
-  public async closeWhileReading() {
-    if (this.port === undefined) return;
-    await this.reader.cancel();
-    await this.reader.releaseLock();
-    await this.port.close();
   }
   public async close() {
     if (this.port === undefined) return;
-    await this.port.close();
+    await this.reader.cancel();
+    await this.reader.releaseLock();
+    try {
+      await this.port.close();
+    } catch (e) {
+      console.error(e);
+      throw e;
+    }
   }
   public async read() {
     if (this.port === undefined) return '';
