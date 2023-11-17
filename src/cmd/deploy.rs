@@ -128,7 +128,7 @@ fn cros_workon_user_packages(
         chroot.run_bash_script_in_chroot(
             "deploy",
             &format!(
-                r"cros-workon-{board} start {packages_str} && cros deploy {} {user_pkgs}",
+                r"cros-workon-{board} start {packages_str} && cros deploy --force {} {user_pkgs}",
                 target.host_and_port()
             ),
             None,
