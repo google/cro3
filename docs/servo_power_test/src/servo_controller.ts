@@ -16,13 +16,13 @@ export class ServoController {
   public async openServoPort() {
     if (this.isOpened) return;
     await this.servoShell.open();
-    console.log('servoPort is opened');
+    console.log('servoPort is opened'); // for debug
     this.isOpened = true;
   }
   public async closeServoPort() {
     if (!this.isOpened) return;
     await this.servoShell.close();
-    console.log('servoPort is closed');
+    console.log('servoPort is closed'); // for debug
     this.isOpened = false;
   }
   public async readData() {

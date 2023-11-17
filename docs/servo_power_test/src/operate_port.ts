@@ -30,7 +30,7 @@ export class OperatePort {
     await this.reader
       .cancel()
       .then(async () => {
-        await this.reader.releaseLock();
+        this.reader.releaseLock();
       })
       .catch(() => {}); // when the reader stream is already locked, do nothing.
     await this.port.close();
@@ -42,21 +42,20 @@ export class OperatePort {
     this.reader = readable.getReader();
     try {
       for (;;) {
-        // console.log('portread');
         const {value, done} = await this.reader.read();
         if (done) {
           // |reader| has been canceled.
           this.reader.releaseLock();
           return '';
         }
-        return this.decoder.decode(value);
+        return this.decoder.decode(value, {stream: true});
       }
     } catch (error) {
-      await this.reader.releaseLock();
+      this.reader.releaseLock();
       console.error(error);
       throw error;
     } finally {
-      await this.reader.releaseLock();
+      this.reader.releaseLock();
     }
   }
   public async write(s: string) {

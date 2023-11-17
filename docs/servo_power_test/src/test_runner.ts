@@ -13,13 +13,15 @@ export class TestRunner {
   public async openDutPort() {
     if (this.isOpened) return;
     await this.dut.open();
-    console.log('DutPort is opened\n');
+    console.log('dutPort is opened\n'); // for debug
     this.isOpened = true;
+    await this.dut.write('ectool chargecontrol idle\n');
   }
   public async closeDutPort() {
     if (!this.isOpened) return;
+    await this.dut.write('ectool chargecontrol normal\n');
     await this.dut.close();
-    console.log('DutPort is closed\n');
+    console.log('dutPort is closed\n'); // for debug
     this.isOpened = false;
   }
   public async readData() {
@@ -31,14 +33,12 @@ export class TestRunner {
 function workload () {
   ${customScript}
 }
-ectool chargecontrol idle
 sleep 3
 echo "start"
 workload 1> ./test_out.log 2> ./test_err.log
 echo "end"
 sleep 3
-echo "stop"
-ectool chargecontrol normal\n`;
+echo "stop"\n`;
     await this.dut.write('cat > ./example.sh << EOF\n');
     await this.dut.write(btoa(script) + '\n');
     await this.dut.write('EOF\n');

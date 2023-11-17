@@ -33900,30 +33900,31 @@ class Config {
     async readDutLoop() {
         while (!this.halt) {
             const dutData = await this.runner.readData();
-            if (dutData.includes('start')) {
-                this.annotationList.push([new Date().getTime(), 'start']);
-                this.graph.addAnnotation(this.powerDataList[this.powerDataList.length - 1][0], 'start');
+            try {
+                if (dutData.includes('start')) {
+                    this.annotationList.push([new Date().getTime(), 'start']);
+                    this.graph.addAnnotation(this.powerDataList[this.powerDataList.length - 1][0], 'start');
+                }
+                else if (dutData.includes('end')) {
+                    this.annotationList.push([new Date().getTime(), 'end']);
+                    this.graph.addAnnotation(this.powerDataList[this.powerDataList.length - 1][0], 'end');
+                }
+                else if (dutData.includes('stop')) {
+                    await this.stop();
+                }
             }
-            else if (dutData.includes('end')) {
-                this.annotationList.push([new Date().getTime(), 'end']);
-                this.graph.addAnnotation(this.powerDataList[this.powerDataList.length - 1][0], 'end');
+            catch (e) {
+                console.error(e);
+                throw e;
             }
-            else if (dutData.includes('stop')) {
-                await this.stop();
+            finally {
+                await this.ui.addMessageToConsole(dutData);
             }
-            await this.ui.addMessageToConsole(dutData);
         }
     }
-    async initializePort() {
-        await this.servoController.openServoPort();
-        await this.servoController.closeServoPort();
-        await this.runner.openDutPort();
-        await this.runner.closeDutPort();
-    }
     async start() {
-        await this.initializePort();
-        await this.servoController.openServoPort();
         await this.runner.openDutPort();
+        await this.servoController.openServoPort();
         await this.changeHaltFlag(false);
         this.kickWriteLoop();
         this.readLoop();
@@ -33935,7 +33936,6 @@ class Config {
     async stop() {
         await this.runner.sendCancel();
         await this.runner.sendCancel();
-        this.changeHaltFlag(true);
         this.changeHaltFlag(true);
         this.inProgress = false;
         await this.servoController.closeServoPort();
@@ -34386,7 +34386,7 @@ class OperatePort {
         await this.reader
             .cancel()
             .then(async () => {
-            await this.reader.releaseLock();
+            this.reader.releaseLock();
         })
             .catch(() => { }); // when the reader stream is already locked, do nothing.
         await this.port.close();
@@ -34400,23 +34400,22 @@ class OperatePort {
         this.reader = readable.getReader();
         try {
             for (;;) {
-                // console.log('portread');
                 const { value, done } = await this.reader.read();
                 if (done) {
                     // |reader| has been canceled.
                     this.reader.releaseLock();
                     return '';
                 }
-                return this.decoder.decode(value);
+                return this.decoder.decode(value, { stream: true });
             }
         }
         catch (error) {
-            await this.reader.releaseLock();
+            this.reader.releaseLock();
             console.error(error);
             throw error;
         }
         finally {
-            await this.reader.releaseLock();
+            this.reader.releaseLock();
         }
     }
     async write(s) {
@@ -34474,9 +34473,19 @@ class PowerTestController {
             this.configList.push(newConfig);
         }
     }
+    async initializePort() {
+        await this.servoController.servoShell.open();
+        await this.servoController.servoShell.close();
+        await this.runner.dut.open();
+        await this.runner.sendCancel();
+        await this.runner.sendCancel();
+        await this.runner.sendCancel();
+        await this.runner.dut.close();
+    }
     async startMeasurement() {
         await this.servoController.servoShell.select();
         await this.runner.dut.select();
+        await this.initializePort();
         await this.setConfig();
         for (let i = 0; i < this.ui.configNum; i++) {
             this.currentConfigNum = i;
@@ -34554,14 +34563,14 @@ class ServoController {
         if (this.isOpened)
             return;
         await this.servoShell.open();
-        console.log('servoPort is opened');
+        console.log('servoPort is opened'); // for debug
         this.isOpened = true;
     }
     async closeServoPort() {
         if (!this.isOpened)
             return;
         await this.servoShell.close();
-        console.log('servoPort is closed');
+        console.log('servoPort is closed'); // for debug
         this.isOpened = false;
     }
     async readData() {
@@ -34628,14 +34637,16 @@ class TestRunner {
         if (this.isOpened)
             return;
         await this.dut.open();
-        console.log('DutPort is opened\n');
+        console.log('dutPort is opened\n'); // for debug
         this.isOpened = true;
+        await this.dut.write('ectool chargecontrol idle\n');
     }
     async closeDutPort() {
         if (!this.isOpened)
             return;
+        await this.dut.write('ectool chargecontrol normal\n');
         await this.dut.close();
-        console.log('DutPort is closed\n');
+        console.log('dutPort is closed\n'); // for debug
         this.isOpened = false;
     }
     async readData() {
@@ -34647,14 +34658,12 @@ class TestRunner {
 function workload () {
   ${customScript}
 }
-ectool chargecontrol idle
 sleep 3
 echo "start"
 workload 1> ./test_out.log 2> ./test_err.log
 echo "end"
 sleep 3
-echo "stop"
-ectool chargecontrol normal\n`;
+echo "stop"\n`;
         await this.dut.write('cat > ./example.sh << EOF\n');
         await this.dut.write(btoa(script) + '\n');
         await this.dut.write('EOF\n');

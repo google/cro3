@@ -35,9 +35,19 @@ export class PowerTestController {
       this.configList.push(newConfig);
     }
   }
+  public async initializePort() {
+    await this.servoController.servoShell.open();
+    await this.servoController.servoShell.close();
+    await this.runner.dut.open();
+    await this.runner.sendCancel();
+    await this.runner.sendCancel();
+    await this.runner.sendCancel();
+    await this.runner.dut.close();
+  }
   public async startMeasurement() {
     await this.servoController.servoShell.select();
     await this.runner.dut.select();
+    await this.initializePort();
     await this.setConfig();
     for (let i = 0; i < this.ui.configNum; i++) {
       this.currentConfigNum = i;

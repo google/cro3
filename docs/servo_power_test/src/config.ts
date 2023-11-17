@@ -61,34 +61,33 @@ export class Config {
   private async readDutLoop() {
     while (!this.halt) {
       const dutData = await this.runner.readData();
-      if (dutData.includes('start')) {
-        this.annotationList.push([new Date().getTime(), 'start']);
-        this.graph.addAnnotation(
-          this.powerDataList[this.powerDataList.length - 1][0],
-          'start'
-        );
-      } else if (dutData.includes('end')) {
-        this.annotationList.push([new Date().getTime(), 'end']);
-        this.graph.addAnnotation(
-          this.powerDataList[this.powerDataList.length - 1][0],
-          'end'
-        );
-      } else if (dutData.includes('stop')) {
-        await this.stop();
+      try {
+        if (dutData.includes('start')) {
+          this.annotationList.push([new Date().getTime(), 'start']);
+          this.graph.addAnnotation(
+            this.powerDataList[this.powerDataList.length - 1][0],
+            'start'
+          );
+        } else if (dutData.includes('end')) {
+          this.annotationList.push([new Date().getTime(), 'end']);
+          this.graph.addAnnotation(
+            this.powerDataList[this.powerDataList.length - 1][0],
+            'end'
+          );
+        } else if (dutData.includes('stop')) {
+          await this.stop();
+        }
+      } catch (e) {
+        console.error(e);
+        throw e;
+      } finally {
+        await this.ui.addMessageToConsole(dutData);
       }
-      await this.ui.addMessageToConsole(dutData);
     }
   }
-  public async initializePort() {
-    await this.servoController.openServoPort();
-    await this.servoController.closeServoPort();
-    await this.runner.openDutPort();
-    await this.runner.closeDutPort();
-  }
   public async start() {
-    await this.initializePort();
-    await this.servoController.openServoPort();
     await this.runner.openDutPort();
+    await this.servoController.openServoPort();
     await this.changeHaltFlag(false);
     this.kickWriteLoop();
     this.readLoop();
@@ -100,7 +99,6 @@ export class Config {
   public async stop() {
     await this.runner.sendCancel();
     await this.runner.sendCancel();
-    this.changeHaltFlag(true);
     this.changeHaltFlag(true);
     this.inProgress = false;
     await this.servoController.closeServoPort();
