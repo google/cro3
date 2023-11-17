@@ -15,7 +15,6 @@ window.addEventListener('DOMContentLoaded', () => {
   const runner = new TestRunner(ui, dutShell);
   const testController = new PowerTestController(ui, servoController, runner);
   testController.setupDisconnectEvent();
-  runner.setupDisconnectEvent();
 
   ui.requestSerialButton.addEventListener('click', () => {
     testController.startMeasurement();

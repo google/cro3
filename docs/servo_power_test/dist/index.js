@@ -34280,7 +34280,6 @@ window.addEventListener('DOMContentLoaded', () => {
     const runner = new test_runner_1.TestRunner(ui, dutShell);
     const testController = new power_test_controller_1.PowerTestController(ui, servoController, runner);
     testController.setupDisconnectEvent();
-    runner.setupDisconnectEvent();
     ui.requestSerialButton.addEventListener('click', () => {
         testController.startMeasurement();
     });
@@ -34678,14 +34677,6 @@ echo "stop"\n`;
     }
     async sendCancel() {
         await this.dut.write(this.CANCEL_CMD);
-    }
-    setupDisconnectEvent() {
-        navigator.serial.addEventListener('disconnect', async () => {
-            if (this.isOpened) {
-                await this.dut.close();
-                this.isOpened = false;
-            }
-        });
     }
 }
 exports.TestRunner = TestRunner;
