@@ -2,6 +2,7 @@ import {ServoController} from './servo_controller';
 import {Ui} from './ui';
 import {TestRunner} from './test_runner';
 import {Config} from './config';
+import { TotalHistogram } from './total_histogram';
 
 export type PowerData = [number, number];
 export type AnnotationData = [number, string];
@@ -10,6 +11,7 @@ export class PowerTestController {
   private ui: Ui;
   private servoController: ServoController;
   private runner: TestRunner;
+  private totalHistogram = new TotalHistogram();
   private configList: Array<Config> = [];
   private currentConfigNum = 0;
   public isMeasuring = false;
@@ -53,9 +55,17 @@ export class PowerTestController {
       console.log(`start running config${i}`);
       await this.configList[i].start();
     }
+    this.drawTotalHistogram();
   }
   public async stopMeasurement() {
     await this.configList[this.currentConfigNum].stop();
+  }
+  private drawTotalHistogram() {
+    const histogramData = [];
+    for (const config of this.configList) {
+      histogramData.push(config.powerDataList);
+    }
+    this.totalHistogram.paintHistogram(histogramData);
   }
   public loadPowerData(s: string) {
     const data = JSON.parse(s);
@@ -85,6 +95,7 @@ export class PowerTestController {
       this.ui.loadConfigInputArea(configData.config);
       this.configList.push(newConfig);
     }
+    this.drawTotalHistogram();
   }
   public exportPowerData() {
     const dataStr =
