@@ -17,7 +17,6 @@
     <button id='requestSerialButton'>Start</button>
     <button id='haltButton'>Cancel</button>
     <button id='downloadButton'>Download</button>
-    <button id='analyzeButton'>Analyze displayed range</button>
   </div>
   <div id="config">
     <button id="addConfigButton">Add config</button>
@@ -26,12 +25,7 @@
   <div id="backlog">
     <span id="serial_output" class="log"></span>
     <span id="d3area"></span>
-    <span id="console">
-      <div id="messages"></div>
-      <form id="dutCommandForm" action="">
-        <input id="dutCommandInput" autocomplete="off" /><button>Send</button>
-      </form>
-    </span>
+    <span id="dut_console"></span>
   </div>
   <div id="popup-overlay" class="closed">
     <div id="popup-window">

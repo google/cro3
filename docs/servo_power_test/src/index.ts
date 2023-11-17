@@ -22,24 +22,6 @@ window.addEventListener('DOMContentLoaded', () => {
   ui.haltButton.addEventListener('click', () => {
     testController.stopMeasurement();
   });
-  ui.dutCommandForm.addEventListener('submit', async e => {
-    e.preventDefault();
-    if (testController.isMeasuring) {
-      ui.overlay.classList.remove('closed');
-      return;
-    }
-    await runner.executeCommand(ui.readInputValue() + '\n');
-  });
-  // send cancel command to serial port when ctrl+C is pressed in input area
-  ui.dutCommandInput.addEventListener('keydown', async e => {
-    if (testController.isMeasuring) {
-      ui.overlay.classList.remove('closed');
-      return;
-    }
-    if (e.ctrlKey && e.key === 'c') {
-      await runner.sendCancel();
-    }
-  });
   ui.dropZone.addEventListener(
     'dragover',
     e => {

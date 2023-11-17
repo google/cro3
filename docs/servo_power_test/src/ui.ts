@@ -8,9 +8,6 @@ export class Ui {
   public downloadButton = document.getElementById(
     'downloadButton'
   ) as HTMLButtonElement;
-  public analyzeButton = document.getElementById(
-    'analyzeButton'
-  ) as HTMLButtonElement;
   public selectDutSerialButton = document.getElementById(
     'selectDutSerialButton'
   ) as HTMLButtonElement;
@@ -23,17 +20,11 @@ export class Ui {
   public addConfigButton = document.getElementById(
     'addConfigButton'
   ) as HTMLButtonElement;
-  public dutCommandForm = document.getElementById(
-    'dutCommandForm'
-  ) as HTMLFormElement;
-  public dutCommandInput = document.getElementById(
-    'dutCommandInput'
-  ) as HTMLInputElement;
   public popupCloseButton = document.getElementById(
     'popup-close'
   ) as HTMLButtonElement;
   public overlay = document.getElementById('popup-overlay') as HTMLDivElement;
-  public messages = document.getElementById('messages') as HTMLDivElement;
+  public dut_console = document.getElementById('dut_console') as HTMLSpanElement;
   public executeScriptButton = document.getElementById(
     'executeScriptButton'
   ) as HTMLButtonElement;
@@ -52,15 +43,9 @@ export class Ui {
     this.requestSerialButton.disabled = !halt;
     this.haltButton.disabled = halt;
     this.downloadButton.disabled = !halt;
-    this.analyzeButton.disabled = !halt;
   }
   public setSerialOutput(s: string) {
     this.serial_output.textContent = s;
-  }
-  public readInputValue() {
-    const res = this.dutCommandInput.value;
-    this.dutCommandInput.value = '';
-    return res;
   }
   public readInputShellScript() {
     const textAreas = this.shellScriptList.getElementsByTagName(
@@ -100,8 +85,8 @@ export class Ui {
     }
   }
   public addMessageToConsole(s: string) {
-    this.messages.textContent += s;
-    this.messages.scrollTo(0, this.messages.scrollHeight);
+    this.dut_console.textContent += s;
+    this.dut_console.scrollTo(0, this.dut_console.scrollHeight);
   }
   public hideToolTip() {
     this.toolTip.classList.add('hidden');

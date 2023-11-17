@@ -34286,24 +34286,6 @@ window.addEventListener('DOMContentLoaded', () => {
     ui.haltButton.addEventListener('click', () => {
         testController.stopMeasurement();
     });
-    ui.dutCommandForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        if (testController.isMeasuring) {
-            ui.overlay.classList.remove('closed');
-            return;
-        }
-        await runner.executeCommand(ui.readInputValue() + '\n');
-    });
-    // send cancel command to serial port when ctrl+C is pressed in input area
-    ui.dutCommandInput.addEventListener('keydown', async (e) => {
-        if (testController.isMeasuring) {
-            ui.overlay.classList.remove('closed');
-            return;
-        }
-        if (e.ctrlKey && e.key === 'c') {
-            await runner.sendCancel();
-        }
-    });
     ui.dropZone.addEventListener('dragover', e => {
         e.stopPropagation();
         e.preventDefault();
@@ -34702,16 +34684,13 @@ class Ui {
         this.requestSerialButton = document.getElementById('requestSerialButton');
         this.haltButton = document.getElementById('haltButton');
         this.downloadButton = document.getElementById('downloadButton');
-        this.analyzeButton = document.getElementById('analyzeButton');
         this.selectDutSerialButton = document.getElementById('selectDutSerialButton');
         this.shellScriptList = document.getElementById('shellScriptList');
         this.shellScriptInput = document.getElementById('shellScriptInput');
         this.addConfigButton = document.getElementById('addConfigButton');
-        this.dutCommandForm = document.getElementById('dutCommandForm');
-        this.dutCommandInput = document.getElementById('dutCommandInput');
         this.popupCloseButton = document.getElementById('popup-close');
         this.overlay = document.getElementById('popup-overlay');
-        this.messages = document.getElementById('messages');
+        this.dut_console = document.getElementById('dut_console');
         this.executeScriptButton = document.getElementById('executeScriptButton');
         this.dropZone = document.getElementById('dropZone');
         this.serial_output = document.getElementById('serial_output');
@@ -34724,15 +34703,9 @@ class Ui {
         this.requestSerialButton.disabled = !halt;
         this.haltButton.disabled = halt;
         this.downloadButton.disabled = !halt;
-        this.analyzeButton.disabled = !halt;
     }
     setSerialOutput(s) {
         this.serial_output.textContent = s;
-    }
-    readInputValue() {
-        const res = this.dutCommandInput.value;
-        this.dutCommandInput.value = '';
-        return res;
     }
     readInputShellScript() {
         const textAreas = this.shellScriptList.getElementsByTagName('textarea');
@@ -34768,8 +34741,8 @@ class Ui {
         }
     }
     addMessageToConsole(s) {
-        this.messages.textContent += s;
-        this.messages.scrollTo(0, this.messages.scrollHeight);
+        this.dut_console.textContent += s;
+        this.dut_console.scrollTo(0, this.dut_console.scrollHeight);
     }
     hideToolTip() {
         this.toolTip.classList.add('hidden');
