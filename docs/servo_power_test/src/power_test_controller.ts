@@ -110,6 +110,7 @@ export class PowerTestController {
       if (this.isMeasuring) {
         this.isMeasuring = false;
         await this.servoController.closeServoPort();
+        await this.runner.closeDutPort();
       }
     });
   }

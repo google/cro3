@@ -75,7 +75,7 @@ export class Ui {
   public addConfigInputArea() {
     const newConfigListElem = document.createElement('li');
     newConfigListElem.innerHTML =
-      '<label>script:</label><textarea>sleep 3</textarea><button>delete</button>';
+      `<label>script:</label><textarea>stress-ng -c ${this.configNum+1} -t 10</textarea><button>delete</button>`;
     this.shellScriptList.appendChild(newConfigListElem);
     const newButtonElem = newConfigListElem.querySelector(
       'button'
