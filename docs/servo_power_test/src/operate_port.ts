@@ -51,11 +51,11 @@ export class OperatePort {
         return this.decoder.decode(value, {stream: true});
       }
     } catch (error) {
-      this.reader.releaseLock();
+      await this.reader.releaseLock();
       console.error(error);
       throw error;
     } finally {
-      this.reader.releaseLock();
+      await this.reader.releaseLock();
     }
   }
   public async write(s: string) {

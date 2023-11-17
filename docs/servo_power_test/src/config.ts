@@ -88,6 +88,12 @@ export class Config {
       }
     }
   }
+  public async initializePort() {
+    await this.servoController.openServoPort();
+    await this.servoController.closeServoPort();
+    await this.runner.openDutPort();
+    await this.runner.closeDutPort();
+  }
   public async start() {
     await this.runner.openDutPort();
     await this.servoController.openServoPort();

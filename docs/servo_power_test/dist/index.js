@@ -33922,6 +33922,12 @@ class Config {
             }
         }
     }
+    async initializePort() {
+        await this.servoController.openServoPort();
+        await this.servoController.closeServoPort();
+        await this.runner.openDutPort();
+        await this.runner.closeDutPort();
+    }
     async start() {
         await this.runner.openDutPort();
         await this.servoController.openServoPort();
@@ -34181,12 +34187,12 @@ class OperatePort {
             }
         }
         catch (error) {
-            this.reader.releaseLock();
+            await this.reader.releaseLock();
             console.error(error);
             throw error;
         }
         finally {
-            this.reader.releaseLock();
+            await this.reader.releaseLock();
         }
     }
     async write(s) {
