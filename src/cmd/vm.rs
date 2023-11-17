@@ -55,7 +55,19 @@ pub struct ArgsConnect {
     extra_args: Vec<String>,
 }
 
-fn run_connect(_args: &ArgsConnect) -> Result<()> {
+fn run_connect(args: &ArgsConnect) -> Result<()> {
+    let cmd = Command::new("ssh")
+        .arg("betty")
+        .args(&args.extra_args)
+        .spawn()
+        .context("Failed to excute ssh")?;
+
+    let result = cmd.wait_with_output().context("Failed to wait for ssh")?;
+
+    if !result.status.success() {
+        println!("ssh failed")
+    }
+
     Ok(())
 }
 
