@@ -24,7 +24,9 @@ export class Ui {
     'popup-close'
   ) as HTMLButtonElement;
   public overlay = document.getElementById('popup-overlay') as HTMLDivElement;
-  public dut_console = document.getElementById('dut_console') as HTMLSpanElement;
+  public dut_console = document.getElementById(
+    'dut_console'
+  ) as HTMLSpanElement;
   public executeScriptButton = document.getElementById(
     'executeScriptButton'
   ) as HTMLButtonElement;
@@ -59,8 +61,9 @@ export class Ui {
   }
   public addConfigInputArea() {
     const newConfigListElem = document.createElement('li');
-    newConfigListElem.innerHTML =
-      `<label>script:</label><textarea>stress-ng -c ${this.configNum+1} -t 10</textarea><button>delete</button>`;
+    newConfigListElem.innerHTML = `<label>script:</label><textarea>stress-ng -c ${
+      this.configNum + 1
+    } -t 10</textarea><button>delete</button>`;
     this.shellScriptList.appendChild(newConfigListElem);
     const newButtonElem = newConfigListElem.querySelector(
       'button'
@@ -73,8 +76,7 @@ export class Ui {
   }
   public loadConfigInputArea(config: string) {
     const newConfigListElem = document.createElement('li');
-    newConfigListElem.innerHTML =
-      `<label>script:</label><textarea>${config}</textarea><button>delete</button>`;
+    newConfigListElem.innerHTML = `<label>script:</label><textarea>${config}</textarea><button>delete</button>`;
     this.shellScriptList.appendChild(newConfigListElem);
   }
   public createGraphList() {
