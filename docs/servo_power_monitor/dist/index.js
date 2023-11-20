@@ -34608,21 +34608,21 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.Ui = void 0;
 class Ui {
     constructor() {
-        this.requestSerialButton = document.getElementById('requestSerialButton');
-        this.haltButton = document.getElementById('haltButton');
-        this.downloadButton = document.getElementById('downloadButton');
-        this.analyzeButton = document.getElementById('analyzeButton');
-        this.selectDutSerialButton = document.getElementById('selectDutSerialButton');
-        this.shellScriptInput = document.getElementById('shellScriptInput');
-        this.dutCommandForm = document.getElementById('dutCommandForm');
-        this.dutCommandInput = document.getElementById('dutCommandInput');
+        this.requestSerialButton = document.getElementById('request-serial-button');
+        this.haltButton = document.getElementById('halt-button');
+        this.downloadButton = document.getElementById('download-button');
+        this.analyzeButton = document.getElementById('analyze-button');
+        this.selectDutSerialButton = document.getElementById('select-dut-serial-button');
+        this.shellScriptInput = document.getElementById('shell-script-input');
+        this.dutCommandForm = document.getElementById('dut-command-form');
+        this.dutCommandInput = document.getElementById('dut-command-input');
         this.popupCloseButton = document.getElementById('popup-close');
         this.overlay = document.getElementById('popup-overlay');
         this.messages = document.getElementById('messages');
-        this.executeScriptButton = document.getElementById('executeScriptButton');
-        this.dropZone = document.getElementById('dropZone');
-        this.serial_output = document.getElementById('serial_output');
-        this.dlAnchorElem = document.getElementById('downloadAnchorElem');
+        this.executeScriptButton = document.getElementById('execute-script-button');
+        this.dropZone = document.getElementById('drop-zone');
+        this.serialOutput = document.getElementById('serial-output');
+        this.dlAnchorElem = document.getElementById('download-anchor');
         this.toolTip = document.getElementById('tooltip');
     }
     enabledRecordingButton(halt) {
@@ -34632,7 +34632,7 @@ class Ui {
         this.analyzeButton.disabled = !halt;
     }
     setSerialOutput(s) {
-        this.serial_output.textContent = s;
+        this.serialOutput.textContent = s;
     }
     readInputValue() {
         const res = this.dutCommandInput.value;

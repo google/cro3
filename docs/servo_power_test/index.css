@@ -217,7 +217,7 @@ body {
   cursor: pointer;
 }
 
-#dropZone {
+#drop-zone {
   position: absolute;
   float: right;
   border: 1px solid #aaa;

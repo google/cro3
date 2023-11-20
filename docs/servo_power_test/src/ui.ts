@@ -1,36 +1,30 @@
 export class Ui {
   public requestSerialButton = document.getElementById(
-    'requestSerialButton'
+    'request-serial-button'
   ) as HTMLButtonElement;
   public haltButton = document.getElementById(
-    'haltButton'
+    'halt-button'
   ) as HTMLButtonElement;
   public downloadButton = document.getElementById(
-    'downloadButton'
-  ) as HTMLButtonElement;
-  public selectDutSerialButton = document.getElementById(
-    'selectDutSerialButton'
+    'download-button'
   ) as HTMLButtonElement;
   private shellScriptList = document.getElementById(
     'shell-script-list'
   ) as HTMLUListElement;
   public addConfigButton = document.getElementById(
-    'addConfigButton'
+    'add-config-button'
   ) as HTMLButtonElement;
   public popupCloseButton = document.getElementById(
     'popup-close'
   ) as HTMLButtonElement;
   public overlay = document.getElementById('popup-overlay') as HTMLDivElement;
   public dutConsole = document.getElementById('dut-console') as HTMLSpanElement;
-  public executeScriptButton = document.getElementById(
-    'executeScriptButton'
-  ) as HTMLButtonElement;
-  public dropZone = document.getElementById('dropZone') as HTMLSpanElement;
-  public serial_output = document.getElementById(
-    'serial_output'
+  public dropZone = document.getElementById('drop-zone') as HTMLSpanElement;
+  public serialOutput = document.getElementById(
+    'serial-output'
   ) as HTMLDivElement;
   public dlAnchorElem = document.getElementById(
-    'downloadAnchorElem'
+    'download-anchor'
   ) as HTMLAnchorElement;
   public toolTip = document.getElementById('tooltip') as HTMLDivElement;
   private graphList = document.getElementById('graph-list') as HTMLUListElement;
@@ -42,7 +36,7 @@ export class Ui {
     this.downloadButton.disabled = !halt;
   }
   public setSerialOutput(s: string) {
-    this.serial_output.textContent = s;
+    this.serialOutput.textContent = s;
   }
   public readInputShellScript() {
     const textAreas = this.shellScriptList.getElementsByTagName(
