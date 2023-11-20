@@ -33860,7 +33860,7 @@ class Config {
         this.powerDataList = [];
         this.annotationList = [];
         this.ui = ui;
-        this.graph = new graph_1.Graph(ui, `graph${configNum}`);
+        this.graph = new graph_1.Graph(ui, document.getElementById(`graph${configNum}`));
         this.servoController = servoController;
         this.runner = runner;
         this.customScript = customScript;
@@ -33928,10 +33928,10 @@ class Config {
         await this.changeHaltFlag(false);
         this.kickWriteLoop();
         this.readLoop();
-        const readDutLoopInst = this.readDutLoop();
+        const readDutLoopPromise = this.readDutLoop();
         await this.runner.copyScriptToDut(this.customScript);
         await this.runner.executeScript();
-        await readDutLoopInst;
+        await readDutLoopPromise;
     }
     async stop() {
         await this.runner.sendCancel();
@@ -33962,10 +33962,10 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.Graph = void 0;
 const dygraphs_1 = __importDefault(__webpack_require__(/*! dygraphs */ "./node_modules/dygraphs/index.js"));
 class Graph {
-    constructor(ui, divName) {
+    constructor(ui, div) {
         this.annotations = [];
         this.ui = ui;
-        this.g = new dygraphs_1.default(divName, [], {
+        this.g = new dygraphs_1.default(div, [], {
             width: 960,
             height: 480,
         });

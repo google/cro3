@@ -4,11 +4,11 @@ import {AnnotationData, PowerData} from './power_test_controller';
 
 export class Graph {
   private ui: Ui;
-  public g: Dygraph;
+  private g: Dygraph;
   public annotations: dygraphs.Annotation[] = [];
-  constructor(ui: Ui, divName: string) {
+  constructor(ui: Ui, div: HTMLElement) {
     this.ui = ui;
-    this.g = new Dygraph(divName, [], {
+    this.g = new Dygraph(div, [], {
       width: 960,
       height: 480,
     });

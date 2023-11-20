@@ -23,7 +23,10 @@ export class Config {
     customScript: string
   ) {
     this.ui = ui;
-    this.graph = new Graph(ui, `graph${configNum}`);
+    this.graph = new Graph(
+      ui,
+      document.getElementById(`graph${configNum}`) as HTMLDivElement
+    );
     this.servoController = servoController;
     this.runner = runner;
     this.customScript = customScript;
@@ -91,10 +94,10 @@ export class Config {
     await this.changeHaltFlag(false);
     this.kickWriteLoop();
     this.readLoop();
-    const readDutLoopInst = this.readDutLoop();
+    const readDutLoopPromise = this.readDutLoop();
     await this.runner.copyScriptToDut(this.customScript);
     await this.runner.executeScript();
-    await readDutLoopInst;
+    await readDutLoopPromise;
   }
   public async stop() {
     await this.runner.sendCancel();
