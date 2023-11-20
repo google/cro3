@@ -34469,19 +34469,17 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.Ui = void 0;
 class Ui {
     constructor() {
-        this.requestSerialButton = document.getElementById('requestSerialButton');
-        this.haltButton = document.getElementById('haltButton');
-        this.downloadButton = document.getElementById('downloadButton');
-        this.selectDutSerialButton = document.getElementById('selectDutSerialButton');
+        this.requestSerialButton = document.getElementById('request-serial-button');
+        this.haltButton = document.getElementById('halt-button');
+        this.downloadButton = document.getElementById('download-button');
         this.shellScriptList = document.getElementById('shell-script-list');
-        this.addConfigButton = document.getElementById('addConfigButton');
+        this.addConfigButton = document.getElementById('add-config-button');
         this.popupCloseButton = document.getElementById('popup-close');
         this.overlay = document.getElementById('popup-overlay');
         this.dutConsole = document.getElementById('dut-console');
-        this.executeScriptButton = document.getElementById('executeScriptButton');
-        this.dropZone = document.getElementById('dropZone');
-        this.serial_output = document.getElementById('serial_output');
-        this.dlAnchorElem = document.getElementById('downloadAnchorElem');
+        this.dropZone = document.getElementById('drop-zone');
+        this.serialOutput = document.getElementById('serial-output');
+        this.dlAnchorElem = document.getElementById('download-anchor');
         this.toolTip = document.getElementById('tooltip');
         this.graphList = document.getElementById('graph-list');
         this.configNum = 0;
@@ -34492,7 +34490,7 @@ class Ui {
         this.downloadButton.disabled = !halt;
     }
     setSerialOutput(s) {
-        this.serial_output.textContent = s;
+        this.serialOutput.textContent = s;
     }
     readInputShellScript() {
         const textAreas = this.shellScriptList.getElementsByTagName('textarea');

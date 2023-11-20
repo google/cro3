@@ -12,27 +12,27 @@
       <li>Zoom: click-drag, Pan: shift-click-drag, Restore: double-click</li>
     </ol>
   </div>
-  <div id="controlDiv">
-    <a id="downloadAnchorElem" style="display:none"></a>
-    <button id='requestSerialButton'>Start</button>
-    <button id='selectDutSerialButton'>Select DUT Port</button>
-    <button id='executeScriptButton'>Execute scripts</button>
-    <button id='haltButton'>Stop</button>
-    <button id='downloadButton'>Download</button>
-    <button id='downloadButton'>Mark</button>
-    <button id='analyzeButton'>Analyze displayed range</button>
+  <div id="control-div">
+    <a id="download-anchor" style="display:none"></a>
+    <button id='request-serial-button'>Start</button>
+    <button id='select-dut-serial-button'>Select DUT Port</button>
+    <button id='execute-script-button'>Execute scripts</button>
+    <button id='halt-button'>Stop</button>
+    <button id='download-button'>Download</button>
+    <button id='download-button'>Mark</button>
+    <button id='analyze-button'>Analyze displayed range</button>
   </div>
-  <div id="shellScript">
+  <div id="shell-script">
     <p>config+workload:</p>
-    <textarea id="shellScriptInput"></textarea>
+    <textarea id="shell-script-input"></textarea>
   </div>
   <div id="backlog">
-    <span id="serial_output" class="log"></span>
+    <span id="serial-output" class="log"></span>
     <span id="d3area"></span>
     <span id="console">
       <div id="messages"></div>
-      <form id="dutCommandForm" action="">
-        <input id="dutCommandInput" autocomplete="off" /><button>Send</button>
+      <form id="dut-command-form" action="">
+        <input id="dut-command-input" autocomplete="off" /><button>Send</button>
       </form>
     </span>
   </div>
@@ -43,6 +43,6 @@
     </div>
   </div>
   <div id="graph"></div>
-  <span id="dropZone">Drop .json here</span>
+  <span id="drop-zone">Drop .json here</span>
   <script src='./dist/index.js'></script>
 </body>

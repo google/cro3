@@ -1,27 +1,27 @@
 export class Ui {
   public requestSerialButton = document.getElementById(
-    'requestSerialButton'
+    'request-serial-button'
   ) as HTMLButtonElement;
   public haltButton = document.getElementById(
-    'haltButton'
+    'halt-button'
   ) as HTMLButtonElement;
   public downloadButton = document.getElementById(
-    'downloadButton'
+    'download-button'
   ) as HTMLButtonElement;
   public analyzeButton = document.getElementById(
-    'analyzeButton'
+    'analyze-button'
   ) as HTMLButtonElement;
   public selectDutSerialButton = document.getElementById(
-    'selectDutSerialButton'
+    'select-dut-serial-button'
   ) as HTMLButtonElement;
   public shellScriptInput = document.getElementById(
-    'shellScriptInput'
+    'shell-script-input'
   ) as HTMLTextAreaElement;
   public dutCommandForm = document.getElementById(
-    'dutCommandForm'
+    'dut-command-form'
   ) as HTMLFormElement;
   public dutCommandInput = document.getElementById(
-    'dutCommandInput'
+    'dut-command-input'
   ) as HTMLInputElement;
   public popupCloseButton = document.getElementById(
     'popup-close'
@@ -29,14 +29,14 @@ export class Ui {
   public overlay = document.getElementById('popup-overlay') as HTMLDivElement;
   public messages = document.getElementById('messages') as HTMLDivElement;
   public executeScriptButton = document.getElementById(
-    'executeScriptButton'
+    'execute-script-button'
   ) as HTMLButtonElement;
-  public dropZone = document.getElementById('dropZone') as HTMLSpanElement;
-  public serial_output = document.getElementById(
-    'serial_output'
+  public dropZone = document.getElementById('drop-zone') as HTMLSpanElement;
+  public serialOutput = document.getElementById(
+    'serial-output'
   ) as HTMLDivElement;
   public dlAnchorElem = document.getElementById(
-    'downloadAnchorElem'
+    'download-anchor'
   ) as HTMLAnchorElement;
   public toolTip = document.getElementById('tooltip') as HTMLDivElement;
 
@@ -47,7 +47,7 @@ export class Ui {
     this.analyzeButton.disabled = !halt;
   }
   public setSerialOutput(s: string) {
-    this.serial_output.textContent = s;
+    this.serialOutput.textContent = s;
   }
   public readInputValue() {
     const res = this.dutCommandInput.value;

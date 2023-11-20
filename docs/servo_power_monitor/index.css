@@ -163,7 +163,7 @@ body {
   width: 26%;
 }
 
-#shellScript p {
+#shell-script p {
   margin-top: 2px;
   margin-bottom: 2px;
 }
@@ -223,7 +223,7 @@ body {
   cursor: pointer;
 }
 
-#dropZone {
+#drop-zone {
   position: absolute;
   float: right;
   border: 1px solid #aaa;
