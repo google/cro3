@@ -6,7 +6,6 @@
 
 use std::process::Command;
 
-use anyhow::anyhow;
 use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
@@ -35,9 +34,7 @@ enum SubCommand {
 pub fn run(args: &Args) -> Result<()> {
     let config = Config::read()?;
     if !config.is_internal() {
-        return Err(anyhow!(
-            "vm subcommand is currently only supported for google internal use"
-        ));
+        bail!("vm subcommand is currently only supported for google internal use");
     }
 
     match &args.nested {
@@ -64,7 +61,7 @@ fn run_connect(args: &ArgsConnect) -> Result<()> {
         .arg("betty")
         .args(options)
         .spawn()
-        .context("Failed to excute ssh")?;
+        .context("Failed to execute ssh")?;
 
     let result = cmd.wait_with_output().context("Failed to wait for ssh")?;
 
@@ -97,24 +94,24 @@ fn run_setup(args: &ArgsSetup) -> Result<()> {
     println!("Enable KVM...");
     enable_kvm()?;
 
-    println!("Installing python3-pip, python3-venv...");
+    println!("Installing python packages...");
     let install_python_package = Command::new("sudo")
         .args(["apt", "install", "python3-pip", "python3-venv"])
         .spawn()
-        .context("Failed to execute sudo apt install")?;
+        .context("Failed to install python packages")?;
     install_python_package
         .wait_with_output()
-        .context("Failed to wait for installing packages")?;
+        .context("Failed to wait for installing python packages")?;
 
     let options = convert_str_to_vec(&args.extra_args);
-    println!("Running betty.sh...");
+    println!("Running betty.sh setup...");
     run_betty("setup", &options)?;
 
     println!("Running gcloud auth login...");
     let gcloud_auth = Command::new("gcloud")
         .args(["auth", "login"])
         .spawn()
-        .context("Failed to execute gcloud login gcloud")?;
+        .context("Failed to run gcloud login gcloud")?;
     gcloud_auth
         .wait_with_output()
         .context("Failed to wait for gcloud auth login")?;
@@ -134,7 +131,7 @@ fn enable_kvm() -> Result<()> {
         .wait_with_output()
         .context("Failed to wait for installing kvm support")?;
 
-    println!("Load Kernel modules...");
+    println!("Loading Kernel modules...");
     let load_kernel_module = Command::new("sudo")
         .args(["modprobe", "kvm-intel"])
         .spawn()
@@ -163,14 +160,14 @@ fn enable_kvm() -> Result<()> {
         bail!("KVM is not working");
     }
 
-    println!("Give the user access to /dev/kvm...");
+    println!("Setting the user access to /dev/kvm...");
     let set_access = Command::new("sudo")
         .args(["setfacl", "-m", &format!("u:{}:rw", username), "/dev/kvm"])
         .spawn()
-        .context("Failed to execute setfacl")?;
+        .context("Failed to set access to /dev/kvm")?;
     set_access
         .wait_with_output()
-        .context("Failed to wait for setting access")?;
+        .context("Failed to wait for setting access to /dev/kvm")?;
 
     Ok(())
 }
