@@ -8,26 +8,20 @@ export class Ui {
   public downloadButton = document.getElementById(
     'downloadButton'
   ) as HTMLButtonElement;
-  public analyzeButton = document.getElementById(
-    'analyzeButton'
-  ) as HTMLButtonElement;
   public selectDutSerialButton = document.getElementById(
     'selectDutSerialButton'
   ) as HTMLButtonElement;
-  public shellScriptInput = document.getElementById(
-    'shellScriptInput'
-  ) as HTMLTextAreaElement;
-  public dutCommandForm = document.getElementById(
-    'dutCommandForm'
-  ) as HTMLFormElement;
-  public dutCommandInput = document.getElementById(
-    'dutCommandInput'
-  ) as HTMLInputElement;
+  private shellScriptList = document.getElementById(
+    'shell-script-list'
+  ) as HTMLUListElement;
+  public addConfigButton = document.getElementById(
+    'addConfigButton'
+  ) as HTMLButtonElement;
   public popupCloseButton = document.getElementById(
     'popup-close'
   ) as HTMLButtonElement;
   public overlay = document.getElementById('popup-overlay') as HTMLDivElement;
-  public messages = document.getElementById('messages') as HTMLDivElement;
+  public dutConsole = document.getElementById('dut-console') as HTMLSpanElement;
   public executeScriptButton = document.getElementById(
     'executeScriptButton'
   ) as HTMLButtonElement;
@@ -39,27 +33,57 @@ export class Ui {
     'downloadAnchorElem'
   ) as HTMLAnchorElement;
   public toolTip = document.getElementById('tooltip') as HTMLDivElement;
+  private graphList = document.getElementById('graph-list') as HTMLUListElement;
+  public configNum = 0;
 
   public enabledRecordingButton(halt: boolean) {
     this.requestSerialButton.disabled = !halt;
     this.haltButton.disabled = halt;
     this.downloadButton.disabled = !halt;
-    this.analyzeButton.disabled = !halt;
   }
   public setSerialOutput(s: string) {
     this.serial_output.textContent = s;
   }
-  public readInputValue() {
-    const res = this.dutCommandInput.value;
-    this.dutCommandInput.value = '';
-    return res;
+  public readInputShellScript() {
+    const textAreas = this.shellScriptList.getElementsByTagName(
+      'textarea'
+    ) as HTMLCollectionOf<HTMLTextAreaElement>;
+    const shellScriptContents: Array<string> = [];
+    for (let i = 0; i < textAreas.length; i++) {
+      shellScriptContents.push(textAreas[i].value);
+    }
+    return shellScriptContents;
   }
-  public readInputScript() {
-    return this.shellScriptInput.value;
+  public addConfigInputArea() {
+    const newConfigListElem = document.createElement('li');
+    newConfigListElem.innerHTML = `<label>script:</label><textarea>stress-ng -c ${
+      this.configNum + 1
+    } -t 10</textarea><button>delete</button>`;
+    this.shellScriptList.appendChild(newConfigListElem);
+    const newButtonElem = newConfigListElem.querySelector(
+      'button'
+    ) as HTMLButtonElement;
+    newButtonElem.addEventListener('click', () => {
+      this.configNum -= 1;
+      newConfigListElem.remove();
+    });
+    this.configNum += 1;
+  }
+  public loadConfigInputArea(config: string) {
+    const newConfigListElem = document.createElement('li');
+    newConfigListElem.innerHTML = `<label>script:</label><textarea>${config}</textarea><button>delete</button>`;
+    this.shellScriptList.appendChild(newConfigListElem);
+  }
+  public createGraphList() {
+    for (let i = 0; i < this.configNum; i++) {
+      const newGraphListElem = document.createElement('li');
+      newGraphListElem.innerHTML = `<div id="graph${i}"></div>`;
+      this.graphList.appendChild(newGraphListElem);
+    }
   }
   public addMessageToConsole(s: string) {
-    this.messages.textContent += s;
-    this.messages.scrollTo(0, this.messages.scrollHeight);
+    this.dutConsole.textContent += s;
+    this.dutConsole.scrollTo(0, this.dutConsole.scrollHeight);
   }
   public hideToolTip() {
     this.toolTip.classList.add('hidden');

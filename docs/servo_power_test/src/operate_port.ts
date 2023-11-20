@@ -9,7 +9,7 @@ export class OperatePort {
     this.usbVendorId = usbVendorId;
     this.usbProductId = usbProductId;
   }
-  public async open() {
+  public async select() {
     this.port = await navigator.serial
       .requestPort({
         filters: [
@@ -20,6 +20,9 @@ export class OperatePort {
         console.error(e);
         throw e;
       });
+  }
+  public async open() {
+    if (this.port === undefined) return;
     await this.port.open({baudRate: 115200});
   }
   public async close() {
@@ -27,7 +30,7 @@ export class OperatePort {
     await this.reader
       .cancel()
       .then(async () => {
-        await this.reader.releaseLock();
+        this.reader.releaseLock();
       })
       .catch(() => {}); // when the reader stream is already locked, do nothing.
     await this.port.close();
@@ -60,7 +63,14 @@ export class OperatePort {
     const writable = this.port.writable;
     if (writable === null) return;
     const writer = writable.getWriter();
-    await writer.write(this.encoder.encode(s));
-    writer.releaseLock();
+    try {
+      await writer.write(this.encoder.encode(s));
+    } catch (error) {
+      writer.releaseLock();
+      console.error(error);
+      throw error;
+    } finally {
+      writer.releaseLock();
+    }
   }
 }
