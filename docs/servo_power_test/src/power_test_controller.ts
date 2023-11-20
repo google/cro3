@@ -1,5 +1,4 @@
 import {ServoController} from './servo_controller';
-import {Histogram} from './histogram';
 import {Ui} from './ui';
 import {TestRunner} from './test_runner';
 import {Config} from './config';
@@ -11,7 +10,6 @@ export class PowerTestController {
   private ui: Ui;
   private servoController: ServoController;
   private runner: TestRunner;
-  private histogram = new Histogram();
   private configList: Array<Config> = [];
   private currentConfigNum = 0;
   public isMeasuring = false;

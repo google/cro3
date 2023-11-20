@@ -131,7 +131,7 @@ body {
   position: relative;
 }
 
-#shellScriptList {
+#shell-script-list {
   list-style-type: decimal;
 }
 
@@ -176,22 +176,13 @@ body {
   overflow-y: scroll;
 }
 
-#dut_console {
+#dut-console {
   height: 100%;
   width: 24%;
   font-family: monospace;
   white-space: pre-wrap;
   word-wrap: break-word;
   overflow-y: scroll;
-}
-
-#messages {
-  list-style-type: none;
-  height: 80%;
-  overflow-x: scroll;
-  padding: 4px;
-  margin: 4px;
-  border: 1px solid #aaa;
 }
 
 #popup-overlay {

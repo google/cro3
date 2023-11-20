@@ -9,12 +9,12 @@ export class Config {
   private ui: Ui;
   private servoController: ServoController;
   private runner: TestRunner;
+  private halt = true;
+  private inProgress = false;
   public powerDataList: Array<PowerData> = [];
   public annotationList: Array<AnnotationData> = [];
   public graph: Graph;
   public customScript: string;
-  public halt = true;
-  private inProgress = false;
   constructor(
     ui: Ui,
     servoController: ServoController,

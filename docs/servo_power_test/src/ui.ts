@@ -12,11 +12,8 @@ export class Ui {
     'selectDutSerialButton'
   ) as HTMLButtonElement;
   private shellScriptList = document.getElementById(
-    'shellScriptList'
+    'shell-script-list'
   ) as HTMLUListElement;
-  public shellScriptInput = document.getElementById(
-    'shellScriptInput'
-  ) as HTMLTextAreaElement;
   public addConfigButton = document.getElementById(
     'addConfigButton'
   ) as HTMLButtonElement;
@@ -24,9 +21,7 @@ export class Ui {
     'popup-close'
   ) as HTMLButtonElement;
   public overlay = document.getElementById('popup-overlay') as HTMLDivElement;
-  public dut_console = document.getElementById(
-    'dut_console'
-  ) as HTMLSpanElement;
+  public dutConsole = document.getElementById('dut-console') as HTMLSpanElement;
   public executeScriptButton = document.getElementById(
     'executeScriptButton'
   ) as HTMLButtonElement;
@@ -87,8 +82,8 @@ export class Ui {
     }
   }
   public addMessageToConsole(s: string) {
-    this.dut_console.textContent += s;
-    this.dut_console.scrollTo(0, this.dut_console.scrollHeight);
+    this.dutConsole.textContent += s;
+    this.dutConsole.scrollTo(0, this.dutConsole.scrollHeight);
   }
   public hideToolTip() {
     this.toolTip.classList.add('hidden');
