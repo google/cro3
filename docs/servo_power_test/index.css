@@ -238,3 +238,8 @@ body {
   left: 0;
   right: 0;
 }
+
+#total-histogram {
+  display: flex;
+  justify-content: center;
+}
