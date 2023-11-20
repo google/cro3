@@ -52,15 +52,17 @@ pub fn run(args: &Args) -> Result<()> {
 /// connects to a running betty instance via SSH
 #[argh(subcommand, name = "connect")]
 pub struct ArgsConnect {
-    /// extra arguments
+    /// extra arguments. You can pass other options like --extra-args "options".
     #[argh(option)]
-    extra_args: Vec<String>,
+    extra_args: Option<String>,
 }
 
 fn run_connect(args: &ArgsConnect) -> Result<()> {
+    let options = convert_str_to_vec(&args.extra_args);
+
     let cmd = Command::new("ssh")
         .arg("betty")
-        .args(&args.extra_args)
+        .args(options)
         .spawn()
         .context("Failed to excute ssh")?;
 
@@ -77,9 +79,9 @@ fn run_connect(args: &ArgsConnect) -> Result<()> {
 /// run first time setup, installs necessary dependencies
 #[argh(subcommand, name = "setup")]
 pub struct ArgsSetup {
-    /// extra arguments
+    /// extra arguments. You can pass other options like --extra-args "options".
     #[argh(option)]
-    extra_args: Vec<String>,
+    extra_args: Option<String>,
 }
 
 fn run_setup(args: &ArgsSetup) -> Result<()> {
@@ -104,8 +106,9 @@ fn run_setup(args: &ArgsSetup) -> Result<()> {
         .wait_with_output()
         .context("Failed to wait for installing packages")?;
 
+    let options = convert_str_to_vec(&args.extra_args);
     println!("Running betty.sh...");
-    run_betty("setup", &args.extra_args)?;
+    run_betty("setup", &options)?;
 
     println!("Running gcloud auth login...");
     let gcloud_auth = Command::new("gcloud")
@@ -203,31 +206,29 @@ pub struct ArgsStart {
     #[argh(option, short = 'a')]
     android_build: Option<String>,
 
-    /// extra arguments
+    /// extra arguments. You can pass other options like --extra-args "options".
     #[argh(option)]
-    extra_args: Vec<String>,
+    extra_args: Option<String>,
 }
 
 fn run_start(args: &ArgsStart) -> Result<()> {
-    let mut vec = Vec::new();
-    vec.append(&mut vec!["--board", &args.board]);
+    let mut options = Vec::new();
+    options.append(&mut vec!["--board", &args.board]);
     if !args.reuse_disk_image {
-        vec.append(&mut vec!["--reset_image"])
+        options.append(&mut vec!["--reset_image"])
     }
     if let Some(display) = &args.display {
-        vec.append(&mut vec!["--display", display]);
+        options.append(&mut vec!["--display", display]);
     }
     if let Some(version) = &args.version {
-        vec.append(&mut vec!["--release", version]);
+        options.append(&mut vec!["--release", version]);
     }
     if let Some(android_build) = &args.android_build {
-        vec.append(&mut vec!["--android_build", android_build]);
+        options.append(&mut vec!["--android_build", android_build]);
     }
 
-    let mut options: Vec<String> = vec.iter().map(|s| s.to_string()).collect();
-
-    let extra_args = &args.extra_args;
-    options.append(&mut extra_args.clone());
+    let mut extra_args = convert_str_to_vec(&args.extra_args);
+    options.append(&mut extra_args);
 
     run_betty("start", &options)
 }
@@ -241,23 +242,27 @@ pub struct ArgsPush {
     #[argh(option, short = 'a')]
     android_build: String,
 
-    /// extra arguments
+    /// extra arguments. You can pass other options like --extra-args "options".
     #[argh(option)]
-    extra_args: Vec<String>,
+    extra_args: Option<String>,
 }
 
 fn run_push(args: &ArgsPush) -> Result<()> {
-    let vec = ["android_build", &args.android_build];
-
-    let mut options: Vec<String> = vec.iter().map(|s| s.to_string()).collect();
-
-    let extra_args = &args.extra_args;
-    options.append(&mut extra_args.clone());
+    let mut options = vec!["android_build", &args.android_build];
+    let mut extra_args = convert_str_to_vec(&args.extra_args);
+    options.append(&mut extra_args);
 
     run_betty("push", &options)
 }
 
-fn run_betty(subcommand: &str, options: &[String]) -> Result<()> {
+fn convert_str_to_vec(input: &Option<String>) -> Vec<&str> {
+    match input {
+        Some(i) => i.split_whitespace().collect(),
+        None => Vec::new(),
+    }
+}
+
+fn run_betty(subcommand: &str, options: &Vec<&str>) -> Result<()> {
     let cmd = Command::new("./betty.sh")
         .arg(subcommand)
         .args(options)
