@@ -9,11 +9,24 @@
             margin: 0;
             padding-bottom: 3rem;
             font-family: monospace;
+            background-color: #333;
+        }
+        button {
+            background-color: #333;
+            color: #fff;
+            height: 32px;
         }
 
+        #input {
+            border: none;
+            padding: 0 1rem;
+            flex-grow: 1;
+            border-radius: 2rem;
+            margin: 0.25rem;
+        }
 
-        #select {
-            height: 2rem;
+        #input:focus {
+            outline: none;
         }
 
         #form {
@@ -29,66 +42,35 @@
             backdrop-filter: blur(10px);
         }
 
-        #input {
-            border: none;
-            padding: 0 1rem;
-            flex-grow: 1;
-            border-radius: 2rem;
-            margin: 0.25rem;
-        }
-
-        #input:focus {
-            outline: none;
-        }
-
-        #form>button {
-            background: #333;
-            border: none;
-            padding: 0 1rem;
-            margin: 0.25rem;
-            border-radius: 3px;
-            outline: none;
-            color: #fff;
-        }
-
-        #messages {
+        #output-textarea {
             list-style-type: none;
             margin: 0;
-            padding: 0;
+            padding: 4px;
+            width: 100%;
             height: calc(100vh - 5rem);
             box-sizing: border-box;
             overflow-y: scroll;
-        }
-
-        #messages>li {
-            padding: 0.5rem 1rem;
-        }
-
-        #messages>li:nth-child(odd) {
-            background: #efefef;
+            background-color: #333;
+            color: #fff;
         }
     </style>
 </head>
 
 
 <body>
-    <button id="select">select serial</button>
-    <ul id="messages"></ul>
+    <button id="select">connect to Servo</button>
+    <textarea id="output-textarea" disabled>Please click "connect to Servo" to start
+    </textarea>
     <form id="form" action="">
         <input id="input" autocomplete="off" /><button>Send</button>
     </form>
 </body>
 <script>
     const selectButton = document.getElementById('select');
-    const messages = document.getElementById('messages');
+    const outputTextarea = document.getElementById('output-textarea');
     const encoder = new TextEncoder();
     const decoder = new TextDecoder();
     let port;
-
-    function addListItem(listItem) {
-        messages.appendChild(listItem);
-        messages.scrollTo(0, messages.scrollHeight);
-    }
 
     selectButton.addEventListener('click', async () => {
         port = await navigator.serial
@@ -96,13 +78,10 @@
             .catch((e) => { console.error(e); });
         await port.open({ baudRate: 115200 });
         let listItem = document.createElement("li");
-        listItem.textContent = "port is selected";
-        messages.appendChild(listItem);
+        outputTextarea.value += "port selected";
 
         const reader = port.readable.getReader();
 
-        listItem = document.createElement("li");
-        messages.appendChild(listItem);
         reader.read().then(function processText({ done, value }) {
             if (done) {
                 console.log("Stream complete");
@@ -110,15 +89,8 @@
             }
 
             const chunk = decoder.decode(value, { stream: true });
-            chunk_split_list = chunk.split("\n");
-
-            for (let i = 0; i < chunk_split_list.length - 1; i++) {
-                listItem.textContent += chunk_split_list[i];
-                listItem = document.createElement("li");
-                messages.appendChild(listItem);
-            }
-            listItem.textContent += chunk_split_list[chunk_split_list.length - 1];
-            messages.scrollTo(0, messages.scrollHeight);
+            outputTextarea.value += chunk;
+            outputTextarea.scrollTo(0, outputTextarea.scrollHeight);
 
             return reader.read().then(processText);
         });
