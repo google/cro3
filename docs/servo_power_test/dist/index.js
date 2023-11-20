@@ -34483,7 +34483,7 @@ class Ui {
         this.serial_output = document.getElementById('serial_output');
         this.dlAnchorElem = document.getElementById('downloadAnchorElem');
         this.toolTip = document.getElementById('tooltip');
-        this.graphList = document.getElementById('graphList');
+        this.graphList = document.getElementById('graph-list');
         this.configNum = 0;
     }
     enabledRecordingButton(halt) {

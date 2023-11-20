@@ -33,7 +33,7 @@ export class Ui {
     'downloadAnchorElem'
   ) as HTMLAnchorElement;
   public toolTip = document.getElementById('tooltip') as HTMLDivElement;
-  private graphList = document.getElementById('graphList') as HTMLUListElement;
+  private graphList = document.getElementById('graph-list') as HTMLUListElement;
   public configNum = 0;
 
   public enabledRecordingButton(halt: boolean) {
