@@ -3,14 +3,14 @@ import {PowerData} from './power_test_controller';
 
 export class TotalHistogram {
   private colorPalette = [
-    'rgba(66, 133, 244, 0.7)', // #4285f4
-    'rgba(234, 67, 53, 0.7)', // #ea4335
-    'rgba(251, 188, 4, 0.7)', // #fbbc04
-    'rgba(52, 168, 83, 0.7)', // #34a853
-    'rgba(250, 123, 23, 0.7)', // #fa7b17
-    'rgba(245, 56, 160, 0.7)', // #f538a0
-    'rgba(161, 66, 244, 0.7)', // #a142f4
-    'rgba(36, 193, 224, 0.7)', // #24c1e0
+    'rgba(66, 133, 244, 0.6)', // #4285f4
+    'rgba(234, 67, 53, 0.6)', // #ea4335
+    'rgba(251, 188, 4, 0.6)', // #fbbc04
+    'rgba(52, 168, 83, 0.6)', // #34a853
+    'rgba(250, 123, 23, 0.6)', // #fa7b17
+    'rgba(245, 56, 160, 0.6)', // #f538a0
+    'rgba(161, 66, 244, 0.6)', // #a142f4
+    'rgba(36, 193, 224, 0.6)', // #24c1e0
   ];
   public paintHistogram(totalPowerDataList: Array<Array<PowerData>>) {
     // Declare the chart dimensions and margins.

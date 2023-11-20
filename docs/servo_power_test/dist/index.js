@@ -34505,14 +34505,14 @@ const d3 = __importStar(__webpack_require__(/*! d3 */ "./node_modules/d3/src/ind
 class TotalHistogram {
     constructor() {
         this.colorPalette = [
-            'rgba(66, 133, 244, 0.7)',
-            'rgba(234, 67, 53, 0.7)',
-            'rgba(251, 188, 4, 0.7)',
-            'rgba(52, 168, 83, 0.7)',
-            'rgba(250, 123, 23, 0.7)',
-            'rgba(245, 56, 160, 0.7)',
-            'rgba(161, 66, 244, 0.7)',
-            'rgba(36, 193, 224, 0.7)', // #24c1e0
+            'rgba(66, 133, 244, 0.6)',
+            'rgba(234, 67, 53, 0.6)',
+            'rgba(251, 188, 4, 0.6)',
+            'rgba(52, 168, 83, 0.6)',
+            'rgba(250, 123, 23, 0.6)',
+            'rgba(245, 56, 160, 0.6)',
+            'rgba(161, 66, 244, 0.6)',
+            'rgba(36, 193, 224, 0.6)', // #24c1e0
         ];
     }
     paintHistogram(totalPowerDataList) {
