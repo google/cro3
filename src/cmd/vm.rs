@@ -4,6 +4,8 @@
 // license that can be found in the LICENSE file or at
 // https://developers.google.com/open-source/licenses/bsd
 
+use std::env;
+use std::path::Path;
 use std::process::Command;
 
 use anyhow::bail;
@@ -76,12 +78,19 @@ fn run_connect(args: &ArgsConnect) -> Result<()> {
 /// run first time setup, installs necessary dependencies
 #[argh(subcommand, name = "setup")]
 pub struct ArgsSetup {
+    /// path to dir where betty.sh exists. If omitted, current directory will be
+    /// used.
+    #[argh(option)]
+    repo: Option<String>,
+
     /// extra arguments. You can pass other options like --extra-args "options".
     #[argh(option)]
     extra_args: Option<String>,
 }
 
 fn run_setup(args: &ArgsSetup) -> Result<()> {
+    let dir = find_betty_script(&args.repo)?;
+
     println!("Updating packages...");
     let update_package = Command::new("sudo")
         .args(["apt", "update"])
@@ -105,7 +114,7 @@ fn run_setup(args: &ArgsSetup) -> Result<()> {
 
     let options = convert_str_to_vec(&args.extra_args);
     println!("Running betty.sh setup...");
-    run_betty("setup", &options)?;
+    run_betty(&dir, "setup", &options)?;
 
     println!("Running gcloud auth login...");
     let gcloud_auth = Command::new("gcloud")
@@ -176,6 +185,11 @@ fn enable_kvm() -> Result<()> {
 /// start a betty VM instance
 #[argh(subcommand, name = "start")]
 pub struct ArgsStart {
+    /// path to dir where betty.sh exists. If omitted, current directory will be
+    /// used.
+    #[argh(option)]
+    repo: Option<String>,
+
     /// the BOARD to run (e.g. betty-pi-arc)
     #[argh(option, short = 'b')]
     board: String,
@@ -209,6 +223,8 @@ pub struct ArgsStart {
 }
 
 fn run_start(args: &ArgsStart) -> Result<()> {
+    let dir = find_betty_script(&args.repo)?;
+
     let mut options = Vec::new();
     options.append(&mut vec!["--board", &args.board]);
     if !args.reuse_disk_image {
@@ -227,13 +243,18 @@ fn run_start(args: &ArgsStart) -> Result<()> {
     let mut extra_args = convert_str_to_vec(&args.extra_args);
     options.append(&mut extra_args);
 
-    run_betty("start", &options)
+    run_betty(&dir, "start", &options)
 }
 
 #[derive(FromArgs, PartialEq, Debug)]
 /// pushes an Android build a running betty instance
 #[argh(subcommand, name = "push")]
 pub struct ArgsPush {
+    /// path to dir where betty.sh exists. If omitted, current directory will be
+    /// used.
+    #[argh(option)]
+    repo: Option<String>,
+
     /// the android version to push. This is passed to push_to_device.py. e.g.
     /// cheets_x86/userdebug/123456
     #[argh(option, short = 'a')]
@@ -245,11 +266,30 @@ pub struct ArgsPush {
 }
 
 fn run_push(args: &ArgsPush) -> Result<()> {
+    let dir = find_betty_script(&args.repo)?;
+
     let mut options = vec!["android_build", &args.android_build];
     let mut extra_args = convert_str_to_vec(&args.extra_args);
     options.append(&mut extra_args);
 
-    run_betty("push", &options)
+    run_betty(&dir, "push", &options)
+}
+
+fn find_betty_script(s: &Option<String>) -> Result<String> {
+    let path = prepare_path(s)?;
+
+    if Path::new(&format!("{}/betty.sh", path)).exists() {
+        return Ok(path);
+    }
+
+    bail!("betty.sh doesn't exist in {path}. Please consider specifying --repo option.")
+}
+
+fn prepare_path(path: &Option<String>) -> Result<String> {
+    match path {
+        Some(p) => Ok(p.to_string()),
+        None => Ok(env::current_dir()?.to_string_lossy().to_string()),
+    }
 }
 
 fn convert_str_to_vec(input: &Option<String>) -> Vec<&str> {
@@ -259,8 +299,9 @@ fn convert_str_to_vec(input: &Option<String>) -> Vec<&str> {
     }
 }
 
-fn run_betty(subcommand: &str, options: &Vec<&str>) -> Result<()> {
+fn run_betty(dir: &str, subcommand: &str, options: &Vec<&str>) -> Result<()> {
     let cmd = Command::new("./betty.sh")
+        .current_dir(dir)
         .arg(subcommand)
         .args(options)
         .spawn()
