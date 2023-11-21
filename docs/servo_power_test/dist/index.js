@@ -33858,7 +33858,7 @@ class Config {
         this.halt = true;
         this.inProgress = false;
         this.powerDataList = [];
-        this.annotationList = [];
+        this.annotationList = new Map();
         this.ui = ui;
         this.graph = new graph_1.Graph(ui, document.getElementById(`graph${configNum}`));
         this.servoController = servoController;
@@ -33902,11 +33902,11 @@ class Config {
             const dutData = await this.runner.readData();
             try {
                 if (dutData.includes('start')) {
-                    this.annotationList.push([new Date().getTime(), 'start']);
+                    this.annotationList.set('start', new Date().getTime());
                     this.graph.addAnnotation(this.powerDataList[this.powerDataList.length - 1][0], 'start');
                 }
                 else if (dutData.includes('end')) {
-                    this.annotationList.push([new Date().getTime(), 'end']);
+                    this.annotationList.set('end', new Date().getTime());
                     this.graph.addAnnotation(this.powerDataList[this.powerDataList.length - 1][0], 'end');
                 }
                 else if (dutData.includes('stop')) {
@@ -34023,14 +34023,14 @@ class Graph {
         this.g.setAnnotations(this.annotations);
     }
     findAnnotationPoint(powerDataList, annotationList) {
-        for (const ann of annotationList) {
+        annotationList.forEach((time, labelName) => {
             for (let i = powerDataList.length - 1; i >= 0; i--) {
-                if (ann[0] > powerDataList[i][0]) {
-                    this.addAnnotation(powerDataList[i][0], ann[1]);
+                if (time > powerDataList[i][0]) {
+                    this.addAnnotation(powerDataList[i][0], labelName);
                     break;
                 }
             }
-        }
+        });
     }
     returnXrange() {
         console.log(this.g.xAxisExtremes());
@@ -34276,7 +34276,7 @@ class PowerTestController {
             const configData = data[i];
             const newConfig = new config_1.Config(this.ui, this.servoController, this.runner, i, configData.config);
             newConfig.powerDataList = configData.power.map((d) => [d.time, d.power]);
-            newConfig.annotationList = configData.annotation.map((d) => [d.time, d.text]);
+            newConfig.annotationList = new Map(Object.entries(configData.annotation));
             newConfig.graph.updateGraph(newConfig.powerDataList);
             newConfig.graph.findAnnotationPoint(newConfig.powerDataList, newConfig.annotationList);
             this.ui.loadConfigInputArea(configData.config);
@@ -34290,9 +34290,7 @@ class PowerTestController {
                 power: e.powerDataList.map(d => {
                     return { time: d[0], power: d[1] };
                 }),
-                annotation: e.annotationList.map(d => {
-                    return { time: d[0], text: d[1] };
-                }),
+                annotation: Object.fromEntries(e.annotationList),
             }))));
         return dataStr;
     }
