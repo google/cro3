@@ -2,14 +2,14 @@ import * as d3 from 'd3';
 
 export class TotalHistogram {
   private colorPalette = [
-    'rgba(66, 133, 244, 0.6)', // #4285f4
-    'rgba(234, 67, 53, 0.6)', // #ea4335
-    'rgba(251, 188, 4, 0.6)', // #fbbc04
-    'rgba(52, 168, 83, 0.6)', // #34a853
-    'rgba(250, 123, 23, 0.6)', // #fa7b17
-    'rgba(245, 56, 160, 0.6)', // #f538a0
-    'rgba(161, 66, 244, 0.6)', // #a142f4
-    'rgba(36, 193, 224, 0.6)', // #24c1e0
+    'rgba(66, 133, 244, 1)', // #4285f4
+    'rgba(234, 67, 53, 1)', // #ea4335
+    'rgba(251, 188, 4, 1)', // #fbbc04
+    'rgba(52, 168, 83, 1)', // #34a853
+    'rgba(250, 123, 23, 1)', // #fa7b17
+    'rgba(245, 56, 160, 1)', // #f538a0
+    'rgba(161, 66, 244, 1)', // #a142f4
+    'rgba(36, 193, 224, 1)', // #24c1e0
   ];
   public paintHistogram(totalPowerDataList: Array<Array<number>>) {
     // Declare the chart dimensions and margins.
@@ -63,15 +63,32 @@ export class TotalHistogram {
     for (let i = 0; i < binsList.length; i++) {
       const color = this.colorPalette[i % this.colorPalette.length];
       svg
-        .append('g')
-        .attr('fill', color)
-        .selectAll()
+        .append('path')
+        .datum(
+          binsList[i].map(e => {
+            return [(e.x0! + e.x1!) / 2, e.length] as [number, number];
+          })
+        )
+        .attr('fill', 'none')
+        .attr('stroke', color)
+        .attr('stroke-width', 1)
+        .attr(
+          'd',
+          d3
+            .line()
+            .x(d => x(d[0]))
+            .y(d => y(d[1]))
+        );
+      svg
+        .selectAll('circle')
         .data(binsList[i])
-        .join('rect')
-        .attr('x', d => x(d.x0!) + 1)
-        .attr('width', d => x(d.x1!) - x(d.x0!) - 1)
-        .attr('y', d => y(d.length))
-        .attr('height', d => y(0) - y(d.length));
+        .enter()
+        .append('circle')
+        .attr('fill', color)
+        .attr('stroke', 'none')
+        .attr('cx', d => x((d.x0! + d.x1!) / 2))
+        .attr('cy', d => y(d.length))
+        .attr('r', 3);
       svg
         .append('circle')
         .attr('cx', width - margin.right - 100)
@@ -117,8 +134,8 @@ export class TotalHistogram {
       .call(g =>
         g
           .append('text')
-          .attr('x', -margin.left)
-          .attr('y', 10)
+          .attr('x', 5)
+          .attr('y', margin.top)
           .attr('fill', 'currentColor')
           .attr('text-anchor', 'start')
           .text('# of datapoints')
