@@ -34285,12 +34285,13 @@ class PowerTestController {
         this.totalHistogram.paintHistogram(histogramData);
     }
     loadPowerData(s) {
-        const data = JSON.parse(s);
-        this.ui.configNum = data.length;
+        const jsonData = JSON.parse(s);
+        this.MARGIN_TIME = jsonData.margin;
+        this.ui.configNum = jsonData.data.length;
         this.ui.createGraphList();
         this.configList = [];
-        for (let i = 0; i < data.length; i++) {
-            const configData = data[i];
+        for (let i = 0; i < jsonData.data.length; i++) {
+            const configData = jsonData.data[i];
             const newConfig = new config_1.Config(this.ui, this.servoController, this.runner, i, configData.config);
             newConfig.powerDataList = configData.power.map((d) => [d.time, d.power]);
             newConfig.annotationList = new Map(Object.entries(configData.annotation));
@@ -34303,13 +34304,16 @@ class PowerTestController {
     }
     exportPowerData() {
         const dataStr = 'data:text/json;charset=utf-8,' +
-            encodeURIComponent(JSON.stringify(this.configList.map(e => ({
-                config: e.customScript,
-                power: e.powerDataList.map(d => {
-                    return { time: d[0], power: d[1] };
-                }),
-                annotation: Object.fromEntries(e.annotationList),
-            }))));
+            encodeURIComponent(JSON.stringify({
+                margin: this.MARGIN_TIME,
+                data: this.configList.map(e => ({
+                    config: e.customScript,
+                    power: e.powerDataList.map(d => {
+                        return { time: d[0], power: d[1] };
+                    }),
+                    annotation: Object.fromEntries(e.annotationList),
+                })),
+            }));
         return dataStr;
     }
     setupDisconnectEvent() {
@@ -34599,7 +34603,7 @@ class TotalHistogram {
             .tickSizeOuter(0))
             .call(g => g
             .append('text')
-            .attr('x', width)
+            .attr('x', width - margin.right)
             .attr('y', margin.bottom - 4)
             .attr('fill', 'currentColor')
             .attr('text-anchor', 'end')

@@ -101,7 +101,7 @@ export class TotalHistogram {
       .call(g =>
         g
           .append('text')
-          .attr('x', width)
+          .attr('x', width - margin.right)
           .attr('y', margin.bottom - 4)
           .attr('fill', 'currentColor')
           .attr('text-anchor', 'end')

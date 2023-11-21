@@ -80,12 +80,13 @@ export class PowerTestController {
     this.totalHistogram.paintHistogram(histogramData);
   }
   public loadPowerData(s: string) {
-    const data = JSON.parse(s);
-    this.ui.configNum = data.length;
+    const jsonData = JSON.parse(s);
+    this.MARGIN_TIME = jsonData.margin;
+    this.ui.configNum = jsonData.data.length;
     this.ui.createGraphList();
     this.configList = [];
-    for (let i = 0; i < data.length; i++) {
-      const configData = data[i];
+    for (let i = 0; i < jsonData.data.length; i++) {
+      const configData = jsonData.data[i];
       const newConfig = new Config(
         this.ui,
         this.servoController,
@@ -111,15 +112,16 @@ export class PowerTestController {
     const dataStr =
       'data:text/json;charset=utf-8,' +
       encodeURIComponent(
-        JSON.stringify(
-          this.configList.map(e => ({
+        JSON.stringify({
+          margin: this.MARGIN_TIME,
+          data: this.configList.map(e => ({
             config: e.customScript,
             power: e.powerDataList.map(d => {
               return {time: d[0], power: d[1]};
             }),
             annotation: Object.fromEntries(e.annotationList),
-          }))
-        )
+          })),
+        })
       );
     return dataStr;
   }
