@@ -1,5 +1,5 @@
 import {Graph} from './graph';
-import {AnnotationData, PowerData} from './power_test_controller';
+import {AnnotationDataList, PowerData} from './power_test_controller';
 import {ServoController} from './servo_controller';
 import {TestRunner} from './test_runner';
 import {Ui} from './ui';
@@ -12,7 +12,7 @@ export class Config {
   private halt = true;
   private inProgress = false;
   public powerDataList: Array<PowerData> = [];
-  public annotationList: Array<AnnotationData> = [];
+  public annotationList: AnnotationDataList = {};
   public graph: Graph;
   public customScript: string;
   constructor(
@@ -66,13 +66,13 @@ export class Config {
       const dutData = await this.runner.readData();
       try {
         if (dutData.includes('start')) {
-          this.annotationList.push([new Date().getTime(), 'start']);
+          this.annotationList['start'] = new Date().getTime();
           this.graph.addAnnotation(
             this.powerDataList[this.powerDataList.length - 1][0],
             'start'
           );
         } else if (dutData.includes('end')) {
-          this.annotationList.push([new Date().getTime(), 'end']);
+          this.annotationList['end'] = new Date().getTime();
           this.graph.addAnnotation(
             this.powerDataList[this.powerDataList.length - 1][0],
             'end'

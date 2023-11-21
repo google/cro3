@@ -1,6 +1,6 @@
 import Dygraph, {dygraphs} from 'dygraphs';
 import {Ui} from './ui';
-import {AnnotationData, PowerData} from './power_test_controller';
+import {AnnotationDataList, PowerData} from './power_test_controller';
 
 export class Graph {
   private ui: Ui;
@@ -71,12 +71,12 @@ export class Graph {
   }
   public findAnnotationPoint(
     powerDataList: Array<PowerData>,
-    annotationList: Array<AnnotationData>
+    annotationList: AnnotationDataList
   ) {
-    for (const ann of annotationList) {
+    for (const labelName in annotationList) {
       for (let i = powerDataList.length - 1; i >= 0; i--) {
-        if (ann[0] > powerDataList[i][0]) {
-          this.addAnnotation(powerDataList[i][0], ann[1]);
+        if (annotationList[labelName] > powerDataList[i][0]) {
+          this.addAnnotation(powerDataList[i][0], labelName);
           break;
         }
       }
