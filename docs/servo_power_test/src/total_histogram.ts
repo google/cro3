@@ -36,9 +36,9 @@ export class TotalHistogram {
     const histogram = d3
       .bin()
       .domain([minValue, maxValue]) // then the domain of the graphic
-      .thresholds(x.ticks(25)); // then the numbers of bins
+      .thresholds(x.ticks(40)); // then the numbers of bins
 
-    console.log(x.ticks(25));
+    console.log(x.ticks(40));
 
     for (const powerDataList of totalPowerDataList) {
       const bins = histogram(powerDataList);

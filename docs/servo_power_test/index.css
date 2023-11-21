@@ -243,3 +243,7 @@ body {
   display: flex;
   justify-content: center;
 }
+
+#margin-time-input {
+  width: 3em;
+}

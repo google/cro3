@@ -47,6 +47,7 @@ export class PowerTestController {
   }
   public async startMeasurement() {
     if (this.ui.configNum === 0) return;
+    this.MARGIN_TIME = Number(this.ui.marginTimeInput.value);
     await this.servoController.servoShell.select();
     await this.runner.dut.select();
     await this.initializePort();

@@ -34254,6 +34254,7 @@ class PowerTestController {
     async startMeasurement() {
         if (this.ui.configNum === 0)
             return;
+        this.MARGIN_TIME = Number(this.ui.marginTimeInput.value);
         await this.servoController.servoShell.select();
         await this.runner.dut.select();
         await this.initializePort();
@@ -34541,8 +34542,8 @@ class TotalHistogram {
         const histogram = d3
             .bin()
             .domain([minValue, maxValue]) // then the domain of the graphic
-            .thresholds(x.ticks(25)); // then the numbers of bins
-        console.log(x.ticks(25));
+            .thresholds(x.ticks(40)); // then the numbers of bins
+        console.log(x.ticks(40));
         for (const powerDataList of totalPowerDataList) {
             const bins = histogram(powerDataList);
             console.log(bins);
@@ -34650,6 +34651,7 @@ class Ui {
         this.dlAnchorElem = document.getElementById('download-anchor');
         this.toolTip = document.getElementById('tooltip');
         this.graphList = document.getElementById('graph-list');
+        this.marginTimeInput = document.getElementById('margin-time-input');
         this.configNum = 0;
     }
     enabledRecordingButton(halt) {
