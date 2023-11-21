@@ -12,7 +12,7 @@ export class Config {
   private halt = true;
   private inProgress = false;
   public powerDataList: Array<PowerData> = [];
-  public annotationList: AnnotationDataList = {};
+  public annotationList: AnnotationDataList = new Map<string, number>();
   public graph: Graph;
   public customScript: string;
   constructor(
@@ -66,13 +66,13 @@ export class Config {
       const dutData = await this.runner.readData();
       try {
         if (dutData.includes('start')) {
-          this.annotationList['start'] = new Date().getTime();
+          this.annotationList.set('start', new Date().getTime());
           this.graph.addAnnotation(
             this.powerDataList[this.powerDataList.length - 1][0],
             'start'
           );
         } else if (dutData.includes('end')) {
-          this.annotationList['end'] = new Date().getTime();
+          this.annotationList.set('end', new Date().getTime());
           this.graph.addAnnotation(
             this.powerDataList[this.powerDataList.length - 1][0],
             'end'

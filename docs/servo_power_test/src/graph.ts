@@ -73,14 +73,14 @@ export class Graph {
     powerDataList: Array<PowerData>,
     annotationList: AnnotationDataList
   ) {
-    for (const labelName in annotationList) {
+    annotationList.forEach((time: number, labelName: string) => {
       for (let i = powerDataList.length - 1; i >= 0; i--) {
-        if (annotationList[labelName] > powerDataList[i][0]) {
+        if (time > powerDataList[i][0]) {
           this.addAnnotation(powerDataList[i][0], labelName);
           break;
         }
       }
-    }
+    });
   }
   public returnXrange() {
     console.log(this.g.xAxisExtremes());

@@ -4,7 +4,7 @@ import {TestRunner} from './test_runner';
 import {Config} from './config';
 
 export type PowerData = [number, number];
-export type AnnotationDataList = {[labelName: string]: number};
+export type AnnotationDataList = Map<string, number>;
 
 export class PowerTestController {
   private ui: Ui;
@@ -74,7 +74,7 @@ export class PowerTestController {
       newConfig.powerDataList = configData.power.map(
         (d: {time: number; power: number}) => [d.time, d.power]
       );
-      newConfig.annotationList = configData.annotation;
+      newConfig.annotationList = new Map(Object.entries(configData.annotation));
       newConfig.graph.updateGraph(newConfig.powerDataList);
       newConfig.graph.findAnnotationPoint(
         newConfig.powerDataList,
@@ -94,7 +94,7 @@ export class PowerTestController {
             power: e.powerDataList.map(d => {
               return {time: d[0], power: d[1]};
             }),
-            annotation: e.annotationList,
+            annotation: Object.fromEntries(e.annotationList),
           }))
         )
       );
