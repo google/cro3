@@ -34225,6 +34225,7 @@ const config_1 = __webpack_require__(/*! ./config */ "./src/config.ts");
 const total_histogram_1 = __webpack_require__(/*! ./total_histogram */ "./src/total_histogram.ts");
 class PowerTestController {
     constructor(ui, servoController, runner) {
+        this.MARGIN_TIME = 300;
         this.totalHistogram = new total_histogram_1.TotalHistogram();
         this.configList = [];
         this.currentConfigNum = 0;
@@ -34270,7 +34271,15 @@ class PowerTestController {
     drawTotalHistogram() {
         const histogramData = [];
         for (const config of this.configList) {
-            histogramData.push(config.powerDataList);
+            const annotations = config.annotationList;
+            const extractedData = [];
+            for (const powerData of config.powerDataList) {
+                if (annotations.get('start') + this.MARGIN_TIME <= powerData[0] &&
+                    powerData[0] <= annotations.get('end') - this.MARGIN_TIME) {
+                    extractedData.push(powerData[1]);
+                }
+            }
+            histogramData.push(extractedData);
         }
         this.totalHistogram.paintHistogram(histogramData);
     }
@@ -34521,17 +34530,25 @@ class TotalHistogram {
         let maxValue = 0;
         let maxNum = 0;
         for (const powerDataList of totalPowerDataList) {
-            const bins = d3.bin().thresholds(40)(powerDataList.map(d => d[1]));
-            binsList.push(bins);
-            minValue = d3.min([minValue, bins[0].x0]);
-            maxValue = d3.max([maxValue, bins[bins.length - 1].x1]);
-            maxNum = d3.max([maxNum, d3.max(bins, d => d.length)]);
+            minValue = Math.min(minValue, Math.min(...powerDataList));
+            maxValue = Math.max(maxValue, Math.max(...powerDataList));
         }
         // Declare the x (horizontal position) scale.
         const x = d3
             .scaleLinear()
             .domain([minValue, maxValue])
             .range([margin.left, width - margin.right]);
+        const histogram = d3
+            .bin()
+            .domain([minValue, maxValue]) // then the domain of the graphic
+            .thresholds(x.ticks(25)); // then the numbers of bins
+        console.log(x.ticks(25));
+        for (const powerDataList of totalPowerDataList) {
+            const bins = histogram(powerDataList);
+            console.log(bins);
+            binsList.push(bins);
+            maxNum = d3.max([maxNum, d3.max(bins, d => d.length)]);
+        }
         // Declare the y (vertical position) scale.
         const y = d3
             .scaleLinear()

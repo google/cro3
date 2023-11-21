@@ -8,6 +8,7 @@ export type PowerData = [number, number];
 export type AnnotationDataList = Map<string, number>;
 
 export class PowerTestController {
+  private MARGIN_TIME = 300;
   private ui: Ui;
   private servoController: ServoController;
   private runner: TestRunner;
@@ -63,7 +64,17 @@ export class PowerTestController {
   private drawTotalHistogram() {
     const histogramData = [];
     for (const config of this.configList) {
-      histogramData.push(config.powerDataList);
+      const annotations = config.annotationList;
+      const extractedData = [];
+      for (const powerData of config.powerDataList) {
+        if (
+          annotations.get('start')! + this.MARGIN_TIME <= powerData[0] &&
+          powerData[0] <= annotations.get('end')! - this.MARGIN_TIME
+        ) {
+          extractedData.push(powerData[1]);
+        }
+      }
+      histogramData.push(extractedData);
     }
     this.totalHistogram.paintHistogram(histogramData);
   }

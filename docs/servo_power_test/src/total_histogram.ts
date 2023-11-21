@@ -1,5 +1,4 @@
 import * as d3 from 'd3';
-import {PowerData} from './power_test_controller';
 
 export class TotalHistogram {
   private colorPalette = [
@@ -12,7 +11,7 @@ export class TotalHistogram {
     'rgba(161, 66, 244, 0.6)', // #a142f4
     'rgba(36, 193, 224, 0.6)', // #24c1e0
   ];
-  public paintHistogram(totalPowerDataList: Array<Array<PowerData>>) {
+  public paintHistogram(totalPowerDataList: Array<Array<number>>) {
     // Declare the chart dimensions and margins.
     const margin = {top: 10, bottom: 30, right: 40, left: 40};
     const width = 960;
@@ -24,11 +23,8 @@ export class TotalHistogram {
     let maxValue = 0;
     let maxNum = 0;
     for (const powerDataList of totalPowerDataList) {
-      const bins = d3.bin().thresholds(40)(powerDataList.map(d => d[1]));
-      binsList.push(bins);
-      minValue = d3.min([minValue, bins[0].x0!])!;
-      maxValue = d3.max([maxValue, bins[bins.length - 1].x1!])!;
-      maxNum = d3.max([maxNum, d3.max(bins, d => d.length)!])!;
+      minValue = Math.min(minValue, Math.min(...powerDataList));
+      maxValue = Math.max(maxValue, Math.max(...powerDataList));
     }
 
     // Declare the x (horizontal position) scale.
@@ -36,6 +32,20 @@ export class TotalHistogram {
       .scaleLinear()
       .domain([minValue, maxValue])
       .range([margin.left, width - margin.right]);
+
+    const histogram = d3
+      .bin()
+      .domain([minValue, maxValue]) // then the domain of the graphic
+      .thresholds(x.ticks(25)); // then the numbers of bins
+
+    console.log(x.ticks(25));
+
+    for (const powerDataList of totalPowerDataList) {
+      const bins = histogram(powerDataList);
+      console.log(bins);
+      binsList.push(bins);
+      maxNum = d3.max([maxNum, d3.max(bins, d => d.length)!])!;
+    }
 
     // Declare the y (vertical position) scale.
     const y = d3
