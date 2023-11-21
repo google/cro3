@@ -38,11 +38,8 @@ export class TotalHistogram {
       .domain([minValue, maxValue]) // then the domain of the graphic
       .thresholds(x.ticks(40)); // then the numbers of bins
 
-    console.log(x.ticks(40));
-
     for (const powerDataList of totalPowerDataList) {
       const bins = histogram(powerDataList);
-      console.log(bins);
       binsList.push(bins);
       maxNum = d3.max([maxNum, d3.max(bins, d => d.length)!])!;
     }
