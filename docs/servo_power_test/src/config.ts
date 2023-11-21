@@ -4,6 +4,11 @@ import {ServoController} from './servo_controller';
 import {TestRunner} from './test_runner';
 import {Ui} from './ui';
 
+class IterationData {
+  public powerDataList: Array<PowerData> = [];
+  public annotationList: AnnotationDataList = new Map<string, number>();
+}
+
 export class Config {
   private INTERVAL_MS = 100;
   private ui: Ui;
@@ -13,6 +18,7 @@ export class Config {
   private inProgress = false;
   public powerDataList: Array<PowerData> = [];
   public annotationList: AnnotationDataList = new Map<string, number>();
+  public IterationData = new IterationData();
   public graph: Graph;
   public customScript: string;
   constructor(
