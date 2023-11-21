@@ -34581,7 +34581,7 @@ class TotalHistogram {
                 .x(d => x(d[0]))
                 .y(d => y(d[1])));
             svg
-                .selectAll('circle')
+                .selectAll('dataCircle')
                 .data(binsList[i])
                 .enter()
                 .append('circle')

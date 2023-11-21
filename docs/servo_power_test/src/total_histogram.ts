@@ -80,7 +80,7 @@ export class TotalHistogram {
             .y(d => y(d[1]))
         );
       svg
-        .selectAll('circle')
+        .selectAll('dataCircle')
         .data(binsList[i])
         .enter()
         .append('circle')
