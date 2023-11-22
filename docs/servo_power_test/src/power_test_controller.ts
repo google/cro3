@@ -8,7 +8,7 @@ export type PowerData = [number, number];
 export type AnnotationDataList = Map<string, number>;
 
 export class PowerTestController {
-  private MARGIN_TIME = 300;
+  private marginTime = 300;
   private ui: Ui;
   private servoController: ServoController;
   private runner: TestRunner;
@@ -47,7 +47,7 @@ export class PowerTestController {
   }
   public async startMeasurement() {
     if (this.ui.configNum === 0) return;
-    this.MARGIN_TIME = Number(this.ui.marginTimeInput.value);
+    this.marginTime = Number(this.ui.marginTimeInput.value);
     await this.servoController.servoShell.select();
     await this.runner.dut.select();
     await this.initializePort();
@@ -69,8 +69,8 @@ export class PowerTestController {
       const extractedData = [];
       for (const powerData of config.powerDataList) {
         if (
-          annotations.get('start')! + this.MARGIN_TIME <= powerData[0] &&
-          powerData[0] <= annotations.get('end')! - this.MARGIN_TIME
+          annotations.get('start')! + this.marginTime <= powerData[0] &&
+          powerData[0] <= annotations.get('end')! - this.marginTime
         ) {
           extractedData.push(powerData[1]);
         }
@@ -81,7 +81,7 @@ export class PowerTestController {
   }
   public loadPowerData(s: string) {
     const jsonData = JSON.parse(s);
-    this.MARGIN_TIME = jsonData.margin;
+    this.marginTime = jsonData.margin;
     this.ui.configNum = jsonData.data.length;
     this.ui.createGraphList();
     this.configList = [];
@@ -113,7 +113,7 @@ export class PowerTestController {
       'data:text/json;charset=utf-8,' +
       encodeURIComponent(
         JSON.stringify({
-          margin: this.MARGIN_TIME,
+          margin: this.marginTime,
           data: this.configList.map(e => ({
             config: e.customScript,
             power: e.powerDataList.map(d => {
