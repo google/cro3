@@ -50,18 +50,11 @@ pub fn run(args: &Args) -> Result<()> {
 #[derive(FromArgs, PartialEq, Debug)]
 /// connects to a running betty instance via SSH
 #[argh(subcommand, name = "connect")]
-pub struct ArgsConnect {
-    /// extra arguments. You can pass other options like --extra-args "options".
-    #[argh(option)]
-    extra_args: Option<String>,
-}
+pub struct ArgsConnect {}
 
-fn run_connect(args: &ArgsConnect) -> Result<()> {
-    let options = convert_str_to_vec(&args.extra_args);
-
+fn run_connect(_args: &ArgsConnect) -> Result<()> {
     let cmd = Command::new("ssh")
         .arg("betty")
-        .args(options)
         .spawn()
         .context("Failed to execute ssh")?;
 
@@ -83,7 +76,8 @@ pub struct ArgsSetup {
     #[argh(option)]
     repo: Option<String>,
 
-    /// extra arguments. You can pass other options like --extra-args "options".
+    /// extra arguments to pass to betty.sh. You can pass other options like
+    /// --extra-args "options".
     #[argh(option)]
     extra_args: Option<String>,
 }
@@ -112,9 +106,12 @@ fn run_setup(args: &ArgsSetup) -> Result<()> {
         .wait_with_output()
         .context("Failed to wait for installing python packages")?;
 
-    let options = convert_str_to_vec(&args.extra_args);
     println!("Running betty.sh setup...");
-    run_betty(&dir, "setup", &options)?;
+    let arg = match &args.extra_args {
+        Some(a) => a,
+        None => "",
+    };
+    run_betty(&dir, "setup", arg)?;
 
     println!("Running gcloud auth login...");
     let gcloud_auth = Command::new("gcloud")
@@ -217,7 +214,8 @@ pub struct ArgsStart {
     #[argh(option, short = 'a')]
     android_build: Option<String>,
 
-    /// extra arguments. You can pass other options like --extra-args "options".
+    /// extra arguments to pass to betty.sh. You can pass other options like
+    /// --extra-args "options".
     #[argh(option)]
     extra_args: Option<String>,
 }
@@ -239,11 +237,13 @@ fn run_start(args: &ArgsStart) -> Result<()> {
     if let Some(android_build) = &args.android_build {
         options.append(&mut vec!["--android_build", android_build]);
     }
+    if let Some(extra_args) = &args.extra_args {
+        options.append(&mut vec![extra_args]);
+    }
 
-    let mut extra_args = convert_str_to_vec(&args.extra_args);
-    options.append(&mut extra_args);
+    let arg = options.join(" ");
 
-    run_betty(&dir, "start", &options)
+    run_betty(&dir, "start", &arg)
 }
 
 #[derive(FromArgs, PartialEq, Debug)]
@@ -260,7 +260,8 @@ pub struct ArgsPush {
     #[argh(option, short = 'a')]
     android_build: String,
 
-    /// extra arguments. You can pass other options like --extra-args "options".
+    /// extra arguments to pass to betty.sh. You can pass other options like
+    /// --extra-args "options".
     #[argh(option)]
     extra_args: Option<String>,
 }
@@ -269,10 +270,13 @@ fn run_push(args: &ArgsPush) -> Result<()> {
     let dir = find_betty_script(&args.repo)?;
 
     let mut options = vec!["android_build", &args.android_build];
-    let mut extra_args = convert_str_to_vec(&args.extra_args);
-    options.append(&mut extra_args);
+    if let Some(extra_args) = &args.extra_args {
+        options.append(&mut vec![extra_args]);
+    }
 
-    run_betty(&dir, "push", &options)
+    let arg = options.join(" ");
+
+    run_betty(&dir, "push", &arg)
 }
 
 fn find_betty_script(s: &Option<String>) -> Result<String> {
@@ -292,18 +296,13 @@ fn prepare_path(path: &Option<String>) -> Result<String> {
     }
 }
 
-fn convert_str_to_vec(input: &Option<String>) -> Vec<&str> {
-    match input {
-        Some(i) => i.split_whitespace().collect(),
-        None => Vec::new(),
-    }
-}
+fn run_betty(dir: &str, subcommand: &str, options: &str) -> Result<()> {
+    let betty_script = format!("./betty.sh {} {}", subcommand, options);
 
-fn run_betty(dir: &str, subcommand: &str, options: &Vec<&str>) -> Result<()> {
-    let cmd = Command::new("./betty.sh")
+    let cmd = Command::new("bash")
         .current_dir(dir)
-        .arg(subcommand)
-        .args(options)
+        .arg("-c")
+        .arg(betty_script)
         .spawn()
         .context("Failed to execute betty.sh")?;
 
