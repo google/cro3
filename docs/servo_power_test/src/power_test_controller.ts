@@ -3,7 +3,6 @@ import {Ui} from './ui';
 import {TestRunner} from './test_runner';
 import {Config} from './config';
 import {TotalHistogram} from './total_histogram';
-import moment from 'moment';
 
 export type PowerData = [number, number];
 export type AnnotationDataList = Map<string, number>;
@@ -64,8 +63,6 @@ export class PowerTestController {
     await this.runner.sendCancel();
     await this.runner.sendCancel();
     await this.runner.sendCancel();
-    await this.runner.dut.write(`mkdir power_${moment().format()}\n`);
-    await this.runner.dut.write(`cd power_${moment().format()}\n`);
     for (;;) {
       const allDataIsRead = await this.readAllDutBuffer();
       if (allDataIsRead) {
@@ -80,7 +77,6 @@ export class PowerTestController {
     await this.runner.sendCancel();
     await this.runner.sendCancel();
     await this.runner.sendCancel();
-    await this.runner.dut.write('cd ../\n');
     await this.runner.dut.close();
   }
   public async startMeasurement() {
