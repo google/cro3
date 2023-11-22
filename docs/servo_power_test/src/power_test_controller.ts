@@ -109,7 +109,9 @@ export class PowerTestController {
             (d: {time: number; power: number}) => [d.time, d.power] as PowerData
           );
           const newAnnotationList = new Map(Object.entries(itrData.annotation));
-          newConfig.appendIterationDataList(new IterationData(newPowerDataList, newAnnotationList));
+          newConfig.appendIterationDataList(
+            new IterationData(newPowerDataList, newAnnotationList)
+          );
         }
       );
       newConfig.loadGraph(0);
