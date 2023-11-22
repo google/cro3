@@ -14,10 +14,6 @@ export class Ui {
   public addConfigButton = document.getElementById(
     'add-config-button'
   ) as HTMLButtonElement;
-  public popupCloseButton = document.getElementById(
-    'popup-close'
-  ) as HTMLButtonElement;
-  public overlay = document.getElementById('popup-overlay') as HTMLDivElement;
   public dutConsole = document.getElementById('dut-console') as HTMLSpanElement;
   public dropZone = document.getElementById('drop-zone') as HTMLSpanElement;
   public serialOutput = document.getElementById(

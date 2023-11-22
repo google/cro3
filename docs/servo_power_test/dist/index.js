@@ -34105,9 +34105,6 @@ window.addEventListener('DOMContentLoaded', () => {
         ui.dlAnchorElem.setAttribute('download', `power_${(0, moment_1.default)().format()}.json`);
         ui.dlAnchorElem.click();
     });
-    ui.popupCloseButton.addEventListener('click', () => {
-        ui.overlay.classList.add('closed');
-    });
     ui.addConfigButton.addEventListener('click', () => {
         ui.addConfigInputArea();
     });
@@ -34472,8 +34469,6 @@ class Ui {
         this.downloadButton = document.getElementById('download-button');
         this.shellScriptList = document.getElementById('shell-script-list');
         this.addConfigButton = document.getElementById('add-config-button');
-        this.popupCloseButton = document.getElementById('popup-close');
-        this.overlay = document.getElementById('popup-overlay');
         this.dutConsole = document.getElementById('dut-console');
         this.dropZone = document.getElementById('drop-zone');
         this.serialOutput = document.getElementById('serial-output');

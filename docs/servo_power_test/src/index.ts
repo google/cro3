@@ -56,9 +56,6 @@ window.addEventListener('DOMContentLoaded', () => {
     ui.dlAnchorElem.setAttribute('download', `power_${moment().format()}.json`);
     ui.dlAnchorElem.click();
   });
-  ui.popupCloseButton.addEventListener('click', () => {
-    ui.overlay.classList.add('closed');
-  });
   ui.addConfigButton.addEventListener('click', () => {
     ui.addConfigInputArea();
   });
