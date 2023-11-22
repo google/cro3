@@ -33882,6 +33882,19 @@ class Config {
         this.runner = runner;
         this.customScript = customScript;
     }
+    appendIterationDataList(newIterationData) {
+        this.iterationDataList.push(newIterationData);
+    }
+    exportIterationDataList() {
+        return this.iterationDataList.map(iterationData => {
+            return {
+                power: iterationData.powerDataList.map(d => {
+                    return { time: d[0], power: d[1] };
+                }),
+                annotation: Object.fromEntries(iterationData.annotationList),
+            };
+        });
+    }
     changeHaltFlag(flag) {
         this.halt = flag;
         this.servoController.halt = flag;
@@ -34342,7 +34355,7 @@ class PowerTestController {
             configData.measuredData.map((itrData) => {
                 const newPowerDataList = itrData.power.map((d) => [d.time, d.power]);
                 const newAnnotationList = new Map(Object.entries(itrData.annotation));
-                newConfig.iterationDataList.push(new config_1.IterationData(newPowerDataList, newAnnotationList));
+                newConfig.appendIterationDataList(new config_1.IterationData(newPowerDataList, newAnnotationList));
             });
             newConfig.loadGraph(0);
             this.ui.loadConfigInputArea(configData.config);
@@ -34354,14 +34367,7 @@ class PowerTestController {
         const dataStr = 'data:text/json;charset=utf-8,' +
             encodeURIComponent(JSON.stringify(this.configList.map(config => ({
                 config: config.customScript,
-                measuredData: config.iterationDataList.map(iterationData => {
-                    return {
-                        power: iterationData.powerDataList.map(d => {
-                            return { time: d[0], power: d[1] };
-                        }),
-                        annotation: Object.fromEntries(iterationData.annotationList),
-                    };
-                }),
+                measuredData: config.exportIterationDataList(),
             }))));
         return dataStr;
     }

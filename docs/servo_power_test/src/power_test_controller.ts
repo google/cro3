@@ -109,9 +109,7 @@ export class PowerTestController {
             (d: {time: number; power: number}) => [d.time, d.power] as PowerData
           );
           const newAnnotationList = new Map(Object.entries(itrData.annotation));
-          newConfig.iterationDataList.push(
-            new IterationData(newPowerDataList, newAnnotationList)
-          );
+          newConfig.appendIterationDataList(new IterationData(newPowerDataList, newAnnotationList));
         }
       );
       newConfig.loadGraph(0);
@@ -127,14 +125,7 @@ export class PowerTestController {
         JSON.stringify(
           this.configList.map(config => ({
             config: config.customScript,
-            measuredData: config.iterationDataList.map(iterationData => {
-              return {
-                power: iterationData.powerDataList.map(d => {
-                  return {time: d[0], power: d[1]};
-                }),
-                annotation: Object.fromEntries(iterationData.annotationList),
-              };
-            }),
+            measuredData: config.exportIterationDataList(),
           }))
         )
       );

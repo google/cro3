@@ -35,7 +35,7 @@ export class Config {
   private runner: TestRunner;
   private halt = true;
   private inProgress = false;
-  public iterationDataList: Array<IterationData> = [];
+  private iterationDataList: Array<IterationData> = [];
   public graph: Graph;
   public customScript: string;
   public currentItrNum = 0;
@@ -54,6 +54,19 @@ export class Config {
     this.servoController = servoController;
     this.runner = runner;
     this.customScript = customScript;
+  }
+  public appendIterationDataList(newIterationData: IterationData) {
+    this.iterationDataList.push(newIterationData);
+  }
+  public exportIterationDataList() {
+    return this.iterationDataList.map(iterationData => {
+      return {
+        power: iterationData.powerDataList.map(d => {
+          return {time: d[0], power: d[1]};
+        }),
+        annotation: Object.fromEntries(iterationData.annotationList),
+      };
+    });
   }
   private changeHaltFlag(flag: boolean) {
     this.halt = flag;
