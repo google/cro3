@@ -26,7 +26,6 @@ pub struct Args {
 #[derive(FromArgs, PartialEq, Debug)]
 #[argh(subcommand)]
 enum SubCommand {
-    Connect(ArgsConnect),
     Setup(ArgsSetup),
     Start(ArgsStart),
     Push(ArgsPush),
@@ -40,31 +39,10 @@ pub fn run(args: &Args) -> Result<()> {
     }
 
     match &args.nested {
-        SubCommand::Connect(args) => run_connect(args),
         SubCommand::Setup(args) => run_setup(args),
         SubCommand::Start(args) => run_start(args),
         SubCommand::Push(args) => run_push(args),
     }
-}
-
-#[derive(FromArgs, PartialEq, Debug)]
-/// connects to a running betty instance via SSH
-#[argh(subcommand, name = "connect")]
-pub struct ArgsConnect {}
-
-fn run_connect(_args: &ArgsConnect) -> Result<()> {
-    let cmd = Command::new("ssh")
-        .arg("betty")
-        .spawn()
-        .context("Failed to execute ssh")?;
-
-    let result = cmd.wait_with_output().context("Failed to wait for ssh")?;
-
-    if !result.status.success() {
-        println!("ssh failed")
-    }
-
-    Ok(())
 }
 
 #[derive(FromArgs, PartialEq, Debug)]
@@ -242,8 +220,11 @@ fn run_start(args: &ArgsStart) -> Result<()> {
     }
 
     let arg = options.join(" ");
+    run_betty(&dir, "start", &arg)?;
 
-    run_betty(&dir, "start", &arg)
+    println!("To connect the betty instance, run `lium dut shell --dut localhost:9222`.");
+
+    Ok(())
 }
 
 #[derive(FromArgs, PartialEq, Debug)]
