@@ -3,6 +3,7 @@ import {Ui} from './ui';
 import {TestRunner} from './test_runner';
 import {Config} from './config';
 import {TotalHistogram} from './total_histogram';
+import moment from 'moment';
 
 export type PowerData = [number, number];
 export type AnnotationDataList = Map<string, number>;
@@ -37,13 +38,23 @@ export class PowerTestController {
       this.configList.push(newConfig);
     }
   }
-  public async initializePort() {
+  private async initialize() {
     await this.servoController.servoShell.open();
     await this.servoController.servoShell.close();
     await this.runner.dut.open();
     await this.runner.sendCancel();
     await this.runner.sendCancel();
     await this.runner.sendCancel();
+    await this.runner.dut.write(`mkdir power_${moment().format()}\n`);
+    await this.runner.dut.write(`cd power_${moment().format()}\n`);
+    await this.runner.dut.close();
+  }
+  private async finalize() {
+    await this.runner.dut.open();
+    await this.runner.sendCancel();
+    await this.runner.sendCancel();
+    await this.runner.sendCancel();
+    await this.runner.dut.write('cd ../\n');
     await this.runner.dut.close();
   }
   public async startMeasurement() {
@@ -53,7 +64,7 @@ export class PowerTestController {
     if (this.iterationNumber <= 0) return;
     await this.servoController.servoShell.select();
     await this.runner.dut.select();
-    await this.initializePort();
+    await this.initialize();
     await this.setConfig();
     for (let i = 0; i < this.iterationNumber; i++) {
       this.ui.currentIteration.innerText = `${i + 1}`;
@@ -63,6 +74,7 @@ export class PowerTestController {
         await this.configList[j].start();
       }
     }
+    this.finalize();
     this.drawTotalHistogram();
     this.ui.hideElement(this.ui.currentIteration);
     this.ui.appendIterationSelectors(
@@ -145,6 +157,7 @@ export class PowerTestController {
     navigator.serial.addEventListener('disconnect', async () => {
       if (this.isMeasuring) {
         this.isMeasuring = false;
+        this.finalize();
         await this.servoController.closeServoPort();
         await this.runner.closeDutPort();
       }

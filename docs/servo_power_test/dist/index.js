@@ -34283,14 +34283,18 @@ exports.OperatePort = OperatePort;
 /*!**************************************!*\
   !*** ./src/power_test_controller.ts ***!
   \**************************************/
-/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
+/***/ (function(__unused_webpack_module, exports, __webpack_require__) {
 
 "use strict";
 
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.PowerTestController = void 0;
 const config_1 = __webpack_require__(/*! ./config */ "./src/config.ts");
 const total_histogram_1 = __webpack_require__(/*! ./total_histogram */ "./src/total_histogram.ts");
+const moment_1 = __importDefault(__webpack_require__(/*! moment */ "./node_modules/moment/moment.js"));
 class PowerTestController {
     constructor(ui, servoController, runner) {
         this.marginTime = 300;
@@ -34311,13 +34315,23 @@ class PowerTestController {
             this.configList.push(newConfig);
         }
     }
-    async initializePort() {
+    async initialize() {
         await this.servoController.servoShell.open();
         await this.servoController.servoShell.close();
         await this.runner.dut.open();
         await this.runner.sendCancel();
         await this.runner.sendCancel();
         await this.runner.sendCancel();
+        await this.runner.dut.write(`mkdir power_${(0, moment_1.default)().format()}\n`);
+        await this.runner.dut.write(`cd power_${(0, moment_1.default)().format()}\n`);
+        await this.runner.dut.close();
+    }
+    async finalize() {
+        await this.runner.dut.open();
+        await this.runner.sendCancel();
+        await this.runner.sendCancel();
+        await this.runner.sendCancel();
+        await this.runner.dut.write('cd ../\n');
         await this.runner.dut.close();
     }
     async startMeasurement() {
@@ -34329,7 +34343,7 @@ class PowerTestController {
             return;
         await this.servoController.servoShell.select();
         await this.runner.dut.select();
-        await this.initializePort();
+        await this.initialize();
         await this.setConfig();
         for (let i = 0; i < this.iterationNumber; i++) {
             this.ui.currentIteration.innerText = `${i + 1}`;
@@ -34339,6 +34353,7 @@ class PowerTestController {
                 await this.configList[j].start();
             }
         }
+        this.finalize();
         this.drawTotalHistogram();
         this.ui.hideElement(this.ui.currentIteration);
         this.ui.appendIterationSelectors(this.iterationNumber, this.iterationNumber - 1);
@@ -34397,6 +34412,7 @@ class PowerTestController {
         navigator.serial.addEventListener('disconnect', async () => {
             if (this.isMeasuring) {
                 this.isMeasuring = false;
+                this.finalize();
                 await this.servoController.closeServoPort();
                 await this.runner.closeDutPort();
             }
@@ -34534,15 +34550,12 @@ workload 1> ./test_out.log 2> ./test_err.log
 echo "end"
 sleep 3
 echo "stop"\n`;
-        await this.dut.write('cat > ./example.sh << EOF\n');
+        await this.dut.write('cat > ./test.sh << EOF\n');
         await this.dut.write(btoa(script) + '\n');
         await this.dut.write('EOF\n');
     }
     async executeScript() {
-        await this.dut.write('base64 -d ./example.sh | bash\n');
-    }
-    async executeCommand(s) {
-        await this.dut.write(s);
+        await this.dut.write('base64 -d ./test.sh | bash\n');
     }
     async sendCancel() {
         await this.dut.write(this.CANCEL_CMD);

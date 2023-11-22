@@ -39,15 +39,12 @@ workload 1> ./test_out.log 2> ./test_err.log
 echo "end"
 sleep 3
 echo "stop"\n`;
-    await this.dut.write('cat > ./example.sh << EOF\n');
+    await this.dut.write('cat > ./test.sh << EOF\n');
     await this.dut.write(btoa(script) + '\n');
     await this.dut.write('EOF\n');
   }
   public async executeScript() {
-    await this.dut.write('base64 -d ./example.sh | bash\n');
-  }
-  public async executeCommand(s: string) {
-    await this.dut.write(s);
+    await this.dut.write('base64 -d ./test.sh | bash\n');
   }
   public async sendCancel() {
     await this.dut.write(this.CANCEL_CMD);
