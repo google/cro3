@@ -1,7 +1,7 @@
 import {ServoController} from './servo_controller';
 import {Ui} from './ui';
 import {TestRunner} from './test_runner';
-import {Config} from './config';
+import {Config, IterationData} from './config';
 import {TotalHistogram} from './total_histogram';
 
 export type PowerData = [number, number];
@@ -65,16 +65,7 @@ export class PowerTestController {
   private drawTotalHistogram() {
     const histogramData = [];
     for (const config of this.configList) {
-      const annotations = config.annotationList;
-      const extractedData = [];
-      for (const powerData of config.powerDataList) {
-        if (
-          annotations.get('start')! + this.marginTime <= powerData[0] &&
-          powerData[0] <= annotations.get('end')! - this.marginTime
-        ) {
-          extractedData.push(powerData[1]);
-        }
-      }
+      const extractedData = config.extractTotalHistogramData(this.marginTime);
       histogramData.push(extractedData);
     }
     this.totalHistogram.paintHistogram(histogramData);
@@ -94,14 +85,24 @@ export class PowerTestController {
         i,
         configData.config
       );
-      newConfig.powerDataList = configData.power.map(
-        (d: {time: number; power: number}) => [d.time, d.power]
+      configData.measuredData.map(
+        (itrData: {
+          power: Array<{time: number; power: number}>;
+          annotation: AnnotationDataList;
+        }) => {
+          const newPowerDataList = itrData.power.map(
+            (d: {time: number; power: number}) => [d.time, d.power] as PowerData
+          );
+          const newAnnotationList = new Map(Object.entries(itrData.annotation));
+          newConfig.iterationDataList.push(
+            new IterationData(newPowerDataList, newAnnotationList)
+          );
+        }
       );
-      newConfig.annotationList = new Map(Object.entries(configData.annotation));
-      newConfig.graph.updateGraph(newConfig.powerDataList);
+      newConfig.graph.updateGraph(newConfig.iterationDataList[0].powerDataList);
       newConfig.graph.findAnnotationPoint(
-        newConfig.powerDataList,
-        newConfig.annotationList
+        newConfig.iterationDataList[0].powerDataList,
+        newConfig.iterationDataList[0].annotationList
       );
       this.ui.loadConfigInputArea(configData.config);
       this.configList.push(newConfig);
@@ -112,16 +113,19 @@ export class PowerTestController {
     const dataStr =
       'data:text/json;charset=utf-8,' +
       encodeURIComponent(
-        JSON.stringify({
-          margin: this.marginTime,
-          data: this.configList.map(e => ({
-            config: e.customScript,
-            power: e.powerDataList.map(d => {
-              return {time: d[0], power: d[1]};
+        JSON.stringify(
+          this.configList.map(config => ({
+            config: config.customScript,
+            measuredData: config.iterationDataList.map(iterationData => {
+              return {
+                power: iterationData.powerDataList.map(d => {
+                  return {time: d[0], power: d[1]};
+                }),
+                annotation: Object.fromEntries(iterationData.annotationList),
+              };
             }),
-            annotation: Object.fromEntries(e.annotationList),
-          })),
-        })
+          }))
+        )
       );
     return dataStr;
   }

@@ -4,9 +4,28 @@ import {ServoController} from './servo_controller';
 import {TestRunner} from './test_runner';
 import {Ui} from './ui';
 
-class IterationData {
-  public powerDataList: Array<PowerData> = [];
-  public annotationList: AnnotationDataList = new Map<string, number>();
+export class IterationData {
+  public powerDataList: Array<PowerData>;
+  public annotationList: AnnotationDataList;
+  constructor(
+    powerDataList: Array<PowerData>,
+    annotationList: AnnotationDataList
+  ) {
+    this.powerDataList = powerDataList;
+    this.annotationList = annotationList;
+  }
+  public extractData(marginTime: number) {
+    const extractedData = [];
+    for (const powerData of this.powerDataList) {
+      if (
+        this.annotationList.get('start')! + marginTime <= powerData[0] &&
+        powerData[0] <= this.annotationList.get('end')! - marginTime
+      ) {
+        extractedData.push(powerData[1]);
+      }
+    }
+    return extractedData;
+  }
 }
 
 export class Config {
@@ -16,11 +35,10 @@ export class Config {
   private runner: TestRunner;
   private halt = true;
   private inProgress = false;
-  public powerDataList: Array<PowerData> = [];
-  public annotationList: AnnotationDataList = new Map<string, number>();
-  public IterationData = new IterationData();
+  public iterationDataList: Array<IterationData> = [];
   public graph: Graph;
   public customScript: string;
+  public currentItrNum = 0;
   constructor(
     ui: Ui,
     servoController: ServoController,
@@ -63,8 +81,10 @@ export class Config {
       if (currentPowerData === undefined) continue;
       this.ui.setSerialOutput(currentPowerData.originalData);
       const e: PowerData = [new Date().getTime(), currentPowerData.power];
-      this.powerDataList.push(e);
-      this.graph.updateGraph(this.powerDataList);
+      this.iterationDataList[this.currentItrNum].powerDataList.push(e);
+      this.graph.updateGraph(
+        this.iterationDataList[this.currentItrNum].powerDataList
+      );
     }
   }
   private async readDutLoop() {
@@ -72,15 +92,27 @@ export class Config {
       const dutData = await this.runner.readData();
       try {
         if (dutData.includes('start')) {
-          this.annotationList.set('start', new Date().getTime());
+          this.iterationDataList[this.currentItrNum].annotationList.set(
+            'start',
+            new Date().getTime()
+          );
           this.graph.addAnnotation(
-            this.powerDataList[this.powerDataList.length - 1][0],
+            this.iterationDataList[this.currentItrNum].powerDataList[
+              this.iterationDataList[this.currentItrNum].powerDataList.length -
+                1
+            ][0],
             'start'
           );
         } else if (dutData.includes('end')) {
-          this.annotationList.set('end', new Date().getTime());
+          this.iterationDataList[this.currentItrNum].annotationList.set(
+            'end',
+            new Date().getTime()
+          );
           this.graph.addAnnotation(
-            this.powerDataList[this.powerDataList.length - 1][0],
+            this.iterationDataList[this.currentItrNum].powerDataList[
+              this.iterationDataList[this.currentItrNum].powerDataList.length -
+                1
+            ][0],
             'end'
           );
         } else if (dutData.includes('stop')) {
@@ -95,6 +127,9 @@ export class Config {
     }
   }
   public async start() {
+    this.iterationDataList.push(
+      new IterationData([], new Map<string, number>())
+    );
     await this.runner.openDutPort();
     await this.servoController.openServoPort();
     await this.changeHaltFlag(false);
@@ -112,5 +147,14 @@ export class Config {
     this.inProgress = false;
     await this.servoController.closeServoPort();
     await this.runner.closeDutPort();
+  }
+  public extractTotalHistogramData(marginTime: number) {
+    let extractedData: Array<number> = [];
+    for (const iterationData of this.iterationDataList) {
+      extractedData = extractedData.concat(
+        iterationData.extractData(marginTime)
+      );
+    }
+    return extractedData;
   }
 }
