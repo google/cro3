@@ -112,7 +112,7 @@ fn update_cached_tests(bundles: &Vec<&str>, dut: &str, repodir: &str) -> Result<
     let port = ssh.start_ssh_forwarding_range_background(4100..4200)?;
 
     // To avoid "build failed: failed checking build deps:" error
-    chroot.run_bash_script_in_chroot("update_chroot", "./update_chroot", None)?;
+    chroot.run_bash_script_in_chroot("update_board_chroot", "update_chroot", None)?;
 
     if bundles.is_empty() {
         update_cached_tests_in_bundle(DEFAULT_BUNDLE, &chroot, port)

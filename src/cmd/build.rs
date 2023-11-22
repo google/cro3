@@ -57,7 +57,7 @@ pub fn run(args: &Args) -> Result<()> {
             &format!(
                 r###"
 setup_board --force --board={board}
-./update_chroot
+update_chroot
 "###,
             ),
             None,
