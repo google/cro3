@@ -131,6 +131,14 @@ body {
   position: relative;
 }
 
+#iteration-input {
+  width: 32px;
+}
+
+.flex {
+  display: flex;
+}
+
 #shell-script-list {
   list-style-type: decimal;
 }
