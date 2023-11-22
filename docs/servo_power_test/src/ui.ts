@@ -23,10 +23,16 @@ export class Ui {
     'download-anchor'
   ) as HTMLAnchorElement;
   public toolTip = document.getElementById('tooltip') as HTMLDivElement;
+  public currentIteration = document.getElementById(
+    'current-iteration'
+  ) as HTMLParagraphElement;
   private graphList = document.getElementById('graph-list') as HTMLUListElement;
   public marginTimeInput = document.getElementById(
     'margin-time-input'
   ) as HTMLInputElement;
+  public itrSelector = document.getElementById(
+    'iteration-selector'
+  ) as HTMLSelectElement;
   public configNum = 0;
 
   public enabledRecordingButton(halt: boolean) {
@@ -80,5 +86,12 @@ export class Ui {
   }
   public hideToolTip() {
     this.toolTip.classList.add('hidden');
+  }
+  public appendItrSelectors(ITERATION_NUM: number) {
+    for (let i = 0; i < ITERATION_NUM; i++) {
+      const newOption = document.createElement('option');
+      newOption.innerText = `${i + 1}`;
+      this.itrSelector.add(newOption);
+    }
   }
 }

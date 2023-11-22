@@ -33970,6 +33970,10 @@ class Config {
         }
         return extractedData;
     }
+    loadGraph(selectedItr) {
+        this.graph.updateGraph(this.iterationDataList[selectedItr].powerDataList);
+        this.graph.findAnnotationPoint(this.iterationDataList[selectedItr].powerDataList, this.iterationDataList[selectedItr].annotationList);
+    }
 }
 exports.Config = Config;
 
@@ -34104,6 +34108,10 @@ window.addEventListener('DOMContentLoaded', () => {
     });
     ui.haltButton.addEventListener('click', () => {
         testController.stopMeasurement();
+    });
+    ui.itrSelector.addEventListener('change', () => {
+        const selectedItr = ui.itrSelector.selectedIndex;
+        testController.showSelectedItrGraph(selectedItr);
     });
     ui.dropZone.addEventListener('dragover', e => {
         e.stopPropagation();
@@ -34290,6 +34298,7 @@ class PowerTestController {
         await this.initializePort();
         await this.setConfig();
         for (let currentItrNum = 0; currentItrNum < this.ITERATION_NUM; currentItrNum++) {
+            this.ui.currentIteration.innerText = `current iteration: ${currentItrNum + 1}`;
             for (let i = 0; i < this.ui.configNum; i++) {
                 this.currentConfigNum = i;
                 console.log(`start running config${i}`);
@@ -34297,6 +34306,7 @@ class PowerTestController {
                 await this.configList[i].start();
             }
         }
+        this.ui.appendItrSelectors(this.ITERATION_NUM);
         this.drawTotalHistogram();
     }
     async stopMeasurement() {
@@ -34309,6 +34319,11 @@ class PowerTestController {
             histogramData.push(extractedData);
         }
         this.totalHistogram.paintHistogram(histogramData);
+    }
+    showSelectedItrGraph(selectedItr) {
+        for (let i = 0; i < this.ui.configNum; i++) {
+            this.configList[i].loadGraph(selectedItr);
+        }
     }
     loadPowerData(s) {
         const jsonData = JSON.parse(s);
@@ -34324,8 +34339,7 @@ class PowerTestController {
                 const newAnnotationList = new Map(Object.entries(itrData.annotation));
                 newConfig.iterationDataList.push(new config_1.IterationData(newPowerDataList, newAnnotationList));
             });
-            newConfig.graph.updateGraph(newConfig.iterationDataList[0].powerDataList);
-            newConfig.graph.findAnnotationPoint(newConfig.iterationDataList[0].powerDataList, newConfig.iterationDataList[0].annotationList);
+            newConfig.loadGraph(0);
             this.ui.loadConfigInputArea(configData.config);
             this.configList.push(newConfig);
         }
@@ -34694,8 +34708,10 @@ class Ui {
         this.serialOutput = document.getElementById('serial-output');
         this.dlAnchorElem = document.getElementById('download-anchor');
         this.toolTip = document.getElementById('tooltip');
+        this.currentIteration = document.getElementById('current-iteration');
         this.graphList = document.getElementById('graph-list');
         this.marginTimeInput = document.getElementById('margin-time-input');
+        this.itrSelector = document.getElementById('iteration-selector');
         this.configNum = 0;
     }
     enabledRecordingButton(halt) {
@@ -34743,6 +34759,13 @@ class Ui {
     }
     hideToolTip() {
         this.toolTip.classList.add('hidden');
+    }
+    appendItrSelectors(ITERATION_NUM) {
+        for (let i = 0; i < ITERATION_NUM; i++) {
+            const newOption = document.createElement('option');
+            newOption.innerText = `${i + 1}`;
+            this.itrSelector.add(newOption);
+        }
     }
 }
 exports.Ui = Ui;

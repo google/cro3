@@ -22,6 +22,10 @@ window.addEventListener('DOMContentLoaded', () => {
   ui.haltButton.addEventListener('click', () => {
     testController.stopMeasurement();
   });
+  ui.itrSelector.addEventListener('change', () => {
+    const selectedItr = ui.itrSelector.selectedIndex;
+    testController.showSelectedItrGraph(selectedItr);
+  });
   ui.dropZone.addEventListener(
     'dragover',
     e => {

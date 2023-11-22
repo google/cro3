@@ -159,4 +159,11 @@ export class Config {
     }
     return extractedData;
   }
+  public loadGraph(selectedItr: number) {
+    this.graph.updateGraph(this.iterationDataList[selectedItr].powerDataList);
+    this.graph.findAnnotationPoint(
+      this.iterationDataList[selectedItr].powerDataList,
+      this.iterationDataList[selectedItr].annotationList
+    );
+  }
 }
