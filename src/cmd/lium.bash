@@ -68,6 +68,10 @@ _lium_get_packages() {
   ${COMP_WORDS[0]} packages list --cached 2>/dev/null | cut -f 1
 }
 
+_lium_get_boards() {
+  ${COMP_WORDS[0]} board list --cached 2>/dev/null | cut -f 1
+}
+
 _lium_get_dut_actions() {
   lium dut do --list-actions 2>/dev/null
 }
@@ -139,7 +143,7 @@ _lium() { # command current prev
   local prev=$3
   local dir_opts="--repo --dir --dest"
   local file_opts="--image"
-  local todo_opts="--version --board --workon"
+  local todo_opts="--version --workon"
   local servo_serial_opts="--serial --servo"
 
   COMPREPLY=
@@ -154,6 +158,9 @@ _lium() { # command current prev
   elif [ x"$prev" = x"--dut" ]; then
     local DUTS=`_lium_get_duts`
     COMPREPLY=($(compgen -W "${DUTS}" -- $cur))
+  elif [ x"$prev" = x"--board" ]; then
+    local BOARDS=`_lium_get_boards`
+    COMPREPLY=($(compgen -W "${BOARDS}" -- $cur))
   elif _lium_arg_included ${prev} ${servo_serial_opts}; then
     local DUTS=`_lium_get_servos`
     COMPREPLY=($(compgen -W "${DUTS}" -- $cur))
