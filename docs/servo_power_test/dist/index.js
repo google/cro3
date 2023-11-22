@@ -34225,7 +34225,7 @@ const config_1 = __webpack_require__(/*! ./config */ "./src/config.ts");
 const total_histogram_1 = __webpack_require__(/*! ./total_histogram */ "./src/total_histogram.ts");
 class PowerTestController {
     constructor(ui, servoController, runner) {
-        this.MARGIN_TIME = 300;
+        this.marginTime = 300;
         this.totalHistogram = new total_histogram_1.TotalHistogram();
         this.configList = [];
         this.currentConfigNum = 0;
@@ -34254,7 +34254,7 @@ class PowerTestController {
     async startMeasurement() {
         if (this.ui.configNum === 0)
             return;
-        this.MARGIN_TIME = Number(this.ui.marginTimeInput.value);
+        this.marginTime = Number(this.ui.marginTimeInput.value);
         await this.servoController.servoShell.select();
         await this.runner.dut.select();
         await this.initializePort();
@@ -34275,8 +34275,8 @@ class PowerTestController {
             const annotations = config.annotationList;
             const extractedData = [];
             for (const powerData of config.powerDataList) {
-                if (annotations.get('start') + this.MARGIN_TIME <= powerData[0] &&
-                    powerData[0] <= annotations.get('end') - this.MARGIN_TIME) {
+                if (annotations.get('start') + this.marginTime <= powerData[0] &&
+                    powerData[0] <= annotations.get('end') - this.marginTime) {
                     extractedData.push(powerData[1]);
                 }
             }
@@ -34286,7 +34286,7 @@ class PowerTestController {
     }
     loadPowerData(s) {
         const jsonData = JSON.parse(s);
-        this.MARGIN_TIME = jsonData.margin;
+        this.marginTime = jsonData.margin;
         this.ui.configNum = jsonData.data.length;
         this.ui.createGraphList();
         this.configList = [];
@@ -34305,7 +34305,7 @@ class PowerTestController {
     exportPowerData() {
         const dataStr = 'data:text/json;charset=utf-8,' +
             encodeURIComponent(JSON.stringify({
-                margin: this.MARGIN_TIME,
+                margin: this.marginTime,
                 data: this.configList.map(e => ({
                     config: e.customScript,
                     power: e.powerDataList.map(d => {
