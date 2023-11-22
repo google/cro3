@@ -9,13 +9,13 @@ export type AnnotationDataList = Map<string, number>;
 
 export class PowerTestController {
   private marginTime = 300;
-  private ITERATION_NUM = 2;
   private ui: Ui;
   private servoController: ServoController;
   private runner: TestRunner;
   private totalHistogram = new TotalHistogram();
   private configList: Array<Config> = [];
   private currentConfigNum = 0;
+  private itrNum = 2;
   public isMeasuring = false;
   constructor(ui: Ui, servoController: ServoController, runner: TestRunner) {
     this.ui = ui;
@@ -49,15 +49,13 @@ export class PowerTestController {
   public async startMeasurement() {
     if (this.ui.configNum === 0) return;
     this.marginTime = Number(this.ui.marginTimeInput.value);
+    this.itrNum = parseInt(this.ui.itrInput.value);
+    if (this.itrNum <= 0) return;
     await this.servoController.servoShell.select();
     await this.runner.dut.select();
     await this.initializePort();
     await this.setConfig();
-    for (
-      let currentItrNum = 0;
-      currentItrNum < this.ITERATION_NUM;
-      currentItrNum++
-    ) {
+    for (let currentItrNum = 0; currentItrNum < this.itrNum; currentItrNum++) {
       this.ui.currentIteration.innerText = `${currentItrNum + 1}`;
       for (let i = 0; i < this.ui.configNum; i++) {
         this.currentConfigNum = i;
@@ -68,7 +66,7 @@ export class PowerTestController {
     }
     this.drawTotalHistogram();
     this.ui.hideElement(this.ui.currentIteration);
-    this.ui.appendItrSelectors(this.ITERATION_NUM, this.ITERATION_NUM - 1);
+    this.ui.appendItrSelectors(this.itrNum, this.itrNum - 1);
   }
   public async stopMeasurement() {
     await this.configList[this.currentConfigNum].stop();
@@ -92,7 +90,7 @@ export class PowerTestController {
     this.ui.configNum = jsonData.data.length;
     this.ui.createGraphList();
     this.configList = [];
-    this.ui.appendItrSelectors(this.ITERATION_NUM, 0);
+    this.ui.appendItrSelectors(this.itrNum, 0);
     for (let i = 0; i < jsonData.data.length; i++) {
       const configData = jsonData.data[i];
       const newConfig = new Config(

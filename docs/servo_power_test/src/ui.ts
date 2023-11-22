@@ -26,14 +26,17 @@ export class Ui {
   public currentIteration = document.getElementById(
     'current-iteration'
   ) as HTMLParagraphElement;
-  private graphList = document.getElementById('graph-list') as HTMLUListElement;
   public marginTimeInput = document.getElementById(
     'margin-time-input'
+  ) as HTMLInputElement;
+  public itrInput = document.getElementById(
+    'iteration-input'
   ) as HTMLInputElement;
   public itrSelector = document.getElementById(
     'iteration-selector'
   ) as HTMLSelectElement;
   public configNum = 0;
+  private graphList = document.getElementById('graph-list') as HTMLUListElement;
 
   public enabledRecordingButton(halt: boolean) {
     this.requestSerialButton.disabled = !halt;
@@ -90,8 +93,8 @@ export class Ui {
   public showElement(element: HTMLElement) {
     element.classList.remove('hidden');
   }
-  public appendItrSelectors(ITERATION_NUM: number, selectedIndex: number) {
-    for (let i = 0; i < ITERATION_NUM; i++) {
+  public appendItrSelectors(itrNum: number, selectedIndex: number) {
+    for (let i = 0; i < itrNum; i++) {
       const newOption = document.createElement('option');
       newOption.innerText = `${i + 1}`;
       this.itrSelector.add(newOption);

@@ -34263,10 +34263,10 @@ const total_histogram_1 = __webpack_require__(/*! ./total_histogram */ "./src/to
 class PowerTestController {
     constructor(ui, servoController, runner) {
         this.marginTime = 300;
-        this.ITERATION_NUM = 2;
         this.totalHistogram = new total_histogram_1.TotalHistogram();
         this.configList = [];
         this.currentConfigNum = 0;
+        this.itrNum = 2;
         this.isMeasuring = false;
         this.ui = ui;
         this.servoController = servoController;
@@ -34293,11 +34293,14 @@ class PowerTestController {
         if (this.ui.configNum === 0)
             return;
         this.marginTime = Number(this.ui.marginTimeInput.value);
+        this.itrNum = parseInt(this.ui.itrInput.value);
+        if (this.itrNum <= 0)
+            return;
         await this.servoController.servoShell.select();
         await this.runner.dut.select();
         await this.initializePort();
         await this.setConfig();
-        for (let currentItrNum = 0; currentItrNum < this.ITERATION_NUM; currentItrNum++) {
+        for (let currentItrNum = 0; currentItrNum < this.itrNum; currentItrNum++) {
             this.ui.currentIteration.innerText = `${currentItrNum + 1}`;
             for (let i = 0; i < this.ui.configNum; i++) {
                 this.currentConfigNum = i;
@@ -34308,7 +34311,7 @@ class PowerTestController {
         }
         this.drawTotalHistogram();
         this.ui.hideElement(this.ui.currentIteration);
-        this.ui.appendItrSelectors(this.ITERATION_NUM, this.ITERATION_NUM - 1);
+        this.ui.appendItrSelectors(this.itrNum, this.itrNum - 1);
     }
     async stopMeasurement() {
         await this.configList[this.currentConfigNum].stop();
@@ -34332,7 +34335,7 @@ class PowerTestController {
         this.ui.configNum = jsonData.data.length;
         this.ui.createGraphList();
         this.configList = [];
-        this.ui.appendItrSelectors(this.ITERATION_NUM, 0);
+        this.ui.appendItrSelectors(this.itrNum, 0);
         for (let i = 0; i < jsonData.data.length; i++) {
             const configData = jsonData.data[i];
             const newConfig = new config_1.Config(this.ui, this.servoController, this.runner, i, configData.config);
@@ -34711,10 +34714,11 @@ class Ui {
         this.dlAnchorElem = document.getElementById('download-anchor');
         this.toolTip = document.getElementById('tooltip');
         this.currentIteration = document.getElementById('current-iteration');
-        this.graphList = document.getElementById('graph-list');
         this.marginTimeInput = document.getElementById('margin-time-input');
+        this.itrInput = document.getElementById('iteration-input');
         this.itrSelector = document.getElementById('iteration-selector');
         this.configNum = 0;
+        this.graphList = document.getElementById('graph-list');
     }
     enabledRecordingButton(halt) {
         this.requestSerialButton.disabled = !halt;
@@ -34765,8 +34769,8 @@ class Ui {
     showElement(element) {
         element.classList.remove('hidden');
     }
-    appendItrSelectors(ITERATION_NUM, selectedIndex) {
-        for (let i = 0; i < ITERATION_NUM; i++) {
+    appendItrSelectors(itrNum, selectedIndex) {
+        for (let i = 0; i < itrNum; i++) {
             const newOption = document.createElement('option');
             newOption.innerText = `${i + 1}`;
             this.itrSelector.add(newOption);
