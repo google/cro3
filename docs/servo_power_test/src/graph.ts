@@ -15,7 +15,7 @@ export class Graph {
   }
   public updateGraph(powerDataList: Array<PowerData>) {
     if (powerDataList !== undefined && powerDataList.length > 0) {
-      this.ui.hideToolTip();
+      this.ui.hideElement(this.ui.toolTip);
     }
     this.g.updateOptions(
       {

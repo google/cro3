@@ -84,14 +84,19 @@ export class Ui {
     this.dutConsole.textContent += s;
     this.dutConsole.scrollTo(0, this.dutConsole.scrollHeight);
   }
-  public hideToolTip() {
-    this.toolTip.classList.add('hidden');
+  public hideElement(element: HTMLElement) {
+    element.classList.add('hidden');
   }
-  public appendItrSelectors(ITERATION_NUM: number) {
+  public showElement(element: HTMLElement) {
+    element.classList.remove('hidden');
+  }
+  public appendItrSelectors(ITERATION_NUM: number, selectedIndex: number) {
     for (let i = 0; i < ITERATION_NUM; i++) {
       const newOption = document.createElement('option');
       newOption.innerText = `${i + 1}`;
       this.itrSelector.add(newOption);
     }
+    this.itrSelector.selectedIndex = selectedIndex;
+    this.showElement(this.itrSelector);
   }
 }

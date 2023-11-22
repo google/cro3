@@ -58,9 +58,7 @@ export class PowerTestController {
       currentItrNum < this.ITERATION_NUM;
       currentItrNum++
     ) {
-      this.ui.currentIteration.innerText = `current iteration: ${
-        currentItrNum + 1
-      }`;
+      this.ui.currentIteration.innerText = `${currentItrNum + 1}`;
       for (let i = 0; i < this.ui.configNum; i++) {
         this.currentConfigNum = i;
         console.log(`start running config${i}`);
@@ -68,8 +66,9 @@ export class PowerTestController {
         await this.configList[i].start();
       }
     }
-    this.ui.appendItrSelectors(this.ITERATION_NUM);
     this.drawTotalHistogram();
+    this.ui.hideElement(this.ui.currentIteration);
+    this.ui.appendItrSelectors(this.ITERATION_NUM, this.ITERATION_NUM - 1);
   }
   public async stopMeasurement() {
     await this.configList[this.currentConfigNum].stop();
@@ -93,6 +92,7 @@ export class PowerTestController {
     this.ui.configNum = jsonData.data.length;
     this.ui.createGraphList();
     this.configList = [];
+    this.ui.appendItrSelectors(this.ITERATION_NUM, 0);
     for (let i = 0; i < jsonData.data.length; i++) {
       const configData = jsonData.data[i];
       const newConfig = new Config(

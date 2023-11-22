@@ -34005,7 +34005,7 @@ class Graph {
     }
     updateGraph(powerDataList) {
         if (powerDataList !== undefined && powerDataList.length > 0) {
-            this.ui.hideToolTip();
+            this.ui.hideElement(this.ui.toolTip);
         }
         this.g.updateOptions({
             file: powerDataList,
@@ -34298,7 +34298,7 @@ class PowerTestController {
         await this.initializePort();
         await this.setConfig();
         for (let currentItrNum = 0; currentItrNum < this.ITERATION_NUM; currentItrNum++) {
-            this.ui.currentIteration.innerText = `current iteration: ${currentItrNum + 1}`;
+            this.ui.currentIteration.innerText = `${currentItrNum + 1}`;
             for (let i = 0; i < this.ui.configNum; i++) {
                 this.currentConfigNum = i;
                 console.log(`start running config${i}`);
@@ -34306,8 +34306,9 @@ class PowerTestController {
                 await this.configList[i].start();
             }
         }
-        this.ui.appendItrSelectors(this.ITERATION_NUM);
         this.drawTotalHistogram();
+        this.ui.hideElement(this.ui.currentIteration);
+        this.ui.appendItrSelectors(this.ITERATION_NUM, this.ITERATION_NUM - 1);
     }
     async stopMeasurement() {
         await this.configList[this.currentConfigNum].stop();
@@ -34331,6 +34332,7 @@ class PowerTestController {
         this.ui.configNum = jsonData.data.length;
         this.ui.createGraphList();
         this.configList = [];
+        this.ui.appendItrSelectors(this.ITERATION_NUM, 0);
         for (let i = 0; i < jsonData.data.length; i++) {
             const configData = jsonData.data[i];
             const newConfig = new config_1.Config(this.ui, this.servoController, this.runner, i, configData.config);
@@ -34757,15 +34759,20 @@ class Ui {
         this.dutConsole.textContent += s;
         this.dutConsole.scrollTo(0, this.dutConsole.scrollHeight);
     }
-    hideToolTip() {
-        this.toolTip.classList.add('hidden');
+    hideElement(element) {
+        element.classList.add('hidden');
     }
-    appendItrSelectors(ITERATION_NUM) {
+    showElement(element) {
+        element.classList.remove('hidden');
+    }
+    appendItrSelectors(ITERATION_NUM, selectedIndex) {
         for (let i = 0; i < ITERATION_NUM; i++) {
             const newOption = document.createElement('option');
             newOption.innerText = `${i + 1}`;
             this.itrSelector.add(newOption);
         }
+        this.itrSelector.selectedIndex = selectedIndex;
+        this.showElement(this.itrSelector);
     }
 }
 exports.Ui = Ui;
