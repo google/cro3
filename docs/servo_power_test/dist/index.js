@@ -34173,14 +34173,18 @@ exports.OperatePort = OperatePort;
 /*!**************************************!*\
   !*** ./src/power_test_controller.ts ***!
   \**************************************/
-/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
+/***/ (function(__unused_webpack_module, exports, __webpack_require__) {
 
 "use strict";
 
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.PowerTestController = void 0;
 const test_runner_1 = __webpack_require__(/*! ./test_runner */ "./src/test_runner.ts");
 const total_histogram_1 = __webpack_require__(/*! ./total_histogram */ "./src/total_histogram.ts");
+const moment_1 = __importDefault(__webpack_require__(/*! moment */ "./node_modules/moment/moment.js"));
 class PowerTestController {
     constructor(ui, servoController, dutController) {
         this.marginTime = 300;
@@ -34201,13 +34205,23 @@ class PowerTestController {
             this.testRunnerList.push(newRunner);
         }
     }
-    async initializePort() {
+    async initialize() {
         await this.servoController.servoShell.open();
         await this.servoController.servoShell.close();
         await this.dutController.dut.open();
         await this.dutController.sendCancel();
         await this.dutController.sendCancel();
         await this.dutController.sendCancel();
+        await this.dutController.dut.write(`mkdir power_${(0, moment_1.default)().format()}\n`);
+        await this.dutController.dut.write(`cd power_${(0, moment_1.default)().format()}\n`);
+        await this.dutController.dut.close();
+    }
+    async finalize() {
+        await this.dutController.dut.open();
+        await this.dutController.sendCancel();
+        await this.dutController.sendCancel();
+        await this.dutController.sendCancel();
+        await this.dutController.dut.write('cd ../\n');
         await this.dutController.dut.close();
     }
     async startMeasurement() {
@@ -34219,7 +34233,7 @@ class PowerTestController {
             return;
         await this.servoController.servoShell.select();
         await this.dutController.dut.select();
-        await this.initializePort();
+        await this.initialize();
         await this.setConfig();
         for (let i = 0; i < this.iterationNumber; i++) {
             this.ui.currentIteration.innerText = `${i + 1}`;
@@ -34233,17 +34247,19 @@ class PowerTestController {
                     return;
             }
         }
+        this.finalize();
         this.drawTotalHistogram();
         this.ui.hideElement(this.ui.currentIteration);
         this.ui.appendIterationSelectors(this.iterationNumber, this.iterationNumber - 1);
     }
     async cancelMeasurement() {
         await this.testRunnerList[this.currentRunnerNumber].cancel();
+        await this.finalize();
     }
     drawTotalHistogram() {
         const histogramData = [];
-        for (const runner of this.testRunnerList) {
-            const extractedData = runner.extractTotalHistogramData(this.marginTime);
+        for (const dutController of this.testRunnerList) {
+            const extractedData = dutController.extractTotalHistogramData(this.marginTime);
             histogramData.push(extractedData);
         }
         this.totalHistogram.paintHistogram(histogramData);
@@ -34279,9 +34295,9 @@ class PowerTestController {
             encodeURIComponent(JSON.stringify({
                 margin: this.marginTime,
                 iterationNumber: this.iterationNumber,
-                data: this.testRunnerList.map(runner => ({
-                    config: runner.configScript,
-                    measuredData: runner.exportIterationDataList(),
+                data: this.testRunnerList.map(dutController => ({
+                    config: dutController.configScript,
+                    measuredData: dutController.exportIterationDataList(),
                 })),
             }));
         return dataStr;

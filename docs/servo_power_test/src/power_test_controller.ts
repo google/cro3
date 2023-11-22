@@ -3,6 +3,7 @@ import {Ui} from './ui';
 import {DutController} from './dut_controller';
 import {TestRunner} from './test_runner';
 import {TotalHistogram} from './total_histogram';
+import moment from 'moment';
 
 export type PowerData = [number, number];
 export type AnnotationDataList = Map<string, number>;
@@ -41,14 +42,23 @@ export class PowerTestController {
       this.testRunnerList.push(newRunner);
     }
   }
-
-  private async initializePort() {
+  private async initialize() {
     await this.servoController.servoShell.open();
     await this.servoController.servoShell.close();
     await this.dutController.dut.open();
     await this.dutController.sendCancel();
     await this.dutController.sendCancel();
     await this.dutController.sendCancel();
+    await this.dutController.dut.write(`mkdir power_${moment().format()}\n`);
+    await this.dutController.dut.write(`cd power_${moment().format()}\n`);
+    await this.dutController.dut.close();
+  }
+  private async finalize() {
+    await this.dutController.dut.open();
+    await this.dutController.sendCancel();
+    await this.dutController.sendCancel();
+    await this.dutController.sendCancel();
+    await this.dutController.dut.write('cd ../\n');
     await this.dutController.dut.close();
   }
   public async startMeasurement() {
@@ -58,7 +68,7 @@ export class PowerTestController {
     if (this.iterationNumber <= 0) return;
     await this.servoController.servoShell.select();
     await this.dutController.dut.select();
-    await this.initializePort();
+    await this.initialize();
     await this.setConfig();
     for (let i = 0; i < this.iterationNumber; i++) {
       this.ui.currentIteration.innerText = `${i + 1}`;
@@ -71,6 +81,7 @@ export class PowerTestController {
         if (this.testRunnerList[j].cancelled) return;
       }
     }
+    this.finalize();
     this.drawTotalHistogram();
     this.ui.hideElement(this.ui.currentIteration);
     this.ui.appendIterationSelectors(
@@ -80,11 +91,14 @@ export class PowerTestController {
   }
   public async cancelMeasurement() {
     await this.testRunnerList[this.currentRunnerNumber].cancel();
+    await this.finalize();
   }
   private drawTotalHistogram() {
     const histogramData = [];
-    for (const runner of this.testRunnerList) {
-      const extractedData = runner.extractTotalHistogramData(this.marginTime);
+    for (const dutController of this.testRunnerList) {
+      const extractedData = dutController.extractTotalHistogramData(
+        this.marginTime
+      );
       histogramData.push(extractedData);
     }
     this.totalHistogram.paintHistogram(histogramData);
@@ -140,9 +154,9 @@ export class PowerTestController {
         JSON.stringify({
           margin: this.marginTime,
           iterationNumber: this.iterationNumber,
-          data: this.testRunnerList.map(runner => ({
-            config: runner.configScript,
-            measuredData: runner.exportIterationDataList(),
+          data: this.testRunnerList.map(dutController => ({
+            config: dutController.configScript,
+            measuredData: dutController.exportIterationDataList(),
           })),
         })
       );
