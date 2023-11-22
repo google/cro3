@@ -34173,18 +34173,14 @@ exports.OperatePort = OperatePort;
 /*!**************************************!*\
   !*** ./src/power_test_controller.ts ***!
   \**************************************/
-/***/ (function(__unused_webpack_module, exports, __webpack_require__) {
+/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
 "use strict";
 
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.PowerTestController = void 0;
 const test_runner_1 = __webpack_require__(/*! ./test_runner */ "./src/test_runner.ts");
 const total_histogram_1 = __webpack_require__(/*! ./total_histogram */ "./src/total_histogram.ts");
-const moment_1 = __importDefault(__webpack_require__(/*! moment */ "./node_modules/moment/moment.js"));
 class PowerTestController {
     constructor(ui, servoController, dutController) {
         this.marginTime = 300;
@@ -34232,8 +34228,6 @@ class PowerTestController {
         await this.dutController.sendCancel();
         await this.dutController.sendCancel();
         await this.dutController.sendCancel();
-        await this.dutController.dut.write(`mkdir power_${(0, moment_1.default)().format()}\n`);
-        await this.dutController.dut.write(`cd power_${(0, moment_1.default)().format()}\n`);
         for (;;) {
             const allDataIsRead = await this.readAllDutBuffer();
             if (allDataIsRead) {
@@ -34248,7 +34242,6 @@ class PowerTestController {
         await this.dutController.sendCancel();
         await this.dutController.sendCancel();
         await this.dutController.sendCancel();
-        await this.dutController.dut.write('cd ../\n');
         await this.dutController.dut.close();
     }
     async startMeasurement() {
