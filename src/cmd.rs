@@ -8,6 +8,7 @@ use anyhow::Result;
 use argh::FromArgs;
 
 pub mod arc;
+pub mod board;
 pub mod build;
 pub mod chroot;
 pub mod cl;
@@ -42,6 +43,7 @@ pub struct TopLevel {
 /// lium's ChromiumOS dev commands
 pub enum Args {
     Arc(arc::Args),
+    Board(board::Args),
     Build(build::Args),
     Cl(cl::Args),
     Chroot(chroot::Args),
@@ -61,6 +63,7 @@ pub enum Args {
 pub fn run(args: &TopLevel) -> Result<()> {
     match &args.nested {
         Args::Arc(args) => arc::run(args),
+        Args::Board(args) => board::run(args),
         Args::Build(args) => build::run(args),
         Args::Cl(args) => cl::run(args),
         Args::Chroot(args) => chroot::run(args),
