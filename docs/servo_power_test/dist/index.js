@@ -33949,7 +33949,9 @@ class Config {
         this.kickWriteLoop();
         this.readLoop();
         const readDutLoopPromise = this.readDutLoop();
-        await this.runner.copyScriptToDut(this.customScript);
+        if (this.currentItrNum === 0) {
+            await this.runner.copyScriptToDut(this.customScript);
+        }
         await this.runner.executeScript();
         await readDutLoopPromise;
     }
@@ -34253,6 +34255,7 @@ const total_histogram_1 = __webpack_require__(/*! ./total_histogram */ "./src/to
 class PowerTestController {
     constructor(ui, servoController, runner) {
         this.marginTime = 300;
+        this.ITERATION_NUM = 2;
         this.totalHistogram = new total_histogram_1.TotalHistogram();
         this.configList = [];
         this.currentConfigNum = 0;
@@ -34286,10 +34289,13 @@ class PowerTestController {
         await this.runner.dut.select();
         await this.initializePort();
         await this.setConfig();
-        for (let i = 0; i < this.ui.configNum; i++) {
-            this.currentConfigNum = i;
-            console.log(`start running config${i}`);
-            await this.configList[i].start();
+        for (let currentItrNum = 0; currentItrNum < this.ITERATION_NUM; currentItrNum++) {
+            for (let i = 0; i < this.ui.configNum; i++) {
+                this.currentConfigNum = i;
+                console.log(`start running config${i}`);
+                this.configList[i].currentItrNum = currentItrNum;
+                await this.configList[i].start();
+            }
         }
         this.drawTotalHistogram();
     }

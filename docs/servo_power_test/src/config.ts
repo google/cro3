@@ -136,7 +136,9 @@ export class Config {
     this.kickWriteLoop();
     this.readLoop();
     const readDutLoopPromise = this.readDutLoop();
-    await this.runner.copyScriptToDut(this.customScript);
+    if (this.currentItrNum === 0) {
+      await this.runner.copyScriptToDut(this.customScript);
+    }
     await this.runner.executeScript();
     await readDutLoopPromise;
   }

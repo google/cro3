@@ -9,6 +9,7 @@ export type AnnotationDataList = Map<string, number>;
 
 export class PowerTestController {
   private marginTime = 300;
+  private ITERATION_NUM = 2;
   private ui: Ui;
   private servoController: ServoController;
   private runner: TestRunner;
@@ -52,10 +53,17 @@ export class PowerTestController {
     await this.runner.dut.select();
     await this.initializePort();
     await this.setConfig();
-    for (let i = 0; i < this.ui.configNum; i++) {
-      this.currentConfigNum = i;
-      console.log(`start running config${i}`);
-      await this.configList[i].start();
+    for (
+      let currentItrNum = 0;
+      currentItrNum < this.ITERATION_NUM;
+      currentItrNum++
+    ) {
+      for (let i = 0; i < this.ui.configNum; i++) {
+        this.currentConfigNum = i;
+        console.log(`start running config${i}`);
+        this.configList[i].currentItrNum = currentItrNum;
+        await this.configList[i].start();
+      }
     }
     this.drawTotalHistogram();
   }
