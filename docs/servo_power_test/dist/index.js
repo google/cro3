@@ -34315,6 +34315,26 @@ class PowerTestController {
             this.configList.push(newConfig);
         }
     }
+    async readAllDutBuffer() {
+        console.log('start reading');
+        const racePromise = Promise.race([
+            this.runner.readData(),
+            new Promise((_, reject) => setTimeout(reject, 1000)),
+        ]);
+        try {
+            await racePromise;
+            // this.runner.readData() is resolved faster
+            // that is, some data is read in 1000ms
+            console.log('data is left');
+            return false;
+        }
+        catch (_a) {
+            // setTimeOut() is resolved faster
+            // that is, no data is read in 1000ms
+            console.log('all data is read');
+            return true;
+        }
+    }
     async initialize() {
         await this.servoController.servoShell.open();
         await this.servoController.servoShell.close();
@@ -34324,6 +34344,13 @@ class PowerTestController {
         await this.runner.sendCancel();
         await this.runner.dut.write(`mkdir power_${(0, moment_1.default)().format()}\n`);
         await this.runner.dut.write(`cd power_${(0, moment_1.default)().format()}\n`);
+        for (;;) {
+            const allDataIsRead = await this.readAllDutBuffer();
+            if (allDataIsRead) {
+                // all data is read from DUT
+                break;
+            }
+        }
         await this.runner.dut.close();
     }
     async finalize() {
@@ -34546,7 +34573,7 @@ function workload () {
 }
 sleep 3
 echo "start"
-workload 1> ./test_out.log 2> ./test_err.log
+workload 1>> ./test_out.log 2>> ./test_err.log
 echo "end"
 sleep 3
 echo "stop"\n`;
