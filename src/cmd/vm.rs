@@ -166,7 +166,7 @@ pub struct ArgsStart {
     repo: Option<String>,
 
     /// the BOARD to run (e.g. betty-pi-arc)
-    #[argh(option, short = 'b')]
+    #[argh(option)]
     board: String,
 
     /// reuse the VM image. It is true by default.
@@ -189,7 +189,7 @@ pub struct ArgsStart {
 
     /// the android version to push. This is passed to push_to_device.py. e.g.
     /// cheets_x86/userdebug/123456
-    #[argh(option, short = 'a')]
+    #[argh(option)]
     android_build: Option<String>,
 
     /// extra arguments to pass to betty.sh. You can pass other options like
@@ -238,7 +238,7 @@ pub struct ArgsPush {
 
     /// the android version to push. This is passed to push_to_device.py. e.g.
     /// cheets_x86/userdebug/123456
-    #[argh(option, short = 'a')]
+    #[argh(option)]
     android_build: String,
 
     /// extra arguments to pass to betty.sh. You can pass other options like
