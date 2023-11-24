@@ -250,21 +250,17 @@ fn run_push(args: &ArgsPush) -> Result<()> {
     run_betty(&dir, "push", &arg)
 }
 
-fn find_betty_script(s: &Option<String>) -> Result<String> {
-    let path = prepare_path(s)?;
+fn find_betty_script(arc: &Option<String>) -> Result<String> {
+    let path = match arc {
+        Some(p) => p.to_string(),
+        None => env::current_dir()?.to_string_lossy().to_string(),
+    };
 
     if Path::new(&format!("{}/betty.sh", path)).exists() {
         return Ok(path);
     }
 
     bail!("betty.sh doesn't exist in {path}. Please consider specifying --repo option.")
-}
-
-fn prepare_path(path: &Option<String>) -> Result<String> {
-    match path {
-        Some(p) => Ok(p.to_string()),
-        None => Ok(env::current_dir()?.to_string_lossy().to_string()),
-    }
 }
 
 fn run_betty(dir: &str, subcommand: &str, options: &str) -> Result<()> {
