@@ -65,7 +65,7 @@ export class Config {
   private iterationDataList: Array<IterationData> = [];
   private graph: Graph;
   public customScript: string;
-  public currentItrNum = 0;
+  public currentIterationNumber = 0;
   constructor(
     ui: Ui,
     servoController: ServoController,
@@ -121,8 +121,8 @@ export class Config {
       if (currentPowerData === undefined) continue;
       this.ui.setSerialOutput(currentPowerData.originalData);
       const e: PowerData = [new Date().getTime(), currentPowerData.power];
-      this.iterationDataList[this.currentItrNum].appendPowerData(e);
-      this.iterationDataList[this.currentItrNum].updateGraph();
+      this.iterationDataList[this.currentIterationNumber].appendPowerData(e);
+      this.iterationDataList[this.currentIterationNumber].updateGraph();
     }
   }
   private async readDutLoop() {
@@ -130,9 +130,13 @@ export class Config {
       const dutData = await this.runner.readData();
       try {
         if (dutData.includes('start')) {
-          this.iterationDataList[this.currentItrNum].addAnnotation('start');
+          this.iterationDataList[this.currentIterationNumber].addAnnotation(
+            'start'
+          );
         } else if (dutData.includes('end')) {
-          this.iterationDataList[this.currentItrNum].addAnnotation('end');
+          this.iterationDataList[this.currentIterationNumber].addAnnotation(
+            'end'
+          );
         } else if (dutData.includes('stop')) {
           await this.stop();
         }
@@ -154,7 +158,7 @@ export class Config {
     this.kickWriteLoop();
     this.readLoop();
     const readDutLoopPromise = this.readDutLoop();
-    if (this.currentItrNum === 0) {
+    if (this.currentIterationNumber === 0) {
       await this.runner.copyScriptToDut(this.customScript);
     }
     await this.runner.executeScript();
@@ -177,8 +181,8 @@ export class Config {
     }
     return extractedData;
   }
-  public loadGraph(selectedItr: number) {
-    this.iterationDataList[selectedItr].updateGraph();
-    this.iterationDataList[selectedItr].findAnnotation();
+  public loadGraph(selectedIteration: number) {
+    this.iterationDataList[selectedIteration].updateGraph();
+    this.iterationDataList[selectedIteration].findAnnotation();
   }
 }

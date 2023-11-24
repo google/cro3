@@ -15,7 +15,7 @@ export class PowerTestController {
   private totalHistogram = new TotalHistogram();
   private configList: Array<Config> = [];
   private currentConfigNum = 0;
-  private itrNum = 2;
+  private iterationNumber = 2;
   public isMeasuring = false;
   constructor(ui: Ui, servoController: ServoController, runner: TestRunner) {
     this.ui = ui;
@@ -49,24 +49,24 @@ export class PowerTestController {
   public async startMeasurement() {
     if (this.ui.configNum === 0) return;
     this.marginTime = Number(this.ui.marginTimeInput.value);
-    this.itrNum = parseInt(this.ui.itrInput.value);
-    if (this.itrNum <= 0) return;
+    this.iterationNumber = parseInt(this.ui.iterationInput.value);
+    if (this.iterationNumber <= 0) return;
     await this.servoController.servoShell.select();
     await this.runner.dut.select();
     await this.initializePort();
     await this.setConfig();
-    for (let currentItrNum = 0; currentItrNum < this.itrNum; currentItrNum++) {
-      this.ui.currentIteration.innerText = `${currentItrNum + 1}`;
-      for (let i = 0; i < this.ui.configNum; i++) {
-        this.currentConfigNum = i;
-        console.log(`start running config${i}`);
-        this.configList[i].currentItrNum = currentItrNum;
-        await this.configList[i].start();
+    for (let i = 0; i < this.iterationNumber; i++) {
+      this.ui.currentIteration.innerText = `${i + 1}`;
+      for (let j = 0; j < this.ui.configNum; j++) {
+        this.currentConfigNum = j;
+        console.log(`start running config${j}`);
+        this.configList[j].currentIterationNumber = i;
+        await this.configList[j].start();
       }
     }
     this.drawTotalHistogram();
     this.ui.hideElement(this.ui.currentIteration);
-    this.ui.appendItrSelectors(this.itrNum, this.itrNum - 1);
+    this.ui.appendItrSelectors(this.iterationNumber, this.iterationNumber - 1);
   }
   public async stopMeasurement() {
     await this.configList[this.currentConfigNum].stop();
@@ -79,9 +79,9 @@ export class PowerTestController {
     }
     this.totalHistogram.paintHistogram(histogramData);
   }
-  public showSelectedItrGraph(selectedItr: number) {
+  public showSelectedItrGraph(selectedIteration: number) {
     for (let i = 0; i < this.ui.configNum; i++) {
-      this.configList[i].loadGraph(selectedItr);
+      this.configList[i].loadGraph(selectedIteration);
     }
   }
   public loadPowerData(s: string) {
@@ -90,7 +90,7 @@ export class PowerTestController {
     this.ui.configNum = jsonData.data.length;
     this.ui.createGraphList();
     this.configList = [];
-    this.ui.appendItrSelectors(this.itrNum, 0);
+    this.ui.appendItrSelectors(this.iterationNumber, 0);
     for (let i = 0; i < jsonData.data.length; i++) {
       const configData = jsonData.data[i];
       const newConfig = new Config(
@@ -101,14 +101,16 @@ export class PowerTestController {
         configData.config
       );
       configData.measuredData.map(
-        (itrData: {
+        (iterationData: {
           power: Array<{time: number; power: number}>;
           annotation: AnnotationDataList;
         }) => {
-          const newPowerDataList = itrData.power.map(
+          const newPowerDataList = iterationData.power.map(
             (d: {time: number; power: number}) => [d.time, d.power] as PowerData
           );
-          const newAnnotationList = new Map(Object.entries(itrData.annotation));
+          const newAnnotationList = new Map(
+            Object.entries(iterationData.annotation)
+          );
           newConfig.appendIterationDataList(
             newPowerDataList,
             newAnnotationList
@@ -127,7 +129,7 @@ export class PowerTestController {
       encodeURIComponent(
         JSON.stringify({
           margin: this.marginTime,
-          iterationNum: this.itrNum,
+          iterationNum: this.iterationNumber,
           data: this.configList.map(config => ({
             config: config.customScript,
             measuredData: config.exportIterationDataList(),

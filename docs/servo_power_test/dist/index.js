@@ -33897,7 +33897,7 @@ class Config {
         this.halt = true;
         this.inProgress = false;
         this.iterationDataList = [];
-        this.currentItrNum = 0;
+        this.currentIterationNumber = 0;
         this.ui = ui;
         this.graph = new graph_1.Graph(ui, document.getElementById(`graph${configNum}`));
         this.servoController = servoController;
@@ -33938,8 +33938,8 @@ class Config {
                 continue;
             this.ui.setSerialOutput(currentPowerData.originalData);
             const e = [new Date().getTime(), currentPowerData.power];
-            this.iterationDataList[this.currentItrNum].appendPowerData(e);
-            this.iterationDataList[this.currentItrNum].updateGraph();
+            this.iterationDataList[this.currentIterationNumber].appendPowerData(e);
+            this.iterationDataList[this.currentIterationNumber].updateGraph();
         }
     }
     async readDutLoop() {
@@ -33947,10 +33947,10 @@ class Config {
             const dutData = await this.runner.readData();
             try {
                 if (dutData.includes('start')) {
-                    this.iterationDataList[this.currentItrNum].addAnnotation('start');
+                    this.iterationDataList[this.currentIterationNumber].addAnnotation('start');
                 }
                 else if (dutData.includes('end')) {
-                    this.iterationDataList[this.currentItrNum].addAnnotation('end');
+                    this.iterationDataList[this.currentIterationNumber].addAnnotation('end');
                 }
                 else if (dutData.includes('stop')) {
                     await this.stop();
@@ -33973,7 +33973,7 @@ class Config {
         this.kickWriteLoop();
         this.readLoop();
         const readDutLoopPromise = this.readDutLoop();
-        if (this.currentItrNum === 0) {
+        if (this.currentIterationNumber === 0) {
             await this.runner.copyScriptToDut(this.customScript);
         }
         await this.runner.executeScript();
@@ -33994,9 +33994,9 @@ class Config {
         }
         return extractedData;
     }
-    loadGraph(selectedItr) {
-        this.iterationDataList[selectedItr].updateGraph();
-        this.iterationDataList[selectedItr].findAnnotation();
+    loadGraph(selectedIteration) {
+        this.iterationDataList[selectedIteration].updateGraph();
+        this.iterationDataList[selectedIteration].findAnnotation();
     }
 }
 exports.Config = Config;
@@ -34133,9 +34133,9 @@ window.addEventListener('DOMContentLoaded', () => {
     ui.haltButton.addEventListener('click', () => {
         testController.stopMeasurement();
     });
-    ui.itrSelector.addEventListener('change', () => {
-        const selectedItr = ui.itrSelector.selectedIndex;
-        testController.showSelectedItrGraph(selectedItr);
+    ui.iterationSelector.addEventListener('change', () => {
+        const selectedIteration = ui.iterationSelector.selectedIndex;
+        testController.showSelectedItrGraph(selectedIteration);
     });
     ui.dropZone.addEventListener('dragover', e => {
         e.stopPropagation();
@@ -34290,7 +34290,7 @@ class PowerTestController {
         this.totalHistogram = new total_histogram_1.TotalHistogram();
         this.configList = [];
         this.currentConfigNum = 0;
-        this.itrNum = 2;
+        this.iterationNumber = 2;
         this.isMeasuring = false;
         this.ui = ui;
         this.servoController = servoController;
@@ -34317,25 +34317,25 @@ class PowerTestController {
         if (this.ui.configNum === 0)
             return;
         this.marginTime = Number(this.ui.marginTimeInput.value);
-        this.itrNum = parseInt(this.ui.itrInput.value);
-        if (this.itrNum <= 0)
+        this.iterationNumber = parseInt(this.ui.iterationInput.value);
+        if (this.iterationNumber <= 0)
             return;
         await this.servoController.servoShell.select();
         await this.runner.dut.select();
         await this.initializePort();
         await this.setConfig();
-        for (let currentItrNum = 0; currentItrNum < this.itrNum; currentItrNum++) {
-            this.ui.currentIteration.innerText = `${currentItrNum + 1}`;
-            for (let i = 0; i < this.ui.configNum; i++) {
-                this.currentConfigNum = i;
-                console.log(`start running config${i}`);
-                this.configList[i].currentItrNum = currentItrNum;
-                await this.configList[i].start();
+        for (let i = 0; i < this.iterationNumber; i++) {
+            this.ui.currentIteration.innerText = `${i + 1}`;
+            for (let j = 0; j < this.ui.configNum; j++) {
+                this.currentConfigNum = j;
+                console.log(`start running config${j}`);
+                this.configList[j].currentIterationNumber = i;
+                await this.configList[j].start();
             }
         }
         this.drawTotalHistogram();
         this.ui.hideElement(this.ui.currentIteration);
-        this.ui.appendItrSelectors(this.itrNum, this.itrNum - 1);
+        this.ui.appendItrSelectors(this.iterationNumber, this.iterationNumber - 1);
     }
     async stopMeasurement() {
         await this.configList[this.currentConfigNum].stop();
@@ -34348,9 +34348,9 @@ class PowerTestController {
         }
         this.totalHistogram.paintHistogram(histogramData);
     }
-    showSelectedItrGraph(selectedItr) {
+    showSelectedItrGraph(selectedIteration) {
         for (let i = 0; i < this.ui.configNum; i++) {
-            this.configList[i].loadGraph(selectedItr);
+            this.configList[i].loadGraph(selectedIteration);
         }
     }
     loadPowerData(s) {
@@ -34359,13 +34359,13 @@ class PowerTestController {
         this.ui.configNum = jsonData.data.length;
         this.ui.createGraphList();
         this.configList = [];
-        this.ui.appendItrSelectors(this.itrNum, 0);
+        this.ui.appendItrSelectors(this.iterationNumber, 0);
         for (let i = 0; i < jsonData.data.length; i++) {
             const configData = jsonData.data[i];
             const newConfig = new config_1.Config(this.ui, this.servoController, this.runner, i, configData.config);
-            configData.measuredData.map((itrData) => {
-                const newPowerDataList = itrData.power.map((d) => [d.time, d.power]);
-                const newAnnotationList = new Map(Object.entries(itrData.annotation));
+            configData.measuredData.map((iterationData) => {
+                const newPowerDataList = iterationData.power.map((d) => [d.time, d.power]);
+                const newAnnotationList = new Map(Object.entries(iterationData.annotation));
                 newConfig.appendIterationDataList(newPowerDataList, newAnnotationList);
             });
             newConfig.loadGraph(0);
@@ -34378,7 +34378,7 @@ class PowerTestController {
         const dataStr = 'data:text/json;charset=utf-8,' +
             encodeURIComponent(JSON.stringify({
                 margin: this.marginTime,
-                iterationNum: this.itrNum,
+                iterationNum: this.iterationNumber,
                 data: this.configList.map(config => ({
                     config: config.customScript,
                     measuredData: config.exportIterationDataList(),
@@ -34736,8 +34736,8 @@ class Ui {
         this.toolTip = document.getElementById('tooltip');
         this.currentIteration = document.getElementById('current-iteration');
         this.marginTimeInput = document.getElementById('margin-time-input');
-        this.itrInput = document.getElementById('iteration-input');
-        this.itrSelector = document.getElementById('iteration-selector');
+        this.iterationInput = document.getElementById('iteration-input');
+        this.iterationSelector = document.getElementById('iteration-selector');
         this.configNum = 0;
         this.graphList = document.getElementById('graph-list');
     }
@@ -34790,14 +34790,14 @@ class Ui {
     showElement(element) {
         element.classList.remove('hidden');
     }
-    appendItrSelectors(itrNum, selectedIndex) {
-        for (let i = 0; i < itrNum; i++) {
+    appendItrSelectors(iterationNumber, selectedIndex) {
+        for (let i = 0; i < iterationNumber; i++) {
             const newOption = document.createElement('option');
             newOption.innerText = `${i + 1}`;
-            this.itrSelector.add(newOption);
+            this.iterationSelector.add(newOption);
         }
-        this.itrSelector.selectedIndex = selectedIndex;
-        this.showElement(this.itrSelector);
+        this.iterationSelector.selectedIndex = selectedIndex;
+        this.showElement(this.iterationSelector);
     }
 }
 exports.Ui = Ui;

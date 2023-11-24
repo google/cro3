@@ -29,10 +29,10 @@ export class Ui {
   public marginTimeInput = document.getElementById(
     'margin-time-input'
   ) as HTMLInputElement;
-  public itrInput = document.getElementById(
+  public iterationInput = document.getElementById(
     'iteration-input'
   ) as HTMLInputElement;
-  public itrSelector = document.getElementById(
+  public iterationSelector = document.getElementById(
     'iteration-selector'
   ) as HTMLSelectElement;
   public configNum = 0;
@@ -93,13 +93,13 @@ export class Ui {
   public showElement(element: HTMLElement) {
     element.classList.remove('hidden');
   }
-  public appendItrSelectors(itrNum: number, selectedIndex: number) {
-    for (let i = 0; i < itrNum; i++) {
+  public appendItrSelectors(iterationNumber: number, selectedIndex: number) {
+    for (let i = 0; i < iterationNumber; i++) {
       const newOption = document.createElement('option');
       newOption.innerText = `${i + 1}`;
-      this.itrSelector.add(newOption);
+      this.iterationSelector.add(newOption);
     }
-    this.itrSelector.selectedIndex = selectedIndex;
-    this.showElement(this.itrSelector);
+    this.iterationSelector.selectedIndex = selectedIndex;
+    this.showElement(this.iterationSelector);
   }
 }
