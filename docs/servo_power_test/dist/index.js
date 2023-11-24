@@ -33880,6 +33880,34 @@ class DutController {
         const chunk = await this.dut.read();
         return chunk;
     }
+    async checkDutBuffer() {
+        const racePromise = Promise.race([
+            this.readData(),
+            new Promise((_, reject) => setTimeout(reject, 1000)),
+        ]);
+        try {
+            await racePromise;
+            // this.runner.readData() is resolved faster
+            // that is, some data is read in 1000ms
+            return false;
+        }
+        catch (_a) {
+            // setTimeOut() is resolved faster
+            // that is, no data is read in 1000ms
+            await this.dut.readCancel();
+            console.log('read all data');
+            return true;
+        }
+    }
+    async readAllDutBuffer() {
+        for (;;) {
+            const allDataIsRead = await this.checkDutBuffer();
+            if (allDataIsRead) {
+                // all data is read from DUT
+                break;
+            }
+        }
+    }
     async runWorkload(customScript) {
         const script = `\nfunction workload () {
   ${customScript}
@@ -34106,15 +34134,18 @@ class OperatePort {
             return;
         await this.port.open({ baudRate: 115200 });
     }
-    async close() {
-        if (this.port === undefined)
-            return;
+    async readCancel() {
         await this.reader
             .cancel()
             .then(() => {
             this.reader.releaseLock();
         })
             .catch(() => { }); // when the reader stream is already locked, do nothing.
+    }
+    async close() {
+        if (this.port === undefined)
+            return;
+        await this.readCancel();
         await this.port.close();
     }
     async read() {

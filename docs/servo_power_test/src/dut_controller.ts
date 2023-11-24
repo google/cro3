@@ -28,6 +28,33 @@ export class DutController {
     const chunk = await this.dut.read();
     return chunk;
   }
+  private async checkDutBuffer() {
+    const racePromise = Promise.race([
+      this.readData(),
+      new Promise((_, reject) => setTimeout(reject, 1000)),
+    ]);
+    try {
+      await racePromise;
+      // this.runner.readData() is resolved faster
+      // that is, some data is read in 1000ms
+      return false;
+    } catch {
+      // setTimeOut() is resolved faster
+      // that is, no data is read in 1000ms
+      await this.dut.readCancel();
+      console.log('read all data');
+      return true;
+    }
+  }
+  public async readAllDutBuffer() {
+    for (;;) {
+      const allDataIsRead = await this.checkDutBuffer();
+      if (allDataIsRead) {
+        // all data is read from DUT
+        break;
+      }
+    }
+  }
   public async runWorkload(customScript: string) {
     const script = `\nfunction workload () {
   ${customScript}
