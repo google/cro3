@@ -1,7 +1,7 @@
 import {ServoController} from './servo_controller';
 import {Ui} from './ui';
 import {TestRunner} from './test_runner';
-import {Config, IterationData} from './config';
+import {Config} from './config';
 import {TotalHistogram} from './total_histogram';
 
 export type PowerData = [number, number];
@@ -110,7 +110,8 @@ export class PowerTestController {
           );
           const newAnnotationList = new Map(Object.entries(itrData.annotation));
           newConfig.appendIterationDataList(
-            new IterationData(newPowerDataList, newAnnotationList)
+            newPowerDataList,
+            newAnnotationList
           );
         }
       );

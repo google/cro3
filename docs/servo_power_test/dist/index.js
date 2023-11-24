@@ -33853,9 +33853,31 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.Config = exports.IterationData = void 0;
 const graph_1 = __webpack_require__(/*! ./graph */ "./src/graph.ts");
 class IterationData {
-    constructor(powerDataList, annotationList) {
+    constructor(powerDataList, annotationList, graph) {
         this.powerDataList = powerDataList;
         this.annotationList = annotationList;
+        this.graph = graph;
+    }
+    appendPowerData(powerData) {
+        this.powerDataList.push(powerData);
+    }
+    updateGraph() {
+        this.graph.updateGraph(this.powerDataList);
+    }
+    addAnnotation(label) {
+        this.annotationList.set(label, new Date().getTime());
+        this.graph.addAnnotation(this.powerDataList[this.powerDataList.length - 1][0], label);
+    }
+    findAnnotation() {
+        this.graph.findAnnotationPoint(this.powerDataList, this.annotationList);
+    }
+    exportData() {
+        return {
+            power: this.powerDataList.map(d => {
+                return { time: d[0], power: d[1] };
+            }),
+            annotation: Object.fromEntries(this.annotationList),
+        };
     }
     extractData(marginTime) {
         const extractedData = [];
@@ -33882,18 +33904,11 @@ class Config {
         this.runner = runner;
         this.customScript = customScript;
     }
-    appendIterationDataList(newIterationData) {
-        this.iterationDataList.push(newIterationData);
+    appendIterationDataList(newPowerDataList, newAnnotationList) {
+        this.iterationDataList.push(new IterationData(newPowerDataList, newAnnotationList, this.graph));
     }
     exportIterationDataList() {
-        return this.iterationDataList.map(iterationData => {
-            return {
-                power: iterationData.powerDataList.map(d => {
-                    return { time: d[0], power: d[1] };
-                }),
-                annotation: Object.fromEntries(iterationData.annotationList),
-            };
-        });
+        return this.iterationDataList.map(iterationData => iterationData.exportData());
     }
     changeHaltFlag(flag) {
         this.halt = flag;
@@ -33923,8 +33938,8 @@ class Config {
                 continue;
             this.ui.setSerialOutput(currentPowerData.originalData);
             const e = [new Date().getTime(), currentPowerData.power];
-            this.iterationDataList[this.currentItrNum].powerDataList.push(e);
-            this.graph.updateGraph(this.iterationDataList[this.currentItrNum].powerDataList);
+            this.iterationDataList[this.currentItrNum].appendPowerData(e);
+            this.iterationDataList[this.currentItrNum].updateGraph();
         }
     }
     async readDutLoop() {
@@ -33932,14 +33947,10 @@ class Config {
             const dutData = await this.runner.readData();
             try {
                 if (dutData.includes('start')) {
-                    this.iterationDataList[this.currentItrNum].annotationList.set('start', new Date().getTime());
-                    this.graph.addAnnotation(this.iterationDataList[this.currentItrNum].powerDataList[this.iterationDataList[this.currentItrNum].powerDataList.length -
-                        1][0], 'start');
+                    this.iterationDataList[this.currentItrNum].addAnnotation('start');
                 }
                 else if (dutData.includes('end')) {
-                    this.iterationDataList[this.currentItrNum].annotationList.set('end', new Date().getTime());
-                    this.graph.addAnnotation(this.iterationDataList[this.currentItrNum].powerDataList[this.iterationDataList[this.currentItrNum].powerDataList.length -
-                        1][0], 'end');
+                    this.iterationDataList[this.currentItrNum].addAnnotation('end');
                 }
                 else if (dutData.includes('stop')) {
                     await this.stop();
@@ -33955,7 +33966,7 @@ class Config {
         }
     }
     async start() {
-        this.iterationDataList.push(new IterationData([], new Map()));
+        this.iterationDataList.push(new IterationData([], new Map(), this.graph));
         await this.runner.openDutPort();
         await this.servoController.openServoPort();
         await this.changeHaltFlag(false);
@@ -33984,8 +33995,8 @@ class Config {
         return extractedData;
     }
     loadGraph(selectedItr) {
-        this.graph.updateGraph(this.iterationDataList[selectedItr].powerDataList);
-        this.graph.findAnnotationPoint(this.iterationDataList[selectedItr].powerDataList, this.iterationDataList[selectedItr].annotationList);
+        this.iterationDataList[selectedItr].updateGraph();
+        this.iterationDataList[selectedItr].findAnnotation();
     }
 }
 exports.Config = Config;
@@ -34355,7 +34366,7 @@ class PowerTestController {
             configData.measuredData.map((itrData) => {
                 const newPowerDataList = itrData.power.map((d) => [d.time, d.power]);
                 const newAnnotationList = new Map(Object.entries(itrData.annotation));
-                newConfig.appendIterationDataList(new config_1.IterationData(newPowerDataList, newAnnotationList));
+                newConfig.appendIterationDataList(newPowerDataList, newAnnotationList);
             });
             newConfig.loadGraph(0);
             this.ui.loadConfigInputArea(configData.config);
