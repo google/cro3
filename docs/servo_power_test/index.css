@@ -238,3 +238,12 @@ body {
   left: 0;
   right: 0;
 }
+
+#total-histogram {
+  display: flex;
+  justify-content: center;
+}
+
+#margin-time-input {
+  width: 3em;
+}

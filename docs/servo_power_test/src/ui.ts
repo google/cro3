@@ -24,6 +24,9 @@ export class Ui {
   ) as HTMLAnchorElement;
   public toolTip = document.getElementById('tooltip') as HTMLDivElement;
   private graphList = document.getElementById('graph-list') as HTMLUListElement;
+  public marginTimeInput = document.getElementById(
+    'margin-time-input'
+  ) as HTMLInputElement;
   public configNum = 0;
 
   public enabledRecordingButton(halt: boolean) {

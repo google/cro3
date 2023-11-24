@@ -2,14 +2,17 @@ import {ServoController} from './servo_controller';
 import {Ui} from './ui';
 import {TestRunner} from './test_runner';
 import {Config} from './config';
+import {TotalHistogram} from './total_histogram';
 
 export type PowerData = [number, number];
 export type AnnotationDataList = Map<string, number>;
 
 export class PowerTestController {
+  private marginTime = 300;
   private ui: Ui;
   private servoController: ServoController;
   private runner: TestRunner;
+  private totalHistogram = new TotalHistogram();
   private configList: Array<Config> = [];
   private currentConfigNum = 0;
   public isMeasuring = false;
@@ -44,6 +47,7 @@ export class PowerTestController {
   }
   public async startMeasurement() {
     if (this.ui.configNum === 0) return;
+    this.marginTime = Number(this.ui.marginTimeInput.value);
     await this.servoController.servoShell.select();
     await this.runner.dut.select();
     await this.initializePort();
@@ -53,17 +57,36 @@ export class PowerTestController {
       console.log(`start running config${i}`);
       await this.configList[i].start();
     }
+    this.drawTotalHistogram();
   }
   public async stopMeasurement() {
     await this.configList[this.currentConfigNum].stop();
   }
+  private drawTotalHistogram() {
+    const histogramData = [];
+    for (const config of this.configList) {
+      const annotations = config.annotationList;
+      const extractedData = [];
+      for (const powerData of config.powerDataList) {
+        if (
+          annotations.get('start')! + this.marginTime <= powerData[0] &&
+          powerData[0] <= annotations.get('end')! - this.marginTime
+        ) {
+          extractedData.push(powerData[1]);
+        }
+      }
+      histogramData.push(extractedData);
+    }
+    this.totalHistogram.paintHistogram(histogramData);
+  }
   public loadPowerData(s: string) {
-    const data = JSON.parse(s);
-    this.ui.configNum = data.length;
+    const jsonData = JSON.parse(s);
+    this.marginTime = jsonData.margin;
+    this.ui.configNum = jsonData.data.length;
     this.ui.createGraphList();
     this.configList = [];
-    for (let i = 0; i < data.length; i++) {
-      const configData = data[i];
+    for (let i = 0; i < jsonData.data.length; i++) {
+      const configData = jsonData.data[i];
       const newConfig = new Config(
         this.ui,
         this.servoController,
@@ -83,20 +106,22 @@ export class PowerTestController {
       this.ui.loadConfigInputArea(configData.config);
       this.configList.push(newConfig);
     }
+    this.drawTotalHistogram();
   }
   public exportPowerData() {
     const dataStr =
       'data:text/json;charset=utf-8,' +
       encodeURIComponent(
-        JSON.stringify(
-          this.configList.map(e => ({
+        JSON.stringify({
+          margin: this.marginTime,
+          data: this.configList.map(e => ({
             config: e.customScript,
             power: e.powerDataList.map(d => {
               return {time: d[0], power: d[1]};
             }),
             annotation: Object.fromEntries(e.annotationList),
-          }))
-        )
+          })),
+        })
       );
     return dataStr;
   }
