@@ -52,7 +52,7 @@ pub struct ArgsSetup {
     /// path to dir where betty.sh exists. If omitted, current directory will be
     /// used.
     #[argh(option)]
-    repo: Option<String>,
+    arc: Option<String>,
 
     /// extra arguments to pass to betty.sh. You can pass other options like
     /// --extra-args "options".
@@ -61,7 +61,7 @@ pub struct ArgsSetup {
 }
 
 fn run_setup(args: &ArgsSetup) -> Result<()> {
-    let dir = find_betty_script(&args.repo)?;
+    let dir = find_betty_script(&args.arc)?;
 
     println!("Updating packages...");
     let update_package = Command::new("sudo")
@@ -163,7 +163,7 @@ pub struct ArgsStart {
     /// path to dir where betty.sh exists. If omitted, current directory will be
     /// used.
     #[argh(option)]
-    repo: Option<String>,
+    arc: Option<String>,
 
     /// the BOARD to run (e.g. betty-pi-arc)
     #[argh(option)]
@@ -191,7 +191,7 @@ pub struct ArgsStart {
 }
 
 fn run_start(args: &ArgsStart) -> Result<()> {
-    let dir = find_betty_script(&args.repo)?;
+    let dir = find_betty_script(&args.arc)?;
 
     let mut options = Vec::new();
     options.append(&mut vec!["--board", &args.board]);
@@ -224,7 +224,7 @@ pub struct ArgsPush {
     /// path to dir where betty.sh exists. If omitted, current directory will be
     /// used.
     #[argh(option)]
-    repo: Option<String>,
+    arc: Option<String>,
 
     /// the android version to push. This is passed to push_to_device.py. e.g.
     /// cheets_x86/userdebug/123456
@@ -238,7 +238,7 @@ pub struct ArgsPush {
 }
 
 fn run_push(args: &ArgsPush) -> Result<()> {
-    let dir = find_betty_script(&args.repo)?;
+    let dir = find_betty_script(&args.arc)?;
 
     let mut options = vec!["android_build", &args.android_build];
     if let Some(extra_args) = &args.extra_args {
