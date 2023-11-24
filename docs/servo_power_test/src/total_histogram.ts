@@ -2,14 +2,14 @@ import * as d3 from 'd3';
 
 export class TotalHistogram {
   private colorPalette = [
-    'rgba(66, 133, 244, 1)', // #4285f4
-    'rgba(234, 67, 53, 1)', // #ea4335
-    'rgba(251, 188, 4, 1)', // #fbbc04
-    'rgba(52, 168, 83, 1)', // #34a853
-    'rgba(250, 123, 23, 1)', // #fa7b17
-    'rgba(245, 56, 160, 1)', // #f538a0
-    'rgba(161, 66, 244, 1)', // #a142f4
-    'rgba(36, 193, 224, 1)', // #24c1e0
+    '#4285f4',
+    '#ea4335',
+    '#fbbc04',
+    '#34a853',
+    '#fa7b17',
+    '#f538a0',
+    '#a142f4',
+    '#24c1e0',
   ];
   public paintHistogram(totalPowerDataList: Array<Array<number>>) {
     // Declare the chart dimensions and margins.
