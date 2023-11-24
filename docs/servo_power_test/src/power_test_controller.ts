@@ -37,25 +37,7 @@ export class PowerTestController {
       this.configList.push(newConfig);
     }
   }
-  private async readAllDutBuffer() {
-    console.log('start reading');
-    const racePromise = Promise.race([
-      this.runner.readData(),
-      new Promise((_, reject) => setTimeout(reject, 1000)),
-    ]);
-    try {
-      await racePromise;
-      // this.runner.readData() is resolved faster
-      // that is, some data is read in 1000ms
-      console.log('data is left');
-      return false;
-    } catch {
-      // setTimeOut() is resolved faster
-      // that is, no data is read in 1000ms
-      console.log('all data is read');
-      return true;
-    }
-  }
+
   private async initialize() {
     await this.servoController.servoShell.open();
     await this.servoController.servoShell.close();
@@ -63,13 +45,6 @@ export class PowerTestController {
     await this.runner.sendCancel();
     await this.runner.sendCancel();
     await this.runner.sendCancel();
-    for (;;) {
-      const allDataIsRead = await this.readAllDutBuffer();
-      if (allDataIsRead) {
-        // all data is read from DUT
-        break;
-      }
-    }
     await this.runner.dut.close();
   }
   private async finalize() {

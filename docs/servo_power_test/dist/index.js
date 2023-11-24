@@ -33969,7 +33969,7 @@ class Config {
                 throw e;
             }
             finally {
-                await this.ui.addMessageToConsole(dutData);
+                this.ui.addMessageToConsole(dutData);
             }
         }
     }
@@ -33977,7 +33977,7 @@ class Config {
         this.currentIteration = new IterationData([], new Map(), this.graph);
         await this.runner.openDutPort();
         await this.servoController.openServoPort();
-        await this.changeHaltFlag(false);
+        this.changeHaltFlag(false);
         this.kickWriteLoop();
         this.readLoop();
         const readDutLoopPromise = this.readDutLoop();
@@ -34216,15 +34216,18 @@ class OperatePort {
             return;
         await this.port.open({ baudRate: 115200 });
     }
-    async close() {
-        if (this.port === undefined)
-            return;
+    async readCancel() {
         await this.reader
             .cancel()
-            .then(async () => {
+            .then(() => {
             this.reader.releaseLock();
         })
             .catch(() => { }); // when the reader stream is already locked, do nothing.
+    }
+    async close() {
+        if (this.port === undefined)
+            return;
+        await this.readCancel();
         await this.port.close();
     }
     async read() {
@@ -34311,26 +34314,6 @@ class PowerTestController {
             this.configList.push(newConfig);
         }
     }
-    async readAllDutBuffer() {
-        console.log('start reading');
-        const racePromise = Promise.race([
-            this.runner.readData(),
-            new Promise((_, reject) => setTimeout(reject, 1000)),
-        ]);
-        try {
-            await racePromise;
-            // this.runner.readData() is resolved faster
-            // that is, some data is read in 1000ms
-            console.log('data is left');
-            return false;
-        }
-        catch (_a) {
-            // setTimeOut() is resolved faster
-            // that is, no data is read in 1000ms
-            console.log('all data is read');
-            return true;
-        }
-    }
     async initialize() {
         await this.servoController.servoShell.open();
         await this.servoController.servoShell.close();
@@ -34338,13 +34321,6 @@ class PowerTestController {
         await this.runner.sendCancel();
         await this.runner.sendCancel();
         await this.runner.sendCancel();
-        for (;;) {
-            const allDataIsRead = await this.readAllDutBuffer();
-            if (allDataIsRead) {
-                // all data is read from DUT
-                break;
-            }
-        }
         await this.runner.dut.close();
     }
     async finalize() {
@@ -34576,6 +34552,23 @@ echo "stop"\n`;
     }
     async executeScript() {
         await this.dut.write('base64 -d ./test.sh | bash\n');
+    }
+    async defineWorkload(currentConfigNum, customScript) {
+        const workloadFunction = `wrapperFunc() {
+sleep 3
+echo "start"
+$1 1>> ./test_out.log 2>> ./test_err.log
+echo "end"
+sleep 3
+echo "stop"
+}
+workload${currentConfigNum}() {
+  ${customScript}
+}\n`;
+        await this.dut.write(workloadFunction);
+    }
+    async runWorkload(currentConfigNum) {
+        await this.dut.write(`wrapperFunc workload${currentConfigNum}\n`);
     }
     async sendCancel() {
         await this.dut.write(this.CANCEL_CMD);
