@@ -28,7 +28,6 @@ pub struct Args {
 enum SubCommand {
     Setup(ArgsSetup),
     Start(ArgsStart),
-    Push(ArgsPush),
 }
 
 #[tracing::instrument(level = "trace")]
@@ -41,7 +40,6 @@ pub fn run(args: &Args) -> Result<()> {
     match &args.nested {
         SubCommand::Setup(args) => run_setup(args),
         SubCommand::Start(args) => run_start(args),
-        SubCommand::Push(args) => run_push(args),
     }
 }
 
@@ -213,41 +211,9 @@ fn run_start(args: &ArgsStart) -> Result<()> {
     run_betty(&dir, "start", &arg)?;
 
     println!("To connect the betty instance, run `lium dut shell --dut localhost:9222`.");
+    println!("To push an Android build a betty VM, run `lium arc flash`.");
 
     Ok(())
-}
-
-#[derive(FromArgs, PartialEq, Debug)]
-/// pushes an Android build a running betty instance
-#[argh(subcommand, name = "push")]
-pub struct ArgsPush {
-    /// path to dir where betty.sh exists. If omitted, current directory will be
-    /// used.
-    #[argh(option)]
-    arc: Option<String>,
-
-    /// the android version to push. This is passed to push_to_device.py. e.g.
-    /// cheets_x86/userdebug/123456
-    #[argh(option)]
-    android_build: String,
-
-    /// extra arguments to pass to betty.sh. You can pass other options like
-    /// --extra-args "options".
-    #[argh(option)]
-    extra_args: Option<String>,
-}
-
-fn run_push(args: &ArgsPush) -> Result<()> {
-    let dir = find_betty_script(&args.arc)?;
-
-    let mut options = vec!["android_build", &args.android_build];
-    if let Some(extra_args) = &args.extra_args {
-        options.append(&mut vec![extra_args]);
-    }
-
-    let arg = options.join(" ");
-
-    run_betty(&dir, "push", &arg)
 }
 
 fn find_betty_script(arc: &Option<String>) -> Result<String> {
