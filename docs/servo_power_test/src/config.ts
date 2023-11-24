@@ -172,7 +172,7 @@ export class Config {
     this.kickWriteLoop();
     this.readLoop();
     const readDutLoopPromise = this.readDutLoop();
-    await this.runner.copyScriptToDut(this.customScript);
+    await this.runner.runWorkload(this.customScript);
     await this.runner.executeScript();
     await readDutLoopPromise;
     this.iterationDataList.push(this.currentIteration);

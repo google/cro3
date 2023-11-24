@@ -38,16 +38,9 @@ export class PowerTestController {
     }
   }
 
-  private async initialize() {
+  private async initializePort() {
     await this.servoController.servoShell.open();
     await this.servoController.servoShell.close();
-    await this.runner.dut.open();
-    await this.runner.sendCancel();
-    await this.runner.sendCancel();
-    await this.runner.sendCancel();
-    await this.runner.dut.close();
-  }
-  private async finalize() {
     await this.runner.dut.open();
     await this.runner.sendCancel();
     await this.runner.sendCancel();
@@ -61,7 +54,7 @@ export class PowerTestController {
     if (this.iterationNumber <= 0) return;
     await this.servoController.servoShell.select();
     await this.runner.dut.select();
-    await this.initialize();
+    await this.initializePort();
     await this.setConfig();
     for (let i = 0; i < this.iterationNumber; i++) {
       this.ui.currentIteration.innerText = `${i + 1}`;
@@ -71,7 +64,6 @@ export class PowerTestController {
         await this.configList[j].start();
       }
     }
-    this.finalize();
     this.drawTotalHistogram();
     this.ui.hideElement(this.ui.currentIteration);
     this.ui.appendIterationSelectors(
@@ -154,7 +146,6 @@ export class PowerTestController {
     navigator.serial.addEventListener('disconnect', async () => {
       if (this.isMeasuring) {
         this.isMeasuring = false;
-        this.finalize();
         await this.servoController.closeServoPort();
         await this.runner.closeDutPort();
       }

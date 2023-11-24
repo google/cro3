@@ -33981,7 +33981,7 @@ class Config {
         this.kickWriteLoop();
         this.readLoop();
         const readDutLoopPromise = this.readDutLoop();
-        await this.runner.copyScriptToDut(this.customScript);
+        await this.runner.runWorkload(this.customScript);
         await this.runner.executeScript();
         await readDutLoopPromise;
         this.iterationDataList.push(this.currentIteration);
@@ -34216,18 +34216,15 @@ class OperatePort {
             return;
         await this.port.open({ baudRate: 115200 });
     }
-    async readCancel() {
+    async close() {
+        if (this.port === undefined)
+            return;
         await this.reader
             .cancel()
             .then(() => {
             this.reader.releaseLock();
         })
             .catch(() => { }); // when the reader stream is already locked, do nothing.
-    }
-    async close() {
-        if (this.port === undefined)
-            return;
-        await this.readCancel();
         await this.port.close();
     }
     async read() {
@@ -34314,16 +34311,9 @@ class PowerTestController {
             this.configList.push(newConfig);
         }
     }
-    async initialize() {
+    async initializePort() {
         await this.servoController.servoShell.open();
         await this.servoController.servoShell.close();
-        await this.runner.dut.open();
-        await this.runner.sendCancel();
-        await this.runner.sendCancel();
-        await this.runner.sendCancel();
-        await this.runner.dut.close();
-    }
-    async finalize() {
         await this.runner.dut.open();
         await this.runner.sendCancel();
         await this.runner.sendCancel();
@@ -34339,7 +34329,7 @@ class PowerTestController {
             return;
         await this.servoController.servoShell.select();
         await this.runner.dut.select();
-        await this.initialize();
+        await this.initializePort();
         await this.setConfig();
         for (let i = 0; i < this.iterationNumber; i++) {
             this.ui.currentIteration.innerText = `${i + 1}`;
@@ -34349,7 +34339,6 @@ class PowerTestController {
                 await this.configList[j].start();
             }
         }
-        this.finalize();
         this.drawTotalHistogram();
         this.ui.hideElement(this.ui.currentIteration);
         this.ui.appendIterationSelectors(this.iterationNumber, this.iterationNumber - 1);
@@ -34408,7 +34397,6 @@ class PowerTestController {
         navigator.serial.addEventListener('disconnect', async () => {
             if (this.isMeasuring) {
                 this.isMeasuring = false;
-                this.finalize();
                 await this.servoController.closeServoPort();
                 await this.runner.closeDutPort();
             }
@@ -34535,9 +34523,8 @@ class TestRunner {
         const chunk = await this.dut.read();
         return chunk;
     }
-    async copyScriptToDut(customScript) {
-        const script = `#!/bin/bash -e
-function workload () {
+    async runWorkload(customScript) {
+        const script = `function workload () {
   ${customScript}
 }
 sleep 3
@@ -34566,9 +34553,6 @@ workload${currentConfigNum}() {
   ${customScript}
 }\n`;
         await this.dut.write(workloadFunction);
-    }
-    async runWorkload(currentConfigNum) {
-        await this.dut.write(`wrapperFunc workload${currentConfigNum}\n`);
     }
     async sendCancel() {
         await this.dut.write(this.CANCEL_CMD);

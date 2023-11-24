@@ -28,9 +28,8 @@ export class TestRunner {
     const chunk = await this.dut.read();
     return chunk;
   }
-  public async copyScriptToDut(customScript: string) {
-    const script = `#!/bin/bash -e
-function workload () {
+  public async runWorkload(customScript: string) {
+    const script = `function workload () {
   ${customScript}
 }
 sleep 3
@@ -59,9 +58,6 @@ workload${currentConfigNum}() {
   ${customScript}
 }\n`;
     await this.dut.write(workloadFunction);
-  }
-  public async runWorkload(currentConfigNum: number) {
-    await this.dut.write(`wrapperFunc workload${currentConfigNum}\n`);
   }
   public async sendCancel() {
     await this.dut.write(this.CANCEL_CMD);
