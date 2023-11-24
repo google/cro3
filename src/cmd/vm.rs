@@ -13,6 +13,7 @@ use anyhow::Context;
 use anyhow::Result;
 use argh::FromArgs;
 use lium::config::Config;
+use lium::util::shell_helpers::run_bash_command;
 use whoami;
 
 #[derive(FromArgs, PartialEq, Debug)]
@@ -131,14 +132,11 @@ fn enable_kvm() -> Result<()> {
         .wait_with_output()
         .context("Failed to wait for adding the user to the kvm local group")?;
 
-    let is_kvm_enable = Command::new("bash")
-        .args([
-            "-c",
-            "[[ -e /dev/kvm ]] && grep '^flags' /proc/cpuinfo | grep -qE 'vmx|svm'",
-        ])
-        .status()
-        .context("Failed to verify that KVM is working")?;
-    if !is_kvm_enable.success() {
+    let is_kvm_enable = run_bash_command(
+        "[[ -e /dev/kvm ]] && grep '^flags' /proc/cpuinfo | grep -qE 'vmx|svm'",
+        None,
+    )?;
+    if !is_kvm_enable.status.success() {
         bail!("KVM is not working");
     }
 
