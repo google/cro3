@@ -173,14 +173,6 @@ pub struct ArgsStart {
     #[argh(option, default = "true")]
     reuse_disk_image: bool,
 
-    /// specifies the display device for the VM. "vnc" (default) creates a VNC
-    /// display on localhost:5900; "virgl" enables guest 3D acceleration,
-    /// assuming X11 (or use xvfb-run) and qemu compiled with GTK/virgl support;
-    /// "none" removes the VGA device, which can be used to simulate the GCE
-    /// environment (i.e. L1 betty).
-    #[argh(option)]
-    display: Option<String>,
-
     /// the ChromeOS version to use (e.g. R72-11268.0.0). Alternatively,
     /// postsubmit builds since R96-14175.0.0-53101 can also be specified. It is
     /// the latest version by default.
@@ -206,9 +198,6 @@ fn run_start(args: &ArgsStart) -> Result<()> {
     if !args.reuse_disk_image {
         options.append(&mut vec!["--reset_image"])
     }
-    if let Some(display) = &args.display {
-        options.append(&mut vec!["--display", display]);
-    }
     if let Some(version) = &args.version {
         options.append(&mut vec!["--release", version]);
     }
@@ -218,6 +207,7 @@ fn run_start(args: &ArgsStart) -> Result<()> {
     if let Some(extra_args) = &args.extra_args {
         options.append(&mut vec![extra_args]);
     }
+    options.append(&mut vec!["--display", "none"]);
 
     let arg = options.join(" ");
     run_betty(&dir, "start", &arg)?;
