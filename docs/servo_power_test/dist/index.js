@@ -34365,10 +34365,14 @@ class PowerTestController {
     }
     exportPowerData() {
         const dataStr = 'data:text/json;charset=utf-8,' +
-            encodeURIComponent(JSON.stringify(this.configList.map(config => ({
-                config: config.customScript,
-                measuredData: config.exportIterationDataList(),
-            }))));
+            encodeURIComponent(JSON.stringify({
+                margin: this.marginTime,
+                iterationNum: this.itrNum,
+                data: this.configList.map(config => ({
+                    config: config.customScript,
+                    measuredData: config.exportIterationDataList(),
+                })),
+            }));
         return dataStr;
     }
     setupDisconnectEvent() {
