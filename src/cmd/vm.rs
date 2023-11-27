@@ -71,7 +71,7 @@ fn run_setup(args: &ArgsSetup) -> Result<()> {
         .wait_with_output()
         .context("Failed to wait for updating packages")?;
 
-    println!("Enable KVM...");
+    println!("Enabling KVM...");
     enable_kvm()?;
 
     println!("Installing python packages...");
@@ -132,12 +132,12 @@ fn enable_kvm() -> Result<()> {
         .wait_with_output()
         .context("Failed to wait for adding the user to the kvm local group")?;
 
-    let is_kvm_enable = run_bash_command(
+    let is_kvm_enabled = run_bash_command(
         "[[ -e /dev/kvm ]] && grep '^flags' /proc/cpuinfo | grep -qE 'vmx|svm'",
         None,
     )?;
-    if !is_kvm_enable.status.success() {
-        bail!("KVM is not working");
+    if !is_kvm_enabled.status.success() {
+        bail!("KVM did not enable correctly");
     }
 
     println!("Setting the user access to /dev/kvm...");
@@ -166,11 +166,11 @@ pub struct ArgsStart {
     board: String,
 
     /// reuse the VM image. It is true by default. If you want to disable it,
-    /// use `--reuse-disk-image flase`.
+    /// use `--reuse-disk-image false`.
     #[argh(option, default = "true")]
     reuse_disk_image: bool,
 
-    /// start betty with rootfs verification
+    /// start betty with rootfs verification. It is false by default.
     #[argh(switch)]
     rootfs_verify: bool,
 
