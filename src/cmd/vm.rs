@@ -109,9 +109,23 @@ fn enable_kvm() -> Result<()> {
         .wait()
         .context("Failed to wait for installing kvm support")?;
 
+    let is_intel = run_bash_command("grep vmx /proc/cpuinfo", None)?
+        .status
+        .success();
+    let is_amd = run_bash_command("grep svm /proc/cpuinfo", None)?
+        .status
+        .success();
+    let module = if is_intel {
+        "kvm-intel"
+    } else if is_amd {
+        "kvm-amd"
+    } else {
+        bail!("Your system does not have virtualization extensions.");
+    };
+
     println!("Loading Kernel modules...");
     let mut load_kernel_module = Command::new("sudo")
-        .args(["modprobe", "kvm-intel"])
+        .args(["modprobe", module])
         .spawn()
         .context("Failed to load kernel modules")?;
     load_kernel_module
