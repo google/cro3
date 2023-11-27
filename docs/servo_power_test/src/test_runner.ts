@@ -38,26 +38,7 @@ workload 1>> ./test_out.log 2>> ./test_err.log
 echo "end"
 sleep 3
 echo "stop"\n`;
-    await this.dut.write('cat > ./test.sh << EOF\n');
-    await this.dut.write(btoa(script) + '\n');
-    await this.dut.write('EOF\n');
-  }
-  public async executeScript() {
-    await this.dut.write('base64 -d ./test.sh | bash\n');
-  }
-  public async defineWorkload(currentConfigNum: number, customScript: string) {
-    const workloadFunction = `wrapperFunc() {
-sleep 3
-echo "start"
-$1 1>> ./test_out.log 2>> ./test_err.log
-echo "end"
-sleep 3
-echo "stop"
-}
-workload${currentConfigNum}() {
-  ${customScript}
-}\n`;
-    await this.dut.write(workloadFunction);
+    await this.dut.write(`\necho "${btoa(script)}" | base64 -d | bash\n`);
   }
   public async sendCancel() {
     await this.dut.write(this.CANCEL_CMD);
