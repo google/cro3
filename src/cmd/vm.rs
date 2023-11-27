@@ -63,24 +63,24 @@ fn run_setup(args: &ArgsSetup) -> Result<()> {
     let dir = find_betty_script(&args.arc)?;
 
     println!("Updating packages...");
-    let update_package = Command::new("sudo")
+    let mut update_package = Command::new("sudo")
         .args(["apt", "update"])
         .spawn()
         .context("Failed to execute sudo apt update")?;
     update_package
-        .wait_with_output()
+        .wait()
         .context("Failed to wait for updating packages")?;
 
     println!("Enabling KVM...");
     enable_kvm()?;
 
     println!("Installing python packages...");
-    let install_python_package = Command::new("sudo")
+    let mut install_python_package = Command::new("sudo")
         .args(["apt", "install", "python3-pip", "python3-venv"])
         .spawn()
         .context("Failed to install python packages")?;
     install_python_package
-        .wait_with_output()
+        .wait()
         .context("Failed to wait for installing python packages")?;
 
     println!("Running betty.sh setup...");
@@ -91,62 +91,64 @@ fn run_setup(args: &ArgsSetup) -> Result<()> {
     run_betty(&dir, "setup", arg)?;
 
     println!("Running gcloud auth login...");
-    let gcloud_auth = Command::new("gcloud")
+    let mut gcloud_auth = Command::new("gcloud")
         .args(["auth", "login"])
         .spawn()
         .context("Failed to run gcloud login gcloud")?;
     gcloud_auth
-        .wait_with_output()
+        .wait()
         .context("Failed to wait for gcloud auth login")?;
 
     Ok(())
 }
 
 fn enable_kvm() -> Result<()> {
-    let username = whoami::username();
-
     println!("Installing kvm support...");
-    let install_kvm_support = Command::new("sudo")
+    let mut install_kvm_support = Command::new("sudo")
         .args(["apt-get", "install", "qemu-system-x86"])
         .spawn()
         .context("Failed to install kvm support")?;
     install_kvm_support
-        .wait_with_output()
+        .wait()
         .context("Failed to wait for installing kvm support")?;
 
     println!("Loading Kernel modules...");
-    let load_kernel_module = Command::new("sudo")
+    let mut load_kernel_module = Command::new("sudo")
         .args(["modprobe", "kvm-intel"])
         .spawn()
         .context("Failed to load kernel modules")?;
     load_kernel_module
-        .wait_with_output()
+        .wait()
         .context("Failed to wait for loading kernel modules")?;
 
+    let username = whoami::username();
     println!("Adding the user to the kvm local group...");
-    let add_to_kvm_group = Command::new("sudo")
+    let mut add_to_kvm_group = Command::new("sudo")
         .args(["adduser", &username, "kvm"])
         .spawn()
         .context("Failed to add the user to the kvm local group")?;
     add_to_kvm_group
-        .wait_with_output()
+        .wait()
         .context("Failed to wait for adding the user to the kvm local group")?;
 
     let is_kvm_enabled = run_bash_command(
         "[[ -e /dev/kvm ]] && grep '^flags' /proc/cpuinfo | grep -qE 'vmx|svm'",
         None,
-    )?;
-    if !is_kvm_enabled.status.success() {
+    )?
+    .status
+    .success();
+
+    if !is_kvm_enabled {
         bail!("KVM did not enable correctly");
     }
 
     println!("Setting the user access to /dev/kvm...");
-    let set_access = Command::new("sudo")
+    let mut set_access = Command::new("sudo")
         .args(["setfacl", "-m", &format!("u:{}:rw", username), "/dev/kvm"])
         .spawn()
         .context("Failed to set access to /dev/kvm")?;
     set_access
-        .wait_with_output()
+        .wait()
         .context("Failed to wait for setting access to /dev/kvm")?;
 
     Ok(())
@@ -238,18 +240,16 @@ fn find_betty_script(arc: &Option<String>) -> Result<String> {
 fn run_betty(dir: &str, cmd: &str, opts: &str) -> Result<()> {
     let betty_script = format!("./betty.sh {} {}", cmd, opts);
 
-    let cmd = Command::new("bash")
+    let mut cmd = Command::new("bash")
         .current_dir(dir)
         .arg("-c")
         .arg(betty_script)
         .spawn()
         .context("Failed to execute betty.sh")?;
 
-    let result = cmd
-        .wait_with_output()
-        .context("Failed to wait for betty.sh")?;
+    let result = cmd.wait().context("Failed to wait for betty.sh")?;
 
-    if !result.status.success() {
+    if !result.success() {
         println!("betty.sh failed")
     }
 
