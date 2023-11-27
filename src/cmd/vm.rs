@@ -7,6 +7,7 @@
 use std::env;
 use std::path::Path;
 use std::process::Command;
+use std::string::ToString;
 
 use anyhow::bail;
 use anyhow::Context;
@@ -14,6 +15,7 @@ use anyhow::Result;
 use argh::FromArgs;
 use lium::config::Config;
 use lium::util::shell_helpers::run_bash_command;
+use strum_macros::Display;
 use whoami;
 
 #[derive(FromArgs, PartialEq, Debug)]
@@ -24,10 +26,13 @@ pub struct Args {
     nested: SubCommand,
 }
 
-#[derive(FromArgs, PartialEq, Debug)]
+#[derive(FromArgs, PartialEq, Debug, Display)]
 #[argh(subcommand)]
 enum SubCommand {
+    #[strum(serialize = "setup")]
     Setup(ArgsSetup),
+
+    #[strum(serialize = "start")]
     Start(ArgsStart),
 }
 
@@ -44,7 +49,7 @@ pub fn run(args: &Args) -> Result<()> {
     }
 }
 
-#[derive(FromArgs, PartialEq, Debug)]
+#[derive(Clone, FromArgs, PartialEq, Debug)]
 /// run first time setup, installs necessary dependencies
 #[argh(subcommand, name = "setup")]
 pub struct ArgsSetup {
@@ -84,8 +89,8 @@ fn run_setup(args: &ArgsSetup) -> Result<()> {
         .context("Failed to wait for installing python packages")?;
 
     println!("Running betty.sh setup...");
-    let arg = args.extra_args.clone().unwrap_or_else(|| String::from(""));
-    run_betty(&dir, "setup", &[&arg])?;
+    let options = args.extra_args.clone().unwrap_or_else(|| String::from(""));
+    run_betty(&dir, SubCommand::Setup(args.clone()), &[&options])?;
 
     println!("Running gcloud auth login...");
     let mut gcloud_auth = Command::new("gcloud")
@@ -165,7 +170,7 @@ fn enable_kvm() -> Result<()> {
     Ok(())
 }
 
-#[derive(FromArgs, PartialEq, Debug)]
+#[derive(Clone, FromArgs, PartialEq, Debug)]
 /// start a betty VM instance
 #[argh(subcommand, name = "start")]
 pub struct ArgsStart {
@@ -226,7 +231,7 @@ fn run_start(args: &ArgsStart) -> Result<()> {
         options.append(&mut vec![extra_args]);
     }
 
-    run_betty(&dir, "start", &options)?;
+    run_betty(&dir, SubCommand::Start(args.clone()), &options)?;
 
     println!("To connect the betty instance, run `lium dut shell --dut localhost:9222`.");
     println!("To push an Android build a betty VM, run `lium arc flash`.");
@@ -246,7 +251,7 @@ fn find_betty_script(arc: &Option<String>) -> Result<String> {
     bail!("betty.sh doesn't exist in {path}. Please consider specifying --repo option.")
 }
 
-fn run_betty(dir: &str, cmd: &str, opts: &[&str]) -> Result<()> {
+fn run_betty(dir: &str, cmd: SubCommand, opts: &[&str]) -> Result<()> {
     let betty_script = format!("./betty.sh {} {}", cmd, opts.join(" "));
 
     let mut cmd = Command::new("bash")
