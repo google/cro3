@@ -50,6 +50,7 @@ export class IterationData {
         this.powerDataList[i][0]
       ) {
         startIndex = i;
+        break;
       }
     }
     for (let i = this.powerDataList.length - 1; i >= 0; i--) {
@@ -58,6 +59,7 @@ export class IterationData {
         this.annotationList.get('end')! - marginTime
       ) {
         endIndex = i;
+        break;
       }
     }
     return this.powerDataList.slice(startIndex, endIndex + 1).map(d => d[1]);
