@@ -33880,14 +33880,20 @@ class IterationData {
         };
     }
     extractData(marginTime) {
-        const extractedData = [];
-        for (const powerData of this.powerDataList) {
-            if (this.annotationList.get('start') + marginTime <= powerData[0] &&
-                powerData[0] <= this.annotationList.get('end') - marginTime) {
-                extractedData.push(powerData[1]);
+        let startIndex = 0, endIndex = 0;
+        for (let i = 0; i < this.powerDataList.length; i++) {
+            if (this.annotationList.get('start') + marginTime <=
+                this.powerDataList[i][0]) {
+                startIndex = i;
             }
         }
-        return extractedData;
+        for (let i = this.powerDataList.length - 1; i >= 0; i--) {
+            if (this.powerDataList[i][0] <=
+                this.annotationList.get('end') - marginTime) {
+                endIndex = i;
+            }
+        }
+        return this.powerDataList.slice(startIndex, endIndex + 1).map(d => d[1]);
     }
 }
 exports.IterationData = IterationData;
