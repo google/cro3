@@ -165,9 +165,14 @@ pub struct ArgsStart {
     #[argh(option)]
     board: String,
 
-    /// reuse the VM image. It is true by default.
+    /// reuse the VM image. It is true by default. If you want to disable it,
+    /// use `--reuse-disk-image flase`.
     #[argh(option, default = "true")]
     reuse_disk_image: bool,
+
+    /// start betty with rootfs verification
+    #[argh(switch)]
+    rootfs_verify: bool,
 
     /// the ChromeOS version to use (e.g. R72-11268.0.0). Alternatively,
     /// postsubmit builds since R96-14175.0.0-53101 can also be specified. It is
@@ -175,10 +180,10 @@ pub struct ArgsStart {
     #[argh(option)]
     version: Option<String>,
 
-    /// the android version to push. This is passed to push_to_device.py. e.g.
-    /// cheets_x86/userdebug/123456
+    /// path to betty VM image to start. It has priority over --board and
+    /// --version (they will be ignored)
     #[argh(option)]
-    android_build: Option<String>,
+    vm_image: Option<String>,
 
     /// extra arguments to pass to betty.sh. You can pass other options like
     /// --extra-args "options".
@@ -192,18 +197,21 @@ fn run_start(args: &ArgsStart) -> Result<()> {
     let mut options = Vec::new();
     options.append(&mut vec!["--board", &args.board]);
     if !args.reuse_disk_image {
-        options.append(&mut vec!["--reset_image"])
+        options.append(&mut vec!["--reset_image"]);
+    }
+    if args.rootfs_verify {
+        options.append(&mut vec!["--nodisable_rootfs"]);
     }
     if let Some(version) = &args.version {
         options.append(&mut vec!["--release", version]);
     }
-    if let Some(android_build) = &args.android_build {
-        options.append(&mut vec!["--android_build", android_build]);
+    if let Some(vm_image) = &args.vm_image {
+        options.append(&mut vec!["--vm_image", vm_image]);
     }
+    options.append(&mut vec!["--display", "none"]);
     if let Some(extra_args) = &args.extra_args {
         options.append(&mut vec![extra_args]);
     }
-    options.append(&mut vec!["--display", "none"]);
 
     let arg = options.join(" ");
     run_betty(&dir, "start", &arg)?;
@@ -227,8 +235,8 @@ fn find_betty_script(arc: &Option<String>) -> Result<String> {
     bail!("betty.sh doesn't exist in {path}. Please consider specifying --repo option.")
 }
 
-fn run_betty(dir: &str, subcommand: &str, options: &str) -> Result<()> {
-    let betty_script = format!("./betty.sh {} {}", subcommand, options);
+fn run_betty(dir: &str, cmd: &str, opts: &str) -> Result<()> {
+    let betty_script = format!("./betty.sh {} {}", cmd, opts);
 
     let cmd = Command::new("bash")
         .current_dir(dir)
