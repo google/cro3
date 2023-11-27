@@ -34528,7 +34528,7 @@ class TestRunner {
 }
 sleep 3
 echo "start"
-workload 1>> ./test_out.log 2>> ./test_err.log
+workload 1> ./test_out.log 2> ./test_err.log
 echo "end"
 sleep 3
 echo "stop"\n`;
