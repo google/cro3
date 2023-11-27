@@ -34294,7 +34294,7 @@ class PowerTestController {
         this.marginTime = 300;
         this.totalHistogram = new total_histogram_1.TotalHistogram();
         this.configList = [];
-        this.currentConfigNum = 0;
+        this.currentConfigNumber = 0;
         this.iterationNumber = 2;
         this.isMeasuring = false;
         this.ui = ui;
@@ -34332,7 +34332,7 @@ class PowerTestController {
         for (let i = 0; i < this.iterationNumber; i++) {
             this.ui.currentIteration.innerText = `${i + 1}`;
             for (let j = 0; j < this.ui.configNumber; j++) {
-                this.currentConfigNum = j;
+                this.currentConfigNumber = j;
                 console.log(`start running config${j}`);
                 await this.configList[j].start();
             }
@@ -34342,7 +34342,7 @@ class PowerTestController {
         this.ui.appendItrSelectors(this.iterationNumber, this.iterationNumber - 1);
     }
     async stopMeasurement() {
-        await this.configList[this.currentConfigNum].stop();
+        await this.configList[this.currentConfigNumber].stop();
     }
     drawTotalHistogram() {
         const histogramData = [];
@@ -34382,7 +34382,7 @@ class PowerTestController {
         const dataStr = 'data:text/json;charset=utf-8,' +
             encodeURIComponent(JSON.stringify({
                 margin: this.marginTime,
-                iterationNum: this.iterationNumber,
+                iterationNumber: this.iterationNumber,
                 data: this.configList.map(config => ({
                     config: config.customScript,
                     measuredData: config.exportIterationDataList(),
