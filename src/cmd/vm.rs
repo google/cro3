@@ -85,7 +85,7 @@ fn run_setup(args: &ArgsSetup) -> Result<()> {
 
     println!("Running betty.sh setup...");
     let arg = args.extra_args.clone().unwrap_or_else(|| String::from(""));
-    run_betty(&dir, "setup", &arg)?;
+    run_betty(&dir, "setup", &[&arg])?;
 
     println!("Running gcloud auth login...");
     let mut gcloud_auth = Command::new("gcloud")
@@ -212,8 +212,7 @@ fn run_start(args: &ArgsStart) -> Result<()> {
         options.append(&mut vec![extra_args]);
     }
 
-    let arg = options.join(" ");
-    run_betty(&dir, "start", &arg)?;
+    run_betty(&dir, "start", &options)?;
 
     println!("To connect the betty instance, run `lium dut shell --dut localhost:9222`.");
     println!("To push an Android build a betty VM, run `lium arc flash`.");
@@ -233,8 +232,8 @@ fn find_betty_script(arc: &Option<String>) -> Result<String> {
     bail!("betty.sh doesn't exist in {path}. Please consider specifying --repo option.")
 }
 
-fn run_betty(dir: &str, cmd: &str, opts: &str) -> Result<()> {
-    let betty_script = format!("./betty.sh {} {}", cmd, opts);
+fn run_betty(dir: &str, cmd: &str, opts: &[&str]) -> Result<()> {
+    let betty_script = format!("./betty.sh {} {}", cmd, opts.join(" "));
 
     let mut cmd = Command::new("bash")
         .current_dir(dir)
