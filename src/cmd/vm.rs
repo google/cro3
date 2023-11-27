@@ -84,11 +84,8 @@ fn run_setup(args: &ArgsSetup) -> Result<()> {
         .context("Failed to wait for installing python packages")?;
 
     println!("Running betty.sh setup...");
-    let arg = match &args.extra_args {
-        Some(a) => a,
-        None => "",
-    };
-    run_betty(&dir, "setup", arg)?;
+    let arg = args.extra_args.clone().unwrap_or_else(|| String::from(""));
+    run_betty(&dir, "setup", &arg)?;
 
     println!("Running gcloud auth login...");
     let mut gcloud_auth = Command::new("gcloud")
@@ -225,10 +222,9 @@ fn run_start(args: &ArgsStart) -> Result<()> {
 }
 
 fn find_betty_script(arc: &Option<String>) -> Result<String> {
-    let path = match arc {
-        Some(p) => p.to_string(),
-        None => env::current_dir()?.to_string_lossy().to_string(),
-    };
+    let path = arc
+        .clone()
+        .unwrap_or_else(|| env::current_dir().unwrap().to_string_lossy().to_string());
 
     if Path::new(&format!("{}/betty.sh", path)).exists() {
         return Ok(path);
