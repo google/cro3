@@ -79,13 +79,13 @@ export class Config {
     ui: Ui,
     servoController: ServoController,
     runner: TestRunner,
-    configNum: number,
+    configNumber: number,
     customScript: string
   ) {
     this.ui = ui;
     this.graph = new Graph(
       ui,
-      document.getElementById(`graph${configNum}`) as HTMLDivElement
+      document.getElementById(`graph${configNumber}`) as HTMLDivElement
     );
     this.servoController = servoController;
     this.runner = runner;

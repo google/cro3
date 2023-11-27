@@ -33898,13 +33898,13 @@ class IterationData {
 }
 exports.IterationData = IterationData;
 class Config {
-    constructor(ui, servoController, runner, configNum, customScript) {
+    constructor(ui, servoController, runner, configNumber, customScript) {
         this.INTERVAL_MS = 100;
         this.halt = true;
         this.inProgress = false;
         this.iterationDataList = [];
         this.ui = ui;
-        this.graph = new graph_1.Graph(ui, document.getElementById(`graph${configNum}`));
+        this.graph = new graph_1.Graph(ui, document.getElementById(`graph${configNumber}`));
         this.servoController = servoController;
         this.runner = runner;
         this.customScript = customScript;
@@ -34304,7 +34304,7 @@ class PowerTestController {
     setConfig() {
         const shellScriptContents = this.ui.readInputShellScript();
         this.ui.createGraphList();
-        for (let i = 0; i < this.ui.configNum; i++) {
+        for (let i = 0; i < this.ui.configNumber; i++) {
             const newConfig = new config_1.Config(this.ui, this.servoController, this.runner, i, shellScriptContents[i]);
             this.configList.push(newConfig);
         }
@@ -34319,7 +34319,7 @@ class PowerTestController {
         await this.runner.dut.close();
     }
     async startMeasurement() {
-        if (this.ui.configNum === 0)
+        if (this.ui.configNumber === 0)
             return;
         this.marginTime = Number(this.ui.marginTimeInput.value);
         this.iterationNumber = parseInt(this.ui.iterationInput.value);
@@ -34331,7 +34331,7 @@ class PowerTestController {
         await this.setConfig();
         for (let i = 0; i < this.iterationNumber; i++) {
             this.ui.currentIteration.innerText = `${i + 1}`;
-            for (let j = 0; j < this.ui.configNum; j++) {
+            for (let j = 0; j < this.ui.configNumber; j++) {
                 this.currentConfigNum = j;
                 console.log(`start running config${j}`);
                 await this.configList[j].start();
@@ -34353,14 +34353,14 @@ class PowerTestController {
         this.totalHistogram.paintHistogram(histogramData);
     }
     showSelectedItrGraph(selectedIteration) {
-        for (let i = 0; i < this.ui.configNum; i++) {
+        for (let i = 0; i < this.ui.configNumber; i++) {
             this.configList[i].loadGraph(selectedIteration);
         }
     }
     loadPowerData(s) {
         const jsonData = JSON.parse(s);
         this.marginTime = jsonData.margin;
-        this.ui.configNum = jsonData.data.length;
+        this.ui.configNumber = jsonData.data.length;
         this.ui.createGraphList();
         this.configList = [];
         this.ui.appendItrSelectors(this.iterationNumber, 0);
@@ -34742,7 +34742,7 @@ class Ui {
         this.marginTimeInput = document.getElementById('margin-time-input');
         this.iterationInput = document.getElementById('iteration-input');
         this.iterationSelector = document.getElementById('iteration-selector');
-        this.configNum = 0;
+        this.configNumber = 0;
         this.graphList = document.getElementById('graph-list');
     }
     enabledRecordingButton(halt) {
@@ -34763,14 +34763,14 @@ class Ui {
     }
     addConfigInputArea() {
         const newConfigListElem = document.createElement('li');
-        newConfigListElem.innerHTML = `<label>script:</label><textarea>stress-ng -c ${this.configNum + 1} -t 10</textarea><button>delete</button>`;
+        newConfigListElem.innerHTML = `<label>script:</label><textarea>stress-ng -c ${this.configNumber + 1} -t 10</textarea><button>delete</button>`;
         this.shellScriptList.appendChild(newConfigListElem);
         const newButtonElem = newConfigListElem.querySelector('button');
         newButtonElem.addEventListener('click', () => {
-            this.configNum -= 1;
+            this.configNumber -= 1;
             newConfigListElem.remove();
         });
-        this.configNum += 1;
+        this.configNumber += 1;
     }
     loadConfigInputArea(config) {
         const newConfigListElem = document.createElement('li');
@@ -34778,7 +34778,7 @@ class Ui {
         this.shellScriptList.appendChild(newConfigListElem);
     }
     createGraphList() {
-        for (let i = 0; i < this.configNum; i++) {
+        for (let i = 0; i < this.configNumber; i++) {
             const newGraphListElem = document.createElement('li');
             newGraphListElem.innerHTML = `<div id="graph${i}"></div>`;
             this.graphList.appendChild(newGraphListElem);

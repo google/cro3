@@ -26,7 +26,7 @@ export class PowerTestController {
   public setConfig() {
     const shellScriptContents = this.ui.readInputShellScript();
     this.ui.createGraphList();
-    for (let i = 0; i < this.ui.configNum; i++) {
+    for (let i = 0; i < this.ui.configNumber; i++) {
       const newConfig = new Config(
         this.ui,
         this.servoController,
@@ -47,7 +47,7 @@ export class PowerTestController {
     await this.runner.dut.close();
   }
   public async startMeasurement() {
-    if (this.ui.configNum === 0) return;
+    if (this.ui.configNumber === 0) return;
     this.marginTime = Number(this.ui.marginTimeInput.value);
     this.iterationNumber = parseInt(this.ui.iterationInput.value);
     if (this.iterationNumber <= 0) return;
@@ -57,7 +57,7 @@ export class PowerTestController {
     await this.setConfig();
     for (let i = 0; i < this.iterationNumber; i++) {
       this.ui.currentIteration.innerText = `${i + 1}`;
-      for (let j = 0; j < this.ui.configNum; j++) {
+      for (let j = 0; j < this.ui.configNumber; j++) {
         this.currentConfigNum = j;
         console.log(`start running config${j}`);
         await this.configList[j].start();
@@ -79,14 +79,14 @@ export class PowerTestController {
     this.totalHistogram.paintHistogram(histogramData);
   }
   public showSelectedItrGraph(selectedIteration: number) {
-    for (let i = 0; i < this.ui.configNum; i++) {
+    for (let i = 0; i < this.ui.configNumber; i++) {
       this.configList[i].loadGraph(selectedIteration);
     }
   }
   public loadPowerData(s: string) {
     const jsonData = JSON.parse(s);
     this.marginTime = jsonData.margin;
-    this.ui.configNum = jsonData.data.length;
+    this.ui.configNumber = jsonData.data.length;
     this.ui.createGraphList();
     this.configList = [];
     this.ui.appendItrSelectors(this.iterationNumber, 0);
