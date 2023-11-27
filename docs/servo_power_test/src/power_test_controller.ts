@@ -60,7 +60,6 @@ export class PowerTestController {
       for (let j = 0; j < this.ui.configNum; j++) {
         this.currentConfigNum = j;
         console.log(`start running config${j}`);
-        this.configList[j].currentIterationNumber = i;
         await this.configList[j].start();
       }
     }

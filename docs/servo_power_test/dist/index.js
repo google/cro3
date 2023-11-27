@@ -33897,12 +33897,12 @@ class Config {
         this.halt = true;
         this.inProgress = false;
         this.iterationDataList = [];
-        this.currentIterationNumber = 0;
         this.ui = ui;
         this.graph = new graph_1.Graph(ui, document.getElementById(`graph${configNum}`));
         this.servoController = servoController;
         this.runner = runner;
         this.customScript = customScript;
+        this.currentIteration = new IterationData([], new Map(), this.graph);
     }
     appendIterationDataList(newPowerDataList, newAnnotationList) {
         this.iterationDataList.push(new IterationData(newPowerDataList, newAnnotationList, this.graph));
@@ -33938,8 +33938,8 @@ class Config {
                 continue;
             this.ui.setSerialOutput(currentPowerData.originalData);
             const e = [new Date().getTime(), currentPowerData.power];
-            this.iterationDataList[this.currentIterationNumber].appendPowerData(e);
-            this.iterationDataList[this.currentIterationNumber].updateGraph();
+            this.currentIteration.appendPowerData(e);
+            this.currentIteration.updateGraph();
         }
     }
     async readDutLoop() {
@@ -33947,10 +33947,10 @@ class Config {
             const dutData = await this.runner.readData();
             try {
                 if (dutData.includes('start')) {
-                    this.iterationDataList[this.currentIterationNumber].addAnnotation('start');
+                    this.currentIteration.addAnnotation('start');
                 }
                 else if (dutData.includes('end')) {
-                    this.iterationDataList[this.currentIterationNumber].addAnnotation('end');
+                    this.currentIteration.addAnnotation('end');
                 }
                 else if (dutData.includes('stop')) {
                     await this.stop();
@@ -33966,16 +33966,15 @@ class Config {
         }
     }
     async start() {
-        this.iterationDataList.push(new IterationData([], new Map(), this.graph));
+        this.currentIteration = new IterationData([], new Map(), this.graph);
+        this.iterationDataList.push(this.currentIteration);
         await this.runner.openDutPort();
         await this.servoController.openServoPort();
         await this.changeHaltFlag(false);
         this.kickWriteLoop();
         this.readLoop();
         const readDutLoopPromise = this.readDutLoop();
-        if (this.currentIterationNumber === 0) {
-            await this.runner.copyScriptToDut(this.customScript);
-        }
+        await this.runner.copyScriptToDut(this.customScript);
         await this.runner.executeScript();
         await readDutLoopPromise;
     }
@@ -34329,7 +34328,6 @@ class PowerTestController {
             for (let j = 0; j < this.ui.configNum; j++) {
                 this.currentConfigNum = j;
                 console.log(`start running config${j}`);
-                this.configList[j].currentIterationNumber = i;
                 await this.configList[j].start();
             }
         }

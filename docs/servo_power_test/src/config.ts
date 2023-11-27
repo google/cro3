@@ -65,7 +65,7 @@ export class Config {
   private iterationDataList: Array<IterationData> = [];
   private graph: Graph;
   public customScript: string;
-  public currentIterationNumber = 0;
+  private currentIteration: IterationData;
   constructor(
     ui: Ui,
     servoController: ServoController,
@@ -81,6 +81,11 @@ export class Config {
     this.servoController = servoController;
     this.runner = runner;
     this.customScript = customScript;
+    this.currentIteration = new IterationData(
+      [],
+      new Map<string, number>(),
+      this.graph
+    );
   }
   public appendIterationDataList(
     newPowerDataList: Array<PowerData>,
@@ -121,8 +126,8 @@ export class Config {
       if (currentPowerData === undefined) continue;
       this.ui.setSerialOutput(currentPowerData.originalData);
       const e: PowerData = [new Date().getTime(), currentPowerData.power];
-      this.iterationDataList[this.currentIterationNumber].appendPowerData(e);
-      this.iterationDataList[this.currentIterationNumber].updateGraph();
+      this.currentIteration.appendPowerData(e);
+      this.currentIteration.updateGraph();
     }
   }
   private async readDutLoop() {
@@ -130,13 +135,9 @@ export class Config {
       const dutData = await this.runner.readData();
       try {
         if (dutData.includes('start')) {
-          this.iterationDataList[this.currentIterationNumber].addAnnotation(
-            'start'
-          );
+          this.currentIteration.addAnnotation('start');
         } else if (dutData.includes('end')) {
-          this.iterationDataList[this.currentIterationNumber].addAnnotation(
-            'end'
-          );
+          this.currentIteration.addAnnotation('end');
         } else if (dutData.includes('stop')) {
           await this.stop();
         }
@@ -149,18 +150,19 @@ export class Config {
     }
   }
   public async start() {
-    this.iterationDataList.push(
-      new IterationData([], new Map<string, number>(), this.graph)
+    this.currentIteration = new IterationData(
+      [],
+      new Map<string, number>(),
+      this.graph
     );
+    this.iterationDataList.push(this.currentIteration);
     await this.runner.openDutPort();
     await this.servoController.openServoPort();
     await this.changeHaltFlag(false);
     this.kickWriteLoop();
     this.readLoop();
     const readDutLoopPromise = this.readDutLoop();
-    if (this.currentIterationNumber === 0) {
-      await this.runner.copyScriptToDut(this.customScript);
-    }
+    await this.runner.copyScriptToDut(this.customScript);
     await this.runner.executeScript();
     await readDutLoopPromise;
   }
