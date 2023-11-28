@@ -33975,7 +33975,6 @@ class Config {
     }
     async start() {
         this.currentIteration = new IterationData([], new Map(), this.graph);
-        this.iterationDataList.push(this.currentIteration);
         await this.runner.openDutPort();
         await this.servoController.openServoPort();
         await this.changeHaltFlag(false);
@@ -33985,6 +33984,7 @@ class Config {
         await this.runner.copyScriptToDut(this.customScript);
         await this.runner.executeScript();
         await readDutLoopPromise;
+        this.iterationDataList.push(this.currentIteration);
     }
     async stop() {
         await this.runner.sendCancel();
@@ -34341,7 +34341,7 @@ class PowerTestController {
         }
         this.drawTotalHistogram();
         this.ui.hideElement(this.ui.currentIteration);
-        this.ui.appendItrSelectors(this.iterationNumber, this.iterationNumber - 1);
+        this.ui.appendIterationSelectors(this.iterationNumber, this.iterationNumber - 1);
     }
     async stopMeasurement() {
         await this.configList[this.currentConfigNumber].stop();
@@ -34365,7 +34365,7 @@ class PowerTestController {
         this.ui.configNumber = jsonData.data.length;
         this.ui.createGraphList();
         this.configList = [];
-        this.ui.appendItrSelectors(this.iterationNumber, 0);
+        this.ui.appendIterationSelectors(this.iterationNumber, 0);
         for (let i = 0; i < jsonData.data.length; i++) {
             const configData = jsonData.data[i];
             const newConfig = new config_1.Config(this.ui, this.servoController, this.runner, i, configData.config);
@@ -34796,7 +34796,7 @@ class Ui {
     showElement(element) {
         element.classList.remove('hidden');
     }
-    appendItrSelectors(iterationNumber, selectedIndex) {
+    appendIterationSelectors(iterationNumber, selectedIndex) {
         for (let i = 0; i < iterationNumber; i++) {
             const newOption = document.createElement('option');
             newOption.innerText = `${i + 1}`;

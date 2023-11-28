@@ -93,7 +93,10 @@ export class Ui {
   public showElement(element: HTMLElement) {
     element.classList.remove('hidden');
   }
-  public appendItrSelectors(iterationNumber: number, selectedIndex: number) {
+  public appendIterationSelectors(
+    iterationNumber: number,
+    selectedIndex: number
+  ) {
     for (let i = 0; i < iterationNumber; i++) {
       const newOption = document.createElement('option');
       newOption.innerText = `${i + 1}`;

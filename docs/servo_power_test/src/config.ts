@@ -166,7 +166,6 @@ export class Config {
       new Map<string, number>(),
       this.graph
     );
-    this.iterationDataList.push(this.currentIteration);
     await this.runner.openDutPort();
     await this.servoController.openServoPort();
     await this.changeHaltFlag(false);
@@ -176,6 +175,7 @@ export class Config {
     await this.runner.copyScriptToDut(this.customScript);
     await this.runner.executeScript();
     await readDutLoopPromise;
+    this.iterationDataList.push(this.currentIteration);
   }
   public async stop() {
     await this.runner.sendCancel();
