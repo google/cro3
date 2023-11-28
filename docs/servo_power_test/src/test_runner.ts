@@ -29,7 +29,7 @@ export class TestRunner {
     return chunk;
   }
   public async runWorkload(customScript: string) {
-    const script = `function workload () {
+    const script = `\nfunction workload () {
   ${customScript}
 }
 sleep 3

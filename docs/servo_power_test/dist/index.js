@@ -34523,7 +34523,7 @@ class TestRunner {
         return chunk;
     }
     async runWorkload(customScript) {
-        const script = `function workload () {
+        const script = `\nfunction workload () {
   ${customScript}
 }
 sleep 3
