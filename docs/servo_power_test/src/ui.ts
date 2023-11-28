@@ -23,11 +23,20 @@ export class Ui {
     'download-anchor'
   ) as HTMLAnchorElement;
   public toolTip = document.getElementById('tooltip') as HTMLDivElement;
-  private graphList = document.getElementById('graph-list') as HTMLUListElement;
+  public currentIteration = document.getElementById(
+    'current-iteration'
+  ) as HTMLParagraphElement;
   public marginTimeInput = document.getElementById(
     'margin-time-input'
   ) as HTMLInputElement;
-  public configNum = 0;
+  public iterationInput = document.getElementById(
+    'iteration-input'
+  ) as HTMLInputElement;
+  public iterationSelector = document.getElementById(
+    'iteration-selector'
+  ) as HTMLSelectElement;
+  public configNumber = 0;
+  private graphList = document.getElementById('graph-list') as HTMLUListElement;
 
   public enabledRecordingButton(halt: boolean) {
     this.requestSerialButton.disabled = !halt;
@@ -50,17 +59,17 @@ export class Ui {
   public addConfigInputArea() {
     const newConfigListElem = document.createElement('li');
     newConfigListElem.innerHTML = `<label>script:</label><textarea>stress-ng -c ${
-      this.configNum + 1
+      this.configNumber + 1
     } -t 10</textarea><button>delete</button>`;
     this.shellScriptList.appendChild(newConfigListElem);
     const newButtonElem = newConfigListElem.querySelector(
       'button'
     ) as HTMLButtonElement;
     newButtonElem.addEventListener('click', () => {
-      this.configNum -= 1;
+      this.configNumber -= 1;
       newConfigListElem.remove();
     });
-    this.configNum += 1;
+    this.configNumber += 1;
   }
   public loadConfigInputArea(config: string) {
     const newConfigListElem = document.createElement('li');
@@ -68,7 +77,7 @@ export class Ui {
     this.shellScriptList.appendChild(newConfigListElem);
   }
   public createGraphList() {
-    for (let i = 0; i < this.configNum; i++) {
+    for (let i = 0; i < this.configNumber; i++) {
       const newGraphListElem = document.createElement('li');
       newGraphListElem.innerHTML = `<div id="graph${i}"></div>`;
       this.graphList.appendChild(newGraphListElem);
@@ -78,7 +87,23 @@ export class Ui {
     this.dutConsole.textContent += s;
     this.dutConsole.scrollTo(0, this.dutConsole.scrollHeight);
   }
-  public hideToolTip() {
-    this.toolTip.classList.add('hidden');
+  public hideElement(element: HTMLElement) {
+    element.classList.add('hidden');
+  }
+  public showElement(element: HTMLElement) {
+    element.classList.remove('hidden');
+  }
+  public appendIterationSelectors(
+    iterationNumber: number,
+    selectedIndex: number
+  ) {
+    for (let i = 0; i < iterationNumber; i++) {
+      const newOption = document.createElement('option');
+      newOption.innerText = `${i + 1}`;
+      this.iterationSelector.add(newOption);
+    }
+    this.iterationSelector.selectedIndex = selectedIndex;
+    // IterationSelector is hidden by default, so the showElement is called here.
+    this.showElement(this.iterationSelector);
   }
 }

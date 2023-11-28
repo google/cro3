@@ -13,10 +13,11 @@
     </ol>
   </div>
   <div id="control-div">
-    <a id="download-anchor" style="display:none"></a>
+    <a id="download-anchor" class="hidden"></a>
     <button id='request-serial-button'>Start</button>
     <button id='halt-button'>Cancel</button>
     <button id='download-button'>Download</button>
+    <span>number of iterations: <input id="iteration-input" type="number" placeholder="1"></span>
   </div>
   <div id="config">
     <button id="add-config-button">Add config</button>
@@ -28,6 +29,11 @@
     <span id="serial-output" class="log"></span>
     <span id="d3area"></span>
     <span id="dut-console"></span>
+  </div>
+  <div class="flex">
+    <p>current iteration: </p>
+    <select id="iteration-selector" class="hidden"></select>
+    <p id="current-iteration"></p>
   </div>
   <ul id="graph-list"></ul>
   <span id="drop-zone">Drop .json here</span>

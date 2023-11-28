@@ -14,7 +14,8 @@ export class PowerTestController {
   private runner: TestRunner;
   private totalHistogram = new TotalHistogram();
   private configList: Array<Config> = [];
-  private currentConfigNum = 0;
+  private currentConfigNumber = 0;
+  private iterationNumber = 2;
   public isMeasuring = false;
   constructor(ui: Ui, servoController: ServoController, runner: TestRunner) {
     this.ui = ui;
@@ -25,7 +26,7 @@ export class PowerTestController {
   public setConfig() {
     const shellScriptContents = this.ui.readInputShellScript();
     this.ui.createGraphList();
-    for (let i = 0; i < this.ui.configNum; i++) {
+    for (let i = 0; i < this.ui.configNumber; i++) {
       const newConfig = new Config(
         this.ui,
         this.servoController,
@@ -46,45 +47,52 @@ export class PowerTestController {
     await this.runner.dut.close();
   }
   public async startMeasurement() {
-    if (this.ui.configNum === 0) return;
+    if (this.ui.configNumber === 0) return;
     this.marginTime = Number(this.ui.marginTimeInput.value);
+    this.iterationNumber = parseInt(this.ui.iterationInput.value);
+    if (this.iterationNumber <= 0) return;
     await this.servoController.servoShell.select();
     await this.runner.dut.select();
     await this.initializePort();
     await this.setConfig();
-    for (let i = 0; i < this.ui.configNum; i++) {
-      this.currentConfigNum = i;
-      console.log(`start running config${i}`);
-      await this.configList[i].start();
+    for (let i = 0; i < this.iterationNumber; i++) {
+      this.ui.currentIteration.innerText = `${i + 1}`;
+      for (let j = 0; j < this.ui.configNumber; j++) {
+        this.currentConfigNumber = j;
+        console.log(`start running config${j}`);
+        await this.configList[j].start();
+      }
     }
     this.drawTotalHistogram();
+    this.ui.hideElement(this.ui.currentIteration);
+    this.ui.appendIterationSelectors(
+      this.iterationNumber,
+      this.iterationNumber - 1
+    );
   }
   public async stopMeasurement() {
-    await this.configList[this.currentConfigNum].stop();
+    await this.configList[this.currentConfigNumber].stop();
   }
   private drawTotalHistogram() {
     const histogramData = [];
     for (const config of this.configList) {
-      const annotations = config.annotationList;
-      const extractedData = [];
-      for (const powerData of config.powerDataList) {
-        if (
-          annotations.get('start')! + this.marginTime <= powerData[0] &&
-          powerData[0] <= annotations.get('end')! - this.marginTime
-        ) {
-          extractedData.push(powerData[1]);
-        }
-      }
+      const extractedData = config.extractTotalHistogramData(this.marginTime);
       histogramData.push(extractedData);
     }
     this.totalHistogram.paintHistogram(histogramData);
   }
+  public showSelectedIterationGraph(selectedIteration: number) {
+    for (let i = 0; i < this.ui.configNumber; i++) {
+      this.configList[i].loadGraph(selectedIteration);
+    }
+  }
   public loadPowerData(s: string) {
     const jsonData = JSON.parse(s);
     this.marginTime = jsonData.margin;
-    this.ui.configNum = jsonData.data.length;
+    this.ui.configNumber = jsonData.data.length;
     this.ui.createGraphList();
     this.configList = [];
+    this.ui.appendIterationSelectors(this.iterationNumber, 0);
     for (let i = 0; i < jsonData.data.length; i++) {
       const configData = jsonData.data[i];
       const newConfig = new Config(
@@ -94,15 +102,24 @@ export class PowerTestController {
         i,
         configData.config
       );
-      newConfig.powerDataList = configData.power.map(
-        (d: {time: number; power: number}) => [d.time, d.power]
+      configData.measuredData.map(
+        (iterationData: {
+          power: Array<{time: number; power: number}>;
+          annotation: AnnotationDataList;
+        }) => {
+          const newPowerDataList = iterationData.power.map(
+            (d: {time: number; power: number}) => [d.time, d.power] as PowerData
+          );
+          const newAnnotationList = new Map(
+            Object.entries(iterationData.annotation)
+          );
+          newConfig.appendIterationDataList(
+            newPowerDataList,
+            newAnnotationList
+          );
+        }
       );
-      newConfig.annotationList = new Map(Object.entries(configData.annotation));
-      newConfig.graph.updateGraph(newConfig.powerDataList);
-      newConfig.graph.findAnnotationPoint(
-        newConfig.powerDataList,
-        newConfig.annotationList
-      );
+      newConfig.loadGraph(0);
       this.ui.loadConfigInputArea(configData.config);
       this.configList.push(newConfig);
     }
@@ -114,12 +131,10 @@ export class PowerTestController {
       encodeURIComponent(
         JSON.stringify({
           margin: this.marginTime,
-          data: this.configList.map(e => ({
-            config: e.customScript,
-            power: e.powerDataList.map(d => {
-              return {time: d[0], power: d[1]};
-            }),
-            annotation: Object.fromEntries(e.annotationList),
+          iterationNumber: this.iterationNumber,
+          data: this.configList.map(config => ({
+            config: config.customScript,
+            measuredData: config.exportIterationDataList(),
           })),
         })
       );

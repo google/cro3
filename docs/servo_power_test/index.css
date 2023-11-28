@@ -131,6 +131,14 @@ body {
   position: relative;
 }
 
+#iteration-input {
+  width: 32px;
+}
+
+.flex {
+  display: flex;
+}
+
 #shell-script-list {
   list-style-type: decimal;
 }
@@ -145,7 +153,7 @@ body {
   z-index: 2;
 }
 
-#tooltip.hidden {
+.hidden {
   display: none;
 }
 
@@ -193,10 +201,6 @@ body {
   left: 0;
   z-index: 9999;
   background: rgba(0, 0, 0, 0.6);
-}
-
-.closed {
-  display: none;
 }
 
 #popup-window {
