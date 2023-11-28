@@ -42,6 +42,7 @@ export class Ui {
     this.requestSerialButton.disabled = !halt;
     this.haltButton.disabled = halt;
     this.downloadButton.disabled = !halt;
+    this.addConfigButton.disabled = !halt;
   }
   public setSerialOutput(s: string) {
     this.serialOutput.textContent = s;

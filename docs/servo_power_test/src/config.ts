@@ -77,6 +77,7 @@ export class Config {
   private graph: Graph;
   private currentIteration: IterationData;
   public customScript: string;
+  public cancelled = false;
   constructor(
     ui: Ui,
     servoController: ServoController,
@@ -154,6 +155,7 @@ export class Config {
         }
       } catch (e) {
         console.error(e);
+        await this.cancel();
         throw e;
       } finally {
         this.ui.addMessageToConsole(dutData);
@@ -177,12 +179,22 @@ export class Config {
     this.iterationDataList.push(this.currentIteration);
   }
   public async stop() {
-    await this.runner.sendCancel();
-    await this.runner.sendCancel();
     this.changeHaltFlag(true);
     this.inProgress = false;
+    await this.runner.sendCancel();
+    await this.runner.sendCancel();
     await this.servoController.closeServoPort();
     await this.runner.closeDutPort();
+  }
+  public async cancel() {
+    try {
+      this.stop();
+    } catch (error) {
+      console.error(error);
+      throw error;
+    } finally {
+      this.cancelled = true;
+    }
   }
   public extractTotalHistogramData(marginTime: number) {
     let extractedData: Array<number> = [];

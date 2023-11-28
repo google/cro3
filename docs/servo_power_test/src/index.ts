@@ -20,7 +20,7 @@ window.addEventListener('DOMContentLoaded', () => {
     testController.startMeasurement();
   });
   ui.haltButton.addEventListener('click', () => {
-    testController.stopMeasurement();
+    testController.cancelMeasurement();
   });
   ui.iterationSelector.addEventListener('change', () => {
     const selectedIteration = ui.iterationSelector.selectedIndex;
