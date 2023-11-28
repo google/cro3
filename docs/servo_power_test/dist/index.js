@@ -34803,6 +34803,7 @@ class Ui {
             this.iterationSelector.add(newOption);
         }
         this.iterationSelector.selectedIndex = selectedIndex;
+        // IterationSelector is hidden by default, so the showElement is called here.
         this.showElement(this.iterationSelector);
     }
 }
