@@ -66,6 +66,13 @@ pub struct Config {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     default_ipv6_prefix: Option<String>,
+    /// This config option indicates that you are an internal user. When it is
+    /// true, the behavior of this tool will be optimized for the internal users
+    /// by default (e.g. using internal manifest for checking out source code by
+    /// default). It is false by default.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    is_internal: Option<bool>,
 }
 static CONFIG_FILE_NAME: &str = "config.json";
 impl Config {
@@ -144,6 +151,12 @@ impl Config {
                 }
                 self.default_ipv6_prefix = Some(values[0].as_ref().parse().unwrap());
             }
+            "is_internal" => {
+                if values.len() != 1 {
+                    bail!("{key} only takes 1 params");
+                }
+                self.is_internal = Some(values[0].as_ref().parse::<bool>().unwrap());
+            }
             _ => bail!("config key {key} is not valid"),
         }
         self.write()
@@ -174,6 +187,9 @@ impl Config {
             "default_ipv6_prefix" => {
                 self.default_ipv6_prefix = None;
             }
+            "is_internal" => {
+                self.is_internal = None;
+            }
             _ => bail!("lium config clear for '{key}' is not implemented"),
         }
         self.write()?;
@@ -200,5 +216,8 @@ impl Config {
     }
     pub fn default_ipv6_prefix(&self) -> Option<String> {
         self.default_ipv6_prefix.clone()
+    }
+    pub fn is_internal(&self) -> bool {
+        self.is_internal.unwrap_or(false)
     }
 }
