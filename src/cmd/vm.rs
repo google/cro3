@@ -16,6 +16,7 @@ use argh::FromArgs;
 use lium::config::Config;
 use lium::util::shell_helpers::run_bash_command;
 use strum_macros::Display;
+use tracing::info;
 use whoami;
 
 #[derive(FromArgs, PartialEq, Debug)]
@@ -67,7 +68,7 @@ pub struct ArgsSetup {
 fn run_setup(args: &ArgsSetup) -> Result<()> {
     let dir = find_betty_script(&args.arc)?;
 
-    println!("Updating packages...");
+    info!("Updating packages...");
     let mut update_package = Command::new("sudo")
         .args(["apt", "update"])
         .spawn()
@@ -76,10 +77,10 @@ fn run_setup(args: &ArgsSetup) -> Result<()> {
         .wait()
         .context("Failed to wait for updating packages")?;
 
-    println!("Enabling KVM...");
+    info!("Enabling KVM...");
     enable_kvm()?;
 
-    println!("Installing python packages...");
+    info!("Installing python packages...");
     let mut install_python_package = Command::new("sudo")
         .args(["apt", "install", "python3-pip", "python3-venv"])
         .spawn()
@@ -88,11 +89,11 @@ fn run_setup(args: &ArgsSetup) -> Result<()> {
         .wait()
         .context("Failed to wait for installing python packages")?;
 
-    println!("Running betty.sh setup...");
+    info!("Running betty.sh setup...");
     let options = args.extra_args.clone().unwrap_or_else(|| String::from(""));
     run_betty(&dir, SubCommand::Setup(args.clone()), &[&options])?;
 
-    println!("Running gcloud auth login...");
+    info!("Running gcloud auth login...");
     let mut gcloud_auth = Command::new("gcloud")
         .args(["auth", "login"])
         .spawn()
@@ -105,7 +106,7 @@ fn run_setup(args: &ArgsSetup) -> Result<()> {
 }
 
 fn enable_kvm() -> Result<()> {
-    println!("Installing kvm support...");
+    info!("Installing kvm support...");
     let mut install_kvm_support = Command::new("sudo")
         .args(["apt-get", "install", "qemu-system-x86"])
         .spawn()
@@ -128,7 +129,7 @@ fn enable_kvm() -> Result<()> {
         bail!("Your system does not have virtualization extensions.");
     };
 
-    println!("Loading Kernel modules...");
+    info!("Loading Kernel modules...");
     let mut load_kernel_module = Command::new("sudo")
         .args(["modprobe", module])
         .spawn()
@@ -138,7 +139,7 @@ fn enable_kvm() -> Result<()> {
         .context("Failed to wait for loading kernel modules")?;
 
     let username = whoami::username();
-    println!("Adding the user to the kvm local group...");
+    info!("Adding the user to the kvm local group...");
     let mut add_to_kvm_group = Command::new("sudo")
         .args(["adduser", &username, "kvm"])
         .spawn()
@@ -158,7 +159,7 @@ fn enable_kvm() -> Result<()> {
         bail!("KVM did not enable correctly");
     }
 
-    println!("Setting the user access to /dev/kvm...");
+    info!("Setting the user access to /dev/kvm...");
     let mut set_access = Command::new("sudo")
         .args(["setfacl", "-m", &format!("u:{}:rw", username), "/dev/kvm"])
         .spawn()
