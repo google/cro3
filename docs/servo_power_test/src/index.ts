@@ -24,7 +24,7 @@ window.addEventListener('DOMContentLoaded', () => {
   });
   ui.iterationSelector.addEventListener('change', () => {
     const selectedIteration = ui.iterationSelector.selectedIndex;
-    testController.showSelectedItrGraph(selectedIteration);
+    testController.showSelectedIterationGraph(selectedIteration);
   });
   ui.dropZone.addEventListener(
     'dragover',

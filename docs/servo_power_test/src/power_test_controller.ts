@@ -81,7 +81,7 @@ export class PowerTestController {
     }
     this.totalHistogram.paintHistogram(histogramData);
   }
-  public showSelectedItrGraph(selectedIteration: number) {
+  public showSelectedIterationGraph(selectedIteration: number) {
     for (let i = 0; i < this.ui.configNumber; i++) {
       this.configList[i].loadGraph(selectedIteration);
     }

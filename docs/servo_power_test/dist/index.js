@@ -34142,7 +34142,7 @@ window.addEventListener('DOMContentLoaded', () => {
     });
     ui.iterationSelector.addEventListener('change', () => {
         const selectedIteration = ui.iterationSelector.selectedIndex;
-        testController.showSelectedItrGraph(selectedIteration);
+        testController.showSelectedIterationGraph(selectedIteration);
     });
     ui.dropZone.addEventListener('dragover', e => {
         e.stopPropagation();
@@ -34354,7 +34354,7 @@ class PowerTestController {
         }
         this.totalHistogram.paintHistogram(histogramData);
     }
-    showSelectedItrGraph(selectedIteration) {
+    showSelectedIterationGraph(selectedIteration) {
         for (let i = 0; i < this.ui.configNumber; i++) {
             this.configList[i].loadGraph(selectedIteration);
         }
