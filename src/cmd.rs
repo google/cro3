@@ -21,6 +21,7 @@ pub mod setup;
 pub mod sync;
 pub mod tast;
 pub mod version;
+pub mod vm;
 
 #[derive(FromArgs, PartialEq, Debug)]
 /// yet another wrapper for CrOS developers.
@@ -55,6 +56,7 @@ pub enum Args {
     Sync(sync::Args),
     Tast(tast::Args),
     Version(version::Args),
+    Vm(vm::Args),
 }
 
 #[tracing::instrument(level = "trace")]
@@ -74,5 +76,6 @@ pub fn run(args: &TopLevel) -> Result<()> {
         Args::Sync(args) => sync::run(args),
         Args::Tast(args) => tast::run(args),
         Args::Version(args) => version::run(args),
+        Args::Vm(args) => vm::run(args),
     }
 }
