@@ -4,7 +4,6 @@
 // license that can be found in the LICENSE file or at
 // https://developers.google.com/open-source/licenses/bsd
 
-use anyhow::anyhow;
 use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
@@ -125,11 +124,11 @@ fn update_cached_tests(bundles: &Vec<&str>, dut: &str, repodir: &str) -> Result<
 }
 
 fn run_tast_list(args: &ArgsList) -> Result<()> {
-    let filter = if let Some(_tests) = &args.tests {
-        Pattern::new(_tests)?
-    } else {
-        Pattern::new("*")?
-    };
+    let filter = args
+        .tests
+        .as_ref()
+        .map(|s| Pattern::new(s))
+        .unwrap_or_else(|| Pattern::new("*"))?;
     let config = Config::read()?;
     let bundles = config.tast_bundles();
 
@@ -137,13 +136,10 @@ fn run_tast_list(args: &ArgsList) -> Result<()> {
         return Ok(());
     }
 
-    let dut = if let Some(_dut) = &args.dut {
-        _dut
-    } else {
-        return Err(anyhow!(
-            "Please re-run with --dut option to cache test names"
-        ));
-    };
+    let dut = args
+        .dut
+        .as_ref()
+        .expect("Test name is not cached. Please rerun with --dut <DUT>");
 
     update_cached_tests(&bundles, dut, &get_repo_dir(&args.repo)?)?;
 
