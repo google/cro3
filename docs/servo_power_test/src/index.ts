@@ -4,7 +4,7 @@
 import moment from 'moment';
 import {OperatePort} from './operate_port';
 import {PowerTestController} from './power_test_controller';
-import {TestRunner} from './test_runner';
+import {DutController} from './dut_controller';
 import {ServoController} from './servo_controller';
 import {Ui} from './ui';
 
@@ -12,8 +12,12 @@ window.addEventListener('DOMContentLoaded', () => {
   const ui = new Ui();
   const servoController = new ServoController();
   const dutShell = new OperatePort(0x18d1, 0x504a);
-  const runner = new TestRunner(ui, dutShell);
-  const testController = new PowerTestController(ui, servoController, runner);
+  const dutController = new DutController(ui, dutShell);
+  const testController = new PowerTestController(
+    ui,
+    servoController,
+    dutController
+  );
   testController.setupDisconnectEvent();
 
   ui.requestSerialButton.addEventListener('click', () => {

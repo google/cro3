@@ -35,7 +35,7 @@ export class Ui {
   public iterationSelector = document.getElementById(
     'iteration-selector'
   ) as HTMLSelectElement;
-  public configNumber = 0;
+  public runnerNumber = 0;
   private graphList = document.getElementById('graph-list') as HTMLUListElement;
 
   public enabledRecordingButton(halt: boolean) {
@@ -60,17 +60,17 @@ export class Ui {
   public addConfigInputArea() {
     const newConfigListElem = document.createElement('li');
     newConfigListElem.innerHTML = `<label>script:</label><textarea>stress-ng -c ${
-      this.configNumber + 1
+      this.runnerNumber + 1
     } -t 10</textarea><button>delete</button>`;
     this.shellScriptList.appendChild(newConfigListElem);
     const newButtonElem = newConfigListElem.querySelector(
       'button'
     ) as HTMLButtonElement;
     newButtonElem.addEventListener('click', () => {
-      this.configNumber -= 1;
+      this.runnerNumber -= 1;
       newConfigListElem.remove();
     });
-    this.configNumber += 1;
+    this.runnerNumber += 1;
   }
   public loadConfigInputArea(config: string) {
     const newConfigListElem = document.createElement('li');
@@ -78,7 +78,7 @@ export class Ui {
     this.shellScriptList.appendChild(newConfigListElem);
   }
   public createGraphList() {
-    for (let i = 0; i < this.configNumber; i++) {
+    for (let i = 0; i < this.runnerNumber; i++) {
       const newGraphListElem = document.createElement('li');
       newGraphListElem.innerHTML = `<div id="graph${i}"></div>`;
       this.graphList.appendChild(newGraphListElem);
