@@ -33939,20 +33939,44 @@ exports.DutController = DutController;
 
 "use strict";
 
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.Graph = void 0;
 const dygraphs_1 = __importDefault(__webpack_require__(/*! dygraphs */ "./node_modules/dygraphs/index.js"));
+const d3 = __importStar(__webpack_require__(/*! d3 */ "./node_modules/d3/src/index.js"));
 class Graph {
-    constructor(ui, div) {
+    constructor(ui, graphDiv, histogramDiv) {
         this.annotations = [];
         this.ui = ui;
-        this.g = new dygraphs_1.default(div, [], {
-            width: 960,
-            height: 480,
+        this.g = new dygraphs_1.default(graphDiv, [], {
+            height: 500,
         });
+        this.histogramDiv = histogramDiv;
     }
     updateGraph(powerDataList) {
         if (powerDataList !== undefined && powerDataList.length > 0) {
@@ -33962,12 +33986,9 @@ class Graph {
             file: powerDataList,
             labels: ['t', 'ina0'],
             showRoller: true,
-            width: 960,
-            height: 480,
             xlabel: 'Relative Time (s)',
             ylabel: 'Power (mW)',
             legend: 'always',
-            showRangeSelector: true,
             connectSeparatedPoints: true,
             axes: {
                 x: {
@@ -34019,6 +34040,77 @@ class Graph {
     returnXrange() {
         console.log(this.g.xAxisExtremes());
         return this.g.xAxisRange();
+    }
+    setHistogram(powerDataList) {
+        var _a;
+        const parentElementSize = (_a = d3
+            .select(this.histogramDiv)
+            .node()) === null || _a === void 0 ? void 0 : _a.getBoundingClientRect();
+        // set the dimensions and margins of the graph
+        const margin = { top: 10, right: 30, bottom: 30, left: 40 };
+        const width = parentElementSize === null || parentElementSize === void 0 ? void 0 : parentElementSize.width;
+        const height = parentElementSize === null || parentElementSize === void 0 ? void 0 : parentElementSize.height;
+        // Bin the data.
+        const bins = d3.bin().thresholds(40)(powerDataList.map(d => d[1]));
+        console.log(bins);
+        // Create the SVG container.
+        const svg = d3
+            .select(this.histogramDiv)
+            .append('svg')
+            .attr('width', width)
+            .attr('height', height)
+            .attr('viewBox', [0, 0, width, height]);
+        // Declare the x (horizontal position) scale.
+        const x = d3
+            .scaleLinear()
+            .domain([0, d3.max(bins, d => d.length)])
+            .range([margin.left, width - margin.right]);
+        // Declare the y (vertical position) scale.
+        const y = d3
+            .scaleLinear()
+            .domain([bins[0].x0, bins[bins.length - 1].x1])
+            .range([height - margin.bottom, margin.top]);
+        // Add a rect for each bin.
+        svg
+            .append('g')
+            .attr('fill', 'steelblue')
+            .selectAll()
+            .data(bins)
+            .join('rect')
+            .attr('x', x(0))
+            .attr('width', d => x(d.length) - x(0))
+            .attr('y', d => y(d.x1) + 1)
+            .attr('height', d => y(d.x0) - y(d.x1) - 1);
+        // Add the x-axis and label.
+        svg
+            .append('g')
+            .attr('transform', `translate(0,${height - margin.bottom})`)
+            .call(d3
+            .axisBottom(x)
+            .ticks(width / 80)
+            .tickSizeOuter(0))
+            .call(g => g
+            .append('text')
+            .attr('x', width)
+            .attr('y', margin.bottom - 4)
+            .attr('fill', 'currentColor')
+            .attr('text-anchor', 'end')
+            .text('# of datapoints'));
+        // Add the y-axis and label, and remove the domain line.
+        svg
+            .append('g')
+            .attr('transform', `translate(${margin.left},0)`)
+            .call(d3.axisLeft(y).ticks(height / 40))
+            .call(g => g.select('.domain').remove())
+            .call(g => g
+            .append('text')
+            .attr('x', -margin.left)
+            .attr('y', 10)
+            .attr('fill', 'currentColor')
+            .attr('text-anchor', 'start')
+            .text('Power(mW)'));
+        // Return the SVG element.
+        svg.node();
     }
 }
 exports.Graph = Graph;
@@ -34440,6 +34532,9 @@ class IterationData {
     updateGraph() {
         this.graph.updateGraph(this.powerDataList);
     }
+    setHistogram() {
+        this.graph.setHistogram(this.powerDataList);
+    }
     addAnnotation(label) {
         this.annotationList.set(label, new Date().getTime());
         this.graph.addAnnotation(this.powerDataList[this.powerDataList.length - 1][0], label);
@@ -34483,7 +34578,7 @@ class TestRunner {
         this.iterationDataList = [];
         this.cancelled = false;
         this.ui = ui;
-        this.graph = new graph_1.Graph(ui, document.getElementById(`graph${runnerNumber}`));
+        this.graph = new graph_1.Graph(ui, document.getElementById(`graph${runnerNumber}`), document.getElementById(`histogram${runnerNumber}`));
         this.servoController = servoController;
         this.dutController = dutController;
         this.configScript = configScript;
@@ -34561,6 +34656,7 @@ class TestRunner {
         const readDutLoopPromise = this.readDutLoop();
         await this.dutController.runWorkload(this.configScript);
         await readDutLoopPromise;
+        this.currentIteration.setHistogram();
         this.iterationDataList.push(this.currentIteration);
     }
     async stop() {
@@ -34830,7 +34926,8 @@ class Ui {
     createGraphList() {
         for (let i = 0; i < this.runnerNumber; i++) {
             const newGraphListElem = document.createElement('li');
-            newGraphListElem.innerHTML = `<div id="graph${i}"></div>`;
+            newGraphListElem.className = 'flex graph-list-element';
+            newGraphListElem.innerHTML = `<div id="graph${i}" class="line-graph"></div><div id="histogram${i}" class="histogram"></div>`;
             this.graphList.appendChild(newGraphListElem);
         }
     }

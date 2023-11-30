@@ -23,6 +23,9 @@ export class IterationData {
   public updateGraph() {
     this.graph.updateGraph(this.powerDataList);
   }
+  public setHistogram() {
+    this.graph.setHistogram(this.powerDataList);
+  }
   public addAnnotation(label: string) {
     this.annotationList.set(label, new Date().getTime());
     this.graph.addAnnotation(
@@ -88,7 +91,8 @@ export class TestRunner {
     this.ui = ui;
     this.graph = new Graph(
       ui,
-      document.getElementById(`graph${runnerNumber}`) as HTMLDivElement
+      document.getElementById(`graph${runnerNumber}`) as HTMLDivElement,
+      document.getElementById(`histogram${runnerNumber}`) as HTMLDivElement
     );
     this.servoController = servoController;
     this.dutController = dutController;
@@ -176,6 +180,7 @@ export class TestRunner {
     const readDutLoopPromise = this.readDutLoop();
     await this.dutController.runWorkload(this.configScript);
     await readDutLoopPromise;
+    this.currentIteration.setHistogram();
     this.iterationDataList.push(this.currentIteration);
   }
   public async stop() {
