@@ -98,7 +98,7 @@ _lium_get_options() { # current
   local otype=0
   local a b
 
-  ${cmd} --help 2>/dev/null | while read a b ;do
+  ${cmd} --help 2>/dev/null | awk '/^..[^ ]/{print $0}' | while read a b ;do
     case ${a} in
       Positional) otype=1;;
       Options:) otype=2;;
