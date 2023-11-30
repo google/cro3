@@ -7,10 +7,13 @@
 use std::fs;
 use std::process::Command;
 use std::process::Stdio;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 use anyhow::anyhow;
 use anyhow::Context;
 use anyhow::Result;
+use signal_hook::consts::SIGINT;
 use tracing::info;
 
 use crate::util::lium_paths::gen_path_in_lium_dir;
@@ -112,9 +115,19 @@ impl Chroot {
         let run = cmd
             .spawn()
             .context(anyhow!("spawn failed. cmd = {cmd:?}"))?;
+
+        // Double Ctrl+C to terminal lium immediately.
+        let intr = Arc::new(AtomicBool::new(false));
+        signal_hook::flag::register_conditional_shutdown(SIGINT, 1, Arc::clone(&intr))?;
+        signal_hook::flag::register(SIGINT, Arc::clone(&intr))?;
+
         let result = run
             .wait_with_output()
             .context(anyhow!("wait_with_output_failed. cmd = {cmd:?}"))?;
+
+        if intr.load(Ordering::Relaxed) {
+            return Err(anyhow!("Cought a SIGINT (Ctrl+C)"));
+        }
         result
             .status
             .exit_ok()
