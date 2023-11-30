@@ -34283,8 +34283,8 @@ class PowerTestController {
     }
     drawTotalHistogram() {
         const histogramData = [];
-        for (const dutController of this.testRunnerList) {
-            const extractedData = dutController.extractTotalHistogramData(this.marginTime);
+        for (const runner of this.testRunnerList) {
+            const extractedData = runner.extractTotalHistogramData(this.marginTime);
             histogramData.push(extractedData);
         }
         this.totalHistogram.paintHistogram(histogramData);
@@ -34320,9 +34320,9 @@ class PowerTestController {
             encodeURIComponent(JSON.stringify({
                 margin: this.marginTime,
                 iterationNumber: this.iterationNumber,
-                data: this.testRunnerList.map(dutController => ({
-                    config: dutController.configScript,
-                    measuredData: dutController.exportIterationDataList(),
+                data: this.testRunnerList.map(runner => ({
+                    config: runner.configScript,
+                    measuredData: runner.exportIterationDataList(),
                 })),
             }));
         return dataStr;
