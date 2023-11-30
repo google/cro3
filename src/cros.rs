@@ -68,6 +68,8 @@ fi
 pub fn setup_cros_repo(repo: &str, version: &str, reference: &Option<String>) -> Result<()> {
     let config = Config::read()?;
 
+    // These manifest urls are cited from the official doc:
+    // https://chromium.googlesource.com/chromiumos/docs/+/master/developer_guide.md#Get-the-source-code
     let url = if config.is_internal() {
         info!("Using internal repo urls");
         if version == "tot" {
