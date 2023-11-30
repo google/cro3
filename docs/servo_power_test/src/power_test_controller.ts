@@ -61,7 +61,10 @@ export class PowerTestController {
       for (let j = 0; j < this.ui.configNumber; j++) {
         this.currentConfigNumber = j;
         console.log(`start running config${j}`);
-        await this.configList[j].start();
+        await this.configList[j].start().catch(e => {
+          throw e;
+        });
+        if (this.configList[j].cancelled) return;
       }
     }
     this.drawTotalHistogram();
@@ -71,8 +74,8 @@ export class PowerTestController {
       this.iterationNumber - 1
     );
   }
-  public async stopMeasurement() {
-    await this.configList[this.currentConfigNumber].stop();
+  public async cancelMeasurement() {
+    await this.configList[this.currentConfigNumber].cancel();
   }
   private drawTotalHistogram() {
     const histogramData = [];
@@ -144,11 +147,7 @@ export class PowerTestController {
   public setupDisconnectEvent() {
     // event when you disconnect serial port
     navigator.serial.addEventListener('disconnect', async () => {
-      if (this.isMeasuring) {
-        this.isMeasuring = false;
-        await this.servoController.closeServoPort();
-        await this.runner.closeDutPort();
-      }
+      this.cancelMeasurement();
     });
   }
 }

@@ -33905,6 +33905,7 @@ class Config {
         this.halt = true;
         this.inProgress = false;
         this.iterationDataList = [];
+        this.cancelled = false;
         this.ui = ui;
         this.graph = new graph_1.Graph(ui, document.getElementById(`graph${configNumber}`));
         this.servoController = servoController;
@@ -33966,6 +33967,7 @@ class Config {
             }
             catch (e) {
                 console.error(e);
+                await this.cancel();
                 throw e;
             }
             finally {
@@ -33986,12 +33988,24 @@ class Config {
         this.iterationDataList.push(this.currentIteration);
     }
     async stop() {
-        await this.runner.sendCancel();
-        await this.runner.sendCancel();
         this.changeHaltFlag(true);
         this.inProgress = false;
+        await this.runner.sendCancel();
+        await this.runner.sendCancel();
         await this.servoController.closeServoPort();
         await this.runner.closeDutPort();
+    }
+    async cancel() {
+        try {
+            this.stop();
+        }
+        catch (error) {
+            console.error(error);
+            throw error;
+        }
+        finally {
+            this.cancelled = true;
+        }
     }
     extractTotalHistogramData(marginTime) {
         let extractedData = [];
@@ -34137,7 +34151,7 @@ window.addEventListener('DOMContentLoaded', () => {
         testController.startMeasurement();
     });
     ui.haltButton.addEventListener('click', () => {
-        testController.stopMeasurement();
+        testController.cancelMeasurement();
     });
     ui.iterationSelector.addEventListener('change', () => {
         const selectedIteration = ui.iterationSelector.selectedIndex;
@@ -34335,15 +34349,19 @@ class PowerTestController {
             for (let j = 0; j < this.ui.configNumber; j++) {
                 this.currentConfigNumber = j;
                 console.log(`start running config${j}`);
-                await this.configList[j].start();
+                await this.configList[j].start().catch(e => {
+                    throw e;
+                });
+                if (this.configList[j].cancelled)
+                    return;
             }
         }
         this.drawTotalHistogram();
         this.ui.hideElement(this.ui.currentIteration);
         this.ui.appendIterationSelectors(this.iterationNumber, this.iterationNumber - 1);
     }
-    async stopMeasurement() {
-        await this.configList[this.currentConfigNumber].stop();
+    async cancelMeasurement() {
+        await this.configList[this.currentConfigNumber].cancel();
     }
     drawTotalHistogram() {
         const histogramData = [];
@@ -34394,11 +34412,7 @@ class PowerTestController {
     setupDisconnectEvent() {
         // event when you disconnect serial port
         navigator.serial.addEventListener('disconnect', async () => {
-            if (this.isMeasuring) {
-                this.isMeasuring = false;
-                await this.servoController.closeServoPort();
-                await this.runner.closeDutPort();
-            }
+            this.cancelMeasurement();
         });
     }
 }
@@ -34467,10 +34481,8 @@ class ServoController {
                 }
             }
             catch (e) {
-                // break the loop here because `disconnect` event is not called in Chrome
-                // for some reason when the loop continues. And no need to throw error
-                // here because it is thrown in readFn.
-                return undefined;
+                console.error(e);
+                throw e;
             }
         }
     }
@@ -34741,6 +34753,7 @@ class Ui {
         this.requestSerialButton.disabled = !halt;
         this.haltButton.disabled = halt;
         this.downloadButton.disabled = !halt;
+        this.addConfigButton.disabled = !halt;
     }
     setSerialOutput(s) {
         this.serialOutput.textContent = s;
