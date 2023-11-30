@@ -75,20 +75,16 @@ fn print_cached_tests_in_bundle(filter: &Pattern, bundle: &str) -> Result<()> {
 }
 
 fn print_cached_tests(filter: &Pattern, bundles: &Vec<&str>) -> Result<()> {
-    if bundles.is_empty() {
-        print_cached_tests_in_bundle(filter, DEFAULT_BUNDLE)
-    } else {
-        // Ensure all bundles are cached.
-        for b in bundles {
-            if TEST_CACHE.get(b)?.is_none() {
-                bail!("No cache found for {b}.");
-            }
+    // Ensure all bundles are cached.
+    for b in bundles {
+        if TEST_CACHE.get(b)?.is_none() {
+            bail!("No cache found for {b}.");
         }
-        for b in bundles {
-            print_cached_tests_in_bundle(filter, b)?
-        }
-        Ok(())
     }
+    for b in bundles {
+        print_cached_tests_in_bundle(filter, b)?
+    }
+    Ok(())
 }
 
 fn update_cached_tests_in_bundle(bundle: &str, chroot: &Chroot, port: u16) -> Result<()> {
@@ -113,14 +109,10 @@ fn update_cached_tests(bundles: &Vec<&str>, dut: &str, repodir: &str) -> Result<
     // To avoid "build failed: failed checking build deps:" error
     chroot.run_bash_script_in_chroot("update_board_chroot", "update_chroot", None)?;
 
-    if bundles.is_empty() {
-        update_cached_tests_in_bundle(DEFAULT_BUNDLE, &chroot, port)
-    } else {
-        for b in bundles {
-            update_cached_tests_in_bundle(b, &chroot, port)?
-        }
-        Ok(())
+    for b in bundles {
+        update_cached_tests_in_bundle(b, &chroot, port)?
     }
+    Ok(())
 }
 
 fn run_tast_list(args: &ArgsList) -> Result<()> {
@@ -130,18 +122,19 @@ fn run_tast_list(args: &ArgsList) -> Result<()> {
         .map(|s| Pattern::new(s))
         .unwrap_or_else(|| Pattern::new("*"))?;
     let config = Config::read()?;
-    let bundles = config.tast_bundles();
-
-    if print_cached_tests(&filter, &bundles).is_ok() || args.cached {
-        return Ok(());
+    let mut bundles = config.tast_bundles();
+    if bundles.is_empty() {
+        bundles.push(DEFAULT_BUNDLE);
     }
 
-    let dut = args
-        .dut
-        .as_ref()
-        .expect("Test name is not cached. Please rerun with --dut <DUT>");
+    if !args.cached {
+        let dut = args
+            .dut
+            .as_ref()
+            .expect("Test name is not cached. Please rerun with --dut <DUT>");
 
-    update_cached_tests(&bundles, dut, &get_repo_dir(&args.repo)?)?;
+        update_cached_tests(&bundles, dut, &get_repo_dir(&args.repo)?)?;
+    }
 
     print_cached_tests(&filter, &bundles)?;
 
