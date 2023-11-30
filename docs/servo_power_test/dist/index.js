@@ -33841,185 +33841,62 @@ webpackContext.id = "./node_modules/moment/locale sync recursive ^\\.\\/.*$";
 
 /***/ }),
 
-/***/ "./src/config.ts":
-/*!***********************!*\
-  !*** ./src/config.ts ***!
-  \***********************/
+/***/ "./src/dut_controller.ts":
+/*!*******************************!*\
+  !*** ./src/dut_controller.ts ***!
+  \*******************************/
 /***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.Config = exports.IterationData = void 0;
-const graph_1 = __webpack_require__(/*! ./graph */ "./src/graph.ts");
-class IterationData {
-    constructor(powerDataList, annotationList, graph) {
-        this.powerDataList = powerDataList;
-        this.annotationList = annotationList;
-        this.graph = graph;
-    }
-    appendPowerData(powerData) {
-        this.powerDataList.push(powerData);
-    }
-    updateGraph() {
-        this.graph.updateGraph(this.powerDataList);
-    }
-    addAnnotation(label) {
-        this.annotationList.set(label, new Date().getTime());
-        this.graph.addAnnotation(this.powerDataList[this.powerDataList.length - 1][0], label);
-    }
-    findAnnotation() {
-        this.graph.findAnnotationPoint(this.powerDataList, this.annotationList);
-    }
-    exportData() {
-        return {
-            power: this.powerDataList.map(d => {
-                return { time: d[0], power: d[1] };
-            }),
-            annotation: Object.fromEntries(this.annotationList),
-        };
-    }
-    extractData(marginTime) {
-        let startIndex = 0, endIndex = 0;
-        for (let i = 0; i < this.powerDataList.length; i++) {
-            if (this.annotationList.get('start') + marginTime <=
-                this.powerDataList[i][0]) {
-                startIndex = i;
-                break;
-            }
-        }
-        for (let i = this.powerDataList.length - 1; i >= 0; i--) {
-            if (this.powerDataList[i][0] <=
-                this.annotationList.get('end') - marginTime) {
-                endIndex = i;
-                break;
-            }
-        }
-        return this.powerDataList.slice(startIndex, endIndex + 1).map(d => d[1]);
-    }
-}
-exports.IterationData = IterationData;
-class Config {
-    constructor(ui, servoController, runner, configNumber, customScript) {
-        this.INTERVAL_MS = 100;
-        this.halt = true;
-        this.inProgress = false;
-        this.iterationDataList = [];
-        this.cancelled = false;
+exports.DutController = void 0;
+const operate_port_1 = __webpack_require__(/*! ./operate_port */ "./src/operate_port.ts");
+class DutController {
+    constructor(ui, dut) {
+        this.CANCEL_CMD = '\x03\n';
+        this.isOpened = false;
+        this.dut = new operate_port_1.OperatePort(0x18d1, 0x504a);
         this.ui = ui;
-        this.graph = new graph_1.Graph(ui, document.getElementById(`graph${configNumber}`));
-        this.servoController = servoController;
-        this.runner = runner;
-        this.customScript = customScript;
-        this.currentIteration = new IterationData([], new Map(), this.graph);
+        this.dut = dut;
     }
-    appendIterationDataList(newPowerDataList, newAnnotationList) {
-        this.iterationDataList.push(new IterationData(newPowerDataList, newAnnotationList, this.graph));
+    async openDutPort() {
+        if (this.isOpened)
+            return;
+        await this.dut.open();
+        console.log('dutPort is opened\n'); // for debug
+        this.isOpened = true;
+        await this.dut.write('ectool chargecontrol idle\n');
     }
-    exportIterationDataList() {
-        return this.iterationDataList.map(iterationData => iterationData.exportData());
+    async closeDutPort() {
+        if (!this.isOpened)
+            return;
+        await this.dut.write('ectool chargecontrol normal\n');
+        await this.dut.close();
+        console.log('dutPort is closed\n'); // for debug
+        this.isOpened = false;
     }
-    changeHaltFlag(flag) {
-        this.halt = flag;
-        this.servoController.halt = flag;
-        this.ui.enabledRecordingButton(this.halt);
+    async readData() {
+        const chunk = await this.dut.read();
+        return chunk;
     }
-    kickWriteLoop() {
-        const f = async () => {
-            while (!this.halt) {
-                if (this.inProgress) {
-                    console.error('previous request is in progress! skip...');
-                }
-                else {
-                    this.inProgress = true;
-                }
-                await this.servoController.writeInaCommand();
-                await new Promise(r => setTimeout(r, this.INTERVAL_MS));
-            }
-        };
-        setTimeout(f, this.INTERVAL_MS);
+    async runWorkload(customScript) {
+        const script = `\nfunction workload () {
+  ${customScript}
+}
+sleep 3
+echo "start"
+workload 1> ./test_out.log 2> ./test_err.log
+echo "end"
+sleep 3
+echo "stop"\n`;
+        await this.dut.write(`\necho "${btoa(script)}" | base64 -d | bash\n`);
     }
-    async readLoop() {
-        while (!this.halt) {
-            const currentPowerData = await this.servoController.readData();
-            this.inProgress = false;
-            if (currentPowerData === undefined)
-                continue;
-            this.ui.setSerialOutput(currentPowerData.originalData);
-            const e = [new Date().getTime(), currentPowerData.power];
-            this.currentIteration.appendPowerData(e);
-            this.currentIteration.updateGraph();
-        }
-    }
-    async readDutLoop() {
-        while (!this.halt) {
-            const dutData = await this.runner.readData();
-            try {
-                if (dutData.includes('start')) {
-                    this.currentIteration.addAnnotation('start');
-                }
-                else if (dutData.includes('end')) {
-                    this.currentIteration.addAnnotation('end');
-                }
-                else if (dutData.includes('stop')) {
-                    await this.stop();
-                }
-            }
-            catch (e) {
-                console.error(e);
-                await this.cancel();
-                throw e;
-            }
-            finally {
-                this.ui.addMessageToConsole(dutData);
-            }
-        }
-    }
-    async start() {
-        this.currentIteration = new IterationData([], new Map(), this.graph);
-        await this.runner.openDutPort();
-        await this.servoController.openServoPort();
-        this.changeHaltFlag(false);
-        this.kickWriteLoop();
-        this.readLoop();
-        const readDutLoopPromise = this.readDutLoop();
-        await this.runner.runWorkload(this.customScript);
-        await readDutLoopPromise;
-        this.iterationDataList.push(this.currentIteration);
-    }
-    async stop() {
-        this.changeHaltFlag(true);
-        this.inProgress = false;
-        await this.runner.sendCancel();
-        await this.runner.sendCancel();
-        await this.servoController.closeServoPort();
-        await this.runner.closeDutPort();
-    }
-    async cancel() {
-        try {
-            this.stop();
-        }
-        catch (error) {
-            console.error(error);
-            throw error;
-        }
-        finally {
-            this.cancelled = true;
-        }
-    }
-    extractTotalHistogramData(marginTime) {
-        let extractedData = [];
-        for (const iterationData of this.iterationDataList) {
-            extractedData = extractedData.concat(iterationData.extractData(marginTime));
-        }
-        return extractedData;
-    }
-    loadGraph(selectedIteration) {
-        this.iterationDataList[selectedIteration].updateGraph();
-        this.iterationDataList[selectedIteration].findAnnotation();
+    async sendCancel() {
+        await this.dut.write(this.CANCEL_CMD);
     }
 }
-exports.Config = Config;
+exports.DutController = DutController;
 
 
 /***/ }),
@@ -34137,15 +34014,15 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 const moment_1 = __importDefault(__webpack_require__(/*! moment */ "./node_modules/moment/moment.js"));
 const operate_port_1 = __webpack_require__(/*! ./operate_port */ "./src/operate_port.ts");
 const power_test_controller_1 = __webpack_require__(/*! ./power_test_controller */ "./src/power_test_controller.ts");
-const test_runner_1 = __webpack_require__(/*! ./test_runner */ "./src/test_runner.ts");
+const dut_controller_1 = __webpack_require__(/*! ./dut_controller */ "./src/dut_controller.ts");
 const servo_controller_1 = __webpack_require__(/*! ./servo_controller */ "./src/servo_controller.ts");
 const ui_1 = __webpack_require__(/*! ./ui */ "./src/ui.ts");
 window.addEventListener('DOMContentLoaded', () => {
     const ui = new ui_1.Ui();
     const servoController = new servo_controller_1.ServoController();
     const dutShell = new operate_port_1.OperatePort(0x18d1, 0x504a);
-    const runner = new test_runner_1.TestRunner(ui, dutShell);
-    const testController = new power_test_controller_1.PowerTestController(ui, servoController, runner);
+    const dutController = new dut_controller_1.DutController(ui, dutShell);
+    const testController = new power_test_controller_1.PowerTestController(ui, servoController, dutController);
     testController.setupDisconnectEvent();
     ui.requestSerialButton.addEventListener('click', () => {
         testController.startMeasurement();
@@ -34302,57 +34179,57 @@ exports.OperatePort = OperatePort;
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.PowerTestController = void 0;
-const config_1 = __webpack_require__(/*! ./config */ "./src/config.ts");
+const test_runner_1 = __webpack_require__(/*! ./test_runner */ "./src/test_runner.ts");
 const total_histogram_1 = __webpack_require__(/*! ./total_histogram */ "./src/total_histogram.ts");
 class PowerTestController {
-    constructor(ui, servoController, runner) {
+    constructor(ui, servoController, dutController) {
         this.marginTime = 300;
         this.totalHistogram = new total_histogram_1.TotalHistogram();
-        this.configList = [];
-        this.currentConfigNumber = 0;
+        this.testRunnerList = [];
+        this.currentRunnerNumber = 0;
         this.iterationNumber = 2;
         this.isMeasuring = false;
         this.ui = ui;
         this.servoController = servoController;
-        this.runner = runner;
+        this.dutController = dutController;
     }
     setConfig() {
         const shellScriptContents = this.ui.readInputShellScript();
         this.ui.createGraphList();
-        for (let i = 0; i < this.ui.configNumber; i++) {
-            const newConfig = new config_1.Config(this.ui, this.servoController, this.runner, i, shellScriptContents[i]);
-            this.configList.push(newConfig);
+        for (let i = 0; i < this.ui.runnerNumber; i++) {
+            const newRunner = new test_runner_1.TestRunner(this.ui, this.servoController, this.dutController, i, shellScriptContents[i]);
+            this.testRunnerList.push(newRunner);
         }
     }
     async initializePort() {
         await this.servoController.servoShell.open();
         await this.servoController.servoShell.close();
-        await this.runner.dut.open();
-        await this.runner.sendCancel();
-        await this.runner.sendCancel();
-        await this.runner.sendCancel();
-        await this.runner.dut.close();
+        await this.dutController.dut.open();
+        await this.dutController.sendCancel();
+        await this.dutController.sendCancel();
+        await this.dutController.sendCancel();
+        await this.dutController.dut.close();
     }
     async startMeasurement() {
-        if (this.ui.configNumber === 0)
+        if (this.ui.runnerNumber === 0)
             return;
         this.marginTime = Number(this.ui.marginTimeInput.value);
         this.iterationNumber = parseInt(this.ui.iterationInput.value);
         if (this.iterationNumber <= 0)
             return;
         await this.servoController.servoShell.select();
-        await this.runner.dut.select();
+        await this.dutController.dut.select();
         await this.initializePort();
         await this.setConfig();
         for (let i = 0; i < this.iterationNumber; i++) {
             this.ui.currentIteration.innerText = `${i + 1}`;
-            for (let j = 0; j < this.ui.configNumber; j++) {
-                this.currentConfigNumber = j;
+            for (let j = 0; j < this.ui.runnerNumber; j++) {
+                this.currentRunnerNumber = j;
                 console.log(`start running config${j}`);
-                await this.configList[j].start().catch(e => {
+                await this.testRunnerList[j].start().catch(e => {
                     throw e;
                 });
-                if (this.configList[j].cancelled)
+                if (this.testRunnerList[j].cancelled)
                     return;
             }
         }
@@ -34361,39 +34238,39 @@ class PowerTestController {
         this.ui.appendIterationSelectors(this.iterationNumber, this.iterationNumber - 1);
     }
     async cancelMeasurement() {
-        await this.configList[this.currentConfigNumber].cancel();
+        await this.testRunnerList[this.currentRunnerNumber].cancel();
     }
     drawTotalHistogram() {
         const histogramData = [];
-        for (const config of this.configList) {
-            const extractedData = config.extractTotalHistogramData(this.marginTime);
+        for (const runner of this.testRunnerList) {
+            const extractedData = runner.extractTotalHistogramData(this.marginTime);
             histogramData.push(extractedData);
         }
         this.totalHistogram.paintHistogram(histogramData);
     }
     showSelectedIterationGraph(selectedIteration) {
-        for (let i = 0; i < this.ui.configNumber; i++) {
-            this.configList[i].loadGraph(selectedIteration);
+        for (let i = 0; i < this.ui.runnerNumber; i++) {
+            this.testRunnerList[i].loadGraph(selectedIteration);
         }
     }
     loadPowerData(s) {
         const jsonData = JSON.parse(s);
         this.marginTime = jsonData.margin;
-        this.ui.configNumber = jsonData.data.length;
+        this.ui.runnerNumber = jsonData.data.length;
         this.ui.createGraphList();
-        this.configList = [];
+        this.testRunnerList = [];
         this.ui.appendIterationSelectors(this.iterationNumber, 0);
         for (let i = 0; i < jsonData.data.length; i++) {
-            const configData = jsonData.data[i];
-            const newConfig = new config_1.Config(this.ui, this.servoController, this.runner, i, configData.config);
-            configData.measuredData.map((iterationData) => {
+            const runnerData = jsonData.data[i];
+            const newRunner = new test_runner_1.TestRunner(this.ui, this.servoController, this.dutController, i, runnerData.config);
+            runnerData.measuredData.map((iterationData) => {
                 const newPowerDataList = iterationData.power.map((d) => [d.time, d.power]);
                 const newAnnotationList = new Map(Object.entries(iterationData.annotation));
-                newConfig.appendIterationDataList(newPowerDataList, newAnnotationList);
+                newRunner.appendIterationDataList(newPowerDataList, newAnnotationList);
             });
-            newConfig.loadGraph(0);
-            this.ui.loadConfigInputArea(configData.config);
-            this.configList.push(newConfig);
+            newRunner.loadGraph(0);
+            this.ui.loadConfigInputArea(runnerData.config);
+            this.testRunnerList.push(newRunner);
         }
         this.drawTotalHistogram();
     }
@@ -34402,9 +34279,9 @@ class PowerTestController {
             encodeURIComponent(JSON.stringify({
                 margin: this.marginTime,
                 iterationNumber: this.iterationNumber,
-                data: this.configList.map(config => ({
-                    config: config.customScript,
-                    measuredData: config.exportIterationDataList(),
+                data: this.testRunnerList.map(runner => ({
+                    config: runner.configScript,
+                    measuredData: runner.exportIterationDataList(),
                 })),
             }));
         return dataStr;
@@ -34504,50 +34381,173 @@ exports.ServoController = ServoController;
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.TestRunner = void 0;
-const operate_port_1 = __webpack_require__(/*! ./operate_port */ "./src/operate_port.ts");
-class TestRunner {
-    constructor(ui, dut) {
-        this.CANCEL_CMD = '\x03\n';
-        this.isOpened = false;
-        this.dut = new operate_port_1.OperatePort(0x18d1, 0x504a);
-        this.ui = ui;
-        this.dut = dut;
+exports.TestRunner = exports.IterationData = void 0;
+const graph_1 = __webpack_require__(/*! ./graph */ "./src/graph.ts");
+class IterationData {
+    constructor(powerDataList, annotationList, graph) {
+        this.powerDataList = powerDataList;
+        this.annotationList = annotationList;
+        this.graph = graph;
     }
-    async openDutPort() {
-        if (this.isOpened)
-            return;
-        await this.dut.open();
-        console.log('dutPort is opened\n'); // for debug
-        this.isOpened = true;
-        await this.dut.write('ectool chargecontrol idle\n');
+    appendPowerData(powerData) {
+        this.powerDataList.push(powerData);
     }
-    async closeDutPort() {
-        if (!this.isOpened)
-            return;
-        await this.dut.write('ectool chargecontrol normal\n');
-        await this.dut.close();
-        console.log('dutPort is closed\n'); // for debug
-        this.isOpened = false;
+    updateGraph() {
+        this.graph.updateGraph(this.powerDataList);
     }
-    async readData() {
-        const chunk = await this.dut.read();
-        return chunk;
+    addAnnotation(label) {
+        this.annotationList.set(label, new Date().getTime());
+        this.graph.addAnnotation(this.powerDataList[this.powerDataList.length - 1][0], label);
     }
-    async runWorkload(customScript) {
-        const script = `\nfunction workload () {
-  ${customScript}
+    findAnnotation() {
+        this.graph.findAnnotationPoint(this.powerDataList, this.annotationList);
+    }
+    exportData() {
+        return {
+            power: this.powerDataList.map(d => {
+                return { time: d[0], power: d[1] };
+            }),
+            annotation: Object.fromEntries(this.annotationList),
+        };
+    }
+    extractData(marginTime) {
+        let startIndex = 0, endIndex = 0;
+        for (let i = 0; i < this.powerDataList.length; i++) {
+            if (this.annotationList.get('start') + marginTime <=
+                this.powerDataList[i][0]) {
+                startIndex = i;
+                break;
+            }
+        }
+        for (let i = this.powerDataList.length - 1; i >= 0; i--) {
+            if (this.powerDataList[i][0] <=
+                this.annotationList.get('end') - marginTime) {
+                endIndex = i;
+                break;
+            }
+        }
+        return this.powerDataList.slice(startIndex, endIndex + 1).map(d => d[1]);
+    }
 }
-sleep 3
-echo "start"
-workload 1> ./test_out.log 2> ./test_err.log
-echo "end"
-sleep 3
-echo "stop"\n`;
-        await this.dut.write(`\necho "${btoa(script)}" | base64 -d | bash\n`);
+exports.IterationData = IterationData;
+class TestRunner {
+    constructor(ui, servoController, dutController, runnerNumber, configScript) {
+        this.INTERVAL_MS = 100;
+        this.halt = true;
+        this.inProgress = false;
+        this.iterationDataList = [];
+        this.cancelled = false;
+        this.ui = ui;
+        this.graph = new graph_1.Graph(ui, document.getElementById(`graph${runnerNumber}`));
+        this.servoController = servoController;
+        this.dutController = dutController;
+        this.configScript = configScript;
+        this.currentIteration = new IterationData([], new Map(), this.graph);
     }
-    async sendCancel() {
-        await this.dut.write(this.CANCEL_CMD);
+    appendIterationDataList(newPowerDataList, newAnnotationList) {
+        this.iterationDataList.push(new IterationData(newPowerDataList, newAnnotationList, this.graph));
+    }
+    exportIterationDataList() {
+        return this.iterationDataList.map(iterationData => iterationData.exportData());
+    }
+    changeHaltFlag(flag) {
+        this.halt = flag;
+        this.servoController.halt = flag;
+        this.ui.enabledRecordingButton(this.halt);
+    }
+    kickWriteLoop() {
+        const f = async () => {
+            while (!this.halt) {
+                if (this.inProgress) {
+                    console.error('previous request is in progress! skip...');
+                }
+                else {
+                    this.inProgress = true;
+                }
+                await this.servoController.writeInaCommand();
+                await new Promise(r => setTimeout(r, this.INTERVAL_MS));
+            }
+        };
+        setTimeout(f, this.INTERVAL_MS);
+    }
+    async readLoop() {
+        while (!this.halt) {
+            const currentPowerData = await this.servoController.readData();
+            this.inProgress = false;
+            if (currentPowerData === undefined)
+                continue;
+            this.ui.setSerialOutput(currentPowerData.originalData);
+            const e = [new Date().getTime(), currentPowerData.power];
+            this.currentIteration.appendPowerData(e);
+            this.currentIteration.updateGraph();
+        }
+    }
+    async readDutLoop() {
+        while (!this.halt) {
+            const dutData = await this.dutController.readData();
+            try {
+                if (dutData.includes('start')) {
+                    this.currentIteration.addAnnotation('start');
+                }
+                else if (dutData.includes('end')) {
+                    this.currentIteration.addAnnotation('end');
+                }
+                else if (dutData.includes('stop')) {
+                    await this.stop();
+                }
+            }
+            catch (e) {
+                console.error(e);
+                await this.cancel();
+                throw e;
+            }
+            finally {
+                this.ui.addMessageToConsole(dutData);
+            }
+        }
+    }
+    async start() {
+        this.currentIteration = new IterationData([], new Map(), this.graph);
+        await this.dutController.openDutPort();
+        await this.servoController.openServoPort();
+        this.changeHaltFlag(false);
+        this.kickWriteLoop();
+        this.readLoop();
+        const readDutLoopPromise = this.readDutLoop();
+        await this.dutController.runWorkload(this.configScript);
+        await readDutLoopPromise;
+        this.iterationDataList.push(this.currentIteration);
+    }
+    async stop() {
+        this.changeHaltFlag(true);
+        this.inProgress = false;
+        await this.dutController.sendCancel();
+        await this.dutController.sendCancel();
+        await this.servoController.closeServoPort();
+        await this.dutController.closeDutPort();
+    }
+    async cancel() {
+        try {
+            this.stop();
+        }
+        catch (error) {
+            console.error(error);
+            throw error;
+        }
+        finally {
+            this.cancelled = true;
+        }
+    }
+    extractTotalHistogramData(marginTime) {
+        let extractedData = [];
+        for (const iterationData of this.iterationDataList) {
+            extractedData = extractedData.concat(iterationData.extractData(marginTime));
+        }
+        return extractedData;
+    }
+    loadGraph(selectedIteration) {
+        this.iterationDataList[selectedIteration].updateGraph();
+        this.iterationDataList[selectedIteration].findAnnotation();
     }
 }
 exports.TestRunner = TestRunner;
@@ -34746,7 +34746,7 @@ class Ui {
         this.marginTimeInput = document.getElementById('margin-time-input');
         this.iterationInput = document.getElementById('iteration-input');
         this.iterationSelector = document.getElementById('iteration-selector');
-        this.configNumber = 0;
+        this.runnerNumber = 0;
         this.graphList = document.getElementById('graph-list');
     }
     enabledRecordingButton(halt) {
@@ -34768,14 +34768,14 @@ class Ui {
     }
     addConfigInputArea() {
         const newConfigListElem = document.createElement('li');
-        newConfigListElem.innerHTML = `<label>script:</label><textarea>stress-ng -c ${this.configNumber + 1} -t 10</textarea><button>delete</button>`;
+        newConfigListElem.innerHTML = `<label>script:</label><textarea>stress-ng -c ${this.runnerNumber + 1} -t 10</textarea><button>delete</button>`;
         this.shellScriptList.appendChild(newConfigListElem);
         const newButtonElem = newConfigListElem.querySelector('button');
         newButtonElem.addEventListener('click', () => {
-            this.configNumber -= 1;
+            this.runnerNumber -= 1;
             newConfigListElem.remove();
         });
-        this.configNumber += 1;
+        this.runnerNumber += 1;
     }
     loadConfigInputArea(config) {
         const newConfigListElem = document.createElement('li');
@@ -34783,7 +34783,7 @@ class Ui {
         this.shellScriptList.appendChild(newConfigListElem);
     }
     createGraphList() {
-        for (let i = 0; i < this.configNumber; i++) {
+        for (let i = 0; i < this.runnerNumber; i++) {
             const newGraphListElem = document.createElement('li');
             newGraphListElem.innerHTML = `<div id="graph${i}"></div>`;
             this.graphList.appendChild(newGraphListElem);

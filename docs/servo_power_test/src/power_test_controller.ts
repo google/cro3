@@ -1,7 +1,7 @@
 import {ServoController} from './servo_controller';
 import {Ui} from './ui';
+import {DutController} from './dut_controller';
 import {TestRunner} from './test_runner';
-import {Config} from './config';
 import {TotalHistogram} from './total_histogram';
 
 export type PowerData = [number, number];
@@ -11,60 +11,64 @@ export class PowerTestController {
   private marginTime = 300;
   private ui: Ui;
   private servoController: ServoController;
-  private runner: TestRunner;
+  private dutController: DutController;
   private totalHistogram = new TotalHistogram();
-  private configList: Array<Config> = [];
-  private currentConfigNumber = 0;
+  private testRunnerList: Array<TestRunner> = [];
+  private currentRunnerNumber = 0;
   private iterationNumber = 2;
   public isMeasuring = false;
-  constructor(ui: Ui, servoController: ServoController, runner: TestRunner) {
+  constructor(
+    ui: Ui,
+    servoController: ServoController,
+    dutController: DutController
+  ) {
     this.ui = ui;
     this.servoController = servoController;
-    this.runner = runner;
+    this.dutController = dutController;
   }
 
   public setConfig() {
     const shellScriptContents = this.ui.readInputShellScript();
     this.ui.createGraphList();
-    for (let i = 0; i < this.ui.configNumber; i++) {
-      const newConfig = new Config(
+    for (let i = 0; i < this.ui.runnerNumber; i++) {
+      const newRunner = new TestRunner(
         this.ui,
         this.servoController,
-        this.runner,
+        this.dutController,
         i,
         shellScriptContents[i]
       );
-      this.configList.push(newConfig);
+      this.testRunnerList.push(newRunner);
     }
   }
 
   private async initializePort() {
     await this.servoController.servoShell.open();
     await this.servoController.servoShell.close();
-    await this.runner.dut.open();
-    await this.runner.sendCancel();
-    await this.runner.sendCancel();
-    await this.runner.sendCancel();
-    await this.runner.dut.close();
+    await this.dutController.dut.open();
+    await this.dutController.sendCancel();
+    await this.dutController.sendCancel();
+    await this.dutController.sendCancel();
+    await this.dutController.dut.close();
   }
   public async startMeasurement() {
-    if (this.ui.configNumber === 0) return;
+    if (this.ui.runnerNumber === 0) return;
     this.marginTime = Number(this.ui.marginTimeInput.value);
     this.iterationNumber = parseInt(this.ui.iterationInput.value);
     if (this.iterationNumber <= 0) return;
     await this.servoController.servoShell.select();
-    await this.runner.dut.select();
+    await this.dutController.dut.select();
     await this.initializePort();
     await this.setConfig();
     for (let i = 0; i < this.iterationNumber; i++) {
       this.ui.currentIteration.innerText = `${i + 1}`;
-      for (let j = 0; j < this.ui.configNumber; j++) {
-        this.currentConfigNumber = j;
+      for (let j = 0; j < this.ui.runnerNumber; j++) {
+        this.currentRunnerNumber = j;
         console.log(`start running config${j}`);
-        await this.configList[j].start().catch(e => {
+        await this.testRunnerList[j].start().catch(e => {
           throw e;
         });
-        if (this.configList[j].cancelled) return;
+        if (this.testRunnerList[j].cancelled) return;
       }
     }
     this.drawTotalHistogram();
@@ -75,38 +79,38 @@ export class PowerTestController {
     );
   }
   public async cancelMeasurement() {
-    await this.configList[this.currentConfigNumber].cancel();
+    await this.testRunnerList[this.currentRunnerNumber].cancel();
   }
   private drawTotalHistogram() {
     const histogramData = [];
-    for (const config of this.configList) {
-      const extractedData = config.extractTotalHistogramData(this.marginTime);
+    for (const runner of this.testRunnerList) {
+      const extractedData = runner.extractTotalHistogramData(this.marginTime);
       histogramData.push(extractedData);
     }
     this.totalHistogram.paintHistogram(histogramData);
   }
   public showSelectedIterationGraph(selectedIteration: number) {
-    for (let i = 0; i < this.ui.configNumber; i++) {
-      this.configList[i].loadGraph(selectedIteration);
+    for (let i = 0; i < this.ui.runnerNumber; i++) {
+      this.testRunnerList[i].loadGraph(selectedIteration);
     }
   }
   public loadPowerData(s: string) {
     const jsonData = JSON.parse(s);
     this.marginTime = jsonData.margin;
-    this.ui.configNumber = jsonData.data.length;
+    this.ui.runnerNumber = jsonData.data.length;
     this.ui.createGraphList();
-    this.configList = [];
+    this.testRunnerList = [];
     this.ui.appendIterationSelectors(this.iterationNumber, 0);
     for (let i = 0; i < jsonData.data.length; i++) {
-      const configData = jsonData.data[i];
-      const newConfig = new Config(
+      const runnerData = jsonData.data[i];
+      const newRunner = new TestRunner(
         this.ui,
         this.servoController,
-        this.runner,
+        this.dutController,
         i,
-        configData.config
+        runnerData.config
       );
-      configData.measuredData.map(
+      runnerData.measuredData.map(
         (iterationData: {
           power: Array<{time: number; power: number}>;
           annotation: AnnotationDataList;
@@ -117,15 +121,15 @@ export class PowerTestController {
           const newAnnotationList = new Map(
             Object.entries(iterationData.annotation)
           );
-          newConfig.appendIterationDataList(
+          newRunner.appendIterationDataList(
             newPowerDataList,
             newAnnotationList
           );
         }
       );
-      newConfig.loadGraph(0);
-      this.ui.loadConfigInputArea(configData.config);
-      this.configList.push(newConfig);
+      newRunner.loadGraph(0);
+      this.ui.loadConfigInputArea(runnerData.config);
+      this.testRunnerList.push(newRunner);
     }
     this.drawTotalHistogram();
   }
@@ -136,9 +140,9 @@ export class PowerTestController {
         JSON.stringify({
           margin: this.marginTime,
           iterationNumber: this.iterationNumber,
-          data: this.configList.map(config => ({
-            config: config.customScript,
-            measuredData: config.exportIterationDataList(),
+          data: this.testRunnerList.map(runner => ({
+            config: runner.configScript,
+            measuredData: runner.exportIterationDataList(),
           })),
         })
       );
