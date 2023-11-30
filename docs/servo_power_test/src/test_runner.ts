@@ -22,9 +22,7 @@ export class IterationData {
   }
   public updateGraph() {
     this.graph.updateGraph(this.powerDataList);
-  }
-  public setHistogram() {
-    this.graph.setHistogram(this.powerDataList);
+    this.graph.updateHistogram(this.powerDataList);
   }
   public addAnnotation(label: string) {
     this.annotationList.set(label, new Date().getTime());
@@ -180,7 +178,6 @@ export class TestRunner {
     const readDutLoopPromise = this.readDutLoop();
     await this.dutController.runWorkload(this.configScript);
     await readDutLoopPromise;
-    this.currentIteration.setHistogram();
     this.iterationDataList.push(this.currentIteration);
   }
   public async stop() {
