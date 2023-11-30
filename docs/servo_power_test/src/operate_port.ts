@@ -29,7 +29,7 @@ export class OperatePort {
     if (this.port === undefined) return;
     await this.reader
       .cancel()
-      .then(async () => {
+      .then(() => {
         this.reader.releaseLock();
       })
       .catch(() => {}); // when the reader stream is already locked, do nothing.

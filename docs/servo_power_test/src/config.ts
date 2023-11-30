@@ -156,7 +156,7 @@ export class Config {
         console.error(e);
         throw e;
       } finally {
-        await this.ui.addMessageToConsole(dutData);
+        this.ui.addMessageToConsole(dutData);
       }
     }
   }
@@ -168,12 +168,11 @@ export class Config {
     );
     await this.runner.openDutPort();
     await this.servoController.openServoPort();
-    await this.changeHaltFlag(false);
+    this.changeHaltFlag(false);
     this.kickWriteLoop();
     this.readLoop();
     const readDutLoopPromise = this.readDutLoop();
-    await this.runner.copyScriptToDut(this.customScript);
-    await this.runner.executeScript();
+    await this.runner.runWorkload(this.customScript);
     await readDutLoopPromise;
     this.iterationDataList.push(this.currentIteration);
   }

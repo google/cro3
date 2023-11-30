@@ -33969,7 +33969,7 @@ class Config {
                 throw e;
             }
             finally {
-                await this.ui.addMessageToConsole(dutData);
+                this.ui.addMessageToConsole(dutData);
             }
         }
     }
@@ -33977,12 +33977,11 @@ class Config {
         this.currentIteration = new IterationData([], new Map(), this.graph);
         await this.runner.openDutPort();
         await this.servoController.openServoPort();
-        await this.changeHaltFlag(false);
+        this.changeHaltFlag(false);
         this.kickWriteLoop();
         this.readLoop();
         const readDutLoopPromise = this.readDutLoop();
-        await this.runner.copyScriptToDut(this.customScript);
-        await this.runner.executeScript();
+        await this.runner.runWorkload(this.customScript);
         await readDutLoopPromise;
         this.iterationDataList.push(this.currentIteration);
     }
@@ -34221,7 +34220,7 @@ class OperatePort {
             return;
         await this.reader
             .cancel()
-            .then(async () => {
+            .then(() => {
             this.reader.releaseLock();
         })
             .catch(() => { }); // when the reader stream is already locked, do nothing.
@@ -34523,9 +34522,8 @@ class TestRunner {
         const chunk = await this.dut.read();
         return chunk;
     }
-    async copyScriptToDut(customScript) {
-        const script = `#!/bin/bash -e
-function workload () {
+    async runWorkload(customScript) {
+        const script = `\nfunction workload () {
   ${customScript}
 }
 sleep 3
@@ -34534,15 +34532,7 @@ workload 1> ./test_out.log 2> ./test_err.log
 echo "end"
 sleep 3
 echo "stop"\n`;
-        await this.dut.write('cat > ./example.sh << EOF\n');
-        await this.dut.write(btoa(script) + '\n');
-        await this.dut.write('EOF\n');
-    }
-    async executeScript() {
-        await this.dut.write('base64 -d ./example.sh | bash\n');
-    }
-    async executeCommand(s) {
-        await this.dut.write(s);
+        await this.dut.write(`\necho "${btoa(script)}" | base64 -d | bash\n`);
     }
     async sendCancel() {
         await this.dut.write(this.CANCEL_CMD);

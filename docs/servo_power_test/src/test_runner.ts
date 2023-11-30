@@ -28,9 +28,8 @@ export class TestRunner {
     const chunk = await this.dut.read();
     return chunk;
   }
-  public async copyScriptToDut(customScript: string) {
-    const script = `#!/bin/bash -e
-function workload () {
+  public async runWorkload(customScript: string) {
+    const script = `\nfunction workload () {
   ${customScript}
 }
 sleep 3
@@ -39,15 +38,7 @@ workload 1> ./test_out.log 2> ./test_err.log
 echo "end"
 sleep 3
 echo "stop"\n`;
-    await this.dut.write('cat > ./example.sh << EOF\n');
-    await this.dut.write(btoa(script) + '\n');
-    await this.dut.write('EOF\n');
-  }
-  public async executeScript() {
-    await this.dut.write('base64 -d ./example.sh | bash\n');
-  }
-  public async executeCommand(s: string) {
-    await this.dut.write(s);
+    await this.dut.write(`\necho "${btoa(script)}" | base64 -d | bash\n`);
   }
   public async sendCancel() {
     await this.dut.write(this.CANCEL_CMD);

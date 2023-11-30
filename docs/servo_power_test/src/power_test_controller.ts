@@ -37,7 +37,8 @@ export class PowerTestController {
       this.configList.push(newConfig);
     }
   }
-  public async initializePort() {
+
+  private async initializePort() {
     await this.servoController.servoShell.open();
     await this.servoController.servoShell.close();
     await this.runner.dut.open();
