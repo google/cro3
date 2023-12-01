@@ -45,17 +45,17 @@ export class PowerTestController {
     await this.servoController.servoShell.open();
     await this.servoController.servoShell.close();
     await this.dutController.dut.open();
-    await this.dutController.sendCancel();
-    await this.dutController.sendCancel();
-    await this.dutController.sendCancel();
+    await this.dutController.sendCancelCommand();
+    await this.dutController.sendCancelCommand();
+    await this.dutController.sendCancelCommand();
     await this.dutController.discardAllDutBuffer();
     await this.dutController.dut.close();
   }
   private async finalize() {
     await this.dutController.dut.open();
-    await this.dutController.sendCancel();
-    await this.dutController.sendCancel();
-    await this.dutController.sendCancel();
+    await this.dutController.sendCancelCommand();
+    await this.dutController.sendCancelCommand();
+    await this.dutController.sendCancelCommand();
     await this.dutController.dut.close();
   }
   public async startMeasurement() {

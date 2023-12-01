@@ -42,7 +42,7 @@ export class DutController {
     } catch {
       // setTimeOut() is resolved faster
       // that is, no data is read in 1000ms
-      await this.dut.readCancel();
+      await this.dut.cancelRead();
       console.log('read all data');
       return true;
     }
@@ -68,7 +68,8 @@ sleep 3
 echo "stop"\n`;
     await this.dut.write(`\necho "${btoa(script)}" | base64 -d | bash\n`);
   }
-  public async sendCancel() {
+  // Send ctrl+C command to DUT console.
+  public async sendCancelCommand() {
     await this.dut.write(this.CANCEL_CMD);
   }
 }
