@@ -116,17 +116,29 @@ impl Chroot {
             .spawn()
             .context(anyhow!("spawn failed. cmd = {cmd:?}"))?;
 
-        // Double Ctrl+C to terminal lium immediately.
+        // Hit Ctrl-C twice to terminate lium immediately.
+        // Note that the Ctrl-C (SIGINT) will be sent to both the bash script
+        // in chroot and the parent lium process from the terminal.
+        // The bash script will (hopefully) terminates its child process but
+        // it may take a while. Since lium will quit immediately by default
+        // we need to setup SIGINT handlers to wait it.
         let intr = Arc::new(AtomicBool::new(false));
+        // This will shutdown lium only if the 'intr' is true.
         signal_hook::flag::register_conditional_shutdown(SIGINT, 1, Arc::clone(&intr))?;
+        // This will handle the first SIGINT to set the 'intr' flag true.
         signal_hook::flag::register(SIGINT, Arc::clone(&intr))?;
+        // As a result, the first SIGINT set 'intr' flag true and the child bash
+        // script will be terminated (but it takes a time.)
+        // If user wants to quit immediately, send the 2nd SIGINT and it
+        // will shutdown lium because 'intr' is true now.
 
         let result = run
             .wait_with_output()
             .context(anyhow!("wait_with_output_failed. cmd = {cmd:?}"))?;
 
+        // Even if user does not send SIGINT twice, this will return an error.
         if intr.load(Ordering::Relaxed) {
-            return Err(anyhow!("Cought a SIGINT (Ctrl+C)"));
+            return Err(anyhow!("Caught a SIGINT (Ctrl+C)"));
         }
         result
             .status
