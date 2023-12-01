@@ -33855,6 +33855,7 @@ const operate_port_1 = __webpack_require__(/*! ./operate_port */ "./src/operate_
 class DutController {
     constructor(ui, dut) {
         this.CANCEL_CMD = '\x03\n';
+        this.LIMIT_TIME = 1000;
         this.isOpened = false;
         this.dut = new operate_port_1.OperatePort(0x18d1, 0x504a);
         this.ui = ui;
@@ -33879,6 +33880,35 @@ class DutController {
     async readData() {
         const chunk = await this.dut.read();
         return chunk;
+    }
+    // Return true if no data appears on DUT serial console while waiting for 1000ms. Otherwise, return false.
+    async readDataWithTimeout(limitTime) {
+        const racePromise = Promise.race([
+            this.readData(),
+            new Promise((_, reject) => setTimeout(reject, limitTime)),
+        ]);
+        try {
+            await racePromise;
+            // this.runner.readData() is resolved faster
+            // that is, some data is read in 1000ms
+            return false;
+        }
+        catch (_a) {
+            // setTimeOut() is resolved faster
+            // that is, no data is read in 1000ms
+            await this.dut.readCancel();
+            console.log('read all data');
+            return true;
+        }
+    }
+    async discardAllDutBuffer() {
+        for (;;) {
+            const allDataIsRead = await this.readDataWithTimeout(this.LIMIT_TIME);
+            if (allDataIsRead) {
+                // all data is read from DUT
+                break;
+            }
+        }
     }
     async runWorkload(customScript) {
         const script = `\nfunction workload () {
@@ -34106,15 +34136,20 @@ class OperatePort {
             return;
         await this.port.open({ baudRate: 115200 });
     }
-    async close() {
-        if (this.port === undefined)
-            return;
+    // If waiting for reader.read(), cancel it and release the reader's lock. Otherwise, do nothing.
+    async readCancel() {
         await this.reader
             .cancel()
             .then(() => {
             this.reader.releaseLock();
         })
             .catch(() => { }); // when the reader stream is already locked, do nothing.
+    }
+    // Close the serial port.
+    async close() {
+        if (this.port === undefined)
+            return;
+        await this.readCancel();
         await this.port.close();
     }
     async read() {
@@ -34201,9 +34236,17 @@ class PowerTestController {
             this.testRunnerList.push(newRunner);
         }
     }
-    async initializePort() {
+    async initialize() {
         await this.servoController.servoShell.open();
         await this.servoController.servoShell.close();
+        await this.dutController.dut.open();
+        await this.dutController.sendCancel();
+        await this.dutController.sendCancel();
+        await this.dutController.sendCancel();
+        await this.dutController.discardAllDutBuffer();
+        await this.dutController.dut.close();
+    }
+    async finalize() {
         await this.dutController.dut.open();
         await this.dutController.sendCancel();
         await this.dutController.sendCancel();
@@ -34219,7 +34262,7 @@ class PowerTestController {
             return;
         await this.servoController.servoShell.select();
         await this.dutController.dut.select();
-        await this.initializePort();
+        await this.initialize();
         await this.setConfig();
         for (let i = 0; i < this.iterationNumber; i++) {
             this.ui.currentIteration.innerText = `${i + 1}`;
@@ -34233,12 +34276,14 @@ class PowerTestController {
                     return;
             }
         }
+        this.finalize();
         this.drawTotalHistogram();
         this.ui.hideElement(this.ui.currentIteration);
         this.ui.appendIterationSelectors(this.iterationNumber, this.iterationNumber - 1);
     }
     async cancelMeasurement() {
         await this.testRunnerList[this.currentRunnerNumber].cancel();
+        await this.finalize();
     }
     drawTotalHistogram() {
         const histogramData = [];

@@ -25,14 +25,19 @@ export class OperatePort {
     if (this.port === undefined) return;
     await this.port.open({baudRate: 115200});
   }
-  public async close() {
-    if (this.port === undefined) return;
+  // If waiting for reader.read(), cancel it and release the reader's lock. Otherwise, do nothing.
+  public async readCancel() {
     await this.reader
       .cancel()
       .then(() => {
         this.reader.releaseLock();
       })
       .catch(() => {}); // when the reader stream is already locked, do nothing.
+  }
+  // Close the serial port.
+  public async close() {
+    if (this.port === undefined) return;
+    await this.readCancel();
     await this.port.close();
   }
   public async read() {

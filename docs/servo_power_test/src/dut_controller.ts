@@ -28,6 +28,34 @@ export class DutController {
     const chunk = await this.dut.read();
     return chunk;
   }
+  // Return true if no data appears on DUT serial console while waiting for 1000ms. Otherwise, return false.
+  private async readDataWithTimeout(limitTime: number) {
+    const racePromise = Promise.race([
+      this.readData(),
+      new Promise((_, reject) => setTimeout(reject, limitTime)),
+    ]);
+    try {
+      await racePromise;
+      // this.runner.readData() is resolved faster
+      // that is, some data is read in 1000ms
+      return false;
+    } catch {
+      // setTimeOut() is resolved faster
+      // that is, no data is read in 1000ms
+      await this.dut.readCancel();
+      console.log('read all data');
+      return true;
+    }
+  }
+  public async discardAllDutBuffer() {
+    for (;;) {
+      const allDataIsRead = await this.readDataWithTimeout(1000);
+      if (allDataIsRead) {
+        // all data is read from DUT
+        break;
+      }
+    }
+  }
   public async runWorkload(customScript: string) {
     const script = `\nfunction workload () {
   ${customScript}

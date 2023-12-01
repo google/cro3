@@ -41,10 +41,17 @@ export class PowerTestController {
       this.testRunnerList.push(newRunner);
     }
   }
-
-  private async initializePort() {
+  private async initialize() {
     await this.servoController.servoShell.open();
     await this.servoController.servoShell.close();
+    await this.dutController.dut.open();
+    await this.dutController.sendCancel();
+    await this.dutController.sendCancel();
+    await this.dutController.sendCancel();
+    await this.dutController.discardAllDutBuffer();
+    await this.dutController.dut.close();
+  }
+  private async finalize() {
     await this.dutController.dut.open();
     await this.dutController.sendCancel();
     await this.dutController.sendCancel();
@@ -58,7 +65,7 @@ export class PowerTestController {
     if (this.iterationNumber <= 0) return;
     await this.servoController.servoShell.select();
     await this.dutController.dut.select();
-    await this.initializePort();
+    await this.initialize();
     await this.setConfig();
     for (let i = 0; i < this.iterationNumber; i++) {
       this.ui.currentIteration.innerText = `${i + 1}`;
@@ -71,6 +78,7 @@ export class PowerTestController {
         if (this.testRunnerList[j].cancelled) return;
       }
     }
+    this.finalize();
     this.drawTotalHistogram();
     this.ui.hideElement(this.ui.currentIteration);
     this.ui.appendIterationSelectors(
@@ -80,6 +88,7 @@ export class PowerTestController {
   }
   public async cancelMeasurement() {
     await this.testRunnerList[this.currentRunnerNumber].cancel();
+    await this.finalize();
   }
   private drawTotalHistogram() {
     const histogramData = [];
