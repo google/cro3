@@ -159,18 +159,24 @@ body {
 
 #backlog {
   margin-top: 1rem;
-  width: 100vw;
+  width: 25%;
   padding: 0;
   box-sizing: border-box;
   display: flex;
+  flex-direction: column;
 }
 
 #backlog span {
   display: inline-block;
   border: 1px solid #aaa;
   padding: 1rem;
+  width: auto;
   min-height: 100px;
   height: 300px;
+  font-family: monospace;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-y: scroll;
 }
 
 .log {
@@ -179,18 +185,10 @@ body {
   width: 26%;
 }
 
-#d3area {
-  width: 50%;
-  overflow-y: scroll;
-}
-
-#dut-console {
-  height: 100%;
-  width: 24%;
-  font-family: monospace;
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  overflow-y: scroll;
+#graph-list {
+  width: 75%;
+  left: 0;
+  right: 0;
 }
 
 #popup-overlay {
