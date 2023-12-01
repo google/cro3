@@ -33855,6 +33855,7 @@ const operate_port_1 = __webpack_require__(/*! ./operate_port */ "./src/operate_
 class DutController {
     constructor(ui, dut) {
         this.CANCEL_CMD = '\x03\n';
+        this.LIMIT_TIME = 1000;
         this.isOpened = false;
         this.dut = new operate_port_1.OperatePort(0x18d1, 0x504a);
         this.ui = ui;
@@ -33880,10 +33881,11 @@ class DutController {
         const chunk = await this.dut.read();
         return chunk;
     }
-    async checkDutBuffer() {
+    // Return true if no data appears on DUT serial console while waiting for 1000ms. Otherwise, return false.
+    async readDataWithTimeout(limitTime) {
         const racePromise = Promise.race([
             this.readData(),
-            new Promise((_, reject) => setTimeout(reject, 1000)),
+            new Promise((_, reject) => setTimeout(reject, limitTime)),
         ]);
         try {
             await racePromise;
@@ -33899,9 +33901,9 @@ class DutController {
             return true;
         }
     }
-    async readAllDutBuffer() {
+    async discardAllDutBuffer() {
         for (;;) {
-            const allDataIsRead = await this.checkDutBuffer();
+            const allDataIsRead = await this.readDataWithTimeout(this.LIMIT_TIME);
             if (allDataIsRead) {
                 // all data is read from DUT
                 break;
@@ -34134,6 +34136,7 @@ class OperatePort {
             return;
         await this.port.open({ baudRate: 115200 });
     }
+    // If waiting for reader.read(), cancel it and release the reader's lock. Otherwise, do nothing.
     async readCancel() {
         await this.reader
             .cancel()
@@ -34142,6 +34145,7 @@ class OperatePort {
         })
             .catch(() => { }); // when the reader stream is already locked, do nothing.
     }
+    // Close the serial port.
     async close() {
         if (this.port === undefined)
             return;
@@ -34239,7 +34243,7 @@ class PowerTestController {
         await this.dutController.sendCancel();
         await this.dutController.sendCancel();
         await this.dutController.sendCancel();
-        await this.dutController.readAllDutBuffer();
+        await this.dutController.discardAllDutBuffer();
         await this.dutController.dut.close();
     }
     async finalize() {
