@@ -33855,7 +33855,6 @@ const operate_port_1 = __webpack_require__(/*! ./operate_port */ "./src/operate_
 class DutController {
     constructor(ui, dut) {
         this.CANCEL_CMD = '\x03\n';
-        this.LIMIT_TIME = 1000;
         this.isOpened = false;
         this.dut = new operate_port_1.OperatePort(0x18d1, 0x504a);
         this.ui = ui;
@@ -33896,14 +33895,14 @@ class DutController {
         catch (_a) {
             // setTimeOut() is resolved faster
             // that is, no data is read in 1000ms
-            await this.dut.readCancel();
+            await this.dut.cancelRead();
             console.log('read all data');
             return true;
         }
     }
     async discardAllDutBuffer() {
         for (;;) {
-            const allDataIsRead = await this.readDataWithTimeout(this.LIMIT_TIME);
+            const allDataIsRead = await this.readDataWithTimeout(1000);
             if (allDataIsRead) {
                 // all data is read from DUT
                 break;
@@ -33922,7 +33921,8 @@ sleep 3
 echo "stop"\n`;
         await this.dut.write(`\necho "${btoa(script)}" | base64 -d | bash\n`);
     }
-    async sendCancel() {
+    // Send ctrl+C command to DUT console.
+    async sendCancelCommand() {
         await this.dut.write(this.CANCEL_CMD);
     }
 }
@@ -34137,7 +34137,7 @@ class OperatePort {
         await this.port.open({ baudRate: 115200 });
     }
     // If waiting for reader.read(), cancel it and release the reader's lock. Otherwise, do nothing.
-    async readCancel() {
+    async cancelRead() {
         await this.reader
             .cancel()
             .then(() => {
@@ -34149,7 +34149,7 @@ class OperatePort {
     async close() {
         if (this.port === undefined)
             return;
-        await this.readCancel();
+        await this.cancelRead();
         await this.port.close();
     }
     async read() {
@@ -34240,17 +34240,17 @@ class PowerTestController {
         await this.servoController.servoShell.open();
         await this.servoController.servoShell.close();
         await this.dutController.dut.open();
-        await this.dutController.sendCancel();
-        await this.dutController.sendCancel();
-        await this.dutController.sendCancel();
+        await this.dutController.sendCancelCommand();
+        await this.dutController.sendCancelCommand();
+        await this.dutController.sendCancelCommand();
         await this.dutController.discardAllDutBuffer();
         await this.dutController.dut.close();
     }
     async finalize() {
         await this.dutController.dut.open();
-        await this.dutController.sendCancel();
-        await this.dutController.sendCancel();
-        await this.dutController.sendCancel();
+        await this.dutController.sendCancelCommand();
+        await this.dutController.sendCancelCommand();
+        await this.dutController.sendCancelCommand();
         await this.dutController.dut.close();
     }
     async startMeasurement() {
@@ -34566,8 +34566,8 @@ class TestRunner {
     async stop() {
         this.changeHaltFlag(true);
         this.inProgress = false;
-        await this.dutController.sendCancel();
-        await this.dutController.sendCancel();
+        await this.dutController.sendCancelCommand();
+        await this.dutController.sendCancelCommand();
         await this.servoController.closeServoPort();
         await this.dutController.closeDutPort();
     }

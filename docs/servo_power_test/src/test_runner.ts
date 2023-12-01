@@ -181,8 +181,8 @@ export class TestRunner {
   public async stop() {
     this.changeHaltFlag(true);
     this.inProgress = false;
-    await this.dutController.sendCancel();
-    await this.dutController.sendCancel();
+    await this.dutController.sendCancelCommand();
+    await this.dutController.sendCancelCommand();
     await this.servoController.closeServoPort();
     await this.dutController.closeDutPort();
   }
