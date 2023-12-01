@@ -33978,7 +33978,6 @@ class Graph {
         this.g = new dygraphs_1.default(graphDiv, [], {
             height: 500,
         });
-        this.histogramDiv = histogramDiv;
         const parentElementSize = (_a = d3
             .select(histogramDiv)
             .node()) === null || _a === void 0 ? void 0 : _a.getBoundingClientRect();

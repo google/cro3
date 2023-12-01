@@ -7,7 +7,6 @@ export class Graph {
   private ui: Ui;
   private g: Dygraph;
   public annotations: dygraphs.Annotation[] = [];
-  private histogramDiv: HTMLElement;
   public margin = {top: 10, right: 30, bottom: 30, left: 40};
   private histogramInfo;
   constructor(ui: Ui, graphDiv: HTMLElement, histogramDiv: HTMLElement) {
@@ -15,7 +14,6 @@ export class Graph {
     this.g = new Dygraph(graphDiv, [], {
       height: 500,
     });
-    this.histogramDiv = histogramDiv;
     const parentElementSize = d3
       .select(histogramDiv)
       .node()
