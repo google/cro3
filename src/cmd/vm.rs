@@ -54,8 +54,8 @@ pub fn run(args: &Args) -> Result<()> {
 /// run first time setup, installs necessary dependencies
 #[argh(subcommand, name = "setup")]
 pub struct ArgsSetup {
-    /// path to dir where betty.sh exists. If omitted, current directory will be
-    /// used.
+    /// path to android repo dir where betty.sh exists. If omitted, current
+    /// directory will be used.
     #[argh(option)]
     arc: Option<String>,
 
@@ -241,15 +241,16 @@ fn run_start(args: &ArgsStart) -> Result<()> {
 }
 
 fn find_betty_script(arc: &Option<String>) -> Result<String> {
-    let path = arc
+    let arc_path = arc
         .clone()
         .unwrap_or_else(|| env::current_dir().unwrap().to_string_lossy().to_string());
+    let betty_path = format!("{}/tools/vendor/google_prebuilts/arc", arc_path);
 
-    if Path::new(&format!("{}/betty.sh", path)).exists() {
-        return Ok(path);
+    if Path::new(&format!("{betty_path}/betty.sh")).exists() {
+        return Ok(betty_path);
     }
 
-    bail!("betty.sh doesn't exist in {path}. Please consider specifying --arc option.")
+    bail!("betty.sh doesn't exist in {betty_path}. Please consider specifying --arc option.")
 }
 
 fn run_betty(dir: &str, cmd: SubCommand, opts: &[&str]) -> Result<()> {
