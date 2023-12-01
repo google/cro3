@@ -250,7 +250,7 @@ fn find_betty_script(arc: &Option<String>) -> Result<String> {
         return Ok(betty_path);
     }
 
-    bail!("betty.sh doesn't exist in {betty_path}. Please consider specifying --arc option.")
+    bail!("betty.sh doesn't exist in {arc_path}. Please consider specifying --arc option.")
 }
 
 fn run_betty(dir: &str, cmd: SubCommand, opts: &[&str]) -> Result<()> {
