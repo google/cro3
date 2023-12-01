@@ -45,7 +45,7 @@ pub struct ArgsList {
     #[argh(positional)]
     filter: Option<String>,
 
-    /// only show cached list
+    /// only show cached data without updating it (fast)
     #[argh(switch)]
     cached: bool,
 }
