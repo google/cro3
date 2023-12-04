@@ -20,6 +20,7 @@ export class IterationData {
     this.annotationList = annotationList;
     this.histogramDataList = histogramDataList;
     this.graph = graph;
+    this.graph.clearHistogram();
   }
   public setIsDrawingHistogram(flag: boolean) {
     this.isDrawingHistogram = flag;

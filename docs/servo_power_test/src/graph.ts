@@ -106,7 +106,11 @@ export class Graph {
     console.log(this.g.xAxisExtremes());
     return this.g.xAxisRange();
   }
+  public clearHistogram() {
+    this.histogramInfo.svg.selectAll('g').remove();
+  }
   public updateHistogram(histogramDataList: Array<number>) {
+    this.clearHistogram();
     // Bin the data.
     const bins = d3.bin().thresholds(40)(histogramDataList);
 
@@ -120,10 +124,8 @@ export class Graph {
       .domain([bins[0].x0!, bins[bins.length - 1].x1!])
       .range([
         this.histogramInfo.height - this.margin.bottom,
-        this.margin.top - 20,
+        this.margin.top + 20,
       ]);
-
-    this.histogramInfo.svg.selectAll('g').remove();
 
     // Add a rect for each bin.
     this.histogramInfo.svg
