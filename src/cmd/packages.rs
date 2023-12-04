@@ -39,7 +39,7 @@ pub fn run(args: &Args) -> Result<()> {
 pub struct ArgsList {
     /// target cros repo directory
     #[argh(option)]
-    repo: Option<String>,
+    cros: Option<String>,
 
     /// target board (default: host)
     #[argh(option)]
@@ -87,7 +87,7 @@ fn run_packages_list(args: &ArgsList) -> Result<()> {
         return print_cached_packages(&filter, board);
     }
 
-    update_cached_packages(&get_repo_dir(&args.repo)?, board)?;
+    update_cached_packages(&get_repo_dir(&args.cros)?, board)?;
 
     print_cached_packages(&filter, board)
 }

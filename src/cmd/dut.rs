@@ -547,7 +547,7 @@ struct ArgsSetup {
     serial: Option<String>,
     /// cros repo dir to use
     #[argh(option)]
-    repo: Option<String>,
+    cros: Option<String>,
     /// do ccd open only
     #[argh(switch)]
     open_ccd: bool,
@@ -571,7 +571,7 @@ struct ArgsSetup {
     check_ssh: bool,
 }
 fn run_setup(args: &ArgsSetup) -> Result<()> {
-    let repo = get_repo_dir(&args.repo)?;
+    let repo = get_repo_dir(&args.cros)?;
     let servo = if let Some(serial) = &args.serial {
         let list = ServoList::discover()?;
         list.find_by_serial(serial)

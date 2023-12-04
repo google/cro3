@@ -17,7 +17,7 @@ use tracing::info;
 pub struct Args {
     /// target cros repo dir
     #[argh(option)]
-    repo: Option<String>,
+    cros: Option<String>,
 
     /// target board
     #[argh(option)]
@@ -50,7 +50,7 @@ pub struct Args {
 pub fn run(args: &Args) -> Result<()> {
     let board = &args.board;
     let use_flags = &args.use_flags;
-    let chroot = Chroot::new(&get_repo_dir(&args.repo)?)?;
+    let chroot = Chroot::new(&get_repo_dir(&args.cros)?)?;
     if !args.skip_setup {
         chroot.run_bash_script_in_chroot(
             "board_setup",

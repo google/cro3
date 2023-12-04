@@ -168,7 +168,7 @@ pub fn run_list(args: &ArgsList) -> Result<()> {
 pub struct ArgsControl {
     /// path to chromiumos source checkout
     #[argh(option)]
-    repo: String,
+    cros: String,
     /// a servo serial number. To list available servos, run `lium servo list`
     #[argh(option)]
     serial: String,
@@ -177,7 +177,7 @@ pub struct ArgsControl {
     args: Vec<String>,
 }
 pub fn run_control(args: &ArgsControl) -> Result<()> {
-    let chroot = Chroot::new(&args.repo)?;
+    let chroot = Chroot::new(&args.cros)?;
     let servod = ServodConnection::from_serial(&args.serial)
         .or_else(|_| LocalServo::from_serial(&args.serial)?.start_servod(&chroot))?;
     let output = servod.run_dut_control(&chroot, &args.args)?;

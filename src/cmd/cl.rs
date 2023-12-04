@@ -41,7 +41,7 @@ pub fn run(args: &Args) -> Result<()> {
 pub struct ArgsPick {
     /// target cros repo dir
     #[argh(option)]
-    repo: Option<String>,
+    cros: Option<String>,
 
     /// dir to run git commands, relative to cros checkout (e.g.
     /// src/platform/crosvm)
@@ -60,7 +60,7 @@ fn run_pick(args: &ArgsPick) -> Result<()> {
     let cl_suffix = &cl[cl.len() - 2..];
     let patchset = &capture["patchset"];
     let dir = &args.dir;
-    let chroot = Chroot::new(&get_repo_dir(&args.repo)?)?;
+    let chroot = Chroot::new(&get_repo_dir(&args.cros)?)?;
     chroot.run_bash_script_in_chroot(
         "checkout",
         &format!(

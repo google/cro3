@@ -27,7 +27,7 @@ use tracing::warn;
 pub struct Args {
     /// target cros repo dir. If omitted, current directory will be used.
     #[argh(option)]
-    repo: Option<String>,
+    cros: Option<String>,
 
     /// path to a local reference repo to speedup syncing.
     #[argh(option)]
@@ -55,7 +55,7 @@ pub struct Args {
 #[tracing::instrument(level = "trace")]
 pub fn run(args: &Args) -> Result<()> {
     let version = extract_version(args)?;
-    let repo = get_cros_dir_unchecked(&args.repo)?;
+    let repo = get_cros_dir_unchecked(&args.cros)?;
 
     // Inform user of sync information.
     info!(
