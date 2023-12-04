@@ -237,7 +237,8 @@ body {
 }
 
 .graph-list-element {
-  height: 500px;
+  height: 480px;
+  margin-bottom: 20px;
 }
 
 .line-graph {

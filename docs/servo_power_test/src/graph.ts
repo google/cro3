@@ -106,9 +106,9 @@ export class Graph {
     console.log(this.g.xAxisExtremes());
     return this.g.xAxisRange();
   }
-  public updateHistogram(powerDataList: Array<PowerData>) {
+  public updateHistogram(histogramDataList: Array<number>) {
     // Bin the data.
-    const bins = d3.bin().thresholds(40)(powerDataList.map(d => d[1]));
+    const bins = d3.bin().thresholds(40)(histogramDataList);
 
     // Declare the x (horizontal position) scale.
     this.histogramInfo.x
@@ -118,7 +118,10 @@ export class Graph {
     // Declare the y (vertical position) scale.
     this.histogramInfo.y
       .domain([bins[0].x0!, bins[bins.length - 1].x1!])
-      .range([this.histogramInfo.height - this.margin.bottom, this.margin.top]);
+      .range([
+        this.histogramInfo.height - this.margin.bottom,
+        this.margin.top - 20,
+      ]);
 
     this.histogramInfo.svg.selectAll('g').remove();
 
@@ -176,7 +179,7 @@ export class Graph {
         g
           .append('text')
           .attr('x', -this.margin.left)
-          .attr('y', 10)
+          .attr('y', this.margin.top)
           .attr('fill', 'currentColor')
           .attr('text-anchor', 'start')
           .text('Power(mW)')

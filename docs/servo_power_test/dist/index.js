@@ -34062,9 +34062,9 @@ class Graph {
         console.log(this.g.xAxisExtremes());
         return this.g.xAxisRange();
     }
-    updateHistogram(powerDataList) {
+    updateHistogram(histogramDataList) {
         // Bin the data.
-        const bins = d3.bin().thresholds(40)(powerDataList.map(d => d[1]));
+        const bins = d3.bin().thresholds(40)(histogramDataList);
         // Declare the x (horizontal position) scale.
         this.histogramInfo.x
             .domain([0, d3.max(bins, d => d.length)])
@@ -34072,7 +34072,10 @@ class Graph {
         // Declare the y (vertical position) scale.
         this.histogramInfo.y
             .domain([bins[0].x0, bins[bins.length - 1].x1])
-            .range([this.histogramInfo.height - this.margin.bottom, this.margin.top]);
+            .range([
+            this.histogramInfo.height - this.margin.bottom,
+            this.margin.top - 20,
+        ]);
         this.histogramInfo.svg.selectAll('g').remove();
         // Add a rect for each bin.
         this.histogramInfo.svg
@@ -34110,7 +34113,7 @@ class Graph {
             .call(g => g
             .append('text')
             .attr('x', -this.margin.left)
-            .attr('y', 10)
+            .attr('y', this.margin.top)
             .attr('fill', 'currentColor')
             .attr('text-anchor', 'start')
             .text('Power(mW)'));
@@ -34526,17 +34529,30 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.TestRunner = exports.IterationData = void 0;
 const graph_1 = __webpack_require__(/*! ./graph */ "./src/graph.ts");
 class IterationData {
-    constructor(powerDataList, annotationList, graph) {
+    constructor(powerDataList, annotationList, histogramDataList, graph) {
+        this.isDrawingHistogram = false;
         this.powerDataList = powerDataList;
         this.annotationList = annotationList;
+        this.histogramDataList = histogramDataList;
         this.graph = graph;
+    }
+    setIsDrawingHistogram(flag) {
+        this.isDrawingHistogram = flag;
     }
     appendPowerData(powerData) {
         this.powerDataList.push(powerData);
+        if (this.isDrawingHistogram) {
+            this.histogramDataList.push(powerData[1]);
+        }
+    }
+    appendHistogramData(power) {
+        this.histogramDataList.push(power);
     }
     updateGraph() {
         this.graph.updateGraph(this.powerDataList);
-        this.graph.updateHistogram(this.powerDataList);
+        if (this.isDrawingHistogram) {
+            this.graph.updateHistogram(this.histogramDataList);
+        }
     }
     addAnnotation(label) {
         this.annotationList.set(label, new Date().getTime());
@@ -34571,6 +34587,9 @@ class IterationData {
         }
         return this.powerDataList.slice(startIndex, endIndex + 1).map(d => d[1]);
     }
+    loadHistogramData() {
+        this.histogramDataList = this.extractData(0);
+    }
 }
 exports.IterationData = IterationData;
 class TestRunner {
@@ -34585,10 +34604,12 @@ class TestRunner {
         this.servoController = servoController;
         this.dutController = dutController;
         this.configScript = configScript;
-        this.currentIteration = new IterationData([], new Map(), this.graph);
+        this.currentIteration = new IterationData([], new Map(), [], this.graph);
     }
     appendIterationDataList(newPowerDataList, newAnnotationList) {
-        this.iterationDataList.push(new IterationData(newPowerDataList, newAnnotationList, this.graph));
+        const newIterationData = new IterationData(newPowerDataList, newAnnotationList, [], this.graph);
+        newIterationData.loadHistogramData();
+        this.iterationDataList.push(newIterationData);
     }
     exportIterationDataList() {
         return this.iterationDataList.map(iterationData => iterationData.exportData());
@@ -34631,9 +34652,11 @@ class TestRunner {
             try {
                 if (dutData.includes('start')) {
                     this.currentIteration.addAnnotation('start');
+                    this.currentIteration.setIsDrawingHistogram(true);
                 }
                 else if (dutData.includes('end')) {
                     this.currentIteration.addAnnotation('end');
+                    this.currentIteration.setIsDrawingHistogram(false);
                 }
                 else if (dutData.includes('stop')) {
                     await this.stop();
@@ -34650,7 +34673,7 @@ class TestRunner {
         }
     }
     async start() {
-        this.currentIteration = new IterationData([], new Map(), this.graph);
+        this.currentIteration = new IterationData([], new Map(), [], this.graph);
         await this.dutController.openDutPort();
         await this.servoController.openServoPort();
         this.changeHaltFlag(false);
@@ -34689,6 +34712,7 @@ class TestRunner {
         return extractedData;
     }
     loadGraph(selectedIteration) {
+        this.iterationDataList[selectedIteration].setIsDrawingHistogram(true);
         this.iterationDataList[selectedIteration].updateGraph();
         this.iterationDataList[selectedIteration].findAnnotation();
     }
