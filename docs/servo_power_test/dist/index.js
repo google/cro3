@@ -34113,6 +34113,7 @@ class Graph {
             .text('Power(mW)'));
         return bins;
     }
+    // Draw a histogram with the data during workload running (that is, between 'start' and 'end' annotations).
     updateHistogram(histogramDataList) {
         this.clearHistogram();
         const bins = this.updateHistogramAxis(histogramDataList);

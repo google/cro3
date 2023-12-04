@@ -175,6 +175,7 @@ export class Graph {
 
     return bins;
   }
+  // Draw a histogram with the data during workload running (that is, between 'start' and 'end' annotations).
   public updateHistogram(histogramDataList: Array<number>) {
     this.clearHistogram();
     const bins = this.updateHistogramAxis(histogramDataList);
