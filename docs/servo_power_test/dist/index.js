@@ -34065,10 +34065,11 @@ class Graph {
     clearHistogram() {
         this.histogramInfo.svg.selectAll('g').remove();
     }
-    updateHistogram(histogramDataList) {
-        this.clearHistogram();
+    updateHistogramAxis(histogramDataList) {
         // Bin the data.
-        const bins = d3.bin().thresholds(40)(histogramDataList);
+        const bins = d3
+            .bin()
+            .thresholds((data, min, max) => d3.range(min, max, 100))(histogramDataList);
         // Declare the x (horizontal position) scale.
         this.histogramInfo.x
             .domain([0, d3.max(bins, d => d.length)])
@@ -34080,18 +34081,6 @@ class Graph {
             this.histogramInfo.height - this.margin.bottom,
             this.margin.top + 20,
         ]);
-        // Add a rect for each bin.
-        this.histogramInfo.svg
-            .append('g')
-            .attr('fill', 'steelblue')
-            .selectAll()
-            .enter()
-            .data(bins)
-            .join('rect')
-            .attr('x', this.histogramInfo.x(0))
-            .attr('width', d => this.histogramInfo.x(d.length) - this.histogramInfo.x(0))
-            .attr('y', d => this.histogramInfo.y(d.x1) + 1)
-            .attr('height', d => this.histogramInfo.y(d.x0) - this.histogramInfo.y(d.x1) - 1);
         // Add the x-axis and label.
         this.histogramInfo.svg
             .append('g')
@@ -34111,7 +34100,9 @@ class Graph {
         this.histogramInfo.svg
             .append('g')
             .attr('transform', `translate(${this.margin.left},0)`)
-            .call(d3.axisLeft(this.histogramInfo.y).ticks(this.histogramInfo.height / 40))
+            .call(d3
+            .axisLeft(this.histogramInfo.y)
+            .ticks(this.histogramInfo.height / bins.length))
             .call(g => g.select('.domain').remove())
             .call(g => g
             .append('text')
@@ -34120,8 +34111,23 @@ class Graph {
             .attr('fill', 'currentColor')
             .attr('text-anchor', 'start')
             .text('Power(mW)'));
-        // Return the SVG element.
-        this.histogramInfo.svg.node();
+        return bins;
+    }
+    updateHistogram(histogramDataList) {
+        this.clearHistogram();
+        const bins = this.updateHistogramAxis(histogramDataList);
+        // Add a rect for each bin.
+        this.histogramInfo.svg
+            .append('g')
+            .attr('fill', 'steelblue')
+            .selectAll()
+            .enter()
+            .data(bins)
+            .join('rect')
+            .attr('x', this.histogramInfo.x(0))
+            .attr('width', d => this.histogramInfo.x(d.length) - this.histogramInfo.x(0))
+            .attr('y', d => this.histogramInfo.y(d.x1) - 1)
+            .attr('height', d => this.histogramInfo.y(d.x0) - this.histogramInfo.y(d.x1) - 1);
     }
 }
 exports.Graph = Graph;
