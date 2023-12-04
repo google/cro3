@@ -34540,7 +34540,7 @@ exports.TestRunner = exports.IterationData = void 0;
 const graph_1 = __webpack_require__(/*! ./graph */ "./src/graph.ts");
 class IterationData {
     constructor(powerDataList, annotationList, histogramDataList, graph) {
-        this.isDrawingHistogram = false;
+        this.isWorkloadRunning = false;
         this.powerDataList = powerDataList;
         this.annotationList = annotationList;
         this.histogramDataList = histogramDataList;
@@ -34548,11 +34548,11 @@ class IterationData {
         this.graph.clearHistogram();
     }
     setIsDrawingHistogram(flag) {
-        this.isDrawingHistogram = flag;
+        this.isWorkloadRunning = flag;
     }
     appendPowerData(powerData) {
         this.powerDataList.push(powerData);
-        if (this.isDrawingHistogram) {
+        if (this.isWorkloadRunning) {
             this.histogramDataList.push(powerData[1]);
         }
     }
@@ -34561,7 +34561,7 @@ class IterationData {
     }
     updateGraph() {
         this.graph.updateGraph(this.powerDataList);
-        if (this.isDrawingHistogram) {
+        if (this.isWorkloadRunning) {
             this.graph.updateHistogram(this.histogramDataList);
         }
     }

@@ -9,7 +9,7 @@ export class IterationData {
   private annotationList: AnnotationDataList;
   private histogramDataList: Array<number>;
   private graph: Graph;
-  private isDrawingHistogram = false;
+  private isWorkloadRunning = false;
   constructor(
     powerDataList: Array<PowerData>,
     annotationList: AnnotationDataList,
@@ -23,11 +23,11 @@ export class IterationData {
     this.graph.clearHistogram();
   }
   public setIsDrawingHistogram(flag: boolean) {
-    this.isDrawingHistogram = flag;
+    this.isWorkloadRunning = flag;
   }
   public appendPowerData(powerData: PowerData) {
     this.powerDataList.push(powerData);
-    if (this.isDrawingHistogram) {
+    if (this.isWorkloadRunning) {
       this.histogramDataList.push(powerData[1]);
     }
   }
@@ -36,7 +36,7 @@ export class IterationData {
   }
   public updateGraph() {
     this.graph.updateGraph(this.powerDataList);
-    if (this.isDrawingHistogram) {
+    if (this.isWorkloadRunning) {
       this.graph.updateHistogram(this.histogramDataList);
     }
   }
