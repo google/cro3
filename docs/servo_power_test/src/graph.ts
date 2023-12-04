@@ -40,6 +40,15 @@ export class Graph {
     if (powerDataList !== undefined && powerDataList.length > 0) {
       this.ui.hideElement(this.ui.toolTip);
     }
+    function average() {
+      let sum = 0;
+      powerDataList.forEach(powerData => {
+        sum += powerData[1];
+      });
+      return sum / powerDataList.length;
+    }
+    const averagePower = average();
+
     this.g.updateOptions(
       {
         file: powerDataList,
@@ -61,6 +70,7 @@ export class Graph {
         },
         underlayCallback: function (canvas, area, g) {
           canvas.fillStyle = 'rgba(255, 255, 102, 1.0)';
+          canvas.strokeStyle = 'yellow';
 
           function highlight_period(x_start: number, x_end: number) {
             const canvas_left_x = g.toDomXCoord(x_start);
@@ -68,7 +78,17 @@ export class Graph {
             const canvas_width = canvas_right_x - canvas_left_x;
             canvas.fillRect(canvas_left_x, area.y, canvas_width, area.h);
           }
+          function drawAverage(averageValue: number) {
+            const canvas_y = g.toDomYCoord(averageValue);
+            canvas.beginPath();
+            canvas.moveTo(area.x, canvas_y);
+            canvas.lineTo(area.x + area.w, canvas_y);
+            canvas.stroke();
+            canvas.font = '14px sans-serif';
+            canvas.fillText('Average', area.x, canvas_y - 10);
+          }
           highlight_period(10, 10);
+          drawAverage(averagePower);
         },
       },
       false

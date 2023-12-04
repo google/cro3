@@ -34003,6 +34003,14 @@ class Graph {
         if (powerDataList !== undefined && powerDataList.length > 0) {
             this.ui.hideElement(this.ui.toolTip);
         }
+        function average() {
+            let sum = 0;
+            powerDataList.forEach(powerData => {
+                sum += powerData[1];
+            });
+            return sum / powerDataList.length;
+        }
+        const averagePower = average();
         this.g.updateOptions({
             file: powerDataList,
             labels: ['t', 'ina0'],
@@ -34023,13 +34031,24 @@ class Graph {
             },
             underlayCallback: function (canvas, area, g) {
                 canvas.fillStyle = 'rgba(255, 255, 102, 1.0)';
+                canvas.strokeStyle = 'yellow';
                 function highlight_period(x_start, x_end) {
                     const canvas_left_x = g.toDomXCoord(x_start);
                     const canvas_right_x = g.toDomXCoord(x_end);
                     const canvas_width = canvas_right_x - canvas_left_x;
                     canvas.fillRect(canvas_left_x, area.y, canvas_width, area.h);
                 }
+                function drawAverage(averageValue) {
+                    const canvas_y = g.toDomYCoord(averageValue);
+                    canvas.beginPath();
+                    canvas.moveTo(area.x, canvas_y);
+                    canvas.lineTo(area.x + area.w, canvas_y);
+                    canvas.stroke();
+                    canvas.font = '14px sans-serif';
+                    canvas.fillText('Average', area.x, canvas_y - 10);
+                }
                 highlight_period(10, 10);
+                drawAverage(averagePower);
             },
         }, false);
     }
