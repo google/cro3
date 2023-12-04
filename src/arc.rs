@@ -9,6 +9,7 @@ use std::process::Command;
 use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
+use tracing::info;
 
 use crate::config::Config;
 
@@ -33,7 +34,7 @@ fn arc_version_to_branch_name(version: &str) -> Result<String> {
 }
 
 pub fn setup_arc_repo(repo: &str, version: &str) -> Result<()> {
-    println!("Running repo init with the given version...");
+    info!("Running repo init with the given version...");
     let config = Config::read()?;
     let manifest_url = config
         .android_manifest_url()

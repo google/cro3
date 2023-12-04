@@ -112,7 +112,7 @@ pub fn setup_cros_repo(repo: &str, version: &str, reference: &Option<String>) ->
         cmd.arg(format!("buildspecs/{}/{}.xml", milestone, version));
     };
 
-    println!("Running repo init with the given version...");
+    info!("Running repo init with the given version...");
     let cld = cmd.spawn().context("Failed to execute repo init")?;
     cld.wait_with_output()
         .context("Failed to wait for repo init")?;
