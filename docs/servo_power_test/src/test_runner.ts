@@ -272,6 +272,7 @@ export class TestRunner {
   public loadGraph(selectedIteration: number) {
     this.setCurrentIteration(selectedIteration);
     this.currentIteration.setIsDrawingHistogram(true);
+    this.currentIteration.setExtractTime(this.marginTime);
     this.currentIteration.updateGraph();
     this.currentIteration.findAnnotation();
   }
