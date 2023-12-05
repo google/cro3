@@ -29,8 +29,9 @@ pub struct Args {
     #[argh(option)]
     cros: Option<String>,
 
-    /// target android repo dir. --version will be tm or rvc. Only one of --cros
-    /// or --arc can be used.
+    /// target android repo dir. If omitted, current directory will be used.
+    /// When this flag is specified, --version option can be the branch name to
+    /// sync to.
     #[argh(option)]
     arc: Option<String>,
 
@@ -55,16 +56,10 @@ pub struct Args {
 
 #[tracing::instrument(level = "trace")]
 pub fn run(args: &Args) -> Result<()> {
-    let is_arc = if args.cros.is_some() {
-        if args.arc.is_some() {
-            bail!("Only one of --cros or --arc can be specified.");
-        } else {
-            false
-        }
-    } else if args.arc.is_some() {
-        true
-    } else {
-        bail!("Please specify either --cros or --arc.");
+    let is_arc = match (&args.cros, &args.arc) {
+        (Some(_), None) => false,
+        (None, Some(_)) => true,
+        _ => bail!("Please specify either --cros or --arc."),
     };
 
     let version = extract_version(args, &is_arc)?;
