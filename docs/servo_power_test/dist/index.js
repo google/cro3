@@ -33939,20 +33939,65 @@ exports.DutController = DutController;
 
 "use strict";
 
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.Graph = void 0;
 const dygraphs_1 = __importDefault(__webpack_require__(/*! dygraphs */ "./node_modules/dygraphs/index.js"));
+const d3 = __importStar(__webpack_require__(/*! d3 */ "./node_modules/d3/src/index.js"));
 class Graph {
-    constructor(ui, div) {
+    constructor(ui, graphDiv, histogramDiv) {
+        var _a;
         this.annotations = [];
+        this.margin = { top: 10, right: 30, bottom: 30, left: 40 };
         this.ui = ui;
-        this.g = new dygraphs_1.default(div, [], {
-            width: 960,
-            height: 480,
+        this.g = new dygraphs_1.default(graphDiv, [], {
+            height: 500,
         });
+        const parentElementSize = (_a = d3
+            .select(histogramDiv)
+            .node()) === null || _a === void 0 ? void 0 : _a.getBoundingClientRect();
+        this.histogramInfo = {
+            width: parentElementSize.width,
+            height: parentElementSize.height,
+            svg: d3
+                .select(histogramDiv)
+                .append('svg')
+                .attr('width', parentElementSize.width)
+                .attr('height', parentElementSize.height)
+                .attr('viewBox', [
+                0,
+                0,
+                parentElementSize.width,
+                parentElementSize.height,
+            ]),
+            x: d3.scaleLinear(),
+            y: d3.scaleLinear(),
+        };
     }
     updateGraph(powerDataList) {
         if (powerDataList !== undefined && powerDataList.length > 0) {
@@ -33962,12 +34007,9 @@ class Graph {
             file: powerDataList,
             labels: ['t', 'ina0'],
             showRoller: true,
-            width: 960,
-            height: 480,
             xlabel: 'Relative Time (s)',
             ylabel: 'Power (mW)',
             legend: 'always',
-            showRangeSelector: true,
             connectSeparatedPoints: true,
             axes: {
                 x: {
@@ -34019,6 +34061,74 @@ class Graph {
     returnXrange() {
         console.log(this.g.xAxisExtremes());
         return this.g.xAxisRange();
+    }
+    clearHistogram() {
+        this.histogramInfo.svg.selectAll('g').remove();
+    }
+    updateHistogramAxis(histogramDataList) {
+        // Bin the data.
+        const bins = d3
+            .bin()
+            .thresholds((data, min, max) => d3.range(min, max, 100))(histogramDataList);
+        // Declare the x (horizontal position) scale.
+        this.histogramInfo.x
+            .domain([0, d3.max(bins, d => d.length)])
+            .range([this.margin.left, this.histogramInfo.width - this.margin.right]);
+        // Declare the y (vertical position) scale.
+        this.histogramInfo.y
+            .domain([bins[0].x0, bins[bins.length - 1].x1])
+            .range([
+            this.histogramInfo.height - this.margin.bottom,
+            this.margin.top + 20,
+        ]);
+        // Add the x-axis and label.
+        this.histogramInfo.svg
+            .append('g')
+            .attr('transform', `translate(0,${this.histogramInfo.height - this.margin.bottom})`)
+            .call(d3
+            .axisBottom(this.histogramInfo.x)
+            .ticks(this.histogramInfo.width / 80)
+            .tickSizeOuter(0))
+            .call(g => g
+            .append('text')
+            .attr('x', this.histogramInfo.width)
+            .attr('y', this.margin.bottom - 4)
+            .attr('fill', 'currentColor')
+            .attr('text-anchor', 'end')
+            .text('# of datapoints'));
+        // Add the y-axis and label, and remove the domain line.
+        this.histogramInfo.svg
+            .append('g')
+            .attr('transform', `translate(${this.margin.left},0)`)
+            .call(d3
+            .axisLeft(this.histogramInfo.y)
+            .ticks(this.histogramInfo.height / bins.length))
+            .call(g => g.select('.domain').remove())
+            .call(g => g
+            .append('text')
+            .attr('x', -this.margin.left)
+            .attr('y', this.margin.top)
+            .attr('fill', 'currentColor')
+            .attr('text-anchor', 'start')
+            .text('Power(mW)'));
+        return bins;
+    }
+    // Draw a histogram with the data during workload running (that is, between 'start' and 'end' annotations).
+    updateHistogram(histogramDataList) {
+        this.clearHistogram();
+        const bins = this.updateHistogramAxis(histogramDataList);
+        // Add a rect for each bin.
+        this.histogramInfo.svg
+            .append('g')
+            .attr('fill', 'steelblue')
+            .selectAll()
+            .enter()
+            .data(bins)
+            .join('rect')
+            .attr('x', this.histogramInfo.x(0))
+            .attr('width', d => this.histogramInfo.x(d.length) - this.histogramInfo.x(0))
+            .attr('y', d => this.histogramInfo.y(d.x1) - 1)
+            .attr('height', d => this.histogramInfo.y(d.x0) - this.histogramInfo.y(d.x1) - 1);
     }
 }
 exports.Graph = Graph;
@@ -34429,16 +34539,31 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.TestRunner = exports.IterationData = void 0;
 const graph_1 = __webpack_require__(/*! ./graph */ "./src/graph.ts");
 class IterationData {
-    constructor(powerDataList, annotationList, graph) {
+    constructor(powerDataList, annotationList, histogramDataList, graph) {
+        this.isWorkloadRunning = false;
         this.powerDataList = powerDataList;
         this.annotationList = annotationList;
+        this.histogramDataList = histogramDataList;
         this.graph = graph;
+        this.graph.clearHistogram();
+    }
+    setIsDrawingHistogram(flag) {
+        this.isWorkloadRunning = flag;
     }
     appendPowerData(powerData) {
         this.powerDataList.push(powerData);
+        if (this.isWorkloadRunning) {
+            this.histogramDataList.push(powerData[1]);
+        }
+    }
+    appendHistogramData(power) {
+        this.histogramDataList.push(power);
     }
     updateGraph() {
         this.graph.updateGraph(this.powerDataList);
+        if (this.isWorkloadRunning) {
+            this.graph.updateHistogram(this.histogramDataList);
+        }
     }
     addAnnotation(label) {
         this.annotationList.set(label, new Date().getTime());
@@ -34473,6 +34598,9 @@ class IterationData {
         }
         return this.powerDataList.slice(startIndex, endIndex + 1).map(d => d[1]);
     }
+    loadHistogramData() {
+        this.histogramDataList = this.extractData(0);
+    }
 }
 exports.IterationData = IterationData;
 class TestRunner {
@@ -34483,14 +34611,16 @@ class TestRunner {
         this.iterationDataList = [];
         this.cancelled = false;
         this.ui = ui;
-        this.graph = new graph_1.Graph(ui, document.getElementById(`graph${runnerNumber}`));
+        this.graph = new graph_1.Graph(ui, document.getElementById(`graph${runnerNumber}`), document.getElementById(`histogram${runnerNumber}`));
         this.servoController = servoController;
         this.dutController = dutController;
         this.configScript = configScript;
-        this.currentIteration = new IterationData([], new Map(), this.graph);
+        this.currentIteration = new IterationData([], new Map(), [], this.graph);
     }
     appendIterationDataList(newPowerDataList, newAnnotationList) {
-        this.iterationDataList.push(new IterationData(newPowerDataList, newAnnotationList, this.graph));
+        const newIterationData = new IterationData(newPowerDataList, newAnnotationList, [], this.graph);
+        newIterationData.loadHistogramData();
+        this.iterationDataList.push(newIterationData);
     }
     exportIterationDataList() {
         return this.iterationDataList.map(iterationData => iterationData.exportData());
@@ -34533,9 +34663,11 @@ class TestRunner {
             try {
                 if (dutData.includes('start')) {
                     this.currentIteration.addAnnotation('start');
+                    this.currentIteration.setIsDrawingHistogram(true);
                 }
                 else if (dutData.includes('end')) {
                     this.currentIteration.addAnnotation('end');
+                    this.currentIteration.setIsDrawingHistogram(false);
                 }
                 else if (dutData.includes('stop')) {
                     await this.stop();
@@ -34552,7 +34684,7 @@ class TestRunner {
         }
     }
     async start() {
-        this.currentIteration = new IterationData([], new Map(), this.graph);
+        this.currentIteration = new IterationData([], new Map(), [], this.graph);
         await this.dutController.openDutPort();
         await this.servoController.openServoPort();
         this.changeHaltFlag(false);
@@ -34591,6 +34723,7 @@ class TestRunner {
         return extractedData;
     }
     loadGraph(selectedIteration) {
+        this.iterationDataList[selectedIteration].setIsDrawingHistogram(true);
         this.iterationDataList[selectedIteration].updateGraph();
         this.iterationDataList[selectedIteration].findAnnotation();
     }
@@ -34830,7 +34963,8 @@ class Ui {
     createGraphList() {
         for (let i = 0; i < this.runnerNumber; i++) {
             const newGraphListElem = document.createElement('li');
-            newGraphListElem.innerHTML = `<div id="graph${i}"></div>`;
+            newGraphListElem.className = 'flex graph-list-element';
+            newGraphListElem.innerHTML = `<div id="graph${i}" class="line-graph"></div><div id="histogram${i}" class="histogram"></div>`;
             this.graphList.appendChild(newGraphListElem);
         }
     }

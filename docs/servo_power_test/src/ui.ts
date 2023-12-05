@@ -80,7 +80,8 @@ export class Ui {
   public createGraphList() {
     for (let i = 0; i < this.runnerNumber; i++) {
       const newGraphListElem = document.createElement('li');
-      newGraphListElem.innerHTML = `<div id="graph${i}"></div>`;
+      newGraphListElem.className = 'flex graph-list-element';
+      newGraphListElem.innerHTML = `<div id="graph${i}" class="line-graph"></div><div id="histogram${i}" class="histogram"></div>`;
       this.graphList.appendChild(newGraphListElem);
     }
   }

@@ -236,11 +236,21 @@ body {
   right: 0;
 }
 
-#graph {
-  height: 500px;
-  width: auto;
+.graph-list-element {
+  height: 480px;
+  margin-bottom: 20px;
+}
+
+.line-graph {
+  flex-basis: 70%;
+  height: 100%;
   left: 0;
   right: 0;
+}
+
+.histogram {
+  flex-basis: 30%;
+  height: 100%;
 }
 
 #total-histogram {

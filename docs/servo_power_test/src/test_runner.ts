@@ -7,21 +7,38 @@ import {Ui} from './ui';
 export class IterationData {
   private powerDataList: Array<PowerData>;
   private annotationList: AnnotationDataList;
+  private histogramDataList: Array<number>;
   private graph: Graph;
+  private isWorkloadRunning = false;
   constructor(
     powerDataList: Array<PowerData>,
     annotationList: AnnotationDataList,
+    histogramDataList: Array<number>,
     graph: Graph
   ) {
     this.powerDataList = powerDataList;
     this.annotationList = annotationList;
+    this.histogramDataList = histogramDataList;
     this.graph = graph;
+    this.graph.clearHistogram();
+  }
+  public setIsDrawingHistogram(flag: boolean) {
+    this.isWorkloadRunning = flag;
   }
   public appendPowerData(powerData: PowerData) {
     this.powerDataList.push(powerData);
+    if (this.isWorkloadRunning) {
+      this.histogramDataList.push(powerData[1]);
+    }
+  }
+  public appendHistogramData(power: number) {
+    this.histogramDataList.push(power);
   }
   public updateGraph() {
     this.graph.updateGraph(this.powerDataList);
+    if (this.isWorkloadRunning) {
+      this.graph.updateHistogram(this.histogramDataList);
+    }
   }
   public addAnnotation(label: string) {
     this.annotationList.set(label, new Date().getTime());
@@ -64,6 +81,9 @@ export class IterationData {
     }
     return this.powerDataList.slice(startIndex, endIndex + 1).map(d => d[1]);
   }
+  public loadHistogramData() {
+    this.histogramDataList = this.extractData(0);
+  }
 }
 
 export class TestRunner {
@@ -88,7 +108,8 @@ export class TestRunner {
     this.ui = ui;
     this.graph = new Graph(
       ui,
-      document.getElementById(`graph${runnerNumber}`) as HTMLDivElement
+      document.getElementById(`graph${runnerNumber}`) as HTMLDivElement,
+      document.getElementById(`histogram${runnerNumber}`) as HTMLDivElement
     );
     this.servoController = servoController;
     this.dutController = dutController;
@@ -96,6 +117,7 @@ export class TestRunner {
     this.currentIteration = new IterationData(
       [],
       new Map<string, number>(),
+      [],
       this.graph
     );
   }
@@ -103,9 +125,14 @@ export class TestRunner {
     newPowerDataList: Array<PowerData>,
     newAnnotationList: AnnotationDataList
   ) {
-    this.iterationDataList.push(
-      new IterationData(newPowerDataList, newAnnotationList, this.graph)
+    const newIterationData = new IterationData(
+      newPowerDataList,
+      newAnnotationList,
+      [],
+      this.graph
     );
+    newIterationData.loadHistogramData();
+    this.iterationDataList.push(newIterationData);
   }
   public exportIterationDataList() {
     return this.iterationDataList.map(iterationData =>
@@ -148,8 +175,10 @@ export class TestRunner {
       try {
         if (dutData.includes('start')) {
           this.currentIteration.addAnnotation('start');
+          this.currentIteration.setIsDrawingHistogram(true);
         } else if (dutData.includes('end')) {
           this.currentIteration.addAnnotation('end');
+          this.currentIteration.setIsDrawingHistogram(false);
         } else if (dutData.includes('stop')) {
           await this.stop();
         }
@@ -166,6 +195,7 @@ export class TestRunner {
     this.currentIteration = new IterationData(
       [],
       new Map<string, number>(),
+      [],
       this.graph
     );
     await this.dutController.openDutPort();
@@ -206,6 +236,7 @@ export class TestRunner {
     return extractedData;
   }
   public loadGraph(selectedIteration: number) {
+    this.iterationDataList[selectedIteration].setIsDrawingHistogram(true);
     this.iterationDataList[selectedIteration].updateGraph();
     this.iterationDataList[selectedIteration].findAnnotation();
   }
