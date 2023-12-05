@@ -29,6 +29,11 @@ pub struct Args {
     #[argh(option)]
     cros: Option<String>,
 
+    /// target android repo dir. --version will be tm or rvc. Only one of --cros
+    /// or --arc can be used.
+    #[argh(option)]
+    arc: Option<String>,
+
     /// path to a local reference repo to speedup syncing.
     #[argh(option)]
     reference: Option<String>,
@@ -38,10 +43,6 @@ pub struct Args {
     /// e.g. for arc: rvc, tm, master (which maps to master-arc-dev)
     #[argh(option)]
     version: String,
-
-    /// sync arc/android instead of cros. --version will be tm or rvc
-    #[argh(switch)]
-    arc: bool,
 
     /// destructive sync
     #[argh(switch)]
@@ -54,8 +55,24 @@ pub struct Args {
 
 #[tracing::instrument(level = "trace")]
 pub fn run(args: &Args) -> Result<()> {
-    let version = extract_version(args)?;
-    let repo = get_cros_dir_unchecked(&args.cros)?;
+    let is_arc = if args.cros.is_some() {
+        if args.arc.is_some() {
+            bail!("Only one of --cros or --arc can be specified.");
+        } else {
+            false
+        }
+    } else if args.arc.is_some() {
+        true
+    } else {
+        bail!("Please specify either --cros or --arc.");
+    };
+
+    let version = extract_version(args, &is_arc)?;
+    let repo = if is_arc {
+        get_cros_dir_unchecked(&args.arc)?
+    } else {
+        get_cros_dir_unchecked(&args.cros)?
+    };
 
     // Inform user of sync information.
     info!(
@@ -66,7 +83,7 @@ pub fn run(args: &Args) -> Result<()> {
     );
 
     // Prepare paths and determine if this is an arc or cros repo.
-    let is_arc = prepare_repo_paths(&repo)?.unwrap_or(args.arc);
+    let is_arc = prepare_repo_paths(&repo)?.unwrap_or(is_arc);
 
     // If we are using another repo as reference for rapid cloning, so make sure
     // that one is synced.
@@ -86,8 +103,8 @@ pub fn run(args: &Args) -> Result<()> {
 
 /// Version string can represent either cros repo version or an arc version.
 /// This function detects which and extracts its appropriately from the args.
-fn extract_version(args: &Args) -> Result<String> {
-    let version = if !args.arc {
+fn extract_version(args: &Args, is_arc: &bool) -> Result<String> {
+    let version = if !is_arc {
         if args.version == "tot" {
             args.version.clone()
         } else {
