@@ -33999,18 +33999,10 @@ class Graph {
             y: d3.scaleLinear(),
         };
     }
-    updateGraph(powerDataList) {
+    updateGraph(powerDataList, powerAverage) {
         if (powerDataList !== undefined && powerDataList.length > 0) {
             this.ui.hideElement(this.ui.toolTip);
         }
-        function average() {
-            let sum = 0;
-            powerDataList.forEach(powerData => {
-                sum += powerData[1];
-            });
-            return sum / powerDataList.length;
-        }
-        const averagePower = average();
         this.g.updateOptions({
             file: powerDataList,
             labels: ['t', 'ina0'],
@@ -34038,8 +34030,9 @@ class Graph {
                     const canvas_width = canvas_right_x - canvas_left_x;
                     canvas.fillRect(canvas_left_x, area.y, canvas_width, area.h);
                 }
-                function drawAverage(averageValue) {
-                    const canvas_y = g.toDomYCoord(averageValue);
+                function drawHorizontalLine(yValue) {
+                    // if (yValue === 0) return;
+                    const canvas_y = g.toDomYCoord(yValue);
                     canvas.beginPath();
                     canvas.moveTo(area.x, canvas_y);
                     canvas.lineTo(area.x + area.w, canvas_y);
@@ -34048,7 +34041,7 @@ class Graph {
                     canvas.fillText('Average', area.x, canvas_y - 10);
                 }
                 highlight_period(10, 10);
-                drawAverage(averagePower);
+                drawHorizontalLine(powerAverage);
             },
         }, false);
     }
@@ -34566,6 +34559,11 @@ class IterationData {
         this.histogramDataList = histogramDataList;
         this.graph = graph;
         this.graph.clearHistogram();
+        this.powerSum = 0;
+        histogramDataList.forEach(powerData => {
+            this.powerSum += powerData;
+        });
+        this.powerAverage = this.powerSum / histogramDataList.length;
     }
     setIsDrawingHistogram(flag) {
         this.isWorkloadRunning = flag;
@@ -34574,13 +34572,15 @@ class IterationData {
         this.powerDataList.push(powerData);
         if (this.isWorkloadRunning) {
             this.histogramDataList.push(powerData[1]);
+            this.powerSum += powerData[1];
+            this.powerAverage = this.powerSum / this.histogramDataList.length;
         }
     }
     appendHistogramData(power) {
         this.histogramDataList.push(power);
     }
     updateGraph() {
-        this.graph.updateGraph(this.powerDataList);
+        this.graph.updateGraph(this.powerDataList, this.powerAverage);
         if (this.isWorkloadRunning) {
             this.graph.updateHistogram(this.histogramDataList);
         }

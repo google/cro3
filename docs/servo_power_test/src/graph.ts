@@ -36,18 +36,10 @@ export class Graph {
       y: d3.scaleLinear(),
     };
   }
-  public updateGraph(powerDataList: Array<PowerData>) {
+  public updateGraph(powerDataList: Array<PowerData>, powerAverage: number) {
     if (powerDataList !== undefined && powerDataList.length > 0) {
       this.ui.hideElement(this.ui.toolTip);
     }
-    function average() {
-      let sum = 0;
-      powerDataList.forEach(powerData => {
-        sum += powerData[1];
-      });
-      return sum / powerDataList.length;
-    }
-    const averagePower = average();
 
     this.g.updateOptions(
       {
@@ -78,8 +70,9 @@ export class Graph {
             const canvas_width = canvas_right_x - canvas_left_x;
             canvas.fillRect(canvas_left_x, area.y, canvas_width, area.h);
           }
-          function drawAverage(averageValue: number) {
-            const canvas_y = g.toDomYCoord(averageValue);
+          function drawHorizontalLine(yValue: number) {
+            // if (yValue === 0) return;
+            const canvas_y = g.toDomYCoord(yValue);
             canvas.beginPath();
             canvas.moveTo(area.x, canvas_y);
             canvas.lineTo(area.x + area.w, canvas_y);
@@ -88,7 +81,7 @@ export class Graph {
             canvas.fillText('Average', area.x, canvas_y - 10);
           }
           highlight_period(10, 10);
-          drawAverage(averagePower);
+          drawHorizontalLine(powerAverage);
         },
       },
       false

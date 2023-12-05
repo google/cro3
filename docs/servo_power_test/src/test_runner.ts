@@ -10,6 +10,8 @@ export class IterationData {
   private histogramDataList: Array<number>;
   private graph: Graph;
   private isWorkloadRunning = false;
+  private powerSum: number;
+  private powerAverage: number;
   constructor(
     powerDataList: Array<PowerData>,
     annotationList: AnnotationDataList,
@@ -21,6 +23,11 @@ export class IterationData {
     this.histogramDataList = histogramDataList;
     this.graph = graph;
     this.graph.clearHistogram();
+    this.powerSum = 0;
+    histogramDataList.forEach(powerData => {
+      this.powerSum += powerData;
+    });
+    this.powerAverage = this.powerSum / histogramDataList.length;
   }
   public setIsDrawingHistogram(flag: boolean) {
     this.isWorkloadRunning = flag;
@@ -29,13 +36,15 @@ export class IterationData {
     this.powerDataList.push(powerData);
     if (this.isWorkloadRunning) {
       this.histogramDataList.push(powerData[1]);
+      this.powerSum += powerData[1];
+      this.powerAverage = this.powerSum / this.histogramDataList.length;
     }
   }
   public appendHistogramData(power: number) {
     this.histogramDataList.push(power);
   }
   public updateGraph() {
-    this.graph.updateGraph(this.powerDataList);
+    this.graph.updateGraph(this.powerDataList, this.powerAverage);
     if (this.isWorkloadRunning) {
       this.graph.updateHistogram(this.histogramDataList);
     }
