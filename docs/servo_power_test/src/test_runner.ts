@@ -42,6 +42,11 @@ export class IterationData {
     }
     return this.powerSum / this.histogramDataList.length;
   }
+  public setExtractTime(marginTime: number) {
+    const startExtractTime = this.annotationList.get('start')! + marginTime;
+    const endExtractTime = this.annotationList.get('end')! - marginTime;
+    this.graph.setExtractTime(startExtractTime, endExtractTime);
+  }
   public appendPowerData(powerData: PowerData) {
     this.powerDataList.push(powerData);
     if (this.isWorkloadRunning) {
@@ -118,6 +123,7 @@ export class TestRunner {
   private iterationDataList: Array<IterationData> = [];
   private graph: Graph;
   private currentIteration: IterationData;
+  private marginTime: number;
   public configScript: string;
   public cancelled = false;
   constructor(
@@ -125,7 +131,8 @@ export class TestRunner {
     servoController: ServoController,
     dutController: DutController,
     runnerNumber: number,
-    configScript: string
+    configScript: string,
+    marginTime: number
   ) {
     this.ui = ui;
     this.graph = new Graph(
@@ -142,6 +149,7 @@ export class TestRunner {
       [],
       this.graph
     );
+    this.marginTime = marginTime;
   }
   private setCurrentIteration(selectedIteration: number) {
     this.currentIteration = this.iterationDataList[selectedIteration];
@@ -204,6 +212,7 @@ export class TestRunner {
         } else if (dutData.includes('end')) {
           this.currentIteration.addAnnotation('end');
           this.currentIteration.setIsDrawingHistogram(false);
+          this.currentIteration.setExtractTime(this.marginTime);
         } else if (dutData.includes('stop')) {
           await this.stop();
         }

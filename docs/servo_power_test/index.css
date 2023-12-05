@@ -20,12 +20,13 @@ ul {
 .dygraph-legend {
   font-size: 14px;
   z-index: 10;
-  width: 250px;
+  width: 200px;
   background: #222;
   line-height: normal;
   text-align: left;
-  margin-left: 300px;
   overflow: hidden;
+  position: absolute;
+  right: 0px;
 }
 
 .dygraph-legend[dir="rtl"] {
