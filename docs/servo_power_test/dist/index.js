@@ -34580,6 +34580,7 @@ class IterationData {
     }
     updateGraph() {
         this.graph.updateGraph(this.powerDataList, this.powerAverage);
+        console.log(this.powerAverage);
         if (this.isWorkloadRunning) {
             this.graph.updateHistogram(this.histogramDataList);
         }
@@ -34619,6 +34620,11 @@ class IterationData {
     }
     loadHistogramData() {
         this.histogramDataList = this.extractData(0);
+        this.powerSum = 0;
+        this.histogramDataList.forEach(powerData => {
+            this.powerSum += powerData;
+        });
+        this.powerAverage = this.powerSum / this.histogramDataList.length;
     }
 }
 exports.IterationData = IterationData;
@@ -34635,6 +34641,9 @@ class TestRunner {
         this.dutController = dutController;
         this.configScript = configScript;
         this.currentIteration = new IterationData([], new Map(), [], this.graph);
+    }
+    setCurrentIteration(selectedIteration) {
+        this.currentIteration = this.iterationDataList[selectedIteration];
     }
     appendIterationDataList(newPowerDataList, newAnnotationList) {
         const newIterationData = new IterationData(newPowerDataList, newAnnotationList, [], this.graph);
@@ -34742,9 +34751,10 @@ class TestRunner {
         return extractedData;
     }
     loadGraph(selectedIteration) {
-        this.iterationDataList[selectedIteration].setIsDrawingHistogram(true);
-        this.iterationDataList[selectedIteration].updateGraph();
-        this.iterationDataList[selectedIteration].findAnnotation();
+        this.setCurrentIteration(selectedIteration);
+        this.currentIteration.setIsDrawingHistogram(true);
+        this.currentIteration.updateGraph();
+        this.currentIteration.findAnnotation();
     }
 }
 exports.TestRunner = TestRunner;
