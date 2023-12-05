@@ -34591,6 +34591,7 @@ class IterationData {
     }
     updateGraph() {
         this.graph.updateGraph(this.powerDataList, this.powerAverage);
+        console.log(this.powerAverage);
         if (this.isWorkloadRunning) {
             this.graph.updateHistogram(this.histogramDataList);
         }
