@@ -26,7 +26,7 @@ export class IterationData {
     this.powerSum = this.sumPowerData();
     this.powerAverage = this.averagePowerData();
   }
-  public setIsDrawingHistogram(flag: boolean) {
+  public setIsWorkloadRunning(flag: boolean) {
     this.isWorkloadRunning = flag;
   }
   public sumPowerData() {
@@ -208,10 +208,10 @@ export class TestRunner {
       try {
         if (dutData.includes('start')) {
           this.currentIteration.addAnnotation('start');
-          this.currentIteration.setIsDrawingHistogram(true);
+          this.currentIteration.setIsWorkloadRunning(true);
         } else if (dutData.includes('end')) {
           this.currentIteration.addAnnotation('end');
-          this.currentIteration.setIsDrawingHistogram(false);
+          this.currentIteration.setIsWorkloadRunning(false);
           this.currentIteration.setExtractTime(this.marginTime);
         } else if (dutData.includes('stop')) {
           await this.stop();
@@ -271,7 +271,7 @@ export class TestRunner {
   }
   public loadGraph(selectedIteration: number) {
     this.setCurrentIteration(selectedIteration);
-    this.currentIteration.setIsDrawingHistogram(true);
+    this.currentIteration.setIsWorkloadRunning(true);
     this.currentIteration.setExtractTime(this.marginTime);
     this.currentIteration.updateGraph();
     this.currentIteration.findAnnotation();
