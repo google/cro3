@@ -73,6 +73,34 @@ pub struct Config {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     is_internal: Option<bool>,
+    /// This config option checks if internal authentication valid
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    is_internal_auth_valid: Option<String>,
+    /// This config option is path to acloud command.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    acloud_cmd_path: Option<String>,
+    /// This config option is path to acloud config.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    acloud_config_path: Option<String>,
+    /// This config option is a lunch target for each Android branch.
+    #[serde(skip_serializing_if = "HashMap::is_empty")]
+    #[serde(default)]
+    android_target: HashMap<String, String>,
+    /// This config option is a cheeps image name for ARCVM.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    arc_vm_cheeps_image: Option<String>,
+    /// This config option is a betty image name for ARCVM.
+    #[serde(skip_serializing_if = "HashMap::is_empty")]
+    #[serde(default)]
+    arc_vm_betty_image: HashMap<String, String>,
+    /// This config option is a cheeps image name for ARC-container.
+    #[serde(skip_serializing_if = "HashMap::is_empty")]
+    #[serde(default)]
+    arc_container_cheeps_image: HashMap<String, String>,
 }
 static CONFIG_FILE_NAME: &str = "config.json";
 impl Config {
@@ -157,6 +185,54 @@ impl Config {
                 }
                 self.is_internal = Some(values[0].as_ref().parse::<bool>().unwrap());
             }
+            "is_internal_auth_valid" => {
+                if values.len() != 1 {
+                    bail!("{key} only takes 1 params");
+                }
+                self.is_internal_auth_valid = Some(values[0].as_ref().to_string());
+            }
+            "acloud_cmd_path" => {
+                if values.len() != 1 {
+                    bail!("{key} only takes 1 params");
+                }
+                self.acloud_cmd_path = Some(values[0].as_ref().to_string())
+            }
+            "acloud_config_path" => {
+                if values.len() != 1 {
+                    bail!("{key} only takes 1 params");
+                }
+                self.acloud_config_path = Some(values[0].as_ref().to_string())
+            }
+            "android_target" => {
+                if values.len() != 2 {
+                    bail!("{key} takes 2 parameters");
+                }
+                let branch = values[0].as_ref().to_string();
+                let target = values[1].as_ref().to_string();
+                self.android_target.insert(branch, target);
+            }
+            "arc_vm_cheeps_image" => {
+                if values.len() != 1 {
+                    bail!("{key} only takes 1 params");
+                }
+                self.arc_vm_cheeps_image = Some(values[0].as_ref().to_string());
+            }
+            "arc_vm_betty_image" => {
+                if values.len() != 2 {
+                    bail!("{key} takes 2 parameters");
+                }
+                let branch = values[0].as_ref().to_string();
+                let target = values[1].as_ref().to_string();
+                self.arc_vm_betty_image.insert(branch, target);
+            }
+            "arc_container_cheeps_image" => {
+                if values.len() != 2 {
+                    bail!("{key} takes 2 parameters");
+                }
+                let branch = values[0].as_ref().to_string();
+                let target = values[1].as_ref().to_string();
+                self.arc_container_cheeps_image.insert(branch, target);
+            }
             _ => bail!("config key {key} is not valid"),
         }
         self.write()
@@ -190,6 +266,21 @@ impl Config {
             "is_internal" => {
                 self.is_internal = None;
             }
+            "is_internal_auth_valid" => {
+                self.is_internal_auth_valid = None;
+            }
+            "acloud_cmd_path" => {
+                self.acloud_cmd_path = None;
+            }
+            "acloud_config_path" => {
+                self.acloud_config_path = None;
+            }
+            "android_target" => self.android_target.clear(),
+            "arc_vm_cheeps_image" => {
+                self.arc_vm_cheeps_image = None;
+            }
+            "arc_vm_betty_image" => self.arc_vm_betty_image.clear(),
+            "arc_container_cheeps_image" => self.arc_container_cheeps_image.clear(),
             _ => bail!("lium config clear for '{key}' is not implemented"),
         }
         self.write()?;
@@ -219,5 +310,26 @@ impl Config {
     }
     pub fn is_internal(&self) -> bool {
         self.is_internal.unwrap_or(false)
+    }
+    pub fn is_internal_auth_valid(&self) -> Option<String> {
+        self.is_internal_auth_valid.clone()
+    }
+    pub fn acloud_cmd_path(&self) -> Option<String> {
+        self.acloud_cmd_path.clone()
+    }
+    pub fn acloud_config_path(&self) -> Option<String> {
+        self.acloud_config_path.clone()
+    }
+    pub fn android_target(&self) -> &HashMap<String, String> {
+        &self.android_target
+    }
+    pub fn arc_vm_cheeps_image(&self) -> Option<String> {
+        self.arc_vm_cheeps_image.clone()
+    }
+    pub fn arc_vm_betty_image(&self) -> &HashMap<String, String> {
+        &self.arc_vm_betty_image
+    }
+    pub fn arc_container_cheeps_image(&self) -> &HashMap<String, String> {
+        &self.arc_container_cheeps_image
     }
 }

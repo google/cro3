@@ -9,12 +9,14 @@ use std::path::Path;
 use std::process::Command;
 use std::string::ToString;
 
+use anyhow::anyhow;
 use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
 use argh::FromArgs;
 use lium::config::Config;
 use lium::util::shell_helpers::run_bash_command;
+use regex_macro::regex;
 use strum_macros::Display;
 use tracing::error;
 use tracing::info;
@@ -52,7 +54,7 @@ pub fn run(args: &Args) -> Result<()> {
 }
 
 #[derive(Clone, FromArgs, PartialEq, Debug)]
-/// run first time setup, installs necessary dependencies
+/// for betty.sh. Run first time setup, installs necessary dependencies.
 #[argh(subcommand, name = "setup")]
 pub struct ArgsSetup {
     /// path to the android source checkout. If omitted, current directory will
@@ -92,7 +94,7 @@ fn run_setup(args: &ArgsSetup) -> Result<()> {
 
     info!("Running betty.sh setup...");
     let options = args.extra_args.clone().unwrap_or_else(|| String::from(""));
-    run_betty(&dir, SubCommand::Setup(args.clone()), &[&options])?;
+    run_betty_cmd(&dir, SubCommand::Setup(args.clone()), &[&options])?;
 
     info!("Running gcloud auth login...");
     let mut gcloud_auth = Command::new("gcloud")
@@ -176,69 +178,229 @@ fn enable_kvm() -> Result<()> {
 /// start a betty VM instance
 #[argh(subcommand, name = "start")]
 pub struct ArgsStart {
-    /// path to the android source checkout. If omitted, current directory will
-    /// be used.
+    /// for betty.sh. Path to the android source checkout. If omitted, current
+    /// directory will be used.
     #[argh(option)]
     arc: Option<String>,
 
-    /// the BOARD to run (e.g. betty-pi-arc)
+    /// for betty.sh. The BOARD to run (e.g. betty-pi-arc). It is required when
+    /// you launch a local VM instance.
     #[argh(option)]
-    board: String,
+    board: Option<String>,
 
-    /// reuse the VM image. It is true by default. If you want to disable it,
-    /// use `--reuse-disk-image false`.
+    /// for betty.sh. Reuse the VM image. It is true by default. If you want to
+    /// disable it, use `--reuse-disk-image false`.
     #[argh(option, default = "true")]
     reuse_disk_image: bool,
 
-    /// start betty with rootfs verification. It is false by default.
+    /// for betty.sh. Start betty with rootfs verification. It is false by
+    /// default.
     #[argh(switch)]
     rootfs_verify: bool,
 
-    /// the ChromeOS version to use (e.g. R72-11268.0.0). Alternatively,
-    /// postsubmit builds since R96-14175.0.0-53101 can also be specified. It is
-    /// the latest version by default.
+    /// for betty.sh. The ChromeOS version to use (e.g. R72-11268.0.0).
+    /// Alternatively, postsubmit builds since R96-14175.0.0-53101 can also
+    /// be specified. It is the latest version by default.
     #[argh(option)]
     version: Option<String>,
 
-    /// path to betty VM image to start. It has priority over --board and
-    /// --version (they will be ignored)
+    /// for betty.sh. Path to betty VM image to start. It has priority over
+    /// --board and --version (they will be ignored)
     #[argh(option)]
     vm_image: Option<String>,
 
-    /// extra arguments to pass to betty.sh. You can pass other options like
-    /// --extra-args "options".
+    /// for acloud. Launch a cloud based VM instance. It is false by default.  
+    #[argh(switch)]
+    acloud: bool,
+
+    /// for acloud. The Android branch. It is required if --acloud is
+    /// specified.
+    #[argh(option)]
+    branch: Option<String>,
+
+    /// for acloud. The Android Build ID. It is required if --acloud is
+    /// specified.
+    #[argh(option)]
+    build_id: Option<String>,
+
+    /// for acloud. Select ARC-container, not ARCVM. It is false by default.
+    #[argh(switch)]
+    container: bool,
+
+    /// extra arguments to pass to betty.sh or acloud. You can pass other
+    /// options like --extra-args "options".
     #[argh(option)]
     extra_args: Option<String>,
 }
 
 fn run_start(args: &ArgsStart) -> Result<()> {
-    let dir = find_betty_script(&args.arc)?;
+    if args.acloud {
+        run_acloud(args)?;
+    } else {
+        run_betty_start(args)?;
 
-    let mut options = Vec::new();
-    options.append(&mut vec!["--board", &args.board]);
-    if !args.reuse_disk_image {
-        options.append(&mut vec!["--reset_image"]);
+        println!("To connect the betty instance, run `lium dut shell --dut localhost:9222`.");
+        println!("To push an Android build a betty VM, run `lium arc flash`.");
     }
-    if args.rootfs_verify {
-        options.append(&mut vec!["--nodisable_rootfs"]);
-    }
-    if let Some(version) = &args.version {
-        options.append(&mut vec!["--release", version]);
-    }
-    if let Some(vm_image) = &args.vm_image {
-        options.append(&mut vec!["--vm_image", vm_image]);
-    }
-    options.append(&mut vec!["--display", "none"]);
-    if let Some(extra_args) = &args.extra_args {
-        options.append(&mut vec![extra_args]);
-    }
-
-    run_betty(&dir, SubCommand::Start(args.clone()), &options)?;
-
-    info!("To connect the betty instance, run `lium dut shell --dut localhost:9222`.");
-    info!("To push an Android build a betty VM, run `lium arc flash`.");
 
     Ok(())
+}
+
+fn run_acloud(args: &ArgsStart) -> Result<()> {
+    let branch = args
+        .branch
+        .clone()
+        .ok_or(anyhow!("--branch option is required when using acloud"))?;
+    let git_branch = format!("git_{branch}");
+
+    let build_id = args
+        .build_id
+        .clone()
+        .ok_or(anyhow!("--build-id option is required when using acloud"))?;
+    let re = regex!(r"^\d+$");
+    if !re.is_match(&build_id) {
+        bail!("--build-id must be a digit.");
+    }
+
+    let config = Config::read()?;
+
+    let cmd_path = config
+        .acloud_cmd_path()
+        .context("Please configure acloud_cmd_path")?;
+    let config_path = config
+        .acloud_config_path()
+        .context("Please configure acloud_config_path")?;
+    let target = get_target_name(&config, args.container, &branch)?;
+    let cheeps = get_cheeps_image_name(&config, args.container, &branch)?;
+    let betty = get_betty_image_name(&config, args.container, &branch)?;
+
+    let mut options = vec![
+        &cmd_path,
+        "create",
+        "--avd-type cheeps",
+        "--branch",
+        &git_branch,
+        "--build-id",
+        &build_id,
+        "--config-file",
+        &config_path,
+        "--build-target",
+        &target,
+        "--stable-cheeps-host-image-name",
+        &cheeps,
+        &betty,
+    ];
+
+    if let Some(extra_args) = &args.extra_args {
+        options.extend_from_slice(&[extra_args]);
+    }
+
+    run_acloud_cmd(&options)
+}
+
+fn get_target_name(config: &Config, is_container: bool, branch: &str) -> Result<String> {
+    let vm_type = if branch.contains("main") {
+        "main"
+    } else if is_container {
+        "container"
+    } else {
+        "vm"
+    };
+
+    Ok(config
+        .android_target()
+        .get(vm_type)
+        .context("Please configure android_target")?
+        .to_string())
+}
+
+fn get_betty_image_name(config: &Config, is_container: bool, branch: &str) -> Result<String> {
+    if is_container {
+        return Ok("".to_string());
+    }
+    let cmd = config
+        .arc_vm_betty_image()
+        .get(branch)
+        .context("Please configure arc_vm_betty_image")?
+        .to_string();
+    let betty = String::from_utf8(run_bash_command(&cmd, None)?.stdout)?;
+
+    Ok(format!("--betty-image {betty} --boot-timeout 720"))
+}
+
+fn get_cheeps_image_name(config: &Config, is_container: bool, branch: &str) -> Result<String> {
+    let cmd = if is_container {
+        config
+            .arc_container_cheeps_image()
+            .get(branch)
+            .context("Please configure arc_container_cheeps_image")?
+            .to_string()
+    } else {
+        config
+            .arc_vm_cheeps_image()
+            .context("Please configure arc_vm_cheeps_image")?
+    };
+    let cheeps = String::from_utf8(run_bash_command(&cmd, None)?.stdout)?;
+
+    Ok(cheeps)
+}
+
+fn run_acloud_cmd(opts: &[&str]) -> Result<()> {
+    let config = Config::read()?;
+    let internal_auth_cmd = config
+        .is_internal_auth_valid()
+        .context("Please configure is_internal_auth_valid")?;
+
+    info!("Running `{internal_auth_cmd}`...");
+    let internal_auth = run_bash_command(&internal_auth_cmd, None)?;
+    if !internal_auth.status.success() {
+        bail!("{:#?}", internal_auth);
+    }
+
+    let acloud_script = opts.join(" ");
+    info!("Running `{acloud_script}`...");
+    let mut cmd = Command::new("bash")
+        .arg("-c")
+        .arg(acloud_script)
+        .spawn()
+        .context("Failed to execute acloud")?;
+
+    let result = cmd.wait().context("Failed to wait for acloud")?;
+
+    if !result.success() {
+        error!("acloud failed")
+    }
+
+    Ok(())
+}
+
+fn run_betty_start(args: &ArgsStart) -> Result<()> {
+    let dir = find_betty_script(&args.arc)?;
+
+    let board = args
+        .board
+        .clone()
+        .ok_or(anyhow!("--board option is required when using betty.sh"))?;
+
+    let mut options = vec!["--board", &board, "--display", "none"];
+
+    if !args.reuse_disk_image {
+        options.extend_from_slice(&["--reset_image"]);
+    }
+    if args.rootfs_verify {
+        options.extend_from_slice(&["--nodisbple_rootfs"]);
+    }
+    if let Some(version) = &args.version {
+        options.extend_from_slice(&["--release", version]);
+    }
+    if let Some(vm_image) = &args.vm_image {
+        options.extend_from_slice(&["--vm_image", vm_image]);
+    }
+    if let Some(extra_args) = &args.extra_args {
+        options.extend_from_slice(&[extra_args]);
+    }
+
+    run_betty_cmd(&dir, SubCommand::Start(args.clone()), &options)
 }
 
 fn find_betty_script(arc: &Option<String>) -> Result<String> {
@@ -254,9 +416,9 @@ fn find_betty_script(arc: &Option<String>) -> Result<String> {
     bail!("betty.sh doesn't exist in {path_to_android}. Please consider specifying --arc option.")
 }
 
-fn run_betty(dir: &str, cmd: SubCommand, opts: &[&str]) -> Result<()> {
+fn run_betty_cmd(dir: &str, cmd: SubCommand, opts: &[&str]) -> Result<()> {
     let betty_script = format!("./betty.sh {} {}", cmd, opts.join(" "));
-
+    info!("Running `{betty_script}`...");
     let mut cmd = Command::new("bash")
         .current_dir(dir)
         .arg("-c")
