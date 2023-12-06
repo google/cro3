@@ -86,11 +86,7 @@ pub fn run(args: &Args) -> Result<()> {
         if args.force { "forcibly..." } else { "..." }
     );
 
-    if is_cros {
-        prepare_cros_repo_paths(&repo)?;
-    } else {
-        prepare_arc_repo_paths(&repo)?;
-    }
+    prepare_repo_paths(&repo, is_cros)?;
 
     // If we are using another repo as reference for rapid cloning, so make sure
     // that one is synced.
@@ -109,8 +105,7 @@ pub fn run(args: &Args) -> Result<()> {
     repo_sync(&repo, args.force, args.verbose)
 }
 
-/// Version string can represent either cros repo version or an arc version.
-/// This function detects which and extracts its appropriately from the args.
+/// Extract a appropriate version name from a argument.
 fn extract_cros_version(version: &String) -> Result<String> {
     if version == "tot" {
         Ok(version.clone())
@@ -119,44 +114,27 @@ fn extract_cros_version(version: &String) -> Result<String> {
     }
 }
 
-/// Prepares the repo to be synced by creating paths, detecting arc or cros, and
-/// reports to stderr.
-///
-/// returns an option of whether arc was detected.
-fn prepare_cros_repo_paths(repo: &str) -> Result<()> {
+/// Prepares the repo to be synced by creating paths and reports to stderr.
+fn prepare_repo_paths(repo: &str, is_cros: bool) -> Result<()> {
     if !Path::new(repo).is_dir() {
         info!("Creating {repo} ...");
         fs::create_dir_all(repo)?;
         return Ok(());
     }
 
-    if let Ok(prev_version) = get_current_synced_version(repo) {
-        info!("Previous CROS version was: {}", prev_version);
-        return Ok(());
-    }
-
-    if Path::new(repo).read_dir()?.next().is_some() {
-        bail!("{repo} is either not a cros or is empty directory.");
-    }
-
-    Ok(())
-}
-
-fn prepare_arc_repo_paths(repo: &str) -> Result<()> {
-    if !Path::new(repo).is_dir() {
-        info!("Creating {repo} ...");
-        fs::create_dir_all(repo)?;
-        return Ok(());
-    }
-
-    if Path::new(&format!("{}/Android.bp", repo)).exists() {
+    if is_cros {
+        if let Ok(prev_version) = get_current_synced_version(repo) {
+            info!("Previous CROS version was: {}", prev_version);
+            return Ok(());
+        }
+    } else if Path::new(&format!("{}/Android.bp", repo)).exists() {
         let prev_version = get_current_synced_arc_version(repo)?;
         info!("Previous ARC version was: {}", prev_version);
         return Ok(());
     }
 
     if Path::new(repo).read_dir()?.next().is_some() {
-        bail!("{repo} is either not a arc or empty directory.");
+        bail!("{repo} is either not a cros, arc or is empty directory.");
     }
 
     Ok(())
