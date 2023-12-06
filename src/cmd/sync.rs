@@ -60,22 +60,22 @@ pub struct Args {
 
 #[tracing::instrument(level = "trace")]
 pub fn run(args: &Args) -> Result<()> {
-    let is_arc = match (&args.cros, &args.arc) {
-        (Some(_), None) => false,
-        (None, Some(_)) => true,
+    let is_cros = match (&args.cros, &args.arc) {
+        (Some(_), None) => true,
+        (None, Some(_)) => false,
         _ => bail!("Please specify either --cros or --arc."),
     };
 
-    let version = if is_arc {
-        lookup_arc_version(&args.version)?
-    } else {
+    let version = if is_cros {
         extract_cros_version(&args.version)?
+    } else {
+        lookup_arc_version(&args.version)?
     };
 
-    let repo = if is_arc {
-        get_cros_dir_unchecked(&args.arc)?
-    } else {
+    let repo = if is_cros {
         get_cros_dir_unchecked(&args.cros)?
+    } else {
+        get_cros_dir_unchecked(&args.arc)?
     };
 
     // Inform user of sync information.
@@ -86,10 +86,10 @@ pub fn run(args: &Args) -> Result<()> {
         if args.force { "forcibly..." } else { "..." }
     );
 
-    if is_arc {
-        prepare_arc_repo_paths(&repo)?;
-    } else {
+    if is_cros {
         prepare_cros_repo_paths(&repo)?;
+    } else {
+        prepare_arc_repo_paths(&repo)?;
     }
 
     // If we are using another repo as reference for rapid cloning, so make sure
@@ -100,10 +100,10 @@ pub fn run(args: &Args) -> Result<()> {
         repo_sync(reference, args.force, args.verbose)?;
     }
 
-    if is_arc {
-        setup_arc_repo(&repo, &version)?;
+    if is_cros {
+        setup_cros_repo(&repo, &version, &args.reference)?;
     } else {
-        setup_cros_repo(&repo, &version, &reference)?;
+        setup_arc_repo(&repo, &version)?;
     }
 
     repo_sync(&repo, args.force, args.verbose)
