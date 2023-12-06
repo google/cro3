@@ -11,6 +11,12 @@
             font-family: monospace;
         }
 
+        #header {
+            position: sticky;
+            top: 0;
+            padding: 4px;
+        }
+
         #form {
             background: rgba(0, 0, 0, 0.15);
             padding: 0.25rem;
@@ -46,21 +52,32 @@
             color: #fff;
         }
 
+        #console {
+            height: calc(100vh - 80px);
+            width: 100vw;
+        }
+
         #messages {
+            display: inline-block;
             overflow-y: scroll;
             padding: 4px;
             margin: 4px;
             white-space: pre-wrap;
             word-wrap: break-word;
+            height: 100%;
+            width: 100%;
         }
     </style>
 </head>
 
 
 <body>
-    <button id="select">select serial</button>
-    <button id="close">close port</button>
-    <div id="messages"></div>
+    <div id="header">
+        <button id="select">select serial</button>
+        <button id="close">close port</button>
+    </div>
+    <div id="console"><span id="messages"></span></div>
+
     <form id="form" action="">
         <input id="input" autocomplete="off" /><button>Send</button>
     </form>
@@ -84,7 +101,7 @@
             .requestPort()
             .catch((e) => { console.error(e); });
         await port.open({ baudRate: 115200 });
-        addMessage("open port");
+        addMessage("open port\n");
 
         reader = port.readable.getReader();
         reader.read().then(function processText({ done, value }) {
@@ -111,7 +128,7 @@
             .catch(() => { }); // when the reader stream is already locked, do nothing.
         if (port === undefined) return;
         await port.close();
-        addMessage('close port')
+        addMessage('close port\n')
     })
 
     form.addEventListener('submit', async (e) => {
