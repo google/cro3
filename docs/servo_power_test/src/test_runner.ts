@@ -234,6 +234,7 @@ export class TestRunner {
     );
     await this.dutController.openDutPort();
     await this.servoController.openServoPort();
+    await this.dutController.discardAllDutBuffer(100);
     this.changeHaltFlag(false);
     this.kickWriteLoop();
     this.readLoop();

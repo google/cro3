@@ -49,7 +49,8 @@ export class PowerTestController {
     await this.dutController.sendCancelCommand();
     await this.dutController.sendCancelCommand();
     await this.dutController.sendCancelCommand();
-    await this.dutController.discardAllDutBuffer();
+    await this.dutController.discardAllDutBuffer(1000);
+    await this.dutController.login();
     await this.dutController.dut.close();
   }
   private async finalize() {

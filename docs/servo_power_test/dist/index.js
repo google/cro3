@@ -33887,26 +33887,29 @@ class DutController {
             new Promise((_, reject) => setTimeout(reject, limitTime)),
         ]);
         try {
-            await racePromise;
+            const dutData = (await racePromise);
             // this.runner.readData() is resolved faster
             // that is, some data is read in 1000ms
-            return false;
+            return dutData;
         }
         catch (_a) {
             // setTimeOut() is resolved faster
             // that is, no data is read in 1000ms
             await this.dut.cancelRead();
             console.log('read all data');
-            return true;
+            return '';
         }
     }
-    async discardAllDutBuffer() {
+    async discardAllDutBuffer(limitTime) {
+        let allDutData = '';
         for (;;) {
-            const allDataIsRead = await this.readDataWithTimeout(1000);
-            if (allDataIsRead) {
+            const dutData = await this.readDataWithTimeout(limitTime);
+            if (dutData === '') {
                 // all data is read from DUT
-                break;
+                this.ui.addMessageToConsole(allDutData);
+                return allDutData;
             }
+            allDutData += dutData;
         }
     }
     async runWorkload(customScript) {
@@ -33924,6 +33927,34 @@ echo "stop"\n`;
     // Send ctrl+C command to DUT console.
     async sendCancelCommand() {
         await this.dut.write(this.CANCEL_CMD);
+    }
+    async login() {
+        let isUserNameEntered = false;
+        await this.dut.write('\n');
+        await this.dut.write('\n');
+        for (;;) {
+            const dutData = await this.discardAllDutBuffer(100);
+            if (dutData.includes('localhost login:')) {
+                await this.dut.write('root\n');
+                isUserNameEntered = true;
+                continue;
+            }
+            if (dutData.includes('Password:')) {
+                if (!isUserNameEntered) {
+                    await this.dut.write('\n');
+                    continue;
+                }
+                await this.dut.write('test0000\n');
+                const result = await this.discardAllDutBuffer(1000);
+                this.ui.addMessageToConsole(result);
+                if (result.includes('Login incorrect')) {
+                    isUserNameEntered = false;
+                    continue;
+                }
+                return;
+            }
+            return;
+        }
     }
 }
 exports.DutController = DutController;
@@ -34381,7 +34412,8 @@ class PowerTestController {
         await this.dutController.sendCancelCommand();
         await this.dutController.sendCancelCommand();
         await this.dutController.sendCancelCommand();
-        await this.dutController.discardAllDutBuffer();
+        await this.dutController.discardAllDutBuffer(1000);
+        await this.dutController.login();
         await this.dutController.dut.close();
     }
     async finalize() {
@@ -34745,6 +34777,7 @@ class TestRunner {
         this.currentIteration = new IterationData([], new Map(), [], this.graph);
         await this.dutController.openDutPort();
         await this.servoController.openServoPort();
+        await this.dutController.discardAllDutBuffer(100);
         this.changeHaltFlag(false);
         this.kickWriteLoop();
         this.readLoop();
