@@ -23,21 +23,31 @@ export class IterationData {
     this.histogramDataList = histogramDataList;
     this.graph = graph;
     this.graph.clearHistogram();
-    this.powerSum = 0;
-    histogramDataList.forEach(powerData => {
-      this.powerSum += powerData;
-    });
-    this.powerAverage = this.powerSum / histogramDataList.length;
+    this.powerSum = this.sumPowerData();
+    this.powerAverage = this.averagePowerData();
   }
   public setIsDrawingHistogram(flag: boolean) {
     this.isWorkloadRunning = flag;
+  }
+  public sumPowerData() {
+    let powerSum = 0;
+    this.histogramDataList.forEach(powerData => {
+      powerSum += powerData;
+    });
+    return powerSum;
+  }
+  public averagePowerData() {
+    if (this.histogramDataList.length === 0) {
+      return 0;
+    }
+    return this.powerSum / this.histogramDataList.length;
   }
   public appendPowerData(powerData: PowerData) {
     this.powerDataList.push(powerData);
     if (this.isWorkloadRunning) {
       this.histogramDataList.push(powerData[1]);
       this.powerSum += powerData[1];
-      this.powerAverage = this.powerSum / this.histogramDataList.length;
+      this.powerAverage = this.averagePowerData();
     }
   }
   public appendHistogramData(power: number) {
@@ -92,11 +102,8 @@ export class IterationData {
   }
   public loadHistogramData() {
     this.histogramDataList = this.extractData(0);
-    this.powerSum = 0;
-    this.histogramDataList.forEach(powerData => {
-      this.powerSum += powerData;
-    });
-    this.powerAverage = this.powerSum / this.histogramDataList.length;
+    this.powerSum = this.sumPowerData();
+    this.powerAverage = this.averagePowerData();
   }
 }
 

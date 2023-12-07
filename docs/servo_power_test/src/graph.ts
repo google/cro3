@@ -80,7 +80,7 @@ export class Graph {
             canvas.fillText('Average', area.x, canvas_y - 10);
           }
           highlight_period(10, 10);
-          drawHorizontalLine(powerAverage);
+          if (powerAverage !== 0) drawHorizontalLine(powerAverage);
         },
       },
       false

@@ -34040,7 +34040,8 @@ class Graph {
                     canvas.fillText('Average', area.x, canvas_y - 10);
                 }
                 highlight_period(10, 10);
-                drawHorizontalLine(powerAverage);
+                if (powerAverage !== 0)
+                    drawHorizontalLine(powerAverage);
             },
         }, false);
     }
@@ -34558,21 +34559,31 @@ class IterationData {
         this.histogramDataList = histogramDataList;
         this.graph = graph;
         this.graph.clearHistogram();
-        this.powerSum = 0;
-        histogramDataList.forEach(powerData => {
-            this.powerSum += powerData;
-        });
-        this.powerAverage = this.powerSum / histogramDataList.length;
+        this.powerSum = this.sumPowerData();
+        this.powerAverage = this.averagePowerData();
     }
     setIsDrawingHistogram(flag) {
         this.isWorkloadRunning = flag;
+    }
+    sumPowerData() {
+        let powerSum = 0;
+        this.histogramDataList.forEach(powerData => {
+            powerSum += powerData;
+        });
+        return powerSum;
+    }
+    averagePowerData() {
+        if (this.histogramDataList.length === 0) {
+            return 0;
+        }
+        return this.powerSum / this.histogramDataList.length;
     }
     appendPowerData(powerData) {
         this.powerDataList.push(powerData);
         if (this.isWorkloadRunning) {
             this.histogramDataList.push(powerData[1]);
             this.powerSum += powerData[1];
-            this.powerAverage = this.powerSum / this.histogramDataList.length;
+            this.powerAverage = this.averagePowerData();
         }
     }
     appendHistogramData(power) {
@@ -34619,11 +34630,8 @@ class IterationData {
     }
     loadHistogramData() {
         this.histogramDataList = this.extractData(0);
-        this.powerSum = 0;
-        this.histogramDataList.forEach(powerData => {
-            this.powerSum += powerData;
-        });
-        this.powerAverage = this.powerSum / this.histogramDataList.length;
+        this.powerSum = this.sumPowerData();
+        this.powerAverage = this.averagePowerData();
     }
 }
 exports.IterationData = IterationData;
