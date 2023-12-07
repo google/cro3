@@ -12,7 +12,7 @@ export class Graph {
   constructor(ui: Ui, graphDiv: HTMLElement, histogramDiv: HTMLElement) {
     this.ui = ui;
     this.g = new Dygraph(graphDiv, [], {
-      height: 500,
+      height: 480,
     });
     const parentElementSize = d3
       .select(histogramDiv)
@@ -45,6 +45,7 @@ export class Graph {
         file: powerDataList,
         labels: ['t', 'ina0'],
         showRoller: true,
+        height: 480,
         xlabel: 'Relative Time (s)',
         ylabel: 'Power (mW)',
         legend: 'always',

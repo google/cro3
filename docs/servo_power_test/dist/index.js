@@ -33976,7 +33976,7 @@ class Graph {
         this.margin = { top: 10, right: 30, bottom: 30, left: 40 };
         this.ui = ui;
         this.g = new dygraphs_1.default(graphDiv, [], {
-            height: 500,
+            height: 480,
         });
         const parentElementSize = (_a = d3
             .select(histogramDiv)
@@ -34007,6 +34007,7 @@ class Graph {
             file: powerDataList,
             labels: ['t', 'ina0'],
             showRoller: true,
+            height: 480,
             xlabel: 'Relative Time (s)',
             ylabel: 'Power (mW)',
             legend: 'always',
