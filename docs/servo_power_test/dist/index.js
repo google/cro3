@@ -33978,6 +33978,8 @@ class Graph {
         this.g = new dygraphs_1.default(graphDiv, [], {
             height: 480,
         });
+        this.startExtractTime = 0;
+        this.endExtractTime = 0;
         const parentElementSize = (_a = d3
             .select(histogramDiv)
             .node()) === null || _a === void 0 ? void 0 : _a.getBoundingClientRect();
@@ -33998,6 +34000,10 @@ class Graph {
             x: d3.scaleLinear(),
             y: d3.scaleLinear(),
         };
+    }
+    setExtractTime(startExtractTime, endExtractTime) {
+        this.startExtractTime = startExtractTime;
+        this.endExtractTime = endExtractTime;
     }
     updateGraph(powerDataList, powerAverage) {
         if (powerDataList !== undefined && powerDataList.length > 0) {
@@ -34021,17 +34027,20 @@ class Graph {
                     },
                 },
             },
-            underlayCallback: function (canvas, area, g) {
-                canvas.fillStyle = 'rgba(255, 255, 102, 1.0)';
-                canvas.strokeStyle = 'yellow';
-                function highlight_period(x_start, x_end) {
+            underlayCallback: (canvas, area, g) => {
+                function highlightPeriod(x_start, x_end) {
+                    if (x_start === 0 || x_end === 0)
+                        return;
                     const canvas_left_x = g.toDomXCoord(x_start);
                     const canvas_right_x = g.toDomXCoord(x_end);
                     const canvas_width = canvas_right_x - canvas_left_x;
+                    canvas.fillStyle = 'rgba(255, 255, 0, 0.5)';
                     canvas.fillRect(canvas_left_x, area.y, canvas_width, area.h);
                 }
                 function drawHorizontalLine(yValue) {
                     const canvas_y = g.toDomYCoord(yValue);
+                    canvas.fillStyle = '#FF4500';
+                    canvas.strokeStyle = '#FF4500';
                     canvas.beginPath();
                     canvas.moveTo(area.x, canvas_y);
                     canvas.lineTo(area.x + area.w, canvas_y);
@@ -34039,9 +34048,10 @@ class Graph {
                     canvas.font = '14px sans-serif';
                     canvas.fillText('Average', area.x, canvas_y - 10);
                 }
-                highlight_period(10, 10);
+                highlightPeriod(this.startExtractTime, this.endExtractTime);
                 if (powerAverage !== 0)
                     drawHorizontalLine(powerAverage);
+                drawHorizontalLine(powerAverage);
             },
         }, false);
     }
@@ -34355,7 +34365,7 @@ class PowerTestController {
         const shellScriptContents = this.ui.readInputShellScript();
         this.ui.createGraphList();
         for (let i = 0; i < this.ui.runnerNumber; i++) {
-            const newRunner = new test_runner_1.TestRunner(this.ui, this.servoController, this.dutController, i, shellScriptContents[i]);
+            const newRunner = new test_runner_1.TestRunner(this.ui, this.servoController, this.dutController, i, shellScriptContents[i], this.marginTime);
             this.testRunnerList.push(newRunner);
         }
     }
@@ -34430,7 +34440,7 @@ class PowerTestController {
         this.ui.appendIterationSelectors(this.iterationNumber, 0);
         for (let i = 0; i < jsonData.data.length; i++) {
             const runnerData = jsonData.data[i];
-            const newRunner = new test_runner_1.TestRunner(this.ui, this.servoController, this.dutController, i, runnerData.config);
+            const newRunner = new test_runner_1.TestRunner(this.ui, this.servoController, this.dutController, i, runnerData.config, this.marginTime);
             runnerData.measuredData.map((iterationData) => {
                 const newPowerDataList = iterationData.power.map((d) => [d.time, d.power]);
                 const newAnnotationList = new Map(Object.entries(iterationData.annotation));
@@ -34578,6 +34588,11 @@ class IterationData {
         }
         return this.powerSum / this.histogramDataList.length;
     }
+    setExtractTime(marginTime) {
+        const startExtractTime = this.annotationList.get('start') + marginTime;
+        const endExtractTime = this.annotationList.get('end') - marginTime;
+        this.graph.setExtractTime(startExtractTime, endExtractTime);
+    }
     appendPowerData(powerData) {
         this.powerDataList.push(powerData);
         if (this.isWorkloadRunning) {
@@ -34591,6 +34606,7 @@ class IterationData {
     }
     updateGraph() {
         this.graph.updateGraph(this.powerDataList, this.powerAverage);
+        console.log(this.powerAverage);
         if (this.isWorkloadRunning) {
             this.graph.updateHistogram(this.histogramDataList);
         }
@@ -34636,7 +34652,7 @@ class IterationData {
 }
 exports.IterationData = IterationData;
 class TestRunner {
-    constructor(ui, servoController, dutController, runnerNumber, configScript) {
+    constructor(ui, servoController, dutController, runnerNumber, configScript, marginTime) {
         this.INTERVAL_MS = 100;
         this.halt = true;
         this.inProgress = false;
@@ -34648,6 +34664,7 @@ class TestRunner {
         this.dutController = dutController;
         this.configScript = configScript;
         this.currentIteration = new IterationData([], new Map(), [], this.graph);
+        this.marginTime = marginTime;
     }
     setCurrentIteration(selectedIteration) {
         this.currentIteration = this.iterationDataList[selectedIteration];
@@ -34703,6 +34720,7 @@ class TestRunner {
                 else if (dutData.includes('end')) {
                     this.currentIteration.addAnnotation('end');
                     this.currentIteration.setIsDrawingHistogram(false);
+                    this.currentIteration.setExtractTime(this.marginTime);
                 }
                 else if (dutData.includes('stop')) {
                     await this.stop();
@@ -34760,6 +34778,7 @@ class TestRunner {
     loadGraph(selectedIteration) {
         this.setCurrentIteration(selectedIteration);
         this.currentIteration.setIsDrawingHistogram(true);
+        this.currentIteration.setExtractTime(this.marginTime);
         this.currentIteration.updateGraph();
         this.currentIteration.findAnnotation();
     }

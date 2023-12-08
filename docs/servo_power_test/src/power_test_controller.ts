@@ -36,7 +36,8 @@ export class PowerTestController {
         this.servoController,
         this.dutController,
         i,
-        shellScriptContents[i]
+        shellScriptContents[i],
+        this.marginTime
       );
       this.testRunnerList.push(newRunner);
     }
@@ -117,7 +118,8 @@ export class PowerTestController {
         this.servoController,
         this.dutController,
         i,
-        runnerData.config
+        runnerData.config,
+        this.marginTime
       );
       runnerData.measuredData.map(
         (iterationData: {

@@ -6,6 +6,8 @@ import * as d3 from 'd3';
 export class Graph {
   private ui: Ui;
   private g: Dygraph;
+  private startExtractTime: number;
+  private endExtractTime: number;
   public annotations: dygraphs.Annotation[] = [];
   public margin = {top: 10, right: 30, bottom: 30, left: 40};
   private histogramInfo;
@@ -14,6 +16,8 @@ export class Graph {
     this.g = new Dygraph(graphDiv, [], {
       height: 480,
     });
+    this.startExtractTime = 0;
+    this.endExtractTime = 0;
     const parentElementSize = d3
       .select(histogramDiv)
       .node()
@@ -35,6 +39,10 @@ export class Graph {
       x: d3.scaleLinear(),
       y: d3.scaleLinear(),
     };
+  }
+  public setExtractTime(startExtractTime: number, endExtractTime: number) {
+    this.startExtractTime = startExtractTime;
+    this.endExtractTime = endExtractTime;
   }
   public updateGraph(powerDataList: Array<PowerData>, powerAverage: number) {
     if (powerDataList !== undefined && powerDataList.length > 0) {
@@ -60,18 +68,19 @@ export class Graph {
             },
           },
         },
-        underlayCallback: function (canvas, area, g) {
-          canvas.fillStyle = 'rgba(255, 255, 102, 1.0)';
-          canvas.strokeStyle = 'yellow';
-
-          function highlight_period(x_start: number, x_end: number) {
+        underlayCallback: (canvas, area, g) => {
+          function highlightPeriod(x_start: number, x_end: number) {
+            if (x_start === 0 || x_end === 0) return;
             const canvas_left_x = g.toDomXCoord(x_start);
             const canvas_right_x = g.toDomXCoord(x_end);
             const canvas_width = canvas_right_x - canvas_left_x;
+            canvas.fillStyle = 'rgba(255, 255, 0, 0.5)';
             canvas.fillRect(canvas_left_x, area.y, canvas_width, area.h);
           }
           function drawHorizontalLine(yValue: number) {
             const canvas_y = g.toDomYCoord(yValue);
+            canvas.fillStyle = '#FF4500';
+            canvas.strokeStyle = '#FF4500';
             canvas.beginPath();
             canvas.moveTo(area.x, canvas_y);
             canvas.lineTo(area.x + area.w, canvas_y);
@@ -79,8 +88,9 @@ export class Graph {
             canvas.font = '14px sans-serif';
             canvas.fillText('Average', area.x, canvas_y - 10);
           }
-          highlight_period(10, 10);
+          highlightPeriod(this.startExtractTime, this.endExtractTime);
           if (powerAverage !== 0) drawHorizontalLine(powerAverage);
+          drawHorizontalLine(powerAverage);
         },
       },
       false
