@@ -13,6 +13,10 @@ button {
 
 }
 
+ol li {
+  padding-bottom: 8px;
+}
+
 ul {
   list-style-type: none;
 }
