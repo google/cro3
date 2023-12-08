@@ -59,6 +59,7 @@ export class Graph {
         ylabel: 'Power (mW)',
         legend: 'always',
         connectSeparatedPoints: true,
+        strokeWidth: 2,
         axes: {
           x: {
             axisLabelFormatter: function (d) {
@@ -170,9 +171,10 @@ export class Graph {
         g
           .append('text')
           .attr('x', this.histogramInfo.width)
-          .attr('y', this.margin.bottom - 4)
+          .attr('y', this.margin.bottom)
           .attr('fill', 'currentColor')
           .attr('text-anchor', 'end')
+          .style('font-size', '12px')
           .text('# of datapoints')
       );
 
@@ -189,10 +191,11 @@ export class Graph {
       .call(g =>
         g
           .append('text')
-          .attr('x', -this.margin.left)
-          .attr('y', this.margin.top)
+          .attr('x', -32)
+          .attr('y', 20)
           .attr('fill', 'currentColor')
           .attr('text-anchor', 'start')
+          .style('font-size', '12px')
           .text('Power(mW)')
       );
 

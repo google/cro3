@@ -13,7 +13,7 @@ export class TotalHistogram {
   ];
   public paintHistogram(totalPowerDataList: Array<Array<number>>) {
     // Declare the chart dimensions and margins.
-    const margin = {top: 10, bottom: 30, right: 40, left: 40};
+    const margin = {top: 10, bottom: 40, right: 40, left: 40};
     const width = 960;
     const height = 320;
 
@@ -77,7 +77,7 @@ export class TotalHistogram {
         )
         .attr('fill', 'none')
         .attr('stroke', color)
-        .attr('stroke-width', 1)
+        .attr('stroke-width', 2)
         .attr(
           'd',
           d3
@@ -161,15 +161,15 @@ export class TotalHistogram {
           .attr('y', margin.bottom - 4)
           .attr('fill', 'currentColor')
           .attr('text-anchor', 'end')
+          .style('font-size', '12px')
           .text('Power (mW)')
       );
 
-    // Add the y-axis and label, and remove the domain line.
+    // Add the y-axis and label.
     svg
       .append('g')
       .attr('transform', `translate(${margin.left},0)`)
       .call(d3.axisLeft(y).ticks(height / 40))
-      .call(g => g.select('.domain').remove())
       .call(g =>
         g
           .append('text')
@@ -177,6 +177,7 @@ export class TotalHistogram {
           .attr('y', margin.top)
           .attr('fill', 'currentColor')
           .attr('text-anchor', 'start')
+          .style('font-size', '12px')
           .text('# of datapoints')
       );
 
