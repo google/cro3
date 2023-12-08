@@ -34018,6 +34018,7 @@ class Graph {
             ylabel: 'Power (mW)',
             legend: 'always',
             connectSeparatedPoints: true,
+            strokeWidth: 2,
             axes: {
                 x: {
                     axisLabelFormatter: function (d) {
@@ -34115,9 +34116,10 @@ class Graph {
             .call(g => g
             .append('text')
             .attr('x', this.histogramInfo.width)
-            .attr('y', this.margin.bottom - 4)
+            .attr('y', this.margin.bottom)
             .attr('fill', 'currentColor')
             .attr('text-anchor', 'end')
+            .style('font-size', '12px')
             .text('# of datapoints'));
         // Add the y-axis and label, and remove the domain line.
         this.histogramInfo.svg
@@ -34129,10 +34131,11 @@ class Graph {
             .call(g => g.select('.domain').remove())
             .call(g => g
             .append('text')
-            .attr('x', -this.margin.left)
-            .attr('y', this.margin.top)
+            .attr('x', -32)
+            .attr('y', 20)
             .attr('fill', 'currentColor')
             .attr('text-anchor', 'start')
+            .style('font-size', '12px')
             .text('Power(mW)'));
         return bins;
     }
@@ -34839,7 +34842,7 @@ class TotalHistogram {
     }
     paintHistogram(totalPowerDataList) {
         // Declare the chart dimensions and margins.
-        const margin = { top: 10, bottom: 30, right: 40, left: 40 };
+        const margin = { top: 10, bottom: 40, right: 40, left: 40 };
         const width = 960;
         const height = 320;
         // Bin the data.
@@ -34895,7 +34898,7 @@ class TotalHistogram {
             }))
                 .attr('fill', 'none')
                 .attr('stroke', color)
-                .attr('stroke-width', 1)
+                .attr('stroke-width', 2)
                 .attr('d', d3
                 .line()
                 .x(d => x(d[0]))
@@ -34968,19 +34971,20 @@ class TotalHistogram {
             .attr('y', margin.bottom - 4)
             .attr('fill', 'currentColor')
             .attr('text-anchor', 'end')
+            .style('font-size', '12px')
             .text('Power (mW)'));
-        // Add the y-axis and label, and remove the domain line.
+        // Add the y-axis and label.
         svg
             .append('g')
             .attr('transform', `translate(${margin.left},0)`)
             .call(d3.axisLeft(y).ticks(height / 40))
-            .call(g => g.select('.domain').remove())
             .call(g => g
             .append('text')
             .attr('x', 5)
             .attr('y', margin.top)
             .attr('fill', 'currentColor')
             .attr('text-anchor', 'start')
+            .style('font-size', '12px')
             .text('# of datapoints'));
         // Return the SVG element.
         svg.node();
