@@ -77,14 +77,14 @@ pub struct Config {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     is_internal_auth_valid: Option<String>,
-    /// This config option is path to acloud command.
+    /// This config option is path to acloudw command.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
-    acloud_cmd_path: Option<String>,
-    /// This config option is path to acloud config.
+    acloudw_cmd_path: Option<String>,
+    /// This config option is path to acloudw config.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
-    acloud_config_path: Option<String>,
+    acloudw_config_path: Option<String>,
     /// This config option is a lunch target for each Android branch.
     #[serde(skip_serializing_if = "HashMap::is_empty")]
     #[serde(default)]
@@ -191,17 +191,17 @@ impl Config {
                 }
                 self.is_internal_auth_valid = Some(values[0].as_ref().to_string());
             }
-            "acloud_cmd_path" => {
+            "acloudw_cmd_path" => {
                 if values.len() != 1 {
                     bail!("{key} only takes 1 params");
                 }
-                self.acloud_cmd_path = Some(values[0].as_ref().to_string())
+                self.acloudw_cmd_path = Some(values[0].as_ref().to_string())
             }
-            "acloud_config_path" => {
+            "acloudw_config_path" => {
                 if values.len() != 1 {
                     bail!("{key} only takes 1 params");
                 }
-                self.acloud_config_path = Some(values[0].as_ref().to_string())
+                self.acloudw_config_path = Some(values[0].as_ref().to_string())
             }
             "android_target" => {
                 if values.len() != 2 {
@@ -269,11 +269,11 @@ impl Config {
             "is_internal_auth_valid" => {
                 self.is_internal_auth_valid = None;
             }
-            "acloud_cmd_path" => {
-                self.acloud_cmd_path = None;
+            "acloudw_cmd_path" => {
+                self.acloudw_cmd_path = None;
             }
-            "acloud_config_path" => {
-                self.acloud_config_path = None;
+            "acloudw_config_path" => {
+                self.acloudw_config_path = None;
             }
             "android_target" => self.android_target.clear(),
             "arc_vm_cheeps_image" => {
@@ -314,11 +314,11 @@ impl Config {
     pub fn is_internal_auth_valid(&self) -> Option<String> {
         self.is_internal_auth_valid.clone()
     }
-    pub fn acloud_cmd_path(&self) -> Option<String> {
-        self.acloud_cmd_path.clone()
+    pub fn acloudw_cmd_path(&self) -> Option<String> {
+        self.acloudw_cmd_path.clone()
     }
-    pub fn acloud_config_path(&self) -> Option<String> {
-        self.acloud_config_path.clone()
+    pub fn acloudw_config_path(&self) -> Option<String> {
+        self.acloudw_config_path.clone()
     }
     pub fn android_target(&self) -> &HashMap<String, String> {
         &self.android_target

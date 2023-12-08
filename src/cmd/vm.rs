@@ -209,25 +209,25 @@ pub struct ArgsStart {
     #[argh(option)]
     vm_image: Option<String>,
 
-    /// for acloud. Launch a cloud based VM instance. It is false by default.  
+    /// for acloudw. Launch a cloud based VM instance. It is false by default.  
     #[argh(switch)]
     acloud: bool,
 
-    /// for acloud. The Android branch. It is required if --acloud is
+    /// for acloudw. The Android branch. It is required if --acloud is
     /// specified.
     #[argh(option)]
     branch: Option<String>,
 
-    /// for acloud. The Android Build ID. It is required if --acloud is
+    /// for acloudw. The Android Build ID. It is required if --acloud is
     /// specified.
     #[argh(option)]
     build_id: Option<String>,
 
-    /// for acloud. Select ARC-container, not ARCVM. It is false by default.
+    /// for acloudw. Select ARC-container, not ARCVM. It is false by default.
     #[argh(switch)]
     container: bool,
 
-    /// extra arguments to pass to betty.sh or acloud. You can pass other
+    /// extra arguments to pass to betty.sh or acloudw. You can pass other
     /// options like --extra-args "options".
     #[argh(option)]
     extra_args: Option<String>,
@@ -235,7 +235,7 @@ pub struct ArgsStart {
 
 fn run_start(args: &ArgsStart) -> Result<()> {
     if args.acloud {
-        run_acloud(args)?;
+        run_acloudw(args)?;
     } else {
         run_betty_start(args)?;
 
@@ -246,17 +246,17 @@ fn run_start(args: &ArgsStart) -> Result<()> {
     Ok(())
 }
 
-fn run_acloud(args: &ArgsStart) -> Result<()> {
+fn run_acloudw(args: &ArgsStart) -> Result<()> {
     let branch = args
         .branch
         .clone()
-        .ok_or(anyhow!("--branch option is required when using acloud"))?;
+        .ok_or(anyhow!("--branch option is required when using acloudw"))?;
     let git_branch = format!("git_{branch}");
 
     let build_id = args
         .build_id
         .clone()
-        .ok_or(anyhow!("--build-id option is required when using acloud"))?;
+        .ok_or(anyhow!("--build-id option is required when using acloudw"))?;
     let re = regex!(r"^\d+$");
     if !re.is_match(&build_id) {
         bail!("--build-id must be a digit.");
@@ -265,11 +265,11 @@ fn run_acloud(args: &ArgsStart) -> Result<()> {
     let config = Config::read()?;
 
     let cmd_path = config
-        .acloud_cmd_path()
-        .context("Please configure acloud_cmd_path")?;
+        .acloudw_cmd_path()
+        .context("Please configure acloudw_cmd_path")?;
     let config_path = config
-        .acloud_config_path()
-        .context("Please configure acloud_config_path")?;
+        .acloudw_config_path()
+        .context("Please configure acloudw_config_path")?;
     let target = get_target_name(&config, args.container, &branch)?;
     let cheeps = get_cheeps_image_name(&config, args.container, &branch)?;
     let betty = get_betty_image_name(&config, args.container, &branch)?;
@@ -295,7 +295,7 @@ fn run_acloud(args: &ArgsStart) -> Result<()> {
         options.extend_from_slice(&[extra_args]);
     }
 
-    run_acloud_cmd(&options)
+    run_acloudw_cmd(&options)
 }
 
 fn get_target_name(config: &Config, is_container: bool, branch: &str) -> Result<String> {
@@ -345,7 +345,7 @@ fn get_cheeps_image_name(config: &Config, is_container: bool, branch: &str) -> R
     Ok(cheeps)
 }
 
-fn run_acloud_cmd(opts: &[&str]) -> Result<()> {
+fn run_acloudw_cmd(opts: &[&str]) -> Result<()> {
     let config = Config::read()?;
     let internal_auth_cmd = config
         .is_internal_auth_valid()
@@ -357,18 +357,18 @@ fn run_acloud_cmd(opts: &[&str]) -> Result<()> {
         bail!("{:#?}", internal_auth);
     }
 
-    let acloud_script = opts.join(" ");
-    info!("Running `{acloud_script}`...");
+    let acloudw_script = opts.join(" ");
+    info!("Running `{acloudw_script}`...");
     let mut cmd = Command::new("bash")
         .arg("-c")
-        .arg(acloud_script)
+        .arg(acloudw_script)
         .spawn()
-        .context("Failed to execute acloud")?;
+        .context("Failed to execute acloudw")?;
 
-    let result = cmd.wait().context("Failed to wait for acloud")?;
+    let result = cmd.wait().context("Failed to wait for acloudw")?;
 
     if !result.success() {
-        error!("acloud failed")
+        error!("acloudw failed")
     }
 
     Ok(())
