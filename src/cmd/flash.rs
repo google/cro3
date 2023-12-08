@@ -15,6 +15,7 @@ use lium::cros::lookup_full_version;
 use lium::dut::DutInfo;
 use lium::repo::get_repo_dir;
 use regex::Regex;
+use tracing::error;
 
 /// Determine a BOARD to flash, based on the parameters.
 /// If arg_dut is specified, this function will check if the board given via
@@ -170,7 +171,7 @@ pub fn run(args: &Args) -> Result<()> {
         .spawn()?;
     let result = cmd.wait_with_output()?;
     if !result.status.success() {
-        println!("cros sdk failed");
+        error!("cros sdk failed");
     }
     Ok(())
 }

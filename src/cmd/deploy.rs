@@ -15,6 +15,7 @@ use lium::dut::SshInfo;
 use lium::repo::get_repo_dir;
 use once_cell::sync::Lazy;
 use regex::Regex;
+use tracing::info;
 
 static RE_CROS_KERNEL: Lazy<Regex> = Lazy::new(|| Regex::new("chromeos-kernel-").unwrap());
 
@@ -56,7 +57,7 @@ pub fn run(args: &Args) -> Result<()> {
             t
         }
     };
-    println!("Target DUT is {:?}", target);
+    info!("Target DUT is {:?}", target);
 
     let board = target.get_board()?;
     let packages_str = args.packages.join(" ");
@@ -87,7 +88,7 @@ $TOPDIR/src/scripts/update_kernel.sh {} --remote={} --ssh_port {} --remote_boota
     }
 
     if !args.skip_reboot {
-        println!("Rebooting DUT...");
+        info!("Rebooting DUT...");
         target.run_cmd_piped(&["reboot; exit"])?;
     }
 

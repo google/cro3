@@ -12,6 +12,8 @@ use lium::chroot::Chroot;
 use lium::cros::ensure_testing_rsa_is_there;
 use lium::dut::SshInfo;
 use lium::repo::get_repo_dir;
+use tracing::error;
+use tracing::info;
 
 #[derive(FromArgs, PartialEq, Debug)]
 /// control ARC
@@ -103,10 +105,10 @@ fn run_arc_flash(args: &ArgsArcFlash) -> Result<()> {
     let target = &SshInfo::new(&args.dut)?;
     let mut different = false;
 
-    println!("Checking arch...");
+    info!("Checking arch...");
     let arch = target.get_arch()?;
 
-    println!("Checking version...");
+    info!("Checking version...");
     let cur_version = target.get_arc_version()?;
     let version = if let Some(_version) = &args.version {
         _version.clone()
@@ -117,10 +119,10 @@ fn run_arc_flash(args: &ArgsArcFlash) -> Result<()> {
         different = true;
     };
 
-    println!("Checking ARC device...");
+    info!("Checking ARC device...");
     let device = target.get_arc_device()?;
 
-    println!("Checking current image type...");
+    info!("Checking current image type...");
     let cur_itype = target.get_arc_image_type()?;
     let itype = if let Some(_itype) = &args.image_type {
         _itype.clone()
@@ -132,11 +134,11 @@ fn run_arc_flash(args: &ArgsArcFlash) -> Result<()> {
     }
 
     if !different {
-        println!("Specified ARC image is already installed.");
+        info!("Specified ARC image is already installed.");
         if !args.force {
             return Ok(());
         } else {
-            println!("Forcibly flash again.");
+            info!("Forcibly flash again.");
         }
     }
 
@@ -153,7 +155,7 @@ fn run_arc_flash(args: &ArgsArcFlash) -> Result<()> {
         .spawn()?;
     let result = cmd.wait_with_output()?;
     if !result.status.success() {
-        println!("prebuilt ARC flash failed");
+        error!("prebuilt ARC flash failed");
     }
 
     Ok(())

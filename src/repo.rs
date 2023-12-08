@@ -21,6 +21,8 @@ use indicatif::ProgressBar;
 use indicatif::ProgressStyle;
 use regex::Regex;
 use regex_macro::regex;
+use tracing::error;
+use tracing::info;
 
 use crate::config::Config;
 use crate::util::shell_helpers::get_stdout;
@@ -82,7 +84,7 @@ pub fn repo_sync(repo: &str, force: bool, verbose: bool) -> Result<()> {
     let mut last_failed_repos = None;
 
     loop {
-        println!("Running repo sync...");
+        info!("Running repo sync...");
         let repo_sync = format!("repo sync -j{}", &num_cpus::get());
 
         // `script` is a Unix command that takes a copy of all output to the terminal
@@ -125,7 +127,7 @@ pub fn repo_sync(repo: &str, force: bool, verbose: bool) -> Result<()> {
             .wait_with_output()
             .context("Failed to wait for repo sync")?;
         if !result.status.success() {
-            println!("repo sync failed.");
+            error!("repo sync failed.");
             let stderr = String::from_utf8_lossy(&result.stderr)
                 .to_string()
                 .trim()
@@ -135,16 +137,16 @@ pub fn repo_sync(repo: &str, force: bool, verbose: bool) -> Result<()> {
                 .skip_while(|e| !e.contains("Failing repos:"));
             let repos: Vec<String> = it.map(|e| e.to_string()).collect();
             if repos.is_empty() {
-                println!("{stderr}");
+                error!("{stderr}");
                 bail!("repo sync failed (please check the above message)");
             }
             let repos = repos[1..=repos.len() - 2].to_owned();
-            println!("Failed repos: {:?}", &repos);
+            info!("Failed repos: {:?}", &repos);
             if !force {
                 break;
             }
             if Some(&repos) == last_failed_repos.as_ref() {
-                println!("Repo is failing with the same set of the repos, aborting...");
+                error!("Repo is failing with the same set of the repos, aborting...");
                 exit(1);
             }
             for dir in &repos {
@@ -155,7 +157,7 @@ pub fn repo_sync(repo: &str, force: bool, verbose: bool) -> Result<()> {
                     .context("Failed to execute rm")?;
                 let result = cmd.wait_with_output().context("Failed to wait for rm")?;
                 if result.status.success() {
-                    println!("repo {} was deleted", dir);
+                    info!("repo {} was deleted", dir);
                 } else {
                     bail!("rm exited with {:?}", result.status);
                 }
@@ -165,7 +167,7 @@ pub fn repo_sync(repo: &str, force: bool, verbose: bool) -> Result<()> {
         }
         break;
     }
-    println!("repo sync done!");
+    info!("repo sync done!");
     Ok(())
 }
 

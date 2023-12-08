@@ -14,6 +14,7 @@ use anyhow::anyhow;
 use anyhow::Context;
 use anyhow::Result;
 use signal_hook::consts::SIGINT;
+use tracing::error;
 use tracing::info;
 
 use crate::util::lium_paths::gen_path_in_lium_dir;
@@ -166,7 +167,7 @@ impl Chroot {
             .spawn()?;
         let result = cmd.wait_with_output()?;
         if !result.status.success() {
-            println!("cros sdk failed");
+            error!("cros sdk failed");
         }
         Ok(())
     }

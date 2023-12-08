@@ -16,6 +16,7 @@ use argh::FromArgs;
 use lium::config::Config;
 use lium::util::shell_helpers::run_bash_command;
 use strum_macros::Display;
+use tracing::error;
 use tracing::info;
 use whoami;
 
@@ -234,8 +235,8 @@ fn run_start(args: &ArgsStart) -> Result<()> {
 
     run_betty(&dir, SubCommand::Start(args.clone()), &options)?;
 
-    println!("To connect the betty instance, run `lium dut shell --dut localhost:9222`.");
-    println!("To push an Android build a betty VM, run `lium arc flash`.");
+    info!("To connect the betty instance, run `lium dut shell --dut localhost:9222`.");
+    info!("To push an Android build a betty VM, run `lium arc flash`.");
 
     Ok(())
 }
@@ -266,7 +267,7 @@ fn run_betty(dir: &str, cmd: SubCommand, opts: &[&str]) -> Result<()> {
     let result = cmd.wait().context("Failed to wait for betty.sh")?;
 
     if !result.success() {
-        println!("betty.sh failed")
+        error!("betty.sh failed")
     }
 
     Ok(())
