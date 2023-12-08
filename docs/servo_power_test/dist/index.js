@@ -34034,7 +34034,7 @@ class Graph {
                     const canvas_left_x = g.toDomXCoord(x_start);
                     const canvas_right_x = g.toDomXCoord(x_end);
                     const canvas_width = canvas_right_x - canvas_left_x;
-                    canvas.fillStyle = 'yellow';
+                    canvas.fillStyle = 'rgba(255, 255, 0, 0.5)';
                     canvas.fillRect(canvas_left_x, area.y, canvas_width, area.h);
                 }
                 function drawHorizontalLine(yValue) {
