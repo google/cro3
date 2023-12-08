@@ -34148,10 +34148,12 @@ class Graph {
             .enter()
             .data(bins)
             .join('rect')
+            .attr('stroke-width', 1)
+            .attr('stroke', 'black')
             .attr('x', this.histogramInfo.x(0))
             .attr('width', d => this.histogramInfo.x(d.length) - this.histogramInfo.x(0))
-            .attr('y', d => this.histogramInfo.y(d.x1) - 1)
-            .attr('height', d => this.histogramInfo.y(d.x0) - this.histogramInfo.y(d.x1) - 1);
+            .attr('y', d => this.histogramInfo.y(d.x1))
+            .attr('height', d => this.histogramInfo.y(d.x0) - this.histogramInfo.y(d.x1));
     }
 }
 exports.Graph = Graph;
@@ -34572,7 +34574,7 @@ class IterationData {
         this.powerSum = this.sumPowerData();
         this.powerAverage = this.averagePowerData();
     }
-    setIsDrawingHistogram(flag) {
+    setIsWorkloadRunning(flag) {
         this.isWorkloadRunning = flag;
     }
     sumPowerData() {
@@ -34715,11 +34717,11 @@ class TestRunner {
             try {
                 if (dutData.includes('start')) {
                     this.currentIteration.addAnnotation('start');
-                    this.currentIteration.setIsDrawingHistogram(true);
+                    this.currentIteration.setIsWorkloadRunning(true);
                 }
                 else if (dutData.includes('end')) {
                     this.currentIteration.addAnnotation('end');
-                    this.currentIteration.setIsDrawingHistogram(false);
+                    this.currentIteration.setIsWorkloadRunning(false);
                     this.currentIteration.setExtractTime(this.marginTime);
                 }
                 else if (dutData.includes('stop')) {
@@ -34777,7 +34779,7 @@ class TestRunner {
     }
     loadGraph(selectedIteration) {
         this.setCurrentIteration(selectedIteration);
-        this.currentIteration.setIsDrawingHistogram(true);
+        this.currentIteration.setIsWorkloadRunning(true);
         this.currentIteration.setExtractTime(this.marginTime);
         this.currentIteration.updateGraph();
         this.currentIteration.findAnnotation();

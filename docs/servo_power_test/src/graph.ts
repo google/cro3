@@ -9,7 +9,7 @@ export class Graph {
   private startExtractTime: number;
   private endExtractTime: number;
   public annotations: dygraphs.Annotation[] = [];
-  public margin = {top: 10, right: 30, bottom: 30, left: 40};
+  private margin = {top: 10, right: 30, bottom: 30, left: 40};
   private histogramInfo;
   constructor(ui: Ui, graphDiv: HTMLElement, histogramDiv: HTMLElement) {
     this.ui = ui;
@@ -211,15 +211,17 @@ export class Graph {
       .enter()
       .data(bins)
       .join('rect')
+      .attr('stroke-width', 1)
+      .attr('stroke', 'black')
       .attr('x', this.histogramInfo.x(0))
       .attr(
         'width',
         d => this.histogramInfo.x(d.length) - this.histogramInfo.x(0)
       )
-      .attr('y', d => this.histogramInfo.y(d.x1!) - 1)
+      .attr('y', d => this.histogramInfo.y(d.x1!))
       .attr(
         'height',
-        d => this.histogramInfo.y(d.x0!) - this.histogramInfo.y(d.x1!) - 1
+        d => this.histogramInfo.y(d.x0!) - this.histogramInfo.y(d.x1!)
       );
   }
 }
