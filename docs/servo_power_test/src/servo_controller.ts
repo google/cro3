@@ -11,7 +11,9 @@ export class ServoController {
   private INA_COMMAND = 'ina 0\n';
   private isOpened = false;
   private output = '';
-  public servoShell = new OperatePort(0x18d1, 0x520d);
+  public servoShell = new OperatePort([
+    {usbVendorId: 0x18d1, usbProductId: 0x520d}, // Servo V4p1
+  ]);
   public halt = true;
   public async openServoPort() {
     if (this.isOpened) return;

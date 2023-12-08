@@ -2,7 +2,6 @@
 // without displaying" ; timeout 5 yes > /dev/null ; } ; done ectool
 // chargecontrol idle ectool chargecontrol normal
 import moment from 'moment';
-import {OperatePort} from './operate_port';
 import {PowerTestController} from './power_test_controller';
 import {DutController} from './dut_controller';
 import {ServoController} from './servo_controller';
@@ -11,8 +10,7 @@ import {Ui} from './ui';
 window.addEventListener('DOMContentLoaded', () => {
   const ui = new Ui();
   const servoController = new ServoController();
-  const dutShell = new OperatePort(0x18d1, 0x504a);
-  const dutController = new DutController(ui, dutShell);
+  const dutController = new DutController(ui);
   const testController = new PowerTestController(
     ui,
     servoController,

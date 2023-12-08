@@ -5,10 +5,12 @@ export class DutController {
   private CANCEL_CMD = '\x03\n';
   private isOpened = false;
   private ui: Ui;
-  public dut = new OperatePort(0x18d1, 0x504a);
-  constructor(ui: Ui, dut: OperatePort) {
+  public dut = new OperatePort([
+    {usbVendorId: 0x18d1, usbProductId: 0x5014}, // Cr50
+    {usbVendorId: 0x18d1, usbProductId: 0x504a}, // Ti50
+  ]);
+  constructor(ui: Ui) {
     this.ui = ui;
-    this.dut = dut;
   }
   public async openDutPort() {
     if (this.isOpened) return;
