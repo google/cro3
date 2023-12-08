@@ -11,9 +11,10 @@
             font-family: monospace;
         }
 
-
-        #select {
-            height: 2rem;
+        #header {
+            position: sticky;
+            top: 0;
+            padding: 4px;
         }
 
         #form {
@@ -51,42 +52,47 @@
             color: #fff;
         }
 
+        #console {
+            height: calc(100vh - 80px);
+            width: 100vw;
+        }
+
         #messages {
-            list-style-type: none;
-            margin: 0;
-            padding: 0;
-            height: calc(100vh - 5rem);
-            box-sizing: border-box;
+            display: inline-block;
             overflow-y: scroll;
-        }
-
-        #messages>li {
-            padding: 0.5rem 1rem;
-        }
-
-        #messages>li:nth-child(odd) {
-            background: #efefef;
+            padding: 4px;
+            margin: 4px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            height: 100%;
+            width: 100%;
         }
     </style>
 </head>
 
 
 <body>
-    <button id="select">select serial</button>
-    <ul id="messages"></ul>
+    <div id="header">
+        <button id="select">select serial</button>
+        <button id="close">close port</button>
+    </div>
+    <div id="console"><span id="messages"></span></div>
+
     <form id="form" action="">
         <input id="input" autocomplete="off" /><button>Send</button>
     </form>
 </body>
 <script>
     const selectButton = document.getElementById('select');
+    const closeButton = document.getElementById('close');
     const messages = document.getElementById('messages');
     const encoder = new TextEncoder();
     const decoder = new TextDecoder();
+    let reader;
     let port;
 
-    function addListItem(listItem) {
-        messages.appendChild(listItem);
+    function addMessage(s) {
+        messages.textContent += s;
         messages.scrollTo(0, messages.scrollHeight);
     }
 
@@ -95,14 +101,9 @@
             .requestPort()
             .catch((e) => { console.error(e); });
         await port.open({ baudRate: 115200 });
-        let listItem = document.createElement("li");
-        listItem.textContent = "port is selected";
-        messages.appendChild(listItem);
+        addMessage("open port\n");
 
-        const reader = port.readable.getReader();
-
-        listItem = document.createElement("li");
-        messages.appendChild(listItem);
+        reader = port.readable.getReader();
         reader.read().then(function processText({ done, value }) {
             if (done) {
                 console.log("Stream complete");
@@ -110,19 +111,25 @@
             }
 
             const chunk = decoder.decode(value, { stream: true });
-            chunk_split_list = chunk.split("\n");
-
-            for (let i = 0; i < chunk_split_list.length - 1; i++) {
-                listItem.textContent += chunk_split_list[i];
-                listItem = document.createElement("li");
-                messages.appendChild(listItem);
-            }
-            listItem.textContent += chunk_split_list[chunk_split_list.length - 1];
-            messages.scrollTo(0, messages.scrollHeight);
+            messages.textContent += chunk;
+            messages.scrollTo(0, this.messages.scrollHeight);
 
             return reader.read().then(processText);
         });
     });
+
+    closeButton.addEventListener('click', async () => {
+        if (reader === undefined) return;
+        await reader
+            .cancel()
+            .then(() => {
+                this.reader.releaseLock();
+            })
+            .catch(() => { }); // when the reader stream is already locked, do nothing.
+        if (port === undefined) return;
+        await port.close();
+        addMessage('close port\n')
+    })
 
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -132,6 +139,17 @@
             const writer = port.writable.getWriter();
             await writer.write(encoder.encode(input.value + '\n'));
             input.value = "";
+            writer.releaseLock();
+        }
+    });
+
+    input.addEventListener('keydown', async e => {
+        if (port === undefined) {
+            window.alert("serial port is not selected");
+        }
+        if (e.ctrlKey && e.key === 'c') {
+            const writer = port.writable.getWriter();
+            await writer.write(encoder.encode('\x03\n'));
             writer.releaseLock();
         }
     });
