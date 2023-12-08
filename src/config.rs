@@ -73,31 +73,36 @@ pub struct Config {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     is_internal: Option<bool>,
-    /// This config option checks if internal authentication valid
+    /// Command to check if internal authentication valid. It is set by the
+    /// internal lium-installer.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     is_internal_auth_valid: Option<String>,
-    /// This config option is path to acloudw command.
+    /// Path to acloudw.sh. It is set by the internal lium-installer.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     acloudw_cmd_path: Option<String>,
-    /// This config option is path to acloudw config.
+    /// Path to acloudw config file. It is set by the internal lium-installer.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     acloudw_config_path: Option<String>,
-    /// This config option is a lunch target for each Android branch.
+    /// Key: {vm, container, main}, value: Android lunch target. It is set by
+    /// the internal lium-installer.
     #[serde(skip_serializing_if = "HashMap::is_empty")]
     #[serde(default)]
     android_target: HashMap<String, String>,
-    /// This config option is a cheeps image name for ARCVM.
+    /// Command to get cheeps image name for ARCVM. It is set by the internal
+    /// lium-installer.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     arc_vm_cheeps_image: Option<String>,
-    /// This config option is a betty image name for ARCVM.
+    /// Key: Android branch, value: command to get betty image name for ARCVM.
+    /// It is set by the internal lium-installer.
     #[serde(skip_serializing_if = "HashMap::is_empty")]
     #[serde(default)]
     arc_vm_betty_image: HashMap<String, String>,
-    /// This config option is a cheeps image name for ARC-container.
+    /// Key: Android branch, value: command to get cheeps image name for
+    /// ARC-container. It is set by the internal lium-installer.
     #[serde(skip_serializing_if = "HashMap::is_empty")]
     #[serde(default)]
     arc_container_cheeps_image: HashMap<String, String>,
