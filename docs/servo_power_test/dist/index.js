@@ -34847,9 +34847,16 @@ class TotalHistogram {
         let minValue = 1000000;
         let maxValue = 0;
         let maxNum = 0;
+        const averageList = [];
         for (const powerDataList of totalPowerDataList) {
             minValue = Math.min(minValue, Math.min(...powerDataList));
             maxValue = Math.max(maxValue, Math.max(...powerDataList));
+            if (powerDataList.length === 0) {
+                averageList.push(0);
+            }
+            else {
+                averageList.push(d3.sum(powerDataList) / powerDataList.length);
+            }
         }
         // Declare the x (horizontal position) scale.
         const x = d3
@@ -34878,9 +34885,9 @@ class TotalHistogram {
             .attr('height', height)
             .attr('viewBox', [0, 0, width, height])
             .attr('style', 'max-width: 100%; height: auto;');
-        // Add a rect for each bin.
         for (let i = 0; i < binsList.length; i++) {
             const color = this.colorPalette[i % this.colorPalette.length];
+            // main histogram line
             svg
                 .append('path')
                 .datum(binsList[i].map(e => {
@@ -34903,6 +34910,24 @@ class TotalHistogram {
                 .attr('cx', d => x((d.x0 + d.x1) / 2))
                 .attr('cy', d => y(d.length))
                 .attr('r', 3);
+            // average line
+            svg
+                .append('line')
+                .style('stroke', color)
+                .style('stroke-width', 3)
+                .attr('x1', x(averageList[i]))
+                .attr('y1', height - margin.bottom)
+                .attr('x2', x(averageList[i]))
+                .attr('y2', 0);
+            svg
+                .append('text')
+                .attr('x', x(averageList[i]) + 5)
+                .attr('y', height - margin.bottom - 10)
+                .attr('fill', 'currentColor')
+                .text(`Average: ${Math.round(averageList[i])} mW`)
+                .style('font-size', '12px')
+                .attr('alignment-baseline', 'middle');
+            // legend
             svg
                 .append('circle')
                 .attr('cx', width - margin.right - 100)
@@ -34915,6 +34940,17 @@ class TotalHistogram {
                 .attr('y', margin.top + 20 * i)
                 .attr('fill', 'currentColor')
                 .text(`config ${i + 1}`)
+                .style('font-size', '12px')
+                .attr('alignment-baseline', 'middle');
+        }
+        // When the number of config is 2, it shows the difference of average power.
+        if (totalPowerDataList.length === 2) {
+            svg
+                .append('text')
+                .attr('x', width - margin.right - 106)
+                .attr('y', margin.top + 20 * 2)
+                .attr('fill', 'currentColor')
+                .text(`diff: ${Math.round(Math.max(...averageList) - Math.min(...averageList))} mW`)
                 .style('font-size', '12px')
                 .attr('alignment-baseline', 'middle');
         }
