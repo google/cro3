@@ -33999,7 +33999,7 @@ class Graph {
             y: d3.scaleLinear(),
         };
     }
-    updateGraph(powerDataList) {
+    updateGraph(powerDataList, powerAverage) {
         if (powerDataList !== undefined && powerDataList.length > 0) {
             this.ui.hideElement(this.ui.toolTip);
         }
@@ -34023,13 +34023,25 @@ class Graph {
             },
             underlayCallback: function (canvas, area, g) {
                 canvas.fillStyle = 'rgba(255, 255, 102, 1.0)';
+                canvas.strokeStyle = 'yellow';
                 function highlight_period(x_start, x_end) {
                     const canvas_left_x = g.toDomXCoord(x_start);
                     const canvas_right_x = g.toDomXCoord(x_end);
                     const canvas_width = canvas_right_x - canvas_left_x;
                     canvas.fillRect(canvas_left_x, area.y, canvas_width, area.h);
                 }
+                function drawHorizontalLine(yValue) {
+                    const canvas_y = g.toDomYCoord(yValue);
+                    canvas.beginPath();
+                    canvas.moveTo(area.x, canvas_y);
+                    canvas.lineTo(area.x + area.w, canvas_y);
+                    canvas.stroke();
+                    canvas.font = '14px sans-serif';
+                    canvas.fillText('Average', area.x, canvas_y - 10);
+                }
                 highlight_period(10, 10);
+                if (powerAverage !== 0)
+                    drawHorizontalLine(powerAverage);
             },
         }, false);
     }
@@ -34547,21 +34559,38 @@ class IterationData {
         this.histogramDataList = histogramDataList;
         this.graph = graph;
         this.graph.clearHistogram();
+        this.powerSum = this.sumPowerData();
+        this.powerAverage = this.averagePowerData();
     }
     setIsDrawingHistogram(flag) {
         this.isWorkloadRunning = flag;
+    }
+    sumPowerData() {
+        let powerSum = 0;
+        this.histogramDataList.forEach(powerData => {
+            powerSum += powerData;
+        });
+        return powerSum;
+    }
+    averagePowerData() {
+        if (this.histogramDataList.length === 0) {
+            return 0;
+        }
+        return this.powerSum / this.histogramDataList.length;
     }
     appendPowerData(powerData) {
         this.powerDataList.push(powerData);
         if (this.isWorkloadRunning) {
             this.histogramDataList.push(powerData[1]);
+            this.powerSum += powerData[1];
+            this.powerAverage = this.averagePowerData();
         }
     }
     appendHistogramData(power) {
         this.histogramDataList.push(power);
     }
     updateGraph() {
-        this.graph.updateGraph(this.powerDataList);
+        this.graph.updateGraph(this.powerDataList, this.powerAverage);
         if (this.isWorkloadRunning) {
             this.graph.updateHistogram(this.histogramDataList);
         }
@@ -34601,6 +34630,8 @@ class IterationData {
     }
     loadHistogramData() {
         this.histogramDataList = this.extractData(0);
+        this.powerSum = this.sumPowerData();
+        this.powerAverage = this.averagePowerData();
     }
 }
 exports.IterationData = IterationData;
@@ -34617,6 +34648,9 @@ class TestRunner {
         this.dutController = dutController;
         this.configScript = configScript;
         this.currentIteration = new IterationData([], new Map(), [], this.graph);
+    }
+    setCurrentIteration(selectedIteration) {
+        this.currentIteration = this.iterationDataList[selectedIteration];
     }
     appendIterationDataList(newPowerDataList, newAnnotationList) {
         const newIterationData = new IterationData(newPowerDataList, newAnnotationList, [], this.graph);
@@ -34724,9 +34758,10 @@ class TestRunner {
         return extractedData;
     }
     loadGraph(selectedIteration) {
-        this.iterationDataList[selectedIteration].setIsDrawingHistogram(true);
-        this.iterationDataList[selectedIteration].updateGraph();
-        this.iterationDataList[selectedIteration].findAnnotation();
+        this.setCurrentIteration(selectedIteration);
+        this.currentIteration.setIsDrawingHistogram(true);
+        this.currentIteration.updateGraph();
+        this.currentIteration.findAnnotation();
     }
 }
 exports.TestRunner = TestRunner;

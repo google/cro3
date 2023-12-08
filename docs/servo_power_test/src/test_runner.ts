@@ -10,6 +10,8 @@ export class IterationData {
   private histogramDataList: Array<number>;
   private graph: Graph;
   private isWorkloadRunning = false;
+  private powerSum: number;
+  private powerAverage: number;
   constructor(
     powerDataList: Array<PowerData>,
     annotationList: AnnotationDataList,
@@ -21,21 +23,38 @@ export class IterationData {
     this.histogramDataList = histogramDataList;
     this.graph = graph;
     this.graph.clearHistogram();
+    this.powerSum = this.sumPowerData();
+    this.powerAverage = this.averagePowerData();
   }
   public setIsDrawingHistogram(flag: boolean) {
     this.isWorkloadRunning = flag;
+  }
+  public sumPowerData() {
+    let powerSum = 0;
+    this.histogramDataList.forEach(powerData => {
+      powerSum += powerData;
+    });
+    return powerSum;
+  }
+  public averagePowerData() {
+    if (this.histogramDataList.length === 0) {
+      return 0;
+    }
+    return this.powerSum / this.histogramDataList.length;
   }
   public appendPowerData(powerData: PowerData) {
     this.powerDataList.push(powerData);
     if (this.isWorkloadRunning) {
       this.histogramDataList.push(powerData[1]);
+      this.powerSum += powerData[1];
+      this.powerAverage = this.averagePowerData();
     }
   }
   public appendHistogramData(power: number) {
     this.histogramDataList.push(power);
   }
   public updateGraph() {
-    this.graph.updateGraph(this.powerDataList);
+    this.graph.updateGraph(this.powerDataList, this.powerAverage);
     if (this.isWorkloadRunning) {
       this.graph.updateHistogram(this.histogramDataList);
     }
@@ -83,6 +102,8 @@ export class IterationData {
   }
   public loadHistogramData() {
     this.histogramDataList = this.extractData(0);
+    this.powerSum = this.sumPowerData();
+    this.powerAverage = this.averagePowerData();
   }
 }
 
@@ -120,6 +141,9 @@ export class TestRunner {
       [],
       this.graph
     );
+  }
+  private setCurrentIteration(selectedIteration: number) {
+    this.currentIteration = this.iterationDataList[selectedIteration];
   }
   public appendIterationDataList(
     newPowerDataList: Array<PowerData>,
@@ -236,8 +260,9 @@ export class TestRunner {
     return extractedData;
   }
   public loadGraph(selectedIteration: number) {
-    this.iterationDataList[selectedIteration].setIsDrawingHistogram(true);
-    this.iterationDataList[selectedIteration].updateGraph();
-    this.iterationDataList[selectedIteration].findAnnotation();
+    this.setCurrentIteration(selectedIteration);
+    this.currentIteration.setIsDrawingHistogram(true);
+    this.currentIteration.updateGraph();
+    this.currentIteration.findAnnotation();
   }
 }
