@@ -13,6 +13,10 @@ button {
 
 }
 
+ol li {
+  padding-bottom: 8px;
+}
+
 .dygraph-legend {
   font-size: 14px;
   z-index: 10;
