@@ -264,12 +264,14 @@ fn run_acloudw(args: &ArgsStart) -> Result<()> {
 
     let config = Config::read()?;
 
-    let cmd_path = config
-        .acloudw_cmd_path()
-        .context("Please configure acloudw_cmd_path")?;
-    let config_path = config
-        .acloudw_config_path()
-        .context("Please configure acloudw_config_path")?;
+    let cmd_path = config.acloudw_cmd_path().context(
+        "Config acloudw_cmd_path is required when using acloudw. For internal users, please \
+         configure path to acloudw.sh",
+    )?;
+    let config_path = config.acloudw_config_path().context(
+        "Config acloudw_config_path is required when using acloudw. For internal users, please \
+         configure path to acloudw config file",
+    )?;
     let target = get_target_name(&config, args.container, &branch)?;
     let cheeps = get_cheeps_image_name(&config, args.container, &branch)?;
     let betty = get_betty_image_name(&config, args.container, &branch)?;
@@ -310,7 +312,10 @@ fn get_target_name(config: &Config, is_container: bool, branch: &str) -> Result<
     Ok(config
         .android_target()
         .get(vm_type)
-        .context("Please configure android_target")?
+        .context(
+            "Config android_target is required when using acloudw. For internal users, please \
+             configure lunch target name",
+        )?
         .to_string())
 }
 
@@ -321,7 +326,10 @@ fn get_betty_image_name(config: &Config, is_container: bool, branch: &str) -> Re
     let cmd = config
         .arc_vm_betty_image()
         .get(branch)
-        .context("Please configure arc_vm_betty_image")?
+        .context(
+            "Config arc_vm_betty_image is not set. For internal users, please configure betty \
+             image name",
+        )?
         .to_string();
     let betty = String::from_utf8(run_bash_command(&cmd, None)?.stdout)?;
 
@@ -333,12 +341,16 @@ fn get_cheeps_image_name(config: &Config, is_container: bool, branch: &str) -> R
         config
             .arc_container_cheeps_image()
             .get(branch)
-            .context("Please configure arc_container_cheeps_image")?
+            .context(
+                "Config arc_container_cheeps_image is not set. For internal users, please \
+                 configure cheeps image name for ARCVM",
+            )?
             .to_string()
     } else {
-        config
-            .arc_vm_cheeps_image()
-            .context("Please configure arc_vm_cheeps_image")?
+        config.arc_vm_cheeps_image().context(
+            "Config arc_vm_cheeps_image is not set. For internal users, please configure cheeps \
+             image name for ARC-Container",
+        )?
     };
     let cheeps = String::from_utf8(run_bash_command(&cmd, None)?.stdout)?;
 
@@ -347,21 +359,21 @@ fn get_cheeps_image_name(config: &Config, is_container: bool, branch: &str) -> R
 
 fn run_acloudw_cmd(opts: &[&str]) -> Result<()> {
     let config = Config::read()?;
-    let internal_auth_cmd = config
+    let auth_valid_cmd = config
         .is_internal_auth_valid()
-        .context("Please configure is_internal_auth_valid")?;
+        .context("Config is_internal_auth_valid is required when using acloudw.")?;
 
-    info!("Running `{internal_auth_cmd}`...");
-    let internal_auth = run_bash_command(&internal_auth_cmd, None)?;
-    if !internal_auth.status.success() {
-        bail!("{:#?}", internal_auth);
+    info!("Running `{auth_valid_cmd}`...");
+    let is_internal_auth_valid = run_bash_command(&auth_valid_cmd, None)?;
+    if !is_internal_auth_valid.status.success() {
+        bail!("{:#?}", is_internal_auth_valid);
     }
 
-    let acloudw_script = opts.join(" ");
-    info!("Running `{acloudw_script}`...");
+    let acloudw_cmd = opts.join(" ");
+    info!("Running `{acloudw_cmd}`...");
     let mut cmd = Command::new("bash")
         .arg("-c")
-        .arg(acloudw_script)
+        .arg(acloudw_cmd)
         .spawn()
         .context("Failed to execute acloudw")?;
 
@@ -417,12 +429,12 @@ fn find_betty_script(arc: &Option<String>) -> Result<String> {
 }
 
 fn run_betty_cmd(dir: &str, cmd: SubCommand, opts: &[&str]) -> Result<()> {
-    let betty_script = format!("./betty.sh {} {}", cmd, opts.join(" "));
-    info!("Running `{betty_script}`...");
+    let betty_cmd = format!("./betty.sh {} {}", cmd, opts.join(" "));
+    info!("Running `{betty_cmd}`...");
     let mut cmd = Command::new("bash")
         .current_dir(dir)
         .arg("-c")
-        .arg(betty_script)
+        .arg(betty_cmd)
         .spawn()
         .context("Failed to execute betty.sh")?;
 
