@@ -181,6 +181,7 @@ const CMD_GET_DEFAULT_IFACE: &str =
     r"ip route get 8.8.8.8 | sed -E 's/^.* dev ([^ ]+) .*$/\1/' | head -n 1";
 
 // Only keys that are always available can be listed here
+// We should consider the value of these keys if DUT is a VM
 const DEFAULT_DUT_INFO_KEYS: [&str; 7] = [
     "timestamp",
     "dut_id",
