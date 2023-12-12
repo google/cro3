@@ -73,7 +73,6 @@ export class PowerTestController {
       this.ui.currentIteration.innerText = `${i + 1}`;
       for (let j = 0; j < this.ui.runnerNumber; j++) {
         this.currentRunnerNumber = j;
-        console.log(`start running config${j}`);
         await this.testRunnerList[j].start().catch(e => {
           throw e;
         });

@@ -127,7 +127,6 @@ export class Graph {
     });
   }
   public returnXrange() {
-    console.log(this.g.xAxisExtremes());
     return this.g.xAxisRange();
   }
   public clearHistogram() {

@@ -33864,7 +33864,6 @@ class DutController {
         if (this.isOpened)
             return;
         await this.dut.open();
-        console.log('dutPort is opened\n'); // for debug
         this.isOpened = true;
         await this.dut.write('ectool chargecontrol idle\n');
     }
@@ -33873,7 +33872,6 @@ class DutController {
             return;
         await this.dut.write('ectool chargecontrol normal\n');
         await this.dut.close();
-        console.log('dutPort is closed\n'); // for debug
         this.isOpened = false;
     }
     async readData() {
@@ -33896,7 +33894,6 @@ class DutController {
             // setTimeOut() is resolved faster
             // that is, no data is read in 1000ms
             await this.dut.cancelRead();
-            console.log('read all data');
             return '';
         }
     }
@@ -34114,7 +34111,6 @@ class Graph {
         });
     }
     returnXrange() {
-        console.log(this.g.xAxisExtremes());
         return this.g.xAxisRange();
     }
     clearHistogram() {
@@ -34438,7 +34434,6 @@ class PowerTestController {
             this.ui.currentIteration.innerText = `${i + 1}`;
             for (let j = 0; j < this.ui.runnerNumber; j++) {
                 this.currentRunnerNumber = j;
-                console.log(`start running config${j}`);
                 await this.testRunnerList[j].start().catch(e => {
                     throw e;
                 });
@@ -34538,14 +34533,12 @@ class ServoController {
         if (this.isOpened)
             return;
         await this.servoShell.open();
-        console.log('servoPort is opened'); // for debug
         this.isOpened = true;
     }
     async closeServoPort() {
         if (!this.isOpened)
             return;
         await this.servoShell.close();
-        console.log('servoPort is closed'); // for debug
         this.isOpened = false;
     }
     async readData() {

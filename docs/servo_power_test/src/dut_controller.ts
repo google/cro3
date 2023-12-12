@@ -13,7 +13,6 @@ export class DutController {
   public async openDutPort() {
     if (this.isOpened) return;
     await this.dut.open();
-    console.log('dutPort is opened\n'); // for debug
     this.isOpened = true;
     await this.dut.write('ectool chargecontrol idle\n');
   }
@@ -21,7 +20,6 @@ export class DutController {
     if (!this.isOpened) return;
     await this.dut.write('ectool chargecontrol normal\n');
     await this.dut.close();
-    console.log('dutPort is closed\n'); // for debug
     this.isOpened = false;
   }
   public async readData() {
@@ -43,7 +41,6 @@ export class DutController {
       // setTimeOut() is resolved faster
       // that is, no data is read in 1000ms
       await this.dut.cancelRead();
-      console.log('read all data');
       return '';
     }
   }
