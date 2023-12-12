@@ -90,7 +90,7 @@ pub struct Config {
     /// the internal lium-installer.
     #[serde(skip_serializing_if = "HashMap::is_empty")]
     #[serde(default)]
-    android_target: HashMap<String, String>,
+    android_target_for_vm_type: HashMap<String, String>,
     /// Command to get cheeps image name for ARCVM. It is set by the internal
     /// lium-installer.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -100,12 +100,12 @@ pub struct Config {
     /// It is set by the internal lium-installer.
     #[serde(skip_serializing_if = "HashMap::is_empty")]
     #[serde(default)]
-    arc_vm_betty_image: HashMap<String, String>,
+    arc_vm_betty_image_for_branch: HashMap<String, String>,
     /// Key: Android branch, value: command to get cheeps image name for
     /// ARC-container. It is set by the internal lium-installer.
     #[serde(skip_serializing_if = "HashMap::is_empty")]
     #[serde(default)]
-    arc_container_cheeps_image: HashMap<String, String>,
+    arc_container_cheeps_image_for_branch: HashMap<String, String>,
 }
 static CONFIG_FILE_NAME: &str = "config.json";
 impl Config {
@@ -208,13 +208,13 @@ impl Config {
                 }
                 self.acloudw_config_path = Some(values[0].as_ref().to_string());
             }
-            "android_target" => {
+            "android_target_for_vm_type" => {
                 if values.len() != 2 {
                     bail!("{key} takes 2 parameters");
                 }
                 let branch = values[0].as_ref().to_string();
                 let target = values[1].as_ref().to_string();
-                self.android_target.insert(branch, target);
+                self.android_target_for_vm_type.insert(branch, target);
             }
             "arc_vm_cheeps_image" => {
                 if values.len() != 1 {
@@ -222,21 +222,22 @@ impl Config {
                 }
                 self.arc_vm_cheeps_image = Some(values[0].as_ref().to_string());
             }
-            "arc_vm_betty_image" => {
+            "arc_vm_betty_image_for_branch" => {
                 if values.len() != 2 {
                     bail!("{key} takes 2 parameters");
                 }
                 let branch = values[0].as_ref().to_string();
                 let target = values[1].as_ref().to_string();
-                self.arc_vm_betty_image.insert(branch, target);
+                self.arc_vm_betty_image_for_branch.insert(branch, target);
             }
-            "arc_container_cheeps_image" => {
+            "arc_container_cheeps_image_for_brnach" => {
                 if values.len() != 2 {
                     bail!("{key} takes 2 parameters");
                 }
                 let branch = values[0].as_ref().to_string();
                 let target = values[1].as_ref().to_string();
-                self.arc_container_cheeps_image.insert(branch, target);
+                self.arc_container_cheeps_image_for_branch
+                    .insert(branch, target);
             }
             _ => bail!("config key {key} is not valid"),
         }
@@ -280,12 +281,14 @@ impl Config {
             "acloudw_config_path" => {
                 self.acloudw_config_path = None;
             }
-            "android_target" => self.android_target.clear(),
+            "android_target_for_vm_type" => self.android_target_for_vm_type.clear(),
             "arc_vm_cheeps_image" => {
                 self.arc_vm_cheeps_image = None;
             }
-            "arc_vm_betty_image" => self.arc_vm_betty_image.clear(),
-            "arc_container_cheeps_image" => self.arc_container_cheeps_image.clear(),
+            "arc_vm_betty_image_for_branch" => self.arc_vm_betty_image_for_branch.clear(),
+            "arc_container_cheeps_image_for_branch" => {
+                self.arc_container_cheeps_image_for_branch.clear()
+            }
             _ => bail!("lium config clear for '{key}' is not implemented"),
         }
         self.write()?;
@@ -325,16 +328,16 @@ impl Config {
     pub fn acloudw_config_path(&self) -> Option<String> {
         self.acloudw_config_path.clone()
     }
-    pub fn android_target(&self) -> &HashMap<String, String> {
-        &self.android_target
+    pub fn android_target_for_vm_type(&self) -> &HashMap<String, String> {
+        &self.android_target_for_vm_type
     }
     pub fn arc_vm_cheeps_image(&self) -> Option<String> {
         self.arc_vm_cheeps_image.clone()
     }
-    pub fn arc_vm_betty_image(&self) -> &HashMap<String, String> {
-        &self.arc_vm_betty_image
+    pub fn arc_vm_betty_image_for_branch(&self) -> &HashMap<String, String> {
+        &self.arc_vm_betty_image_for_branch
     }
-    pub fn arc_container_cheeps_image(&self) -> &HashMap<String, String> {
-        &self.arc_container_cheeps_image
+    pub fn arc_container_cheeps_image_for_branch(&self) -> &HashMap<String, String> {
+        &self.arc_container_cheeps_image_for_branch
     }
 }

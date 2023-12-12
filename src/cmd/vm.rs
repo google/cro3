@@ -310,7 +310,7 @@ fn get_target_name(config: &Config, is_container: bool, branch: &str) -> Result<
     };
 
     Ok(config
-        .android_target()
+        .android_target_for_vm_type()
         .get(vm_type)
         .context(
             "Config android_target is required when using acloudw. For internal users, please \
@@ -324,7 +324,7 @@ fn get_betty_image_name(config: &Config, is_container: bool, branch: &str) -> Re
         return Ok("".to_string());
     }
     let cmd = config
-        .arc_vm_betty_image()
+        .arc_vm_betty_image_for_branch()
         .get(branch)
         .context(
             "Config arc_vm_betty_image is not set. For internal users, please configure betty \
@@ -339,7 +339,7 @@ fn get_betty_image_name(config: &Config, is_container: bool, branch: &str) -> Re
 fn get_cheeps_image_name(config: &Config, is_container: bool, branch: &str) -> Result<String> {
     let cmd = if is_container {
         config
-            .arc_container_cheeps_image()
+            .arc_container_cheeps_image_for_branch()
             .get(branch)
             .context(
                 "Config arc_container_cheeps_image is not set. For internal users, please \
