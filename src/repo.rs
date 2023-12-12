@@ -253,3 +253,17 @@ fn find_cros_dir_from_cwd() -> Result<String> {
     }
     Ok(dir)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn reference_match() {
+        let if_some = Some("cros".to_string());
+        let if_none = None;
+        let default = Config::read().unwrap().default_cros_reference();
+
+        assert_eq!(if_some, get_reference_repo(&if_some).unwrap());
+        assert_eq!(default, get_reference_repo(&if_none).unwrap());
+    }
+}
