@@ -53,7 +53,7 @@ pub struct Config {
     default_cros_checkout: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
-    default_cros_mirror: Option<String>,
+    default_cros_reference: Option<String>,
     #[serde(skip_serializing_if = "HashMap::is_empty")]
     #[serde(default)]
     ssh_overrides: HashMap<String, SshOverride>,
@@ -111,11 +111,11 @@ impl Config {
                 }
                 self.default_cros_checkout = Some(values[0].as_ref().to_string());
             }
-            "default_cros_mirror" => {
+            "default_cros_reference" => {
                 if values.len() != 1 {
                     bail!("{key} only takes 1 params");
                 }
-                self.default_cros_mirror = Some(values[0].as_ref().to_string());
+                self.default_cros_reference = Some(values[0].as_ref().to_string());
             }
             "ssh_override" => {
                 if values.len() < 3 {
@@ -169,8 +169,8 @@ impl Config {
             "default_cros_checkout" => {
                 self.default_cros_checkout = None;
             }
-            "default_cros_mirror" => {
-                self.default_cros_mirror = None;
+            "default_cros_reference" => {
+                self.default_cros_reference = None;
             }
             "ssh_overrides" => self.ssh_overrides.clear(),
             "ssh_override" => {
@@ -210,6 +210,9 @@ impl Config {
     }
     pub fn default_cros_checkout(&self) -> Option<String> {
         self.default_cros_checkout.clone()
+    }
+    pub fn default_cros_reference(&self) -> Option<String> {
+        self.default_cros_reference.clone()
     }
     pub fn ssh_port_search_timeout(&self) -> u64 {
         self.ssh_port_search_timeout.unwrap_or(60 /* 1 min */)

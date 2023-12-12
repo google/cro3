@@ -17,6 +17,7 @@ use lium::cros::setup_cros_repo;
 use lium::repo::get_cros_dir_unchecked;
 use lium::repo::get_current_synced_arc_version;
 use lium::repo::get_current_synced_version;
+use lium::repo::get_reference_repo;
 use lium::repo::repo_sync;
 use tracing::info;
 use tracing::warn;
@@ -70,7 +71,8 @@ pub fn run(args: &Args) -> Result<()> {
 
     // If we are using another repo as reference for rapid cloning, so make sure
     // that one is synced.
-    if let Some(reference) = &args.reference {
+    let reference = get_reference_repo(&args.reference)?;
+    if let Some(reference) = &reference {
         warn!("Updating the mirror at {reference}...");
         repo_sync(reference, args.force, args.verbose)?;
     }
@@ -78,7 +80,7 @@ pub fn run(args: &Args) -> Result<()> {
     if is_arc {
         setup_arc_repo(&repo, &version)?;
     } else {
-        setup_cros_repo(&repo, &version, &args.reference)?;
+        setup_cros_repo(&repo, &version, &reference)?;
     }
 
     repo_sync(&repo, args.force, args.verbose)
