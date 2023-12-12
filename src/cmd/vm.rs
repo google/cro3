@@ -253,6 +253,7 @@ fn run_acloudw(args: &ArgsStart) -> Result<()> {
         .ok_or(anyhow!("--branch option is required when using acloudw"))?;
     let git_branch = format!("git_{branch}");
 
+    // b/314731302 use the Android API to get this programmatically if not specified
     let build_id = args
         .build_id
         .clone()
