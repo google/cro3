@@ -200,13 +200,13 @@ impl Config {
                 if values.len() != 1 {
                     bail!("{key} only takes 1 params");
                 }
-                self.acloudw_cmd_path = Some(values[0].as_ref().to_string())
+                self.acloudw_cmd_path = Some(values[0].as_ref().to_string());
             }
             "acloudw_config_path" => {
                 if values.len() != 1 {
                     bail!("{key} only takes 1 params");
                 }
-                self.acloudw_config_path = Some(values[0].as_ref().to_string())
+                self.acloudw_config_path = Some(values[0].as_ref().to_string());
             }
             "android_target" => {
                 if values.len() != 2 {
