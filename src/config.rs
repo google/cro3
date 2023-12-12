@@ -73,6 +73,39 @@ pub struct Config {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     is_internal: Option<bool>,
+    /// Command to check if internal authentication valid. It is set by the
+    /// internal lium-installer.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    is_internal_auth_valid: Option<String>,
+    /// Path to acloudw.sh. It is set by the internal lium-installer.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    acloudw_cmd_path: Option<String>,
+    /// Path to acloudw config file. It is set by the internal lium-installer.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    acloudw_config_path: Option<String>,
+    /// Key: {vm, container, main}, value: Android lunch target. It is set by
+    /// the internal lium-installer.
+    #[serde(skip_serializing_if = "HashMap::is_empty")]
+    #[serde(default)]
+    android_target_for_vm_type: HashMap<String, String>,
+    /// Command to get cheeps image name for ARCVM. It is set by the internal
+    /// lium-installer.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    arc_vm_cheeps_image: Option<String>,
+    /// Key: Android branch, value: command to get betty image name for ARCVM.
+    /// It is set by the internal lium-installer.
+    #[serde(skip_serializing_if = "HashMap::is_empty")]
+    #[serde(default)]
+    arc_vm_betty_image_for_branch: HashMap<String, String>,
+    /// Key: Android branch, value: command to get cheeps image name for
+    /// ARC-container. It is set by the internal lium-installer.
+    #[serde(skip_serializing_if = "HashMap::is_empty")]
+    #[serde(default)]
+    arc_container_cheeps_image_for_branch: HashMap<String, String>,
 }
 static CONFIG_FILE_NAME: &str = "config.json";
 impl Config {
@@ -157,6 +190,55 @@ impl Config {
                 }
                 self.is_internal = Some(values[0].as_ref().parse::<bool>().unwrap());
             }
+            "is_internal_auth_valid" => {
+                if values.len() != 1 {
+                    bail!("{key} only takes 1 params");
+                }
+                self.is_internal_auth_valid = Some(values[0].as_ref().to_string());
+            }
+            "acloudw_cmd_path" => {
+                if values.len() != 1 {
+                    bail!("{key} only takes 1 params");
+                }
+                self.acloudw_cmd_path = Some(values[0].as_ref().to_string());
+            }
+            "acloudw_config_path" => {
+                if values.len() != 1 {
+                    bail!("{key} only takes 1 params");
+                }
+                self.acloudw_config_path = Some(values[0].as_ref().to_string());
+            }
+            "android_target_for_vm_type" => {
+                if values.len() != 2 {
+                    bail!("{key} takes 2 parameters");
+                }
+                let branch = values[0].as_ref().to_string();
+                let target = values[1].as_ref().to_string();
+                self.android_target_for_vm_type.insert(branch, target);
+            }
+            "arc_vm_cheeps_image" => {
+                if values.len() != 1 {
+                    bail!("{key} only takes 1 params");
+                }
+                self.arc_vm_cheeps_image = Some(values[0].as_ref().to_string());
+            }
+            "arc_vm_betty_image_for_branch" => {
+                if values.len() != 2 {
+                    bail!("{key} takes 2 parameters");
+                }
+                let branch = values[0].as_ref().to_string();
+                let target = values[1].as_ref().to_string();
+                self.arc_vm_betty_image_for_branch.insert(branch, target);
+            }
+            "arc_container_cheeps_image_for_brnach" => {
+                if values.len() != 2 {
+                    bail!("{key} takes 2 parameters");
+                }
+                let branch = values[0].as_ref().to_string();
+                let target = values[1].as_ref().to_string();
+                self.arc_container_cheeps_image_for_branch
+                    .insert(branch, target);
+            }
             _ => bail!("config key {key} is not valid"),
         }
         self.write()
@@ -190,6 +272,23 @@ impl Config {
             "is_internal" => {
                 self.is_internal = None;
             }
+            "is_internal_auth_valid" => {
+                self.is_internal_auth_valid = None;
+            }
+            "acloudw_cmd_path" => {
+                self.acloudw_cmd_path = None;
+            }
+            "acloudw_config_path" => {
+                self.acloudw_config_path = None;
+            }
+            "android_target_for_vm_type" => self.android_target_for_vm_type.clear(),
+            "arc_vm_cheeps_image" => {
+                self.arc_vm_cheeps_image = None;
+            }
+            "arc_vm_betty_image_for_branch" => self.arc_vm_betty_image_for_branch.clear(),
+            "arc_container_cheeps_image_for_branch" => {
+                self.arc_container_cheeps_image_for_branch.clear()
+            }
             _ => bail!("lium config clear for '{key}' is not implemented"),
         }
         self.write()?;
@@ -219,5 +318,26 @@ impl Config {
     }
     pub fn is_internal(&self) -> bool {
         self.is_internal.unwrap_or(false)
+    }
+    pub fn is_internal_auth_valid(&self) -> Option<String> {
+        self.is_internal_auth_valid.clone()
+    }
+    pub fn acloudw_cmd_path(&self) -> Option<String> {
+        self.acloudw_cmd_path.clone()
+    }
+    pub fn acloudw_config_path(&self) -> Option<String> {
+        self.acloudw_config_path.clone()
+    }
+    pub fn android_target_for_vm_type(&self) -> &HashMap<String, String> {
+        &self.android_target_for_vm_type
+    }
+    pub fn arc_vm_cheeps_image(&self) -> Option<String> {
+        self.arc_vm_cheeps_image.clone()
+    }
+    pub fn arc_vm_betty_image_for_branch(&self) -> &HashMap<String, String> {
+        &self.arc_vm_betty_image_for_branch
+    }
+    pub fn arc_container_cheeps_image_for_branch(&self) -> &HashMap<String, String> {
+        &self.arc_container_cheeps_image_for_branch
     }
 }
