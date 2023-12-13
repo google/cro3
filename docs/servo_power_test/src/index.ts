@@ -20,6 +20,9 @@ window.addEventListener('DOMContentLoaded', () => {
   );
   testController.setupDisconnectEvent();
 
+  ui.closeErrorPopupButton.addEventListener('click', () => {
+    ui.hideElement(ui.errorPopup);
+  });
   ui.requestSerialButton.addEventListener('click', () => {
     testController.startMeasurement();
   });

@@ -34219,6 +34219,9 @@ window.addEventListener('DOMContentLoaded', () => {
     const dutController = new dut_controller_1.DutController(ui, dutShell);
     const testController = new power_test_controller_1.PowerTestController(ui, servoController, dutController);
     testController.setupDisconnectEvent();
+    ui.closeErrorPopupButton.addEventListener('click', () => {
+        ui.hideElement(ui.errorPopup);
+    });
     ui.requestSerialButton.addEventListener('click', () => {
         testController.startMeasurement();
     });
@@ -34420,12 +34423,16 @@ class PowerTestController {
         await this.dutController.dut.close();
     }
     async startMeasurement() {
-        if (this.ui.runnerNumber === 0)
+        if (this.ui.runnerNumber === 0) {
+            this.ui.setErrorMessage('No configuration/workload found.');
             return;
+        }
         this.marginTime = Number(this.ui.marginTimeInput.value);
         this.iterationNumber = parseInt(this.ui.iterationInput.value);
-        if (this.iterationNumber <= 0)
+        if (this.iterationNumber <= 0) {
+            this.ui.setErrorMessage('Number of iterations <= 0.');
             return;
+        }
         await this.servoController.servoShell.select();
         await this.dutController.dut.select();
         await this.initialize();
@@ -34435,6 +34442,7 @@ class PowerTestController {
             for (let j = 0; j < this.ui.runnerNumber; j++) {
                 this.currentRunnerNumber = j;
                 await this.testRunnerList[j].start().catch(e => {
+                    this.ui.setErrorMessage(e);
                     throw e;
                 });
                 if (this.testRunnerList[j].cancelled)
@@ -35042,12 +35050,19 @@ class Ui {
         this.serialOutput = document.getElementById('serial-output');
         this.dlAnchorElem = document.getElementById('download-anchor');
         this.toolTip = document.getElementById('tooltip');
+        this.errorPopup = document.getElementById('error-popup');
+        this.closeErrorPopupButton = document.getElementById('close-error-popup-button');
         this.currentIteration = document.getElementById('current-iteration');
         this.marginTimeInput = document.getElementById('margin-time-input');
         this.iterationInput = document.getElementById('iteration-input');
         this.iterationSelector = document.getElementById('iteration-selector');
         this.runnerNumber = 0;
+        this.errorMessage = document.getElementById('error-message');
         this.graphList = document.getElementById('graph-list');
+    }
+    setErrorMessage(message) {
+        this.errorMessage.innerText = `Error: ${message}`;
+        this.showElement(this.errorPopup);
     }
     enabledRecordingButton(halt) {
         this.requestSerialButton.disabled = !halt;
