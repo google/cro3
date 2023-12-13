@@ -57,4 +57,21 @@ export class ServoController {
   public async writeInaCommand() {
     await this.servoShell.write(this.INA_COMMAND);
   }
+  public async checkPort() {
+    await this.servoShell.write('serialno\n');
+    const racePromise = Promise.race([
+      this.servoShell.read(),
+      new Promise((_, reject) => setTimeout(reject, 500)),
+    ]);
+    try {
+      const servoData = (await racePromise) as string;
+      if (servoData.includes('SERVO')) return true;
+      return false;
+    } catch {
+      // setTimeOut() is resolved faster
+      // that is, no data is read in 1000ms
+      await this.servoShell.cancelRead();
+      return false;
+    }
+  }
 }

@@ -34434,6 +34434,13 @@ class PowerTestController {
             return;
         }
         await this.servoController.servoShell.select();
+        await this.servoController.servoShell.open();
+        const isECShell = await this.servoController.checkPort();
+        if (!isECShell) {
+            this.servoController.servoShell.close();
+            console.log('the port is not EC shell');
+            return;
+        }
         await this.dutController.dut.select();
         await this.initialize();
         await this.setConfig();
@@ -34581,6 +34588,25 @@ class ServoController {
     }
     async writeInaCommand() {
         await this.servoShell.write(this.INA_COMMAND);
+    }
+    async checkPort() {
+        await this.servoShell.write('serialno\n');
+        const racePromise = Promise.race([
+            this.servoShell.read(),
+            new Promise((_, reject) => setTimeout(reject, 500)),
+        ]);
+        try {
+            const servoData = (await racePromise);
+            if (servoData.includes('SERVO'))
+                return true;
+            return false;
+        }
+        catch (_a) {
+            // setTimeOut() is resolved faster
+            // that is, no data is read in 1000ms
+            await this.servoShell.cancelRead();
+            return false;
+        }
     }
 }
 exports.ServoController = ServoController;

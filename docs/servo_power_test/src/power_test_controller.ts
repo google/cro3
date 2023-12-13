@@ -76,6 +76,13 @@ export class PowerTestController {
       return;
     }
     await this.servoController.servoShell.select();
+    await this.servoController.servoShell.open();
+    const isECShell = await this.servoController.checkPort();
+    if (!isECShell) {
+      this.servoController.servoShell.close();
+      console.log('the port is not EC shell');
+      return;
+    }
     await this.dutController.dut.select();
     await this.initialize();
     await this.setConfig();
