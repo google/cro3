@@ -22,6 +22,20 @@ export class DutController {
     await this.dut.close();
     this.isOpened = false;
   }
+  // initialize the readable stream and check the port
+  public async initializePort() {
+    await this.dut.select();
+    await this.dut.open();
+    await this.sendCancelCommand();
+    await this.sendCancelCommand();
+    await this.sendCancelCommand();
+    await this.discardAllDutBuffer(1000);
+    const isApShell = await this.checkPortAndLogin();
+    await this.dut.close();
+    if (!isApShell) {
+      throw Error('The port is not for DUT AP shell.');
+    }
+  }
   public async readData() {
     const chunk = await this.dut.read();
     return chunk;
@@ -72,7 +86,8 @@ echo "stop"\n`;
   public async sendCancelCommand() {
     await this.dut.write(this.CANCEL_CMD);
   }
-  public async login() {
+  // If the selected port is AP shell of the DUT, login as root user and return true. Otherwise, return false.
+  public async checkPortAndLogin() {
     let isUserNameEntered = false;
     await this.dut.write('\n');
     await this.dut.write('\n');
@@ -95,9 +110,12 @@ echo "stop"\n`;
           isUserNameEntered = false;
           continue;
         }
-        return;
+        continue;
       }
-      return;
+      this.dut.write('whoami');
+      const userName = await this.discardAllDutBuffer(100);
+      if (!userName.includes('root')) return false;
+      return true;
     }
   }
 }

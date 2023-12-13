@@ -33874,6 +33874,20 @@ class DutController {
         await this.dut.close();
         this.isOpened = false;
     }
+    // initialize the readable stream and check the port
+    async initializePort() {
+        await this.dut.select();
+        await this.dut.open();
+        await this.sendCancelCommand();
+        await this.sendCancelCommand();
+        await this.sendCancelCommand();
+        await this.discardAllDutBuffer(1000);
+        const isApShell = await this.checkPortAndLogin();
+        await this.dut.close();
+        if (!isApShell) {
+            throw Error('The port is not for DUT AP shell.');
+        }
+    }
     async readData() {
         const chunk = await this.dut.read();
         return chunk;
@@ -33925,7 +33939,8 @@ echo "stop"\n`;
     async sendCancelCommand() {
         await this.dut.write(this.CANCEL_CMD);
     }
-    async login() {
+    // If the selected port is AP shell of the DUT, login as root user and return true. Otherwise, return false.
+    async checkPortAndLogin() {
         let isUserNameEntered = false;
         await this.dut.write('\n');
         await this.dut.write('\n');
@@ -33948,9 +33963,13 @@ echo "stop"\n`;
                     isUserNameEntered = false;
                     continue;
                 }
-                return;
+                continue;
             }
-            return;
+            this.dut.write('whoami');
+            const userName = await this.discardAllDutBuffer(100);
+            if (!userName.includes('root'))
+                return false;
+            return true;
         }
     }
 }
@@ -34405,15 +34424,8 @@ class PowerTestController {
         }
     }
     async initialize() {
-        await this.servoController.servoShell.open();
-        await this.servoController.servoShell.close();
-        await this.dutController.dut.open();
-        await this.dutController.sendCancelCommand();
-        await this.dutController.sendCancelCommand();
-        await this.dutController.sendCancelCommand();
-        await this.dutController.discardAllDutBuffer(1000);
-        await this.dutController.login();
-        await this.dutController.dut.close();
+        await this.servoController.initializePort();
+        await this.dutController.initializePort();
     }
     async finalize() {
         await this.dutController.dut.open();
@@ -34556,6 +34568,16 @@ class ServoController {
         await this.servoShell.close();
         this.isOpened = false;
     }
+    // initialize the readable stream and check the port
+    async initializePort() {
+        await this.servoShell.select();
+        await this.openServoPort();
+        const isEcShell = await this.checkPort();
+        this.closeServoPort();
+        if (!isEcShell) {
+            throw Error('The port is not for servo EC shell.');
+        }
+    }
     async readData() {
         for (;;) {
             if (this.halt)
@@ -34589,6 +34611,7 @@ class ServoController {
     async writeInaCommand() {
         await this.servoShell.write(this.INA_COMMAND);
     }
+    // If the selected port is EC shell of the Servo, return true. Otherwise, return false.
     async checkPort() {
         await this.servoShell.write('serialno\n');
         const racePromise = Promise.race([
@@ -34602,8 +34625,6 @@ class ServoController {
             return false;
         }
         catch (_a) {
-            // setTimeOut() is resolved faster
-            // that is, no data is read in 1000ms
             await this.servoShell.cancelRead();
             return false;
         }

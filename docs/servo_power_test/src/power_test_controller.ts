@@ -43,15 +43,8 @@ export class PowerTestController {
     }
   }
   private async initialize() {
-    await this.servoController.servoShell.open();
-    await this.servoController.servoShell.close();
-    await this.dutController.dut.open();
-    await this.dutController.sendCancelCommand();
-    await this.dutController.sendCancelCommand();
-    await this.dutController.sendCancelCommand();
-    await this.dutController.discardAllDutBuffer(1000);
-    await this.dutController.login();
-    await this.dutController.dut.close();
+    await this.servoController.initializePort();
+    await this.dutController.initializePort();
   }
   private async finalize() {
     await this.dutController.dut.open();

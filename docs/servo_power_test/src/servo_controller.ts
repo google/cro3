@@ -23,6 +23,16 @@ export class ServoController {
     await this.servoShell.close();
     this.isOpened = false;
   }
+  // initialize the readable stream and check the port
+  public async initializePort() {
+    await this.servoShell.select();
+    await this.openServoPort();
+    const isEcShell = await this.checkPort();
+    this.closeServoPort();
+    if (!isEcShell) {
+      throw Error('The port is not for servo EC shell.');
+    }
+  }
   public async readData() {
     for (;;) {
       if (this.halt) return undefined;
@@ -57,6 +67,7 @@ export class ServoController {
   public async writeInaCommand() {
     await this.servoShell.write(this.INA_COMMAND);
   }
+  // If the selected port is EC shell of the Servo, return true. Otherwise, return false.
   public async checkPort() {
     await this.servoShell.write('serialno\n');
     const racePromise = Promise.race([
@@ -68,8 +79,6 @@ export class ServoController {
       if (servoData.includes('SERVO')) return true;
       return false;
     } catch {
-      // setTimeOut() is resolved faster
-      // that is, no data is read in 1000ms
       await this.servoShell.cancelRead();
       return false;
     }
