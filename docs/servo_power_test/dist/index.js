@@ -33965,7 +33965,7 @@ echo "stop"\n`;
                 }
                 continue;
             }
-            this.dut.write('whoami');
+            this.dut.write('\nwhoami\n');
             const userName = await this.discardAllDutBuffer(100);
             if (!userName.includes('root'))
                 return false;
