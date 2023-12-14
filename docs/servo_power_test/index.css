@@ -169,6 +169,10 @@ body {
   color: red;
 }
 
+#error-popup div {
+  line-height: 1.5;
+}
+
 #error-popup button {
   background-color: red;
 }

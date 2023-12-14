@@ -42,7 +42,7 @@ export class Ui {
   public runnerNumber = 0;
   private errorMessage = document.getElementById(
     'error-message'
-  ) as HTMLParagraphElement;
+  ) as HTMLDivElement;
   private graphList = document.getElementById('graph-list') as HTMLUListElement;
 
   public setErrorMessage(message: string) {
