@@ -23,6 +23,10 @@ export class Ui {
     'download-anchor'
   ) as HTMLAnchorElement;
   public toolTip = document.getElementById('tooltip') as HTMLDivElement;
+  public errorPopup = document.getElementById('error-popup') as HTMLDivElement;
+  public closeErrorPopupButton = document.getElementById(
+    'close-error-popup-button'
+  ) as HTMLDivElement;
   public currentIteration = document.getElementById(
     'current-iteration'
   ) as HTMLParagraphElement;
@@ -36,8 +40,15 @@ export class Ui {
     'iteration-selector'
   ) as HTMLSelectElement;
   public runnerNumber = 0;
+  private errorMessage = document.getElementById(
+    'error-message'
+  ) as HTMLDivElement;
   private graphList = document.getElementById('graph-list') as HTMLUListElement;
 
+  public setErrorMessage(message: string) {
+    this.errorMessage.innerText = message;
+    this.showElement(this.errorPopup);
+  }
   public enabledRecordingButton(halt: boolean) {
     this.requestSerialButton.disabled = !halt;
     this.haltButton.disabled = halt;

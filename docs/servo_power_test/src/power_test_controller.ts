@@ -61,10 +61,20 @@ export class PowerTestController {
     await this.dutController.dut.close();
   }
   public async startMeasurement() {
-    if (this.ui.runnerNumber === 0) return;
+    if (this.ui.runnerNumber === 0) {
+      this.ui.setErrorMessage(
+        "No configuration/workload found.\nPlease click 'add config' button to setup a configuration/workload."
+      );
+      return;
+    }
     this.marginTime = Number(this.ui.marginTimeInput.value);
     this.iterationNumber = parseInt(this.ui.iterationInput.value);
-    if (this.iterationNumber <= 0) return;
+    if (this.iterationNumber <= 0) {
+      this.ui.setErrorMessage(
+        'Number of iterations <= 0.\nPlease set a number greater than or equal to 1.'
+      );
+      return;
+    }
     await this.servoController.servoShell.select();
     await this.dutController.dut.select();
     await this.initialize();
@@ -74,6 +84,7 @@ export class PowerTestController {
       for (let j = 0; j < this.ui.runnerNumber; j++) {
         this.currentRunnerNumber = j;
         await this.testRunnerList[j].start().catch(e => {
+          this.ui.setErrorMessage(e + '\nPlease restart the measurement.');
           throw e;
         });
         if (this.testRunnerList[j].cancelled) return;

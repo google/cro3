@@ -158,6 +158,25 @@ body {
   z-index: 2;
 }
 
+#error-popup {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: #F5B7B1;
+  padding: 1rem;
+  z-index: 3;
+  color: red;
+}
+
+#error-popup div {
+  line-height: 1.5;
+}
+
+#error-popup button {
+  background-color: red;
+}
+
 .hidden {
   display: none;
 }
