@@ -33,7 +33,9 @@ export class DutController {
     const isApShell = await this.checkPortAndLogin();
     await this.dut.close();
     if (!isApShell) {
-      throw Error('The port is not for DUT AP shell.');
+      throw Error(
+        'The port is not for DUT AP shell.\nPlease select the correct port.'
+      );
     }
   }
   public async readData() {
@@ -114,6 +116,7 @@ echo "stop"\n`;
       }
       this.dut.write('\nwhoami\n');
       const userName = await this.discardAllDutBuffer(100);
+      // userName should be "root".
       if (!userName.includes('root')) return false;
       return true;
     }

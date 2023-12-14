@@ -30,7 +30,9 @@ export class ServoController {
     const isEcShell = await this.checkPort();
     this.closeServoPort();
     if (!isEcShell) {
-      throw Error('The port is not for servo EC shell.');
+      throw Error(
+        'The port is not for servo EC shell.\nPlease select the correct port.'
+      );
     }
   }
   public async readData() {
@@ -76,6 +78,7 @@ export class ServoController {
     ]);
     try {
       const servoData = (await racePromise) as string;
+      // servoData should be "Serial number: SERVOV4P1-S-xxxxxxxxxx".
       if (servoData.includes('SERVO')) return true;
       return false;
     } catch {

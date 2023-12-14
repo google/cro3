@@ -33885,7 +33885,7 @@ class DutController {
         const isApShell = await this.checkPortAndLogin();
         await this.dut.close();
         if (!isApShell) {
-            throw Error('The port is not for DUT AP shell.');
+            throw Error('The port is not for DUT AP shell.\nPlease select the correct port.');
         }
     }
     async readData() {
@@ -33967,6 +33967,7 @@ echo "stop"\n`;
             }
             this.dut.write('\nwhoami\n');
             const userName = await this.discardAllDutBuffer(100);
+            // userName should be "root".
             if (!userName.includes('root'))
                 return false;
             return true;
@@ -34569,7 +34570,7 @@ class ServoController {
         const isEcShell = await this.checkPort();
         this.closeServoPort();
         if (!isEcShell) {
-            throw Error('The port is not for servo EC shell.');
+            throw Error('The port is not for servo EC shell.\nPlease select the correct port.');
         }
     }
     async readData() {
@@ -34614,6 +34615,7 @@ class ServoController {
         ]);
         try {
             const servoData = (await racePromise);
+            // servoData should be "Serial number: SERVOV4P1-S-xxxxxxxxxx".
             if (servoData.includes('SERVO'))
                 return true;
             return false;
