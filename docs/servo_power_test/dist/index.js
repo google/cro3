@@ -35061,7 +35061,7 @@ class Ui {
         this.graphList = document.getElementById('graph-list');
     }
     setErrorMessage(message) {
-        this.errorMessage.innerText = `Error: ${message}`;
+        this.errorMessage.innerText = message;
         this.showElement(this.errorPopup);
     }
     enabledRecordingButton(halt) {

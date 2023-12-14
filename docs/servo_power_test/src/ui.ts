@@ -46,7 +46,7 @@ export class Ui {
   private graphList = document.getElementById('graph-list') as HTMLUListElement;
 
   public setErrorMessage(message: string) {
-    this.errorMessage.innerText = `Error: ${message}`;
+    this.errorMessage.innerText = message;
     this.showElement(this.errorPopup);
   }
   public enabledRecordingButton(halt: boolean) {
