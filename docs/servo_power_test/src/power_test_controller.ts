@@ -43,15 +43,8 @@ export class PowerTestController {
     }
   }
   private async initialize() {
-    await this.servoController.servoShell.open();
-    await this.servoController.servoShell.close();
-    await this.dutController.dut.open();
-    await this.dutController.sendCancelCommand();
-    await this.dutController.sendCancelCommand();
-    await this.dutController.sendCancelCommand();
-    await this.dutController.discardAllDutBuffer(1000);
-    await this.dutController.login();
-    await this.dutController.dut.close();
+    await this.servoController.initializePort();
+    await this.dutController.initializePort();
   }
   private async finalize() {
     await this.dutController.dut.open();
@@ -75,9 +68,10 @@ export class PowerTestController {
       );
       return;
     }
-    await this.servoController.servoShell.select();
-    await this.dutController.dut.select();
-    await this.initialize();
+    await this.initialize().catch(e => {
+      this.ui.setErrorMessage(e);
+      throw e;
+    });
     await this.setConfig();
     for (let i = 0; i < this.iterationNumber; i++) {
       this.ui.currentIteration.innerText = `${i + 1}`;
