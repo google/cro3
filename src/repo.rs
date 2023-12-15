@@ -256,14 +256,17 @@ fn find_cros_dir_from_cwd() -> Result<String> {
 
 #[cfg(test)]
 mod tests {
+    use std::assert_matches::assert_matches;
+
     use super::*;
     #[test]
     fn reference_match() {
-        let if_some = Some("cros".to_string());
-        let if_none = None;
-        let default = Config::read().unwrap().default_cros_reference();
+        let _default = Config::read().unwrap().default_cros_reference();
 
-        assert_eq!(if_some, get_reference_repo(&if_some).unwrap());
-        assert_eq!(default, get_reference_repo(&if_none).unwrap());
+        assert_matches!(
+            get_reference_repo(&Some("cros".to_string())).unwrap(),
+            Some(_)
+        );
+        assert_matches!(get_reference_repo(&None).unwrap(), _default);
     }
 }

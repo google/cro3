@@ -10,6 +10,7 @@
 #![feature(exit_status_error)]
 #![feature(hash_extract_if)]
 #![feature(result_option_inspect)]
+#![feature(assert_matches)]
 
 pub mod arc;
 pub mod cache;
