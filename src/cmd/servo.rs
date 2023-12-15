@@ -175,6 +175,9 @@ pub struct ArgsControl {
     /// arguments to pass to dut_control command
     #[argh(positional)]
     args: Vec<String>,
+
+    #[argh(option, hidden_help)]
+    repo: Option<String>,
 }
 pub fn run_control(args: &ArgsControl) -> Result<()> {
     let chroot = Chroot::new(&args.cros)?;

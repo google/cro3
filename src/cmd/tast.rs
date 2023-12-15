@@ -60,6 +60,9 @@ pub struct ArgsList {
     /// only show cached list
     #[argh(switch)]
     cached: bool,
+
+    #[argh(option, hidden_help)]
+    repo: Option<String>,
 }
 
 fn print_cached_tests_in_bundle(filter: &Pattern, bundle: &str) -> Result<()> {
@@ -160,6 +163,9 @@ pub struct ArgsRun {
     /// test name or pattern
     #[argh(positional)]
     tests: String,
+
+    #[argh(option, hidden_help)]
+    repo: Option<String>,
 }
 
 fn bundle_has_test(bundle: &str, filter: &Pattern) -> bool {

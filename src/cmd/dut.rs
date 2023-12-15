@@ -715,6 +715,9 @@ struct ArgsDutList {
     /// update the DUT list and show their status
     #[argh(switch)]
     update: bool,
+
+    #[argh(option, hidden_help)]
+    repo: Option<String>,
 }
 fn run_dut_list(args: &ArgsDutList) -> Result<()> {
     if args.clear {

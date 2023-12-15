@@ -43,6 +43,9 @@ pub struct ArgsGuestKernelUprev {
     /// target cros repo dir
     #[argh(option)]
     cros: Option<String>,
+
+    #[argh(option, hidden_help)]
+    repo: Option<String>,
 }
 fn run_guest_kernel_uprev(args: &ArgsGuestKernelUprev) -> Result<()> {
     let chroot = Chroot::new(&get_repo_dir(&args.cros)?)?;
@@ -96,6 +99,9 @@ pub struct ArgsArcFlash {
     /// force flash
     #[argh(switch)]
     force: bool,
+
+    #[argh(option, hidden_help)]
+    repo: Option<String>,
 }
 fn run_arc_flash(args: &ArgsArcFlash) -> Result<()> {
     let repo = &get_repo_dir(&args.cros)?;

@@ -52,6 +52,9 @@ pub struct ArgsList {
     /// glob pattern of the packages
     #[argh(positional)]
     packages: Option<String>,
+
+    #[argh(option, hidden_help)]
+    repo: Option<String>,
 }
 
 fn print_cached_packages(filter: &Pattern, board: &str) -> Result<()> {

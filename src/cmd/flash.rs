@@ -107,6 +107,9 @@ pub struct Args {
     /// flash image with rootfs verification (disable by default)
     #[argh(switch)]
     enable_rootfs_verification: bool,
+
+    #[argh(option, hidden_help)]
+    repo: Option<String>,
 }
 #[tracing::instrument(level = "trace")]
 pub fn run(args: &Args) -> Result<()> {

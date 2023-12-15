@@ -51,6 +51,9 @@ pub struct ArgsPick {
     /// CLs to checkout (e.g. "4196467", "4196467/2")
     #[argh(positional)]
     cl: String,
+
+    #[argh(option, hidden_help)]
+    repo: Option<String>,
 }
 fn run_pick(args: &ArgsPick) -> Result<()> {
     let capture = RE_GERRIT_CL

@@ -52,6 +52,9 @@ pub struct Args {
     /// output repo sync log as it is
     #[argh(switch)]
     verbose: bool,
+
+    #[argh(option, hidden_help)]
+    repo: Option<String>,
 }
 
 #[tracing::instrument(level = "trace")]

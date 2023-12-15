@@ -26,6 +26,9 @@ pub struct Args {
     /// if specified, run the command in chroot and exit.
     #[argh(option)]
     cmd: Option<String>,
+
+    #[argh(option, hidden_help)]
+    repo: Option<String>,
 }
 #[tracing::instrument(level = "trace")]
 pub fn run(args: &Args) -> Result<()> {

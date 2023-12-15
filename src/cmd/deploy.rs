@@ -41,6 +41,9 @@ pub struct Args {
     /// use ab_update for kernel package
     #[argh(switch)]
     ab_update: bool,
+
+    #[argh(option, hidden_help)]
+    repo: Option<String>,
 }
 
 #[tracing::instrument(level = "trace")]

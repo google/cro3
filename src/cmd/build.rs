@@ -45,6 +45,9 @@ pub struct Args {
     /// do full build (build_packages + build_image)
     #[argh(switch)]
     full: bool,
+
+    #[argh(option, hidden_help)]
+    repo: Option<String>,
 }
 #[tracing::instrument(level = "trace")]
 pub fn run(args: &Args) -> Result<()> {
