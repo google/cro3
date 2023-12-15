@@ -813,15 +813,7 @@ struct ArgsDutInfo {
 fn run_dut_info(args: &ArgsDutInfo) -> Result<()> {
     let dut = &args.dut;
     let keys = if args.keys.is_empty() {
-        vec![
-            "timestamp",
-            "dut_id",
-            "hwid",
-            "release",
-            "model",
-            "serial",
-            "mac",
-        ]
+        vec!["timestamp", "dut_id", "release", "model", "serial", "mac"]
     } else {
         args.keys.iter().map(|s| s.as_str()).collect()
     };

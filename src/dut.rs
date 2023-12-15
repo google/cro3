@@ -143,6 +143,7 @@ lazy_static! {
     static ref DUT_ATTRIBUTE_CMDS: HashMap<&'static str, &'static str> = {
         let mut m: HashMap<&'static str, &'static str> = HashMap::new();
         m.insert("board", r"cat /etc/lsb-release | grep CHROMEOS_RELEASE_BOARD | cut -d '=' -f 2 | cut -d '-' -f 1");
+        // NOTE: VM instances do not have a valid HWID.
         m.insert("hwid", r"crossystem hwid");
         m.insert("arch", r"crossystem arch");
         m.insert("serial", r"vpd -g serial_number");
@@ -180,10 +181,9 @@ const CMD_GET_DEFAULT_IFACE: &str =
     r"ip route get 8.8.8.8 | sed -E 's/^.* dev ([^ ]+) .*$/\1/' | head -n 1";
 
 // Only keys that are always available can be listed here
-const DEFAULT_DUT_INFO_KEYS: [&str; 8] = [
+const DEFAULT_DUT_INFO_KEYS: [&str; 7] = [
     "timestamp",
     "dut_id",
-    "hwid",
     "release",
     "model",
     "serial",
