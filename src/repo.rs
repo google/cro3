@@ -49,7 +49,7 @@ pub fn get_cros_dir_unchecked(dir: &Option<String>) -> Result<String> {
     find_cros_dir_from_cwd()
 }
 
-pub fn get_repo_dir(dir: &Option<String>) -> Result<String> {
+pub fn get_cros_dir(dir: &Option<String>) -> Result<String> {
     let repo = get_cros_dir_unchecked(dir)?;
     ensure_is_cros_dir(&repo)?;
     Ok(repo)

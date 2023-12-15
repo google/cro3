@@ -8,7 +8,7 @@ use argh::FromArgs;
 use glob::Pattern;
 use lium::cache::KvCache;
 use lium::chroot::Chroot;
-use lium::repo::get_repo_dir;
+use lium::repo::get_cros_dir;
 
 #[derive(FromArgs, PartialEq, Debug)]
 /// manage modified package(s)
@@ -90,7 +90,7 @@ fn run_packages_list(args: &ArgsList) -> Result<()> {
         return print_cached_packages(&filter, board);
     }
 
-    update_cached_packages(&get_repo_dir(&args.cros)?, board)?;
+    update_cached_packages(&get_cros_dir(&args.cros)?, board)?;
 
     print_cached_packages(&filter, board)
 }

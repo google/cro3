@@ -11,7 +11,7 @@ use argh::FromArgs;
 use lium::chroot::Chroot;
 use lium::cros::ensure_testing_rsa_is_there;
 use lium::dut::SshInfo;
-use lium::repo::get_repo_dir;
+use lium::repo::get_cros_dir;
 use tracing::error;
 use tracing::info;
 
@@ -50,7 +50,7 @@ pub struct ArgsGuestKernelUprev {
     repo: Option<String>,
 }
 fn run_guest_kernel_uprev(args: &ArgsGuestKernelUprev) -> Result<()> {
-    let chroot = Chroot::new(&get_repo_dir(&args.cros)?)?;
+    let chroot = Chroot::new(&get_cros_dir(&args.cros)?)?;
     chroot.run_bash_script_in_chroot(
         "arc_guest_kernel_uprev",
         r###"
@@ -106,7 +106,7 @@ pub struct ArgsArcFlash {
     repo: Option<String>,
 }
 fn run_arc_flash(args: &ArgsArcFlash) -> Result<()> {
-    let repo = &get_repo_dir(&args.cros)?;
+    let repo = &get_cros_dir(&args.cros)?;
     ensure_testing_rsa_is_there()?;
     let target = &SshInfo::new(&args.dut)?;
     let mut different = false;

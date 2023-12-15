@@ -8,7 +8,7 @@ use anyhow::anyhow;
 use anyhow::Result;
 use argh::FromArgs;
 use lium::chroot::Chroot;
-use lium::repo::get_repo_dir;
+use lium::repo::get_cros_dir;
 use tracing::info;
 
 #[derive(FromArgs, PartialEq, Debug)]
@@ -53,7 +53,7 @@ pub struct Args {
 pub fn run(args: &Args) -> Result<()> {
     let board = &args.board;
     let use_flags = &args.use_flags;
-    let chroot = Chroot::new(&get_repo_dir(&args.cros)?)?;
+    let chroot = Chroot::new(&get_cros_dir(&args.cros)?)?;
     if !args.skip_setup {
         chroot.run_bash_script_in_chroot(
             "board_setup",

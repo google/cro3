@@ -13,7 +13,7 @@ use argh::FromArgs;
 use lium::cros::ensure_testing_rsa_is_there;
 use lium::cros::lookup_full_version;
 use lium::dut::DutInfo;
-use lium::repo::get_repo_dir;
+use lium::repo::get_cros_dir;
 use regex::Regex;
 use tracing::error;
 
@@ -116,7 +116,7 @@ pub struct Args {
 pub fn run(args: &Args) -> Result<()> {
     // repo path is needed since cros flash outside chroot only works within the
     // cros checkout
-    let repo = &get_repo_dir(&args.cros)?;
+    let repo = &get_cros_dir(&args.cros)?;
 
     let image_path = if let Some(image) = &args.image {
         // If --image is specified, use the local file

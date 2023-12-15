@@ -14,7 +14,7 @@ use lium::chroot::Chroot;
 use lium::config::Config;
 use lium::cros::ensure_testing_rsa_is_there;
 use lium::dut::SshInfo;
-use lium::repo::get_repo_dir;
+use lium::repo::get_cros_dir;
 
 #[derive(FromArgs, PartialEq, Debug)]
 /// run Tast test
@@ -136,7 +136,7 @@ fn run_tast_list(args: &ArgsList) -> Result<()> {
             .as_ref()
             .expect("Test name is not cached. Please rerun with --dut <DUT>");
 
-        update_cached_tests(&bundles, dut, &get_repo_dir(&args.cros)?)?;
+        update_cached_tests(&bundles, dut, &get_cros_dir(&args.cros)?)?;
     }
 
     print_cached_tests(&filter, &bundles)?;
@@ -200,7 +200,7 @@ fn run_test_with_bundle(
 fn run_tast_run(args: &ArgsRun) -> Result<()> {
     ensure_testing_rsa_is_there()?;
     let filter = Pattern::new(&args.tests)?;
-    let repodir = get_repo_dir(&args.cros)?;
+    let repodir = get_cros_dir(&args.cros)?;
     let chroot = Chroot::new(&repodir)?;
     let ssh = SshInfo::new(&args.dut).context("failed to create SshInfo")?;
     // setup port forwarding for chroot.
