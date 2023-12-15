@@ -734,7 +734,7 @@ fn run_dut_list(args: &ArgsDutList) -> Result<()> {
         let id = info.id();
         let ssh = info.ssh();
         SSH_CACHE.set(id, ssh.clone())?;
-        println!("Added: {:32} {}", id, serde_json::to_string(ssh)?);
+        info!("Added: {:32} {}", id, serde_json::to_string(ssh)?);
         return Ok(());
     }
     if let Some(dut_to_remove) = &args.remove {
