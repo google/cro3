@@ -33853,12 +33853,14 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.DutController = void 0;
 const operate_port_1 = __webpack_require__(/*! ./operate_port */ "./src/operate_port.ts");
 class DutController {
-    constructor(ui, dut) {
+    constructor(ui) {
         this.CANCEL_CMD = '\x03\n';
         this.isOpened = false;
-        this.dut = new operate_port_1.OperatePort(0x18d1, 0x504a);
+        this.dut = new operate_port_1.OperatePort([
+            { usbVendorId: 0x18d1, usbProductId: 0x5014 },
+            { usbVendorId: 0x18d1, usbProductId: 0x504a }, // Ti50
+        ]);
         this.ui = ui;
-        this.dut = dut;
     }
     async openDutPort() {
         if (this.isOpened)
@@ -34227,7 +34229,6 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 // without displaying" ; timeout 5 yes > /dev/null ; } ; done ectool
 // chargecontrol idle ectool chargecontrol normal
 const moment_1 = __importDefault(__webpack_require__(/*! moment */ "./node_modules/moment/moment.js"));
-const operate_port_1 = __webpack_require__(/*! ./operate_port */ "./src/operate_port.ts");
 const power_test_controller_1 = __webpack_require__(/*! ./power_test_controller */ "./src/power_test_controller.ts");
 const dut_controller_1 = __webpack_require__(/*! ./dut_controller */ "./src/dut_controller.ts");
 const servo_controller_1 = __webpack_require__(/*! ./servo_controller */ "./src/servo_controller.ts");
@@ -34235,8 +34236,7 @@ const ui_1 = __webpack_require__(/*! ./ui */ "./src/ui.ts");
 window.addEventListener('DOMContentLoaded', () => {
     const ui = new ui_1.Ui();
     const servoController = new servo_controller_1.ServoController();
-    const dutShell = new operate_port_1.OperatePort(0x18d1, 0x504a);
-    const dutController = new dut_controller_1.DutController(ui, dutShell);
+    const dutController = new dut_controller_1.DutController(ui);
     const testController = new power_test_controller_1.PowerTestController(ui, servoController, dutController);
     testController.setupDisconnectEvent();
     ui.closeErrorPopupButton.addEventListener('click', () => {
@@ -34300,19 +34300,16 @@ window.addEventListener('DOMContentLoaded', () => {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.OperatePort = void 0;
 class OperatePort {
-    constructor(usbVendorId, usbProductId) {
+    constructor(filters) {
         this.reader = new ReadableStreamDefaultReader(new ReadableStream());
         this.encoder = new TextEncoder();
         this.decoder = new TextDecoder();
-        this.usbVendorId = usbVendorId;
-        this.usbProductId = usbProductId;
+        this.filters = filters;
     }
     async select() {
         this.port = await navigator.serial
             .requestPort({
-            filters: [
-                { usbVendorId: this.usbVendorId, usbProductId: this.usbProductId },
-            ],
+            filters: this.filters,
         })
             .catch(e => {
             console.error(e);
@@ -34548,7 +34545,9 @@ class ServoController {
         this.INA_COMMAND = 'ina 0\n';
         this.isOpened = false;
         this.output = '';
-        this.servoShell = new operate_port_1.OperatePort(0x18d1, 0x520d);
+        this.servoShell = new operate_port_1.OperatePort([
+            { usbVendorId: 0x18d1, usbProductId: 0x520d }, // Servo V4p1
+        ]);
         this.halt = true;
     }
     async openServoPort() {

@@ -1,20 +1,17 @@
+export type PortFilter = {usbVendorId: number; usbProductId: number};
 export class OperatePort {
   private port?: SerialPort;
   private reader = new ReadableStreamDefaultReader(new ReadableStream());
-  private usbVendorId: number;
-  private usbProductId: number;
+  private filters: Array<PortFilter>;
   private encoder = new TextEncoder();
   private decoder = new TextDecoder();
-  constructor(usbVendorId: number, usbProductId: number) {
-    this.usbVendorId = usbVendorId;
-    this.usbProductId = usbProductId;
+  constructor(filters: Array<PortFilter>) {
+    this.filters = filters;
   }
   public async select() {
     this.port = await navigator.serial
       .requestPort({
-        filters: [
-          {usbVendorId: this.usbVendorId, usbProductId: this.usbProductId},
-        ],
+        filters: this.filters,
       })
       .catch(e => {
         console.error(e);
