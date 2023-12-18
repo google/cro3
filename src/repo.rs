@@ -80,6 +80,16 @@ pub fn get_current_synced_arc_version(repo: &str) -> Result<String> {
     Ok(get_stdout(&output))
 }
 
+pub fn get_reference_repo(reference: &Option<String>) -> Result<Option<String>> {
+    let default = Config::read()?.default_cros_reference();
+
+    match (reference, default) {
+        (Some(r), _) => Ok(Some(r.to_string())),
+        (None, Some(d)) => Ok(Some(d)),
+        _ => Ok(None),
+    }
+}
+
 pub fn repo_sync(repo: &str, force: bool, verbose: bool) -> Result<()> {
     let mut last_failed_repos = None;
 
@@ -242,4 +252,21 @@ fn find_cros_dir_from_cwd() -> Result<String> {
         dir = path.to_string_lossy().to_string();
     }
     Ok(dir)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::assert_matches::assert_matches;
+
+    use super::*;
+    #[test]
+    fn reference_match() {
+        let _default = Config::read().unwrap().default_cros_reference();
+
+        assert_matches!(
+            get_reference_repo(&Some("cros".to_string())).unwrap(),
+            Some(_)
+        );
+        assert_matches!(get_reference_repo(&None).unwrap(), _default);
+    }
 }
