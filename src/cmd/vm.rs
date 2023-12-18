@@ -353,13 +353,13 @@ fn get_cheeps_image_name(config: &Config, is_container: bool, branch: &str) -> R
             .get(branch)
             .context(
                 "Config arc_container_cheeps_image is not set. For internal users, please \
-                 configure cheeps image name for ARCVM",
+                 configure cheeps image name for ARC-container",
             )?
             .to_string()
     } else {
         config.arc_vm_cheeps_image().context(
             "Config arc_vm_cheeps_image is not set. For internal users, please configure cheeps \
-             image name for ARC-container",
+             image name for ARCVM",
         )?
     };
     let cheeps = String::from_utf8(run_bash_command(&cmd, None)?.stdout)?;
