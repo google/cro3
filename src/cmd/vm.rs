@@ -16,8 +16,7 @@ use anyhow::Context;
 use anyhow::Result;
 use argh::FromArgs;
 use lium::config::Config;
-use lium::dut::DutInfo;
-use lium::dut::SSH_CACHE;
+use lium::dut::register_dut;
 use lium::util::shell_helpers::run_bash_command;
 use regex_macro::regex;
 use strum_macros::Display;
@@ -241,14 +240,12 @@ fn run_start(args: &ArgsStart) -> Result<()> {
         run_acloudw(args)?;
     } else {
         run_betty_start(args)?;
+        let info = register_dut("127.0.0.1:9222")?;
 
-        info!("Adding the VM instance to DUT list...");
-        let info = DutInfo::new("127.0.0.1:9222")?;
-        let id = info.id();
-        let ssh = info.ssh();
-        SSH_CACHE.set(id, ssh.clone())?;
-
-        println!("You can connect the VM instance with `lium dut shell --dut {id}`.");
+        println!(
+            "You can connect the VM instance with `lium dut shell --dut {:?}`.",
+            info.id()
+        );
         println!("To push an Android build a betty VM, run `lium arc flash`.");
     }
 
