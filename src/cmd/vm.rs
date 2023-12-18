@@ -196,7 +196,7 @@ pub struct ArgsStart {
     /// for betty.sh. Start betty with rootfs verification. It is false by
     /// default.
     #[argh(switch)]
-    rootfs_verify: bool,
+    enable_rootfs_verification: bool,
 
     /// for betty.sh. The ChromeOS version to use (e.g. R72-11268.0.0).
     /// Alternatively, postsubmit builds since R96-14175.0.0-53101 can also
@@ -400,7 +400,7 @@ fn run_betty_start(args: &ArgsStart) -> Result<()> {
     if !args.reuse_disk_image {
         options.extend_from_slice(&["--reset_image"]);
     }
-    if args.rootfs_verify {
+    if args.enable_rootfs_verification {
         options.extend_from_slice(&["--nodisbple_rootfs"]);
     }
     if let Some(version) = &args.version {
