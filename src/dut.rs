@@ -917,12 +917,12 @@ pub fn discover_local_nodes(iface: Option<String>) -> Result<Vec<String>> {
 }
 
 pub fn register_dut(dut: &str) -> Result<DutInfo> {
-    info!("Checking: {dut:?}...");
+    info!("Checking DutInfo of {dut:?}...");
     let info = DutInfo::new(dut)?;
     let id = info.id();
     let ssh = info.ssh();
     SSH_CACHE.set(id, ssh.clone())?;
-    println!("Added: {:32} {}", id, serde_json::to_string(ssh)?);
+    info!("Added: {:32} {}", id, serde_json::to_string(ssh)?);
     Ok(info)
 }
 

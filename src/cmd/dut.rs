@@ -23,6 +23,7 @@ use lium::chroot::Chroot;
 use lium::cros;
 use lium::dut::discover_local_nodes;
 use lium::dut::fetch_dut_info_in_parallel;
+use lium::dut::register_dut;
 use lium::dut::DutInfo;
 use lium::dut::MonitoredDut;
 use lium::dut::SshInfo;
@@ -732,12 +733,7 @@ fn run_dut_list(args: &ArgsDutList) -> Result<()> {
         return Ok(());
     }
     if let Some(dut_to_add) = &args.add {
-        info!("Checking DutInfo of {dut_to_add}...");
-        let info = DutInfo::new(dut_to_add)?;
-        let id = info.id();
-        let ssh = info.ssh();
-        SSH_CACHE.set(id, ssh.clone())?;
-        println!("Added: {:32} {}", id, serde_json::to_string(ssh)?);
+        register_dut(dut_to_add)?;
         return Ok(());
     }
     if let Some(dut_to_remove) = &args.remove {

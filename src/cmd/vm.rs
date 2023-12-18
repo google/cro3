@@ -7,6 +7,7 @@
 use std::env;
 use std::path::Path;
 use std::process::Command;
+use std::process::Stdio;
 use std::string::ToString;
 
 use anyhow::anyhow;
@@ -15,6 +16,7 @@ use anyhow::Context;
 use anyhow::Result;
 use argh::FromArgs;
 use lium::config::Config;
+use lium::dut::register_dut;
 use lium::util::shell_helpers::run_bash_command;
 use regex_macro::regex;
 use strum_macros::Display;
@@ -238,8 +240,12 @@ fn run_start(args: &ArgsStart) -> Result<()> {
         run_acloudw(args)?;
     } else {
         run_betty_start(args)?;
+        let info = register_dut("127.0.0.1:9222")?;
 
-        println!("To connect the betty instance, run `lium dut shell --dut localhost:9222`.");
+        println!(
+            "You can connect the VM instance with `lium dut shell --dut {:?}`.",
+            info.id()
+        );
         println!("To push an Android build a betty VM, run `lium arc flash`.");
     }
 
@@ -344,13 +350,13 @@ fn get_cheeps_image_name(config: &Config, is_container: bool, branch: &str) -> R
             .get(branch)
             .context(
                 "Config arc_container_cheeps_image is not set. For internal users, please \
-                 configure cheeps image name for ARCVM",
+                 configure cheeps image name for ARC-container",
             )?
             .to_string()
     } else {
         config.arc_vm_cheeps_image().context(
             "Config arc_vm_cheeps_image is not set. For internal users, please configure cheeps \
-             image name for ARC-Container",
+             image name for ARCVM",
         )?
     };
     let cheeps = String::from_utf8(run_bash_command(&cmd, None)?.stdout)?;
@@ -434,6 +440,7 @@ fn run_betty_cmd(dir: &str, cmd: SubCommand, opts: &[&str]) -> Result<()> {
     info!("Running `{betty_cmd}`...");
     let mut cmd = Command::new("bash")
         .current_dir(dir)
+        .stdout(Stdio::piped())
         .arg("-c")
         .arg(betty_cmd)
         .spawn()
