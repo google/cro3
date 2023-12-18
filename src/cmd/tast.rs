@@ -47,7 +47,7 @@ pub fn run(args: &Args) -> Result<()> {
 pub struct ArgsList {
     /// target cros repo directory
     #[argh(option)]
-    repo: Option<String>,
+    cros: Option<String>,
 
     /// target DUT
     #[argh(option)]
@@ -60,6 +60,9 @@ pub struct ArgsList {
     /// only show cached list
     #[argh(switch)]
     cached: bool,
+
+    #[argh(option, hidden_help)]
+    repo: Option<String>,
 }
 
 fn print_cached_tests_in_bundle(filter: &Pattern, bundle: &str) -> Result<()> {
@@ -133,7 +136,7 @@ fn run_tast_list(args: &ArgsList) -> Result<()> {
             .as_ref()
             .expect("Test name is not cached. Please rerun with --dut <DUT>");
 
-        update_cached_tests(&bundles, dut, &get_repo_dir(&args.repo)?)?;
+        update_cached_tests(&bundles, dut, &get_repo_dir(&args.cros)?)?;
     }
 
     print_cached_tests(&filter, &bundles)?;
@@ -147,7 +150,7 @@ fn run_tast_list(args: &ArgsList) -> Result<()> {
 pub struct ArgsRun {
     /// target cros repo directory
     #[argh(option)]
-    repo: Option<String>,
+    cros: Option<String>,
 
     /// target DUT
     #[argh(option)]
@@ -160,6 +163,9 @@ pub struct ArgsRun {
     /// test name or pattern
     #[argh(positional)]
     tests: String,
+
+    #[argh(option, hidden_help)]
+    repo: Option<String>,
 }
 
 fn bundle_has_test(bundle: &str, filter: &Pattern) -> bool {
@@ -194,7 +200,7 @@ fn run_test_with_bundle(
 fn run_tast_run(args: &ArgsRun) -> Result<()> {
     ensure_testing_rsa_is_there()?;
     let filter = Pattern::new(&args.tests)?;
-    let repodir = get_repo_dir(&args.repo)?;
+    let repodir = get_repo_dir(&args.cros)?;
     let chroot = Chroot::new(&repodir)?;
     let ssh = SshInfo::new(&args.dut).context("failed to create SshInfo")?;
     // setup port forwarding for chroot.

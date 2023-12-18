@@ -83,7 +83,7 @@ pub struct Args {
 
     /// target cros repo dir
     #[argh(option)]
-    repo: Option<String>,
+    cros: Option<String>,
 
     /// target BOARD
     #[argh(option)]
@@ -108,12 +108,15 @@ pub struct Args {
     /// flash image with rootfs verification (disable by default)
     #[argh(switch)]
     enable_rootfs_verification: bool,
+
+    #[argh(option, hidden_help)]
+    repo: Option<String>,
 }
 #[tracing::instrument(level = "trace")]
 pub fn run(args: &Args) -> Result<()> {
     // repo path is needed since cros flash outside chroot only works within the
     // cros checkout
-    let repo = &get_repo_dir(&args.repo)?;
+    let repo = &get_repo_dir(&args.cros)?;
 
     let image_path = if let Some(image) = &args.image {
         // If --image is specified, use the local file

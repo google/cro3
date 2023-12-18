@@ -16,7 +16,7 @@ use lium::repo::get_repo_dir;
 pub struct Args {
     /// target cros repo dir
     #[argh(option)]
-    repo: Option<String>,
+    cros: Option<String>,
     /// DUT env var in chroot
     #[argh(option)]
     dut: Option<String>,
@@ -26,10 +26,13 @@ pub struct Args {
     /// if specified, run the command in chroot and exit.
     #[argh(option)]
     cmd: Option<String>,
+
+    #[argh(option, hidden_help)]
+    repo: Option<String>,
 }
 #[tracing::instrument(level = "trace")]
 pub fn run(args: &Args) -> Result<()> {
-    let repo = get_repo_dir(&args.repo)?;
+    let repo = get_repo_dir(&args.cros)?;
     let mut additional_args = Vec::new();
     if let Some(dut) = &args.dut {
         let dut = SshInfo::new(dut)?;

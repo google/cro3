@@ -9,6 +9,7 @@
 
 use std::str::FromStr;
 
+use anyhow::bail;
 use anyhow::Result;
 use tracing::trace;
 use tracing_subscriber::filter::LevelFilter;
@@ -47,6 +48,13 @@ fn main() -> Result<()> {
 
     let args_log = &std::env::args().skip(1).collect::<Vec<_>>();
     trace!("running with args: {:?}", args_log);
+
+    if args_log.contains(&"--repo".to_string()) {
+        bail!(
+            "--repo option was renamed to --cros/--arc option. `lium {} --help` has more details.",
+            args_log[0]
+        );
+    }
 
     cmd::run(&args)
 }

@@ -91,26 +91,26 @@ lium servo list --json
 ### Flash
 
 ```
-lium flash --repo ${CROS_DIR} --dut ${DUT}
-lium flash --repo ${CROS_DIR} --board ${BOARD}
+lium flash --cros ${CROS_DIR} --dut ${DUT}
+lium flash --cros ${CROS_DIR} --board ${BOARD}
 ```
 
 ### Misc
 
 ```
-lium arc guest_kernel_uprev --repo /work/chromiumos_stable/
-lium build --repo /work/chromiumos_stable --board brya --packages sys-kernel/arcvm-kernel-ack-5_10
-lium build --full --repo /work/chromiumos_stable --board brya
+lium arc guest_kernel_uprev --cros /work/chromiumos_stable/
+lium build --cros /work/chromiumos_stable --board brya --packages sys-kernel/arcvm-kernel-ack-5_10
+lium build --full --cros /work/chromiumos_stable --board brya
 lium config set default_cros_checkout /work/chromiumos_stable/
 lium config show
-lium deploy --repo /work/chromiumos_stable --dut localhost:2282 --package sys-kernel/arcvm-kernel-ack-5_10 --autologin
+lium deploy --cros /work/chromiumos_stable --dut localhost:2282 --package sys-kernel/arcvm-kernel-ack-5_10 --autologin
 lium dut discover --remote kled_SOMESERIALNUMBERS1234 --v6prefix 2001:DB8::
 sudo `which lium` servo reset
-lium sync --repo /work/chromiumos_stable/ --version 14899.0.0
-lium sync --repo /work/chromiumos_stable/ --version R110-15263.0.0
+lium sync --cros /work/chromiumos_stable/ --version 14899.0.0
+lium sync --cros /work/chromiumos_stable/ --version R110-15263.0.0
 # following command needs a mirror repo which has cloned with --mirror option
-lium sync --repo /work/chromiumos_versions/R110-15248.0.0/ --version R110-15248.0.0 --reference /work/chromiumos_mirror/
-lium sync --repo /work/chromiumos_versions/R110-15248.0.0/ --version R110-15248.0.0 # you can omit --reference if the config is set
+lium sync --cros /work/chromiumos_versions/R110-15248.0.0/ --version R110-15248.0.0 --reference /work/chromiumos_mirror/
+lium sync --cros /work/chromiumos_versions/R110-15248.0.0/ --version R110-15248.0.0 # you can omit --reference if the config is set
 ```
 
 ## How to contribute

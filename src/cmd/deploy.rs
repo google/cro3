@@ -25,7 +25,7 @@ static RE_CROS_KERNEL: Lazy<Regex> = Lazy::new(|| Regex::new("chromeos-kernel-")
 pub struct Args {
     /// target cros repo dir
     #[argh(option)]
-    repo: Option<String>,
+    cros: Option<String>,
 
     /// a DUT identifier (e.g. 127.0.0.1, localhost:2222)
     #[argh(option)]
@@ -42,6 +42,9 @@ pub struct Args {
     /// use ab_update for kernel package
     #[argh(switch)]
     ab_update: bool,
+
+    #[argh(option, hidden_help)]
+    repo: Option<String>,
 }
 
 #[tracing::instrument(level = "trace")]
@@ -61,7 +64,7 @@ pub fn run(args: &Args) -> Result<()> {
 
     let board = target.get_board()?;
     let packages_str = args.packages.join(" ");
-    let chroot = Chroot::new(&get_repo_dir(&args.repo)?)?;
+    let chroot = Chroot::new(&get_repo_dir(&args.cros)?)?;
 
     let kernel_pkg = extract_kernel_pkg(&args.packages)?;
 

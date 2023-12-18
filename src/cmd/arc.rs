@@ -44,10 +44,13 @@ pub fn run(args: &Args) -> Result<()> {
 pub struct ArgsGuestKernelUprev {
     /// target cros repo dir
     #[argh(option)]
+    cros: Option<String>,
+
+    #[argh(option, hidden_help)]
     repo: Option<String>,
 }
 fn run_guest_kernel_uprev(args: &ArgsGuestKernelUprev) -> Result<()> {
-    let chroot = Chroot::new(&get_repo_dir(&args.repo)?)?;
+    let chroot = Chroot::new(&get_repo_dir(&args.cros)?)?;
     chroot.run_bash_script_in_chroot(
         "arc_guest_kernel_uprev",
         r###"
@@ -81,7 +84,7 @@ git merge -m "update wip" --no-ff aosp/android12-5.10-lts
 pub struct ArgsArcFlash {
     /// cros repo dir
     #[argh(option)]
-    repo: Option<String>,
+    cros: Option<String>,
 
     /// ARC version (optional)
     #[argh(option)]
@@ -98,9 +101,12 @@ pub struct ArgsArcFlash {
     /// force flash
     #[argh(switch)]
     force: bool,
+
+    #[argh(option, hidden_help)]
+    repo: Option<String>,
 }
 fn run_arc_flash(args: &ArgsArcFlash) -> Result<()> {
-    let repo = &get_repo_dir(&args.repo)?;
+    let repo = &get_repo_dir(&args.cros)?;
     ensure_testing_rsa_is_there()?;
     let target = &SshInfo::new(&args.dut)?;
     let mut different = false;

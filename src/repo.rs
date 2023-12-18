@@ -226,7 +226,7 @@ fn ensure_is_cros_dir(path: &str) -> Result<()> {
     }
 
     Err(anyhow!(
-        "{path} is not a Chrom(e|ium) OS checkout. Please consider specifying --repo option."
+        "{path} is not a Chrom(e|ium) OS checkout. Please consider specifying --cros option."
     ))
 }
 

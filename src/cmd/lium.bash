@@ -141,7 +141,7 @@ _lium_get_options() { # current
 _lium() { # command current prev
   local cur=$2
   local prev=$3
-  local dir_opts="--repo --dir --dest"
+  local dir_opts="--dir --dest --cros --arc"
   local file_opts="--image"
   local todo_opts="--version --workon"
   local servo_serial_opts="--serial --servo"

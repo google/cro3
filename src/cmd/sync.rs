@@ -27,7 +27,13 @@ use tracing::warn;
 pub struct Args {
     /// target cros repo dir. If omitted, current directory will be used.
     #[argh(option)]
-    repo: Option<String>,
+    cros: Option<String>,
+
+    /// target android repo dir. If omitted, current directory will be used.
+    /// When this flag is specified, --version option can be the branch name to
+    /// sync to.
+    #[argh(option)]
+    arc: Option<String>,
 
     /// path to a local reference repo to speedup syncing.
     #[argh(option)]
@@ -39,10 +45,6 @@ pub struct Args {
     #[argh(option)]
     version: String,
 
-    /// sync arc/android instead of cros. --version will be tm or rvc
-    #[argh(switch)]
-    arc: bool,
-
     /// destructive sync
     #[argh(switch)]
     force: bool,
@@ -50,12 +52,25 @@ pub struct Args {
     /// output repo sync log as it is
     #[argh(switch)]
     verbose: bool,
+
+    #[argh(option, hidden_help)]
+    repo: Option<String>,
 }
 
 #[tracing::instrument(level = "trace")]
 pub fn run(args: &Args) -> Result<()> {
-    let version = extract_version(args)?;
-    let repo = get_cros_dir_unchecked(&args.repo)?;
+    let is_arc = match (&args.cros, &args.arc) {
+        (Some(_), None) => false,
+        (None, Some(_)) => true,
+        _ => bail!("Please specify either --cros or --arc."),
+    };
+
+    let version = extract_version(args, &is_arc)?;
+    let repo = if is_arc {
+        get_cros_dir_unchecked(&args.arc)?
+    } else {
+        get_cros_dir_unchecked(&args.cros)?
+    };
 
     // Inform user of sync information.
     info!(
@@ -66,7 +81,7 @@ pub fn run(args: &Args) -> Result<()> {
     );
 
     // Prepare paths and determine if this is an arc or cros repo.
-    let is_arc = prepare_repo_paths(&repo)?.unwrap_or(args.arc);
+    let is_arc = prepare_repo_paths(&repo)?.unwrap_or(is_arc);
 
     // If we are using another repo as reference for rapid cloning, so make sure
     // that one is synced.
@@ -86,8 +101,8 @@ pub fn run(args: &Args) -> Result<()> {
 
 /// Version string can represent either cros repo version or an arc version.
 /// This function detects which and extracts its appropriately from the args.
-fn extract_version(args: &Args) -> Result<String> {
-    let version = if !args.arc {
+fn extract_version(args: &Args, is_arc: &bool) -> Result<String> {
+    let version = if !is_arc {
         if args.version == "tot" {
             args.version.clone()
         } else {
