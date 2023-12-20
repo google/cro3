@@ -5,6 +5,8 @@
 // https://developers.google.com/open-source/licenses/bsd
 
 use std::env;
+use std::io::BufRead;
+use std::io::BufReader;
 use std::path::Path;
 use std::process::Command;
 use std::process::Stdio;
@@ -18,11 +20,17 @@ use argh::FromArgs;
 use lium::config::Config;
 use lium::dut::register_dut;
 use lium::util::shell_helpers::run_bash_command;
+use once_cell::sync::Lazy;
 use regex_macro::regex;
+use regex_macro::Regex;
 use strum_macros::Display;
 use tracing::error;
 use tracing::info;
 use whoami;
+
+static RE_BUILD_ID: Lazy<&Regex> = Lazy::new(|| regex!(r"^\d+$"));
+static RE_ACLOUDW_PORT: Lazy<&Regex> =
+    Lazy::new(|| regex!(r"^ - device serial: 127.0.0.1:(?P<port>[0-9]{5})"));
 
 #[derive(FromArgs, PartialEq, Debug)]
 /// create a virtual machine
@@ -236,23 +244,24 @@ pub struct ArgsStart {
 }
 
 fn run_start(args: &ArgsStart) -> Result<()> {
-    if args.acloud {
-        run_acloudw(args)?;
+    let port = if args.acloud {
+        run_acloudw(args)?
     } else {
         run_betty_start(args)?;
-        let info = register_dut("127.0.0.1:9222")?;
+        "9222".to_string()
+    };
 
-        println!(
-            "You can connect the VM instance with `lium dut shell --dut {:?}`.",
-            info.id()
-        );
-        println!("To push an Android build a betty VM, run `lium arc flash`.");
-    }
+    let info = register_dut(&format!("127.0.0.1:{port}"))?;
+    println!(
+        "You can connect the VM instance with `lium dut shell --dut {:?}`.",
+        info.id()
+    );
+    println!("To push an Android build a betty VM, run `lium arc flash`.");
 
     Ok(())
 }
 
-fn run_acloudw(args: &ArgsStart) -> Result<()> {
+fn run_acloudw(args: &ArgsStart) -> Result<String> {
     let branch = args
         .branch
         .clone()
@@ -264,8 +273,7 @@ fn run_acloudw(args: &ArgsStart) -> Result<()> {
         .build_id
         .clone()
         .ok_or(anyhow!("--build-id option is required when using acloudw"))?;
-    let re = regex!(r"^\d+$");
-    if !re.is_match(&build_id) {
+    if !RE_BUILD_ID.is_match(&build_id) {
         bail!("--build-id must be a digit.");
     }
 
@@ -364,7 +372,7 @@ fn get_cheeps_image_name(config: &Config, is_container: bool, branch: &str) -> R
     Ok(cheeps)
 }
 
-fn run_acloudw_cmd(opts: &[&str]) -> Result<()> {
+fn run_acloudw_cmd(opts: &[&str]) -> Result<String> {
     let config = Config::read()?;
     let auth_valid_cmd = config
         .is_internal_auth_valid()
@@ -379,10 +387,14 @@ fn run_acloudw_cmd(opts: &[&str]) -> Result<()> {
     let acloudw_cmd = opts.join(" ");
     info!("Running `{acloudw_cmd}`...");
     let mut cmd = Command::new("bash")
+        .stdout(Stdio::piped())
         .arg("-c")
         .arg(acloudw_cmd)
         .spawn()
         .context("Failed to execute acloudw")?;
+
+    let buf_reader = BufReader::new(cmd.stdout.take().context("error")?);
+    let port = get_acloudw_port_number(buf_reader)?;
 
     let result = cmd.wait().context("Failed to wait for acloudw")?;
 
@@ -390,7 +402,23 @@ fn run_acloudw_cmd(opts: &[&str]) -> Result<()> {
         error!("acloudw failed")
     }
 
-    Ok(())
+    Ok(port)
+}
+
+fn get_acloudw_port_number(r: impl BufRead) -> Result<String> {
+    let mut port = String::new();
+    let split_iter = r
+        .split(b'\n')
+        .map(|l| String::from_utf8_lossy(&strip_ansi_escapes::strip(l.unwrap())).to_string());
+
+    for a_line in split_iter {
+        println!("{}", &a_line);
+        if let Some(caps) = RE_ACLOUDW_PORT.captures(&a_line) {
+            port = caps["port"].to_string();
+        }
+    }
+
+    Ok(port)
 }
 
 fn run_betty_start(args: &ArgsStart) -> Result<()> {
@@ -453,4 +481,33 @@ fn run_betty_cmd(dir: &str, cmd: SubCommand, opts: &[&str]) -> Result<()> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn regex() {
+        assert_eq!(
+            &RE_ACLOUDW_PORT
+                .captures(" - device serial: 127.0.0.1:12345")
+                .unwrap()["port"],
+            "12345"
+        );
+        assert_eq!(
+            &RE_ACLOUDW_PORT
+                .captures(" - device serial: 127.0.0.1:12345 (serial_number)")
+                .unwrap()["port"],
+            "12345"
+        );
+        assert!(&RE_ACLOUDW_PORT
+            .captures(" - device serial: 127.0.0.1:1234a")
+            .is_none());
+        assert!(&RE_ACLOUDW_PORT
+            .captures(" - device serial: 127.0.0.1:a1234")
+            .is_none());
+        assert!(&RE_ACLOUDW_PORT
+            .captures(" - device serial: 127.0.0.1:12-45")
+            .is_none());
+    }
 }
