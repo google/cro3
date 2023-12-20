@@ -393,7 +393,11 @@ fn run_acloudw_cmd(opts: &[&str]) -> Result<String> {
         .spawn()
         .context("Failed to execute acloudw")?;
 
-    let buf_reader = BufReader::new(cmd.stdout.take().context("error")?);
+    let buf_reader = BufReader::new(
+        cmd.stdout
+            .take()
+            .context("Failed to get stdout from output")?,
+    );
     let port = get_acloudw_port_number(buf_reader)?;
 
     let result = cmd.wait().context("Failed to wait for acloudw")?;
