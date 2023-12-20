@@ -230,7 +230,7 @@ impl Config {
                 let target = values[1].as_ref().to_string();
                 self.arc_vm_betty_image_for_branch.insert(branch, target);
             }
-            "arc_container_cheeps_image_for_brnach" => {
+            "arc_container_cheeps_image_for_branch" => {
                 if values.len() != 2 {
                     bail!("{key} takes 2 parameters");
                 }

@@ -39,7 +39,7 @@ pub fn run(args: &Args) -> Result<()> {
 pub struct ArgsList {
     /// target cros repo directory
     #[argh(option)]
-    repo: Option<String>,
+    cros: Option<String>,
 
     /// glob pattern of the boards
     #[argh(positional)]
@@ -48,6 +48,9 @@ pub struct ArgsList {
     /// only show cached data without updating it (fast)
     #[argh(switch)]
     cached: bool,
+
+    #[argh(option, hidden_help)]
+    repo: Option<String>,
 }
 
 fn print_cached_boards(filter: &Pattern) -> Result<()> {
@@ -85,7 +88,7 @@ fn run_board_list(args: &ArgsList) -> Result<()> {
         .unwrap_or_else(|| Pattern::new("*"))?;
 
     if !args.cached {
-        update_cached_boards(&get_repo_dir(&args.repo)?)?;
+        update_cached_boards(&get_repo_dir(&args.cros)?)?;
     }
 
     print_cached_boards(&filter)
