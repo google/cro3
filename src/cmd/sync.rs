@@ -16,7 +16,7 @@ use lium::cros::lookup_full_version;
 use lium::cros::setup_cros_repo;
 use lium::repo::get_cros_dir_unchecked;
 use lium::repo::get_current_synced_arc_version;
-use lium::repo::get_current_synced_version;
+use lium::repo::get_current_synced_cros_version;
 use lium::repo::get_reference_repo;
 use lium::repo::repo_sync;
 use tracing::info;
@@ -123,7 +123,7 @@ fn prepare_repo_paths(repo: &str, is_cros: bool) -> Result<()> {
     }
 
     if is_cros {
-        if let Ok(prev_version) = get_current_synced_version(repo) {
+        if let Ok(prev_version) = get_current_synced_cros_version(repo) {
             info!("Previous CROS version was: {}", prev_version);
             return Ok(());
         }

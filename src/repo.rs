@@ -55,7 +55,7 @@ pub fn get_cros_dir(dir: &Option<String>) -> Result<String> {
     Ok(repo)
 }
 
-pub fn get_current_synced_version(repo: &str) -> Result<String> {
+pub fn get_current_synced_cros_version(repo: &str) -> Result<String> {
     ensure_is_cros_dir(repo)?;
 
     let cmd = "./src/third_party/chromiumos-overlay/chromeos/config/chromeos_version.sh | grep -e \
