@@ -320,8 +320,8 @@ fn get_target_name(config: &Config, is_container: bool, branch: &str) -> Result<
         .android_target_for_vm_type()
         .get(vm_type)
         .context(
-            "Config android_target is required when using acloudw. For internal users, please \
-             configure lunch target name",
+            "Config android_target_for_vm_type is required when using acloudw. For internal \
+             users, please configure lunch target name",
         )?
         .to_string())
 }
@@ -334,8 +334,8 @@ fn get_betty_image_name(config: &Config, is_container: bool, branch: &str) -> Re
         .arc_vm_betty_image_for_branch()
         .get(branch)
         .context(
-            "Config arc_vm_betty_image is not set. For internal users, please configure betty \
-             image name",
+            "Config arc_vm_betty_image_for_branch is not set. For internal users, please \
+             configure betty image name",
         )?
         .to_string();
     let betty = String::from_utf8(run_bash_command(&cmd, None)?.stdout)?;
@@ -349,8 +349,8 @@ fn get_cheeps_image_name(config: &Config, is_container: bool, branch: &str) -> R
             .arc_container_cheeps_image_for_branch()
             .get(branch)
             .context(
-                "Config arc_container_cheeps_image is not set. For internal users, please \
-                 configure cheeps image name for ARC-container",
+                "Config arc_container_cheeps_image_for_branch is not set. For internal users, \
+                 please configure cheeps image name for ARC-container",
             )?
             .to_string()
     } else {
@@ -407,7 +407,7 @@ fn run_betty_start(args: &ArgsStart) -> Result<()> {
         options.extend_from_slice(&["--reset_image"]);
     }
     if args.enable_rootfs_verification {
-        options.extend_from_slice(&["--nodisbple_rootfs"]);
+        options.extend_from_slice(&["--nodisable_rootfs"]);
     }
     if let Some(version) = &args.version {
         options.extend_from_slice(&["--release", version]);
