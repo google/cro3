@@ -4,9 +4,11 @@
 // license that can be found in the LICENSE file or at
 // https://developers.google.com/open-source/licenses/bsd
 
+use anyhow::bail;
 use anyhow::Result;
 use argh::FromArgs;
 use lium::config::Config;
+use serde_json::json;
 
 #[derive(FromArgs, PartialEq, Debug)]
 /// configure lium
@@ -66,9 +68,23 @@ fn run_set(args: &ArgsSet) -> Result<()> {
 #[derive(FromArgs, PartialEq, Debug)]
 /// Show config variables
 #[argh(subcommand, name = "show")]
-pub struct ArgsShow {}
-fn run_show(_args: &ArgsShow) -> Result<()> {
+pub struct ArgsShow {
+    /// key of a config
+    #[argh(option)]
+    key: Option<String>,
+}
+fn run_show(args: &ArgsShow) -> Result<()> {
     let config = Config::read()?;
-    println!("{}", serde_json::to_string_pretty(&config)?);
+
+    if let Some(key) = &args.key {
+        let value = match json!(&config).get(key) {
+            Some(v) => v.to_string(),
+            None => bail!("Failed to get a config value of {key}"),
+        };
+        println!("{}", value);
+    } else {
+        println!("{}", serde_json::to_string_pretty(&config)?);
+    }
+
     Ok(())
 }
