@@ -72,6 +72,10 @@ _lium_get_boards() {
   ${COMP_WORDS[0]} board list --cached 2>/dev/null | cut -f 1
 }
 
+_lium_get_branches() {
+  ${COMP_WORDS[0]} config show --key android_branches 2>/dev/null | sed -e 's/[]["]//g' | sed -e 's/,/ /g'  
+}
+
 _lium_get_dut_actions() {
   lium dut do --list-actions 2>/dev/null
 }
@@ -161,6 +165,9 @@ _lium() { # command current prev
   elif [ x"$prev" = x"--board" ]; then
     local BOARDS=`_lium_get_boards`
     COMPREPLY=($(compgen -W "${BOARDS}" -- $cur))
+  elif [ x"$prev" = x"--branch"]
+    local BRANCHES=`_lium_get_branches`
+    COMPREPLY=($(compgen -W "${BRANCHES}" -- $cur))
   elif _lium_arg_included ${prev} ${servo_serial_opts}; then
     local DUTS=`_lium_get_servos`
     COMPREPLY=($(compgen -W "${DUTS}" -- $cur))
