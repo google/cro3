@@ -248,9 +248,11 @@ fn run_start(args: &ArgsStart) -> Result<()> {
         run_acloudw(args)?
     } else {
         run_betty_start(args)?;
-        "9222".to_string()
+        9222
     };
 
+    // Use localhost (127.0.0.1) because a port of a VM is port forwarded to a
+    // specific port on a host machine
     let info = register_dut(&format!("127.0.0.1:{port}"))?;
     println!(
         "You can connect the VM instance with `lium dut shell --dut {:?}`.",
@@ -261,7 +263,7 @@ fn run_start(args: &ArgsStart) -> Result<()> {
     Ok(())
 }
 
-fn run_acloudw(args: &ArgsStart) -> Result<String> {
+fn run_acloudw(args: &ArgsStart) -> Result<u16> {
     let branch = args
         .branch
         .clone()
@@ -372,7 +374,7 @@ fn get_cheeps_image_name(config: &Config, is_container: bool, branch: &str) -> R
     Ok(cheeps)
 }
 
-fn run_acloudw_cmd(opts: &[&str]) -> Result<String> {
+fn run_acloudw_cmd(opts: &[&str]) -> Result<u16> {
     let config = Config::read()?;
     let auth_valid_cmd = config
         .is_internal_auth_valid()
@@ -409,10 +411,14 @@ fn run_acloudw_cmd(opts: &[&str]) -> Result<String> {
     Ok(port)
 }
 
-fn get_acloudw_port_number(r: impl BufRead) -> Result<String> {
+/// Get a port number forwarding traffic to the SSH port of betty from output of
+/// acloudw command and return it as a 16-bit unsigned number
+fn get_acloudw_port_number(r: impl BufRead) -> Result<u16> {
     let mut port = String::new();
+
     let split_iter = r
         .split(b'\n')
+        // Remove the ANSI escape sequences here to make the regex search work
         .map(|l| String::from_utf8_lossy(&strip_ansi_escapes::strip(l.unwrap())).to_string());
 
     for a_line in split_iter {
@@ -422,7 +428,7 @@ fn get_acloudw_port_number(r: impl BufRead) -> Result<String> {
         }
     }
 
-    Ok(port)
+    Ok(port.parse::<u16>().unwrap())
 }
 
 fn run_betty_start(args: &ArgsStart) -> Result<()> {
