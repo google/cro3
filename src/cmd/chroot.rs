@@ -8,7 +8,7 @@ use anyhow::Result;
 use argh::FromArgs;
 use lium::chroot::Chroot;
 use lium::dut::SshInfo;
-use lium::repo::get_repo_dir;
+use lium::repo::get_cros_dir;
 
 #[derive(FromArgs, PartialEq, Debug)]
 /// run in chroot
@@ -32,7 +32,7 @@ pub struct Args {
 }
 #[tracing::instrument(level = "trace")]
 pub fn run(args: &Args) -> Result<()> {
-    let repo = get_repo_dir(&args.cros)?;
+    let repo = get_cros_dir(&args.cros)?;
     let mut additional_args = Vec::new();
     if let Some(dut) = &args.dut {
         let dut = SshInfo::new(dut)?;

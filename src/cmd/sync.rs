@@ -16,7 +16,7 @@ use lium::cros::lookup_full_version;
 use lium::cros::setup_cros_repo;
 use lium::repo::get_cros_dir_unchecked;
 use lium::repo::get_current_synced_arc_version;
-use lium::repo::get_current_synced_version;
+use lium::repo::get_current_synced_cros_version;
 use lium::repo::get_reference_repo;
 use lium::repo::repo_sync;
 use tracing::info;
@@ -60,17 +60,22 @@ pub struct Args {
 
 #[tracing::instrument(level = "trace")]
 pub fn run(args: &Args) -> Result<()> {
-    let is_arc = match (&args.cros, &args.arc) {
-        (Some(_), None) => false,
-        (None, Some(_)) => true,
+    let is_cros = match (&args.cros, &args.arc) {
+        (Some(_), None) => true,
+        (None, Some(_)) => false,
         _ => bail!("Please specify either --cros or --arc."),
     };
 
-    let version = extract_version(args, &is_arc)?;
-    let repo = if is_arc {
-        get_cros_dir_unchecked(&args.arc)?
+    let version = if is_cros {
+        extract_cros_version(&args.version)?
     } else {
+        lookup_arc_version(&args.version)?
+    };
+
+    let repo = if is_cros {
         get_cros_dir_unchecked(&args.cros)?
+    } else {
+        get_cros_dir_unchecked(&args.arc)?
     };
 
     // Inform user of sync information.
@@ -81,8 +86,7 @@ pub fn run(args: &Args) -> Result<()> {
         if args.force { "forcibly..." } else { "..." }
     );
 
-    // Prepare paths and determine if this is an arc or cros repo.
-    let is_arc = prepare_repo_paths(&repo)?.unwrap_or(is_arc);
+    prepare_repo_paths(&repo, is_cros)?;
 
     // If we are using another repo as reference for rapid cloning, so make sure
     // that one is synced.
@@ -92,57 +96,46 @@ pub fn run(args: &Args) -> Result<()> {
         repo_sync(reference, args.force, args.verbose)?;
     }
 
-    if is_arc {
-        setup_arc_repo(&repo, &version)?;
+    if is_cros {
+        setup_cros_repo(&repo, &version, &args.reference)?;
     } else {
-        setup_cros_repo(&repo, &version, &reference)?;
+        setup_arc_repo(&repo, &version)?;
     }
 
     repo_sync(&repo, args.force, args.verbose)
 }
 
-/// Version string can represent either cros repo version or an arc version.
-/// This function detects which and extracts its appropriately from the args.
-fn extract_version(args: &Args, is_arc: &bool) -> Result<String> {
-    let version = if !is_arc {
-        if args.version == "tot" {
-            args.version.clone()
-        } else {
-            lookup_full_version(&args.version, "eve")?
-        }
+/// Extract a appropriate version name from a argument.
+fn extract_cros_version(version: &String) -> Result<String> {
+    if version == "tot" {
+        Ok(version.clone())
     } else {
-        lookup_arc_version(&args.version)?
-    };
-
-    Ok(version)
+        Ok(lookup_full_version(version, "eve")?)
+    }
 }
 
-/// Prepares the repo to be synced by creating paths, detecting arc or cros, and
-/// reports to stderr.
-///
-/// returns an option of whether arc was detected.
-fn prepare_repo_paths(repo: &str) -> Result<Option<bool>> {
+/// Prepares the repo to be synced by creating paths and reports to stderr.
+fn prepare_repo_paths(repo: &str, is_cros: bool) -> Result<()> {
     if !Path::new(repo).is_dir() {
         info!("Creating {repo} ...");
         fs::create_dir_all(repo)?;
-        return Ok(None);
+        return Ok(());
     }
 
-    if Path::new(&format!("{}/Android.bp", repo)).exists() {
-        warn!("Arc repo detected...");
+    if is_cros {
+        if let Ok(prev_version) = get_current_synced_cros_version(repo) {
+            info!("Previous CROS version was: {}", prev_version);
+            return Ok(());
+        }
+    } else if Path::new(&format!("{}/Android.bp", repo)).exists() {
         let prev_version = get_current_synced_arc_version(repo)?;
         info!("Previous ARC version was: {}", prev_version);
-        return Ok(true.into());
-    }
-
-    if let Ok(prev_version) = get_current_synced_version(repo) {
-        info!("Previous CROS version was: {}", prev_version);
-        return Ok(false.into());
+        return Ok(());
     }
 
     if Path::new(repo).read_dir()?.next().is_some() {
-        bail!("{repo} is not a cros, arc, or empty directory.");
+        bail!("{repo} is either not a cros, arc or is empty directory.");
     }
 
-    Ok(None)
+    Ok(())
 }

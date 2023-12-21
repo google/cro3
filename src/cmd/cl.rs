@@ -9,7 +9,7 @@ use anyhow::Result;
 use argh::FromArgs;
 use lazy_static::lazy_static;
 use lium::chroot::Chroot;
-use lium::repo::get_repo_dir;
+use lium::repo::get_cros_dir;
 use regex::Regex;
 
 lazy_static! {
@@ -63,7 +63,7 @@ fn run_pick(args: &ArgsPick) -> Result<()> {
     let cl_suffix = &cl[cl.len() - 2..];
     let patchset = &capture["patchset"];
     let dir = &args.dir;
-    let chroot = Chroot::new(&get_repo_dir(&args.cros)?)?;
+    let chroot = Chroot::new(&get_cros_dir(&args.cros)?)?;
     chroot.run_bash_script_in_chroot(
         "checkout",
         &format!(

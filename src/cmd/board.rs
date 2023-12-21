@@ -9,7 +9,7 @@ use anyhow::Result;
 use argh::FromArgs;
 use glob::Pattern;
 use lium::cache::KvCache;
-use lium::repo::get_repo_dir;
+use lium::repo::get_cros_dir;
 use lium::util::shell_helpers::run_bash_command;
 
 #[derive(FromArgs, PartialEq, Debug)]
@@ -88,7 +88,7 @@ fn run_board_list(args: &ArgsList) -> Result<()> {
         .unwrap_or_else(|| Pattern::new("*"))?;
 
     if !args.cached {
-        update_cached_boards(&get_repo_dir(&args.cros)?)?;
+        update_cached_boards(&get_cros_dir(&args.cros)?)?;
     }
 
     print_cached_boards(&filter)

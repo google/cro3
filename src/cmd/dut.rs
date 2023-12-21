@@ -28,7 +28,7 @@ use lium::dut::DutInfo;
 use lium::dut::MonitoredDut;
 use lium::dut::SshInfo;
 use lium::dut::SSH_CACHE;
-use lium::repo::get_repo_dir;
+use lium::repo::get_cros_dir;
 use lium::servo::get_cr50_attached_to_servo;
 use lium::servo::LocalServo;
 use lium::servo::ServoList;
@@ -572,7 +572,7 @@ struct ArgsSetup {
     check_ssh: bool,
 }
 fn run_setup(args: &ArgsSetup) -> Result<()> {
-    let repo = get_repo_dir(&args.cros)?;
+    let repo = get_cros_dir(&args.cros)?;
     let servo = if let Some(serial) = &args.serial {
         let list = ServoList::discover()?;
         list.find_by_serial(serial)

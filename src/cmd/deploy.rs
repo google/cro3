@@ -12,7 +12,7 @@ use argh::FromArgs;
 use lium::chroot::Chroot;
 use lium::cros::ensure_testing_rsa_is_there;
 use lium::dut::SshInfo;
-use lium::repo::get_repo_dir;
+use lium::repo::get_cros_dir;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use tracing::info;
@@ -64,7 +64,7 @@ pub fn run(args: &Args) -> Result<()> {
 
     let board = target.get_board()?;
     let packages_str = args.packages.join(" ");
-    let chroot = Chroot::new(&get_repo_dir(&args.cros)?)?;
+    let chroot = Chroot::new(&get_cros_dir(&args.cros)?)?;
 
     let kernel_pkg = extract_kernel_pkg(&args.packages)?;
 

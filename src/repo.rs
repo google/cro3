@@ -49,13 +49,13 @@ pub fn get_cros_dir_unchecked(dir: &Option<String>) -> Result<String> {
     find_cros_dir_from_cwd()
 }
 
-pub fn get_repo_dir(dir: &Option<String>) -> Result<String> {
+pub fn get_cros_dir(dir: &Option<String>) -> Result<String> {
     let repo = get_cros_dir_unchecked(dir)?;
     ensure_is_cros_dir(&repo)?;
     Ok(repo)
 }
 
-pub fn get_current_synced_version(repo: &str) -> Result<String> {
+pub fn get_current_synced_cros_version(repo: &str) -> Result<String> {
     ensure_is_cros_dir(repo)?;
 
     let cmd = "./src/third_party/chromiumos-overlay/chromeos/config/chromeos_version.sh | grep -e \
