@@ -263,6 +263,8 @@ fn run_start(args: &ArgsStart) -> Result<()> {
     Ok(())
 }
 
+/// Generate a acloudw command, pass it to run_acloudw_cmd() and return a port
+/// number forwarding traffic to the SSH port of betty
 fn run_acloudw(args: &ArgsStart) -> Result<u16> {
     let branch = args
         .branch
