@@ -70,7 +70,7 @@ fn run_set(args: &ArgsSet) -> Result<()> {
 #[argh(subcommand, name = "show")]
 pub struct ArgsShow {
     /// key of a config
-    #[argh(option)]
+    #[argh(positional)]
     key: Option<String>,
 }
 fn run_show(args: &ArgsShow) -> Result<()> {
