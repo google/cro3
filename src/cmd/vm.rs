@@ -255,7 +255,7 @@ fn run_start(args: &ArgsStart) -> Result<()> {
     // specific port on a host machine
     let info = register_dut(&format!("127.0.0.1:{port}"))?;
     println!(
-        "You can connect the VM instance with `lium dut shell --dut {:?}`.",
+        "You can connect the VM instance with `lium dut shell --dut {}`.",
         info.id()
     );
     println!("To push an Android build a betty VM, run `lium arc flash`.");
