@@ -73,7 +73,7 @@ _lium_get_boards() {
 }
 
 _lium_get_branches() {
-  ${COMP_WORDS[0]} config show --key android_branches 2>/dev/null | sed -e 's/[]["]//g' | sed -e 's/,/ /g'  
+  ${COMP_WORDS[0]} config show android_branches 2>/dev/null | sed -e 's/[]["]//g' | sed -e 's/,/ /g'  
 }
 
 _lium_get_dut_actions() {
