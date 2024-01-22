@@ -17,6 +17,14 @@ use lium::repo::get_cros_dir;
 use regex::Regex;
 use tracing::error;
 
+fn get_board_from_dut(dut: &str) -> Result<String> {
+    let dut = DutInfo::new(dut)?;
+    dut.info()
+        .get("board")
+        .cloned()
+        .ok_or(anyhow!("Failed to get --board from "))
+}
+
 /// Determine a BOARD to flash, based on the parameters.
 /// If arg_dut is specified, this function will check if the board given via
 /// args is compatible with the BOARD of an image which is currently installed
@@ -25,29 +33,18 @@ fn determine_board_to_flash(
     arg_dut: &Option<String>,
     arg_board: &Option<String>,
 ) -> Result<String> {
-    let board_from_dut = arg_dut
-        .clone()
-        .ok_or(anyhow!("--dut is not specified"))
-        .map(|dut| -> Result<String> {
-            let dut = DutInfo::new(&dut)?;
-            dut.info()
-                .get("board")
-                .cloned()
-                .ok_or(anyhow!("Failed to get --board from "))
-        })?;
-    let board_from_arg = arg_board
-        .as_ref()
-        .ok_or("--board is not specified")
-        .cloned();
-    match (board_from_dut, board_from_arg) {
-        (Err(_), Err(_)) => bail!("Please specify --board or --dut"),
-        (Ok(board_from_dut), Err(_)) => Ok(board_from_dut),
-        (Err(_), Ok(board_from_arg)) => Ok(board_from_arg),
-        (Ok(board_from_dut), Ok(board_from_arg)) => {
+    match (arg_dut, arg_board) {
+        (None, None) => bail!("Please specify --board or --dut"),
+        (Some(dut), None) => get_board_from_dut(dut),
+        (None, Some(board)) => Ok(board.to_string()),
+        (Some(dut), Some(board_from_arg)) => {
             // Check if the base board names (without suffix '64' or '-*') are matched
             // to avoid flashing an unsupported image
+            let board_from_dut = get_board_from_dut(dut)?;
+            // Board has variants with suffixes (connected by dash), so need to compare
+            // the first part.
             let re = Regex::new(r"(^[[:alpha:]]*)")?;
-            let cap_arg = if let Some(cap) = re.captures(&board_from_arg) {
+            let cap_arg = if let Some(cap) = re.captures(board_from_arg) {
                 cap
             } else {
                 return Err(anyhow!(
@@ -64,7 +61,9 @@ fn determine_board_to_flash(
                     board_from_dut
                 ));
             }
-            Ok(board_from_arg)
+            // This has to return the board name given by --board because DUT may
+            // not run a variant image.
+            Ok(board_from_arg.to_string())
         }
     }
 }
