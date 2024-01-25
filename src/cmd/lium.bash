@@ -165,7 +165,7 @@ _lium() { # command current prev
   elif [ x"$prev" = x"--board" ]; then
     local BOARDS=`_lium_get_boards`
     COMPREPLY=($(compgen -W "${BOARDS}" -- $cur))
-  elif [ x"$prev" = x"--branch"]
+  elif [ x"$prev" = x"--branch"]; then 
     local BRANCHES=`_lium_get_branches`
     COMPREPLY=($(compgen -W "${BRANCHES}" -- $cur))
   elif _lium_arg_included ${prev} ${servo_serial_opts}; then
