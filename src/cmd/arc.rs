@@ -177,6 +177,10 @@ pub struct ArgsLogcat {
 }
 fn run_logcat(args: &ArgsLogcat) -> Result<()> {
     let remote = SshInfo::new(&args.dut)?;
+    let devices = remote.run_cmd_stdio("adb devices")?;
+    if !devices.contains("localhost:22") {
+        remote.run_cmd_piped(&["adb", "connect", "localhost:22"])?;
+    }
     remote.run_cmd_piped(&["adb", "logcat"])?;
     Ok(())
 }
