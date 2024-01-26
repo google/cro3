@@ -47,6 +47,9 @@ impl SshOverride {
 pub struct Config {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
+    android_branches: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     android_manifest_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
@@ -132,6 +135,11 @@ impl Config {
     }
     pub fn set<K: AsRef<str>>(&mut self, key: &str, values: &[K]) -> Result<()> {
         match key {
+            "android_branches" => {
+                let branches: Vec<String> =
+                    values[0..].iter().map(|s| s.as_ref().to_string()).collect();
+                self.android_branches = Some(branches);
+            }
             "android_manifest_url" => {
                 if values.len() != 1 {
                     bail!("{key} only takes 1 params");
@@ -245,6 +253,9 @@ impl Config {
     }
     pub fn clear(&mut self, key: &str) -> Result<()> {
         match key {
+            "android_branches" => {
+                self.android_branches = None;
+            }
             "android_manifest_url" => {
                 self.android_manifest_url = None;
             }
@@ -293,6 +304,13 @@ impl Config {
         }
         self.write()?;
         Ok(())
+    }
+    pub fn android_branches(&self) -> Vec<&str> {
+        if let Some(branches) = &self.android_branches {
+            branches.iter().map(|s| s as &str).collect()
+        } else {
+            Vec::new()
+        }
     }
     pub fn tast_bundles(&self) -> Vec<&str> {
         if let Some(bundles) = &self.tast_bundles {
