@@ -4,7 +4,7 @@
 // license that can be found in the LICENSE file or at
 // https://developers.google.com/open-source/licenses/bsd
 
-//! # DUT (Device Under Test) management
+//! ## DUT (Device Under Test) management
 //! ```
 //! # SSH into a DUT using testing_rsa
 //! lium dut shell --dut ${DUT}
