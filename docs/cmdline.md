@@ -1,4 +1,4 @@
- # DUT (Device Under Test) management
+ ## DUT (Device Under Test) management
  ```
  # SSH into a DUT using testing_rsa
  lium dut shell --dut ${DUT}
