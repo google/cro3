@@ -53,6 +53,13 @@ Please refer to [docs/cmdline.md](docs/cmdline.md)
 
 Tips: You can replace `cro3` with `cargo run -- ` to use your own modified version of cro3 instead.
 
+Also, you can preview the command line reference by running:
+
+```
+gh extension install https://github.com/yusukebe/gh-markdown-preview
+make preview
+```
+
 ### Servo / Cr50
 
 ```
