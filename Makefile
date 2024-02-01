@@ -54,6 +54,7 @@ docs/cmdline.md: docs/cmdline_preface.md ${DOC_SRC} Makefile
 	cp docs/cmdline_preface.md $@
 	@cat ${DOC_SRC} | grep '//!' | sed -E 's#^//! ?##' >> $@
 
+.PHONY : cmdline_doc_check
 cmdline_doc_check:
 	./scripts/cmdline_doc_check.sh
 
