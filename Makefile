@@ -25,6 +25,7 @@ check:
 	cargo clippy -- -D warnings
 	cargo test
 	cargo check
+	shellcheck src/cmd/lium.bash
 
 commit:
 	make check
