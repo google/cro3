@@ -21,11 +21,11 @@ install:
 	@printf "\nlium is successfully installed at `which lium`. Try \`lium --help\` if you want!\n"
 
 check:
+	shellcheck src/cmd/lium.bash
 	cargo fmt
 	cargo clippy -- -D warnings
 	cargo test
 	cargo check
-	shellcheck src/cmd/lium.bash
 
 commit:
 	make check
