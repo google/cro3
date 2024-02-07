@@ -207,16 +207,22 @@ fn run_tast_run(args: &ArgsRun) -> Result<()> {
     let port = ssh.start_ssh_forwarding_range_background(4100..4200)?;
     let opt = args.option.as_deref();
 
+    let mut matched = false;
     let config = Config::read()?;
-    let bundles = config.tast_bundles();
+    let mut bundles = config.tast_bundles();
     if bundles.is_empty() {
-        run_test_with_bundle(DEFAULT_BUNDLE, &filter, &chroot, port, opt)?
-    } else {
-        for b in bundles {
-            if bundle_has_test(b, &filter) {
-                run_test_with_bundle(b, &filter, &chroot, port, opt)?
-            }
+        bundles.push(DEFAULT_BUNDLE);
+    }
+
+    for b in bundles {
+        if bundle_has_test(b, &filter) {
+            matched = true;
+            run_test_with_bundle(b, &filter, &chroot, port, opt)?
         }
+    }
+
+    if !matched {
+        bail!("{0} did not match any cached tests.", args.tests);
     }
 
     Ok(())
