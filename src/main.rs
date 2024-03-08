@@ -31,8 +31,8 @@ fn main() -> Result<()> {
 
     // Set up tracing/logging.  The init call sets the global backup trace
     // logger.
-    let lium_logging_env_filter = EnvFilter::builder()
-        .with_env_var("LIUM_LOG")
+    let cro3_logging_env_filter = EnvFilter::builder()
+        .with_env_var("CRO3_LOG")
         .with_default_directive(command_line_log_level.unwrap_or(LevelFilter::INFO).into())
         .from_env_lossy();
     let tracing_subscriber = tracing_subscriber::fmt::layer()
@@ -43,7 +43,7 @@ fn main() -> Result<()> {
         .with_writer(std::io::stderr);
     tracing_subscriber::registry()
         .with(tracing_subscriber)
-        .with(lium_logging_env_filter)
+        .with(cro3_logging_env_filter)
         .init();
 
     let args_log = &std::env::args().skip(1).collect::<Vec<_>>();
@@ -51,7 +51,7 @@ fn main() -> Result<()> {
 
     if args_log.contains(&"--repo".to_string()) {
         bail!(
-            "--repo option was renamed to --cros/--arc option. `lium {} --help` has more details.",
+            "--repo option was renamed to --cros/--arc option. `cro3 {} --help` has more details.",
             args_log[0]
         );
     }

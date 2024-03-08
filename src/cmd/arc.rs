@@ -8,10 +8,10 @@ use std::process::Command;
 
 use anyhow::Result;
 use argh::FromArgs;
-use lium::chroot::Chroot;
-use lium::cros::ensure_testing_rsa_is_there;
-use lium::dut::SshInfo;
-use lium::repo::get_cros_dir;
+use cro3::chroot::Chroot;
+use cro3::cros::ensure_testing_rsa_is_there;
+use cro3::dut::SshInfo;
+use cro3::repo::get_cros_dir;
 use tracing::error;
 use tracing::info;
 

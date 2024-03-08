@@ -7,11 +7,11 @@
 use anyhow::bail;
 use anyhow::Result;
 use argh::FromArgs;
-use lium::config::Config;
+use cro3::config::Config;
 use serde_json::json;
 
 #[derive(FromArgs, PartialEq, Debug)]
-/// configure lium
+/// configure cro3
 #[argh(subcommand, name = "config")]
 pub struct Args {
     #[argh(subcommand)]

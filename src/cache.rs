@@ -21,7 +21,7 @@ use serde::Serialize;
 use serde_json::{Map, Value};
 use tracing::error;
 
-use crate::util::lium_paths::gen_path_in_lium_dir;
+use crate::util::cro3_paths::gen_path_in_cro3_dir;
 
 pub struct KvCache<T: Serialize + DeserializeOwned + Sized + Clone + Debug> {
     name: &'static str,
@@ -50,7 +50,7 @@ impl<T: Serialize + DeserializeOwned + Sized + Clone + Debug> KvCache<T> {
     }
     fn create_file(&self, remove: bool) -> Result<()> {
         let path =
-            gen_path_in_lium_dir(self.name).context("Failed to generate a cache file path")?;
+            gen_path_in_cro3_dir(self.name).context("Failed to generate a cache file path")?;
         if remove {
             std::fs::remove_file(&path).context("Failed to remove the file")?;
         }

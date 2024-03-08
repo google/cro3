@@ -7,9 +7,9 @@
 use anyhow::Context;
 use anyhow::Result;
 use argh::FromArgs;
+use cro3::chroot::Chroot;
+use cro3::repo::get_cros_dir;
 use lazy_static::lazy_static;
-use lium::chroot::Chroot;
-use lium::repo::get_cros_dir;
 use regex::Regex;
 
 lazy_static! {

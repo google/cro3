@@ -17,7 +17,7 @@ use serde::Deserialize;
 use serde::Serialize;
 use tracing::warn;
 
-use crate::util::lium_paths::gen_path_in_lium_dir;
+use crate::util::cro3_paths::gen_path_in_cro3_dir;
 use crate::util::shell_helpers::run_bash_command;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -77,35 +77,35 @@ pub struct Config {
     #[serde(default)]
     is_internal: Option<bool>,
     /// Command to check if internal authentication valid. It is set by the
-    /// internal lium-installer.
+    /// internal cro3-installer.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     is_internal_auth_valid: Option<String>,
-    /// Path to acloudw.sh. It is set by the internal lium-installer.
+    /// Path to acloudw.sh. It is set by the internal cro3-installer.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     acloudw_cmd_path: Option<String>,
-    /// Path to acloudw config file. It is set by the internal lium-installer.
+    /// Path to acloudw config file. It is set by the internal cro3-installer.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     acloudw_config_path: Option<String>,
     /// Key: {vm, container, main}, value: Android lunch target. It is set by
-    /// the internal lium-installer.
+    /// the internal cro3-installer.
     #[serde(skip_serializing_if = "HashMap::is_empty")]
     #[serde(default)]
     android_target_for_vm_type: HashMap<String, String>,
     /// Command to get cheeps image name for ARCVM. It is set by the internal
-    /// lium-installer.
+    /// cro3-installer.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     arc_vm_cheeps_image: Option<String>,
     /// Key: Android branch, value: command to get betty image name for ARCVM.
-    /// It is set by the internal lium-installer.
+    /// It is set by the internal cro3-installer.
     #[serde(skip_serializing_if = "HashMap::is_empty")]
     #[serde(default)]
     arc_vm_betty_image_for_branch: HashMap<String, String>,
     /// Key: Android branch, value: command to get cheeps image name for
-    /// ARC-container. It is set by the internal lium-installer.
+    /// ARC-container. It is set by the internal cro3-installer.
     #[serde(skip_serializing_if = "HashMap::is_empty")]
     #[serde(default)]
     arc_container_cheeps_image_for_branch: HashMap<String, String>,
@@ -113,7 +113,7 @@ pub struct Config {
 static CONFIG_FILE_NAME: &str = "config.json";
 impl Config {
     pub fn read() -> Result<Self> {
-        let path = gen_path_in_lium_dir(CONFIG_FILE_NAME)?;
+        let path = gen_path_in_cro3_dir(CONFIG_FILE_NAME)?;
         let config = read_to_string(&path);
         match config {
             Ok(config) => Ok(serde_json::from_str(&config)?),
@@ -130,7 +130,7 @@ impl Config {
     // This is private since write should happen on every updates transparently
     fn write(&self) -> Result<()> {
         let s = serde_json::to_string_pretty(&self)?;
-        write(gen_path_in_lium_dir(CONFIG_FILE_NAME)?, s.into_bytes())
+        write(gen_path_in_cro3_dir(CONFIG_FILE_NAME)?, s.into_bytes())
             .context("failed to write config")
     }
     pub fn set<K: AsRef<str>>(&mut self, key: &str, values: &[K]) -> Result<()> {
@@ -268,7 +268,7 @@ impl Config {
             "ssh_overrides" => self.ssh_overrides.clear(),
             "ssh_override" => {
                 return Err(anyhow!(
-                    "please use `lium config clear ssh_overrides` instead ;)"
+                    "please use `cro3 config clear ssh_overrides` instead ;)"
                 ))
             }
             "tast_bundles" => {
@@ -300,7 +300,7 @@ impl Config {
             "arc_container_cheeps_image_for_branch" => {
                 self.arc_container_cheeps_image_for_branch.clear()
             }
-            _ => bail!("lium config clear for '{key}' is not implemented"),
+            _ => bail!("cro3 config clear for '{key}' is not implemented"),
         }
         self.write()?;
         Ok(())

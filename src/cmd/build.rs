@@ -7,8 +7,8 @@
 use anyhow::anyhow;
 use anyhow::Result;
 use argh::FromArgs;
-use lium::chroot::Chroot;
-use lium::repo::get_cros_dir;
+use cro3::chroot::Chroot;
+use cro3::repo::get_cros_dir;
 use tracing::info;
 
 #[derive(FromArgs, PartialEq, Debug)]
@@ -119,7 +119,7 @@ emerge-{board} {package_list}
         info!("Succesfully built {package_list}!");
     } else {
         return Err(anyhow!(
-            "Please specify --full or --packages. `lium build --help` for more details."
+            "Please specify --full or --packages. `cro3 build --help` for more details."
         ));
     }
     Ok(())

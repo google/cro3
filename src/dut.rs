@@ -162,10 +162,10 @@ lazy_static! {
         );
         m.insert("lshw", r"lshw -json");
         m.insert("lsb_release", r"cat /etc/lsb-release");
-        m.insert("ipv6_addr", concat!(r"ip -6 address show dev `lium_get_default_iface` mngtmpaddr | grep inet6 | sed -E 's/\s+/ /g' | tr '/' ' ' | cut -d ' ' -f 3"));
-        m.insert("ipv4_addr", r"ip -4 address show dev `lium_get_default_iface` scope global | grep inet | sed -E 's/\s+/ /g' | tr '/' ' ' | cut -d ' ' -f 3");
-        m.insert("ipv6_addrs", r"ip -6 address show dev `lium_get_default_iface` mngtmpaddr | grep inet6 | sed -E 's/\s+/ /g' | tr '/' ' ' | cut -d ' ' -f 3");
-        m.insert("mac", r"ip addr show dev `lium_get_default_iface` | grep ether | grep -E -o '([0-9a-z]{2}:){5}([0-9a-z]{2})' | head -n 1");
+        m.insert("ipv6_addr", concat!(r"ip -6 address show dev `cro3_get_default_iface` mngtmpaddr | grep inet6 | sed -E 's/\s+/ /g' | tr '/' ' ' | cut -d ' ' -f 3"));
+        m.insert("ipv4_addr", r"ip -4 address show dev `cro3_get_default_iface` scope global | grep inet | sed -E 's/\s+/ /g' | tr '/' ' ' | cut -d ' ' -f 3");
+        m.insert("ipv6_addrs", r"ip -6 address show dev `cro3_get_default_iface` mngtmpaddr | grep inet6 | sed -E 's/\s+/ /g' | tr '/' ' ' | cut -d ' ' -f 3");
+        m.insert("mac", r"ip addr show dev `cro3_get_default_iface` | grep ether | grep -E -o '([0-9a-z]{2}:){5}([0-9a-z]{2})' | head -n 1");
         m.insert("release", r"cat /etc/lsb-release | grep CHROMEOS_RELEASE_DESCRIPTION | sed -e 's/CHROMEOS_RELEASE_DESCRIPTION=//'");
         m.insert("dev_boot_usb", r"crossystem dev_boot_usb");
         m.insert("dev_default_boot", r"crossystem dev_default_boot");
@@ -363,8 +363,8 @@ impl DutInfo {
             }
         }
         let cmds = format!(
-            "function lium_get_default_iface {{ {CMD_GET_DEFAULT_IFACE} ; }} && export -f \
-             lium_get_default_iface && "
+            "function cro3_get_default_iface {{ {CMD_GET_DEFAULT_IFACE} ; }} && export -f \
+             cro3_get_default_iface && "
         );
         let cmds = cmds
             + &keys_from_dut
@@ -409,7 +409,7 @@ impl SshInfo {
             // '_' is a character that is not allowed for hostname.
             // Therefore, we can assume that unknown DUT ID is specified.
             return Err(anyhow!(
-                "DUT {dut} is not cached yet. Please run `lium dut info ${{DUT_IP}}` first."
+                "DUT {dut} is not cached yet. Please run `cro3 dut info ${{DUT_IP}}` first."
             ));
         }
         let url = "ssh://".to_string() + dut;
@@ -574,7 +574,7 @@ impl SshInfo {
         Ok(cmd)
     }
     /// run_cmd_piped will execute the given cmd on a remote machine.
-    /// stdio will be pass-throughed to lium's stdio.
+    /// stdio will be pass-throughed to cro3's stdio.
     pub fn run_cmd_piped<T: AsRef<str> + AsRef<OsStr> + std::fmt::Debug>(
         &self,
         arg: &[T],
@@ -654,7 +654,7 @@ impl SshInfo {
         &self,
         port_range: Range<u16>,
     ) -> Result<(async_process::Child, u16)> {
-        const COMMON_PORT_FORWARD_TOKEN: &str = "lium-ssh-portforward";
+        const COMMON_PORT_FORWARD_TOKEN: &str = "cro3-ssh-portforward";
         let sshcmd = &format!("echo {COMMON_PORT_FORWARD_TOKEN}; sleep 8h");
         let mut ports: Vec<u16> = port_range.into_iter().collect::<Vec<u16>>();
         let mut rng = thread_rng();
@@ -672,7 +672,7 @@ impl SshInfo {
                     line = merged_stream => {
                         if let Some(Ok(line)) = line {
                             if line.contains(COMMON_PORT_FORWARD_TOKEN) {
-                                info!("lium: Established SSH port forwarding for {self:?} on {port}");
+                                info!("cro3: Established SSH port forwarding for {self:?} on {port}");
                                 return Ok((child, port));
                             }
                             info!("{line}");
@@ -699,7 +699,7 @@ impl SshInfo {
     /// return value represents which port is used for this forwarding, or an
     /// error. Forwarding port on this side will be automatically determined by
     /// start_ssh_forwarding, and the same port will be used for reconnecting
-    /// while this lium instance is running.
+    /// while this cro3 instance is running.
     pub fn start_ssh_forwarding_range_background(&self, port_range: Range<u16>) -> Result<u16> {
         let (mut child, port) = block_on(self.start_ssh_forwarding_range(port_range))?;
         let ssh = self.clone();
@@ -707,9 +707,9 @@ impl SshInfo {
             block_on(async move {
                 loop {
                     let status = child.status().await;
-                    info!("lium: SSH forwarding process exited with {status:?}");
+                    info!("cro3: SSH forwarding process exited with {status:?}");
                     loop {
-                        info!("lium: Reconnecting to {ssh:?}...");
+                        info!("cro3: Reconnecting to {ssh:?}...");
                         if let Ok(new_child) = ssh.start_ssh_forwarding(port).await {
                             child = new_child;
                             break;

@@ -7,15 +7,15 @@ use anyhow::Context;
 use anyhow::Result;
 use dirs::home_dir;
 
-pub fn lium_dir() -> Result<String> {
-    gen_path_in_lium_dir(".keep").and_then(|mut path| {
+pub fn cro3_dir() -> Result<String> {
+    gen_path_in_cro3_dir(".keep").and_then(|mut path| {
         path.pop();
-        Ok(path.to_str().context("Failed to get lium dir")?.to_string())
+        Ok(path.to_str().context("Failed to get cro3 dir")?.to_string())
     })
 }
 
-pub fn gen_path_in_lium_dir(name: &str) -> Result<PathBuf> {
-    const WORKING_DIR_NAME: &str = ".lium";
+pub fn gen_path_in_cro3_dir(name: &str) -> Result<PathBuf> {
+    const WORKING_DIR_NAME: &str = ".cro3";
 
     let path = &home_dir().context("Failed to determine home dir")?;
     let path = Path::new(path);

@@ -236,6 +236,45 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e496a50fda8aacccc86d7529e2c1e0892dbd0f898a6b5645b5561b89c3210efa"
 
 [[package]]
+name = "cro3"
+version = "0.1.2"
+dependencies = [
+ "anyhow",
+ "argh",
+ "async-process",
+ "base64",
+ "chrono",
+ "dirs",
+ "futures",
+ "glob",
+ "indicatif",
+ "lazy_static",
+ "macaddr",
+ "nix",
+ "num_cpus",
+ "once_cell",
+ "pretty_assertions",
+ "rand 0.8.5",
+ "rayon",
+ "regex",
+ "regex-macro",
+ "retry",
+ "serde",
+ "serde_json",
+ "signal-hook",
+ "strip-ansi-escapes",
+ "strum",
+ "strum_macros",
+ "tempdir",
+ "termion",
+ "tracing",
+ "tracing-subscriber",
+ "url",
+ "wait-timeout",
+ "whoami",
+]
+
+[[package]]
 name = "crossbeam-deque"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -611,45 +650,6 @@ name = "linux-raw-sys"
 version = "0.3.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ef53942eb7bf7ff43a617b3e2c1c4a5ecf5944a7c1bc12d7ee39bbb15e5c1519"
-
-[[package]]
-name = "lium"
-version = "0.1.2"
-dependencies = [
- "anyhow",
- "argh",
- "async-process",
- "base64",
- "chrono",
- "dirs",
- "futures",
- "glob",
- "indicatif",
- "lazy_static",
- "macaddr",
- "nix",
- "num_cpus",
- "once_cell",
- "pretty_assertions",
- "rand 0.8.5",
- "rayon",
- "regex",
- "regex-macro",
- "retry",
- "serde",
- "serde_json",
- "signal-hook",
- "strip-ansi-escapes",
- "strum",
- "strum_macros",
- "tempdir",
- "termion",
- "tracing",
- "tracing-subscriber",
- "url",
- "wait-timeout",
- "whoami",
-]
 
 [[package]]
 name = "log"

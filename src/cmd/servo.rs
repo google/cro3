@@ -11,15 +11,15 @@ use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
 use argh::FromArgs;
-use lium::chroot::Chroot;
-use lium::repo::get_cros_dir;
-use lium::servo::reset_devices;
-use lium::servo::LocalServo;
-use lium::servo::ServoList;
-use lium::servo::ServodConnection;
-use lium::util::lium_paths::gen_path_in_lium_dir;
-use lium::util::lium_paths::lium_dir;
-use lium::util::shell_helpers::run_bash_command;
+use cro3::chroot::Chroot;
+use cro3::repo::get_cros_dir;
+use cro3::servo::reset_devices;
+use cro3::servo::LocalServo;
+use cro3::servo::ServoList;
+use cro3::servo::ServodConnection;
+use cro3::util::cro3_paths::cro3_dir;
+use cro3::util::cro3_paths::gen_path_in_cro3_dir;
+use cro3::util::shell_helpers::run_bash_command;
 use tracing::info;
 
 #[derive(FromArgs, PartialEq, Debug)]
@@ -87,9 +87,9 @@ pub fn run_get(args: &ArgsGet) -> Result<()> {
         "board" => {
             run_bash_command(
                 "wget -N https://dl.google.com/edgedl/chromeos/recovery/recovery.conf",
-                Some(&lium_dir()?),
+                Some(&cro3_dir()?),
             )?;
-            let _list = read_to_string(gen_path_in_lium_dir("recovery.conf")?)?;
+            let _list = read_to_string(gen_path_in_cro3_dir("recovery.conf")?)?;
         }
         "gbb_flags" => {
             let repo = get_cros_dir(&None)?;
@@ -169,7 +169,7 @@ pub struct ArgsControl {
     /// path to chromiumos source checkout
     #[argh(option)]
     cros: String,
-    /// a servo serial number. To list available servos, run `lium servo list`
+    /// a servo serial number. To list available servos, run `cro3 servo list`
     #[argh(option)]
     serial: String,
     /// arguments to pass to dut_control command

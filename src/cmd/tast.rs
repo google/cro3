@@ -8,13 +8,13 @@ use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
 use argh::FromArgs;
+use cro3::cache::KvCache;
+use cro3::chroot::Chroot;
+use cro3::config::Config;
+use cro3::cros::ensure_testing_rsa_is_there;
+use cro3::dut::SshInfo;
+use cro3::repo::get_cros_dir;
 use glob::Pattern;
-use lium::cache::KvCache;
-use lium::chroot::Chroot;
-use lium::config::Config;
-use lium::cros::ensure_testing_rsa_is_there;
-use lium::dut::SshInfo;
-use lium::repo::get_cros_dir;
 
 #[derive(FromArgs, PartialEq, Debug)]
 /// run Tast test
