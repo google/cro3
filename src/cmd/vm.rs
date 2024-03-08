@@ -17,9 +17,9 @@ use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
 use argh::FromArgs;
-use lium::config::Config;
-use lium::dut::register_dut;
-use lium::util::shell_helpers::run_bash_command;
+use cro3::config::Config;
+use cro3::dut::register_dut;
+use cro3::util::shell_helpers::run_bash_command;
 use once_cell::sync::Lazy;
 use regex_macro::regex;
 use regex_macro::Regex;
@@ -255,10 +255,10 @@ fn run_start(args: &ArgsStart) -> Result<()> {
     // specific port on a host machine
     let info = register_dut(&format!("127.0.0.1:{port}"))?;
     println!(
-        "You can connect the VM instance with `lium dut shell --dut {}`.",
+        "You can connect the VM instance with `cro3 dut shell --dut {}`.",
         info.id()
     );
-    println!("To push an Android build a betty VM, run `lium arc flash`.");
+    println!("To push an Android build a betty VM, run `cro3 arc flash`.");
 
     Ok(())
 }

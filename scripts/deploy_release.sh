@@ -18,7 +18,7 @@ make release_build
 
 VERSION=`cargo run --release -- version | cut -d ' ' -f 2 | grep -E '[0-9]+\.[0-9]+\.[0-9]'`
 PROJECT_PATH=`dirname -- $(cargo locate-project --message-format plain)`
-BINPATH=`readlink -f ${PROJECT_PATH}/target/x86_64-unknown-linux-gnu/release/lium`
+BINPATH=`readlink -f ${PROJECT_PATH}/target/x86_64-unknown-linux-gnu/release/cro3`
 file ${BINPATH}
 ldd ${BINPATH} | grep 'statically linked'
 
@@ -42,13 +42,13 @@ fi
 
 # Create a new release on GitHub
 read -r -d '' RELEASE_NOTE <<EOF
-To install lium ${VERSION}, please run:
+To install cro3 ${VERSION}, please run:
 \`\`\`
-curl -L -o /usr/local/bin/lium https://github.com/google/lium/releases/download/${VERSION}/lium && chmod +x /usr/local/bin/lium
+curl -L -o /usr/local/bin/cro3 https://github.com/google/cro3/releases/download/${VERSION}/cro3 && chmod +x /usr/local/bin/cro3
 \`\`\`
 EOF
 echo "Creating release ${VERSION} on GitHub"
-gh release create ${VERSION} --target `git rev-parse HEAD` --notes "${RELEASE_NOTE}" ./target/release/lium
+gh release create ${VERSION} --target `git rev-parse HEAD` --notes "${RELEASE_NOTE}" ./target/release/cro3
 
 # Create a new release on crates.io
 cargo publish

@@ -5,10 +5,10 @@
 # https://developers.google.com/open-source/licenses/bsd
 
 #
-# bash completion script for lium
+# bash completion script for cro3
 #
 # return 0(OK) if given argument is already used
-__lium_arg_used() { # arg
+__cro3_arg_used() { # arg
   local i=0
   while [ $i -lt $COMP_CWORD ]; do
     test x"${COMP_WORDS[i]}" = x"$1" && return 0
@@ -18,16 +18,16 @@ __lium_arg_used() { # arg
 }
 
 # return 0 (OK) if one of given arguments is already used
-_lium_arg_used() { # arg [arg...]
+_cro3_arg_used() { # arg [arg...]
   while [ "$#" -ne 0 ]; do
-    __lium_arg_used $1 && return 0
+    __cro3_arg_used $1 && return 0
     shift 1
   done
   return 1
 }
 
 # return 0 if carg is included in the rest of args
-_lium_arg_included() { # carg [args...]
+_cro3_arg_included() { # carg [args...]
   local cur=$1
   shift 1
   while [ "$#" -ne 0 ]; do
@@ -37,7 +37,7 @@ _lium_arg_included() { # carg [args...]
   return 1
 }
 
-_lium_current_repo() {
+_cro3_current_repo() {
   local i=0
   while [ $i -lt $COMP_CWORD ]; do
     if [ "${COMP_WORDS[i]}" = "--repo" ]; then
@@ -52,35 +52,35 @@ _lium_current_repo() {
   fi
 }
 
-_lium_get_duts() {
+_cro3_get_duts() {
   ${COMP_WORDS[0]} dut list --ids 2>/dev/null
 }
 
-_lium_get_tests() {
+_cro3_get_tests() {
   ${COMP_WORDS[0]} tast list --cached 2>/dev/null | cut -f 1 -d,
 }
 
-_lium_get_servos() {
+_cro3_get_servos() {
   ${COMP_WORDS[0]} servo list --serials 2>/dev/null | cut -f 1
 }
 
-_lium_get_packages() {
+_cro3_get_packages() {
   ${COMP_WORDS[0]} packages list --cached 2>/dev/null | cut -f 1
 }
 
-_lium_get_boards() {
+_cro3_get_boards() {
   ${COMP_WORDS[0]} board list --cached 2>/dev/null | cut -f 1
 }
 
-_lium_get_branches() {
+_cro3_get_branches() {
   ${COMP_WORDS[0]} config show android_branches 2>/dev/null | sed -e 's/[]["]//g' | sed -e 's/,/ /g'  
 }
 
-_lium_get_dut_actions() {
-  lium dut do --list-actions 2>/dev/null
+_cro3_get_dut_actions() {
+  cro3 dut do --list-actions 2>/dev/null
 }
 
-_lium_comp_fs() { # option(-d|-f) current
+_cro3_comp_fs() { # option(-d|-f) current
   local DIR=`compgen ${1} ${2}`
   if [ `echo ${DIR} | wc -w` = 1 -a -d "${DIR}" ]; then
     compgen ${1} "${DIR}/"
@@ -89,7 +89,7 @@ _lium_comp_fs() { # option(-d|-f) current
   fi
 }
 
-_lium_current_command() {
+_cro3_current_command() {
   local i=0
   while [ $i -lt $COMP_CWORD ]; do
     case "${COMP_WORDS[i]}" in
@@ -101,8 +101,8 @@ _lium_current_command() {
   done
 }
 
-_lium_get_options() { # current
-  local cmd=`_lium_current_command`
+_cro3_get_options() { # current
+  local cmd=`_cro3_current_command`
   local otype=0
   local a b
 
@@ -114,23 +114,23 @@ _lium_get_options() { # current
       -*)
         # All options start with '-'.
         if [ ${otype} -eq 2 ]; then
-          _lium_arg_used ${a} || echo ${a}
+          _cro3_arg_used ${a} || echo ${a}
         fi;;
       *)
         # Positional arguments must be converted.
         if [ ${otype} -eq 1 ]; then
           case "${a}" in
           dut|duts)
-            _lium_get_duts;;
+            _cro3_get_duts;;
           actions)
-            _lium_get_dut_actions;;
+            _cro3_get_dut_actions;;
           tests)
-            _lium_get_tests;;
+            _cro3_get_tests;;
           packages)
-            _lium_get_packages;;
+            _cro3_get_packages;;
           files)
             if [ "${1#-}" == "${1}" ]; then
-              _lium_comp_fs -f ${1}
+              _cro3_comp_fs -f ${1}
             fi;;
           esac
         # Subcommands must be shown as it is.
@@ -142,7 +142,7 @@ _lium_get_options() { # current
   done
 }
 
-_lium() { # command current prev
+_cro3() { # command current prev
   local cur=$2
   local prev=$3
   local dir_opts="--dir --dest --cros --arc"
@@ -152,36 +152,36 @@ _lium() { # command current prev
 
   COMPREPLY=
   # If there is --help option, no more options available.
-  if _lium_arg_used "--help"; then
+  if _cro3_arg_used "--help"; then
     return 0
   fi
 
-  if _lium_arg_included ${prev} ${todo_opts}; then
+  if _cro3_arg_included ${prev} ${todo_opts}; then
     # TODO: support completion for each options. currently it is stopped.
     return 0
   elif [ x"$prev" = x"--dut" ]; then
-    local DUTS=`_lium_get_duts`
+    local DUTS=`_cro3_get_duts`
     COMPREPLY=($(compgen -W "${DUTS}" -- $cur))
   elif [ x"$prev" = x"--board" ]; then
-    local BOARDS=`_lium_get_boards`
+    local BOARDS=`_cro3_get_boards`
     COMPREPLY=($(compgen -W "${BOARDS}" -- $cur))
   elif [ x"$prev" = x"--branch"]; then 
-    local BRANCHES=`_lium_get_branches`
+    local BRANCHES=`_cro3_get_branches`
     COMPREPLY=($(compgen -W "${BRANCHES}" -- $cur))
-  elif _lium_arg_included ${prev} ${servo_serial_opts}; then
-    local DUTS=`_lium_get_servos`
+  elif _cro3_arg_included ${prev} ${servo_serial_opts}; then
+    local DUTS=`_cro3_get_servos`
     COMPREPLY=($(compgen -W "${DUTS}" -- $cur))
   elif [ x"$prev" = x"--remove" -a "${COMP_WORDS[1]}" = "dut" -a "${COMP_WORDS[2]}" = "list" ]; then
-    local DUTS=`_lium_get_duts`
+    local DUTS=`_cro3_get_duts`
     COMPREPLY=($(compgen -W "${DUTS}" -- $cur))
-  elif _lium_arg_included ${prev} ${dir_opts}; then
-    COMPREPLY=($(_lium_comp_fs -d ${cur}))
-  elif _lium_arg_included ${prev} ${file_opts}; then
-    COMPREPLY=($(_lium_comp_fs -f ${cur}))
+  elif _cro3_arg_included ${prev} ${dir_opts}; then
+    COMPREPLY=($(_cro3_comp_fs -d ${cur}))
+  elif _cro3_arg_included ${prev} ${file_opts}; then
+    COMPREPLY=($(_cro3_comp_fs -f ${cur}))
   else
-    local OPTS=`_lium_get_options ${cur}`
+    local OPTS=`_cro3_get_options ${cur}`
     COMPREPLY=($(compgen -W "${OPTS}" -- ${cur}))
   fi
 }
 
-complete -F _lium lium
+complete -F _cro3 cro3

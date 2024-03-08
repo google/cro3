@@ -18,20 +18,20 @@ use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
 use argh::FromArgs;
+use cro3::chroot::Chroot;
+use cro3::cros;
+use cro3::dut::discover_local_nodes;
+use cro3::dut::fetch_dut_info_in_parallel;
+use cro3::dut::register_dut;
+use cro3::dut::DutInfo;
+use cro3::dut::MonitoredDut;
+use cro3::dut::SshInfo;
+use cro3::dut::SSH_CACHE;
+use cro3::repo::get_cros_dir;
+use cro3::servo::get_cr50_attached_to_servo;
+use cro3::servo::LocalServo;
+use cro3::servo::ServoList;
 use lazy_static::lazy_static;
-use lium::chroot::Chroot;
-use lium::cros;
-use lium::dut::discover_local_nodes;
-use lium::dut::fetch_dut_info_in_parallel;
-use lium::dut::register_dut;
-use lium::dut::DutInfo;
-use lium::dut::MonitoredDut;
-use lium::dut::SshInfo;
-use lium::dut::SSH_CACHE;
-use lium::repo::get_cros_dir;
-use lium::servo::get_cr50_attached_to_servo;
-use lium::servo::LocalServo;
-use lium::servo::ServoList;
 use rayon::prelude::*;
 use termion::screen::IntoAlternateScreen;
 use tracing::error;
@@ -523,8 +523,8 @@ fn check_dev_gbb_flags(dut: &DutInfo) -> Result<()> {
     if !gbb_flags & 0x19 != 0 {
         return Err(anyhow!(
             "GBB flags are not set properly for development. Please run:
-                lium dut shell --dut [{0}] -- /usr/share/vboot/bin/set_gbb_flags.sh 0x19
-                lium dut shell --dut [{0}] -- /usr/share/vboot/bin/set_gbb_flags.sh 0x19",
+                cro3 dut shell --dut [{0}] -- /usr/share/vboot/bin/set_gbb_flags.sh 0x19
+                cro3 dut shell --dut [{0}] -- /usr/share/vboot/bin/set_gbb_flags.sh 0x19",
             info.get("ipv6_addr").context("Failed to get ipv6_addr")?
         ));
     }
@@ -581,7 +581,7 @@ fn run_setup(args: &ArgsSetup) -> Result<()> {
         Servo {serial} not found.
         Please check the servo connection, try another side of USB port, attach servo directly \
                  with a host instead of via hub, etc...
-        `lium servo list` may be helpful.
+        `cro3 servo list` may be helpful.
         "
             ))?
             .clone()
@@ -595,13 +595,13 @@ fn run_setup(args: &ArgsSetup) -> Result<()> {
             .collect();
         if list.len() != 1 {
             return Err(anyhow!(
-                "Please specify --serial when multiple Servo is connected. `lium servo list` may \
+                "Please specify --serial when multiple Servo is connected. `cro3 servo list` may \
                  be helpful."
             ));
         }
         list.first()
             .context(
-                "Servo is not connected. Run `lium servo list` to check if Servo is connected.",
+                "Servo is not connected. Run `cro3 servo list` to check if Servo is connected.",
             )?
             .clone()
     };
@@ -666,7 +666,7 @@ fn run_dut_do(args: &ArgsDutDo) -> Result<()> {
         .collect();
     if !unknown_actions.is_empty() || args.actions.is_empty() {
         return Err(anyhow!(
-            "Unknown action: {unknown_actions:?}. See `lium dut do --list-actions` for available \
+            "Unknown action: {unknown_actions:?}. See `cro3 dut do --list-actions` for available \
              actions."
         ));
     }
@@ -805,7 +805,7 @@ struct ArgsDutInfo {
     #[argh(option)]
     dut: String,
     /// comma-separated list of attribute names. to show the full list, try
-    /// `lium dut info --keys ?`
+    /// `cro3 dut info --keys ?`
     #[argh(positional)]
     keys: Vec<String>,
 }
@@ -845,14 +845,14 @@ pub struct ArgsDiscover {
 pub fn run_discover(args: &ArgsDiscover) -> Result<()> {
     if let Some(remote) = &args.remote {
         info!("Using remote machine: {}", remote);
-        let lium_path = current_exe()?;
-        info!("lium executable path: {:?}", lium_path);
+        let cro3_path = current_exe()?;
+        info!("cro3 executable path: {:?}", cro3_path);
         let remote = SshInfo::new(remote)?;
         remote.send_files(
-            &[lium_path.to_string_lossy().to_string()],
+            &[cro3_path.to_string_lossy().to_string()],
             Some(&"~/".to_string()),
         )?;
-        let mut cmd = "~/lium dut discover".to_string();
+        let mut cmd = "~/cro3 dut discover".to_string();
         for ea in &args.extra_attr {
             cmd += " ";
             cmd += ea;

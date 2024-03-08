@@ -16,6 +16,6 @@ pub struct Args {}
 
 #[tracing::instrument(level = "trace")]
 pub fn run(_args: &Args) -> Result<()> {
-    println!("lium v{VERSION}");
+    println!("cro3 v{VERSION}");
     Ok(())
 }

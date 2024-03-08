@@ -1,21 +1,21 @@
-# lium - Make ChromiumOS development extremely easy
+# cro3 - Make ChromiumOS development extremely easy
 
-`lium` is an extremely user-friendly tool for ChromiumOS developers.
+`cro3` is an extremely user-friendly tool for ChromiumOS developers.
 
-It provides a simple way to do common development tasks and make the barrier for contributing to ChromiumOS and lium itself as low as possible.
+It provides a simple way to do common development tasks and make the barrier for contributing to ChromiumOS and cro3 itself as low as possible.
 
 It also makes discovering features and functionality as easy as and clear as possible, with command completions.
 
 Moreover, it manages local development hardware including DUTs and Servos, and act as working examples of commands to interact with them.
 
-We hope lium gives you some time for a nap and/or coffee, or other tasks by making your work more effective ;)
+We hope cro3 gives you some time for a nap and/or coffee, or other tasks by making your work more effective ;)
 
 ## Core principles
 
 - Make the basic ChromiumOS development workflow extremely easy
-  - Background: There have been a huge barriers to get started with the ChromiumOS development. It scares newcomers sometimes, and such environment is not sustainable, scalable or efficient. The top priority of lium is to mitigate this high barrier of entry.
+  - Background: There have been a huge barriers to get started with the ChromiumOS development. It scares newcomers sometimes, and such environment is not sustainable, scalable or efficient. The top priority of cro3 is to mitigate this high barrier of entry.
   - Basic workflows include: checkout the source code, build images / deploying packages / run tests with / without modifications.
-- Make it extremely easy to start using lium
+- Make it extremely easy to start using cro3
   - Background: As stated in the above, our goal is lowering the barrier for people who are about to start contribution to ChromiumOS. To achive that, a tool that aids the goal should be extremely easy as well to start using it.
   - How: Follow best practices and common ways to do things. Prefer defaults always if there is no clear reason to change that.
 - Be an executable reference of how to do things by providing best practices as a code
@@ -35,82 +35,82 @@ make install
 You can install the shell completion by running this at any time:
 ```
 # Bash
-lium setup bash-completion
+cro3 setup bash-completion
 
 # Zsh
-lium setup zsh-completion
+cro3 setup zsh-completion
 ```
 
 Please don't forget to follow instructions that are printed after running the command above and reload your shell!
 
-This will be done automatically after `make install` if your default shell is supported by lium.
+This will be done automatically after `make install` if your default shell is supported by cro3.
 
 ...are you using other shells? We appreciate your pull-requests!
 
 ## Usage examples
 
-Note: You can replace `lium` with `cargo run -- ` to run your own modified version of lium.
+Note: You can replace `cro3` with `cargo run -- ` to run your own modified version of cro3.
 
 ### DUT
 ```
 # SSH into a DUT using testing_rsa
-lium dut shell --dut ${DUT}
+cro3 dut shell --dut ${DUT}
 
 # Execute a shell command on a DUT
-lium dut shell --dut ${DUT} -- uname -a
+cro3 dut shell --dut ${DUT} -- uname -a
 
 # Add a DUT to the list
-lium dut list --add ${IP}
+cro3 dut list --add ${IP}
 
 # Show the list of DUTs registered
-lium dut list
+cro3 dut list
 
 # Check connection and remove DUTs that have reused IP addresses
-lium dut list --update
+cro3 dut list --update
 
 # Show DUT info
-lium dut info --dut ${DUT}
+cro3 dut info --dut ${DUT}
 
 # Show specific DUT info (e.g. ipv6_addr)
-lium dut info --dut ${DUT} ipv6_addr
+cro3 dut info --dut ${DUT} ipv6_addr
 
 # Scan DUTs on a remote network
-lium dut discover --remote ${REMOTE} | tee /tmp/dut_discovered.json
+cro3 dut discover --remote ${REMOTE} | tee /tmp/dut_discovered.json
 ```
 
 ### Servo / Cr50
 
 ```
 # Show list of Servo / Cr50 devices
-lium servo list
+cro3 servo list
 
 # Do the same thing in JSON format
-lium servo list --json
+cro3 servo list --json
 ```
 
 ### Flash
 
 ```
-lium flash --cros ${CROS_DIR} --dut ${DUT}
-lium flash --cros ${CROS_DIR} --board ${BOARD}
+cro3 flash --cros ${CROS_DIR} --dut ${DUT}
+cro3 flash --cros ${CROS_DIR} --board ${BOARD}
 ```
 
 ### Misc
 
 ```
-lium arc guest_kernel_uprev --cros /work/chromiumos_stable/
-lium build --cros /work/chromiumos_stable --board brya --packages sys-kernel/arcvm-kernel-ack-5_10
-lium build --full --cros /work/chromiumos_stable --board brya
-lium config set default_cros_checkout /work/chromiumos_stable/
-lium config show
-lium deploy --cros /work/chromiumos_stable --dut localhost:2282 --package sys-kernel/arcvm-kernel-ack-5_10 --autologin
-lium dut discover --remote kled_SOMESERIALNUMBERS1234 --v6prefix 2001:DB8::
-sudo `which lium` servo reset
-lium sync --cros /work/chromiumos_stable/ --version 14899.0.0
-lium sync --cros /work/chromiumos_stable/ --version R110-15263.0.0
+cro3 arc guest_kernel_uprev --cros /work/chromiumos_stable/
+cro3 build --cros /work/chromiumos_stable --board brya --packages sys-kernel/arcvm-kernel-ack-5_10
+cro3 build --full --cros /work/chromiumos_stable --board brya
+cro3 config set default_cros_checkout /work/chromiumos_stable/
+cro3 config show
+cro3 deploy --cros /work/chromiumos_stable --dut localhost:2282 --package sys-kernel/arcvm-kernel-ack-5_10 --autologin
+cro3 dut discover --remote kled_SOMESERIALNUMBERS1234 --v6prefix 2001:DB8::
+sudo `which cro3` servo reset
+cro3 sync --cros /work/chromiumos_stable/ --version 14899.0.0
+cro3 sync --cros /work/chromiumos_stable/ --version R110-15263.0.0
 # following command needs a mirror repo which has cloned with --mirror option
-lium sync --cros /work/chromiumos_versions/R110-15248.0.0/ --version R110-15248.0.0 --reference /work/chromiumos_mirror/
-lium sync --cros /work/chromiumos_versions/R110-15248.0.0/ --version R110-15248.0.0 # you can omit --reference if the config is set
+cro3 sync --cros /work/chromiumos_versions/R110-15248.0.0/ --version R110-15248.0.0 --reference /work/chromiumos_mirror/
+cro3 sync --cros /work/chromiumos_versions/R110-15248.0.0/ --version R110-15248.0.0 # you can omit --reference if the config is set
 ```
 
 ## How to contribute

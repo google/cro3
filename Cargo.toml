@@ -1,10 +1,10 @@
 [package]
-name = "lium"
+name = "cro3"
 description = "Abstraction Layer of ChromiumOS development"
 version = "0.1.2"
 edition = "2021"
 license-file = "LICENSE"
-repository = "https://github.com/google/lium"
+repository = "https://github.com/google/cro3"
 
 [dependencies]
 argh = "0.1.12"

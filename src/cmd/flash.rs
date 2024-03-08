@@ -10,10 +10,10 @@ use anyhow::anyhow;
 use anyhow::bail;
 use anyhow::Result;
 use argh::FromArgs;
-use lium::cros::ensure_testing_rsa_is_there;
-use lium::cros::lookup_full_version;
-use lium::dut::DutInfo;
-use lium::repo::get_cros_dir;
+use cro3::cros::ensure_testing_rsa_is_there;
+use cro3::cros::lookup_full_version;
+use cro3::dut::DutInfo;
+use cro3::repo::get_cros_dir;
 use regex::Regex;
 use tracing::error;
 

@@ -17,8 +17,8 @@ use signal_hook::consts::SIGINT;
 use tracing::error;
 use tracing::info;
 
-use crate::util::lium_paths::gen_path_in_lium_dir;
-use crate::util::lium_paths::lium_dir;
+use crate::util::cro3_paths::cro3_dir;
+use crate::util::cro3_paths::gen_path_in_cro3_dir;
 use crate::util::shell_helpers::get_stderr;
 use crate::util::shell_helpers::get_stdout;
 use crate::util::shell_helpers::run_bash_command;
@@ -31,12 +31,12 @@ impl Chroot {
         let chroot = Chroot {
             repo_path: repo_path.to_string(),
         };
-        let lium_dir_path = lium_dir()?;
+        let cro3_dir_path = cro3_dir()?;
         info!("Using Chromium OS checkout at {}", repo_path);
         run_bash_command(
             &format!(
-                "echo {0} /lium > {1} && cat {1}",
-                lium_dir_path, "src/scripts/.local_mounts"
+                "echo {0} /cro3 > {1} && cat {1}",
+                cro3_dir_path, "src/scripts/.local_mounts"
             ),
             Some(repo_path),
         )?
@@ -80,7 +80,7 @@ impl Chroot {
         cmd.spawn().context("exec_in_chroot_async failed")
     }
     pub fn write_bash_script_for_chroot(&self, name: &str, script: &str) -> Result<()> {
-        let dst = gen_path_in_lium_dir(&format!("tmp/{name}.sh"))?;
+        let dst = gen_path_in_cro3_dir(&format!("tmp/{name}.sh"))?;
         fs::write(dst, script.as_bytes()).context("Failed to create a script file")?;
         Ok(())
     }
@@ -105,7 +105,7 @@ impl Chroot {
             "--",
             "bash",
             "-xe",
-            &format!("/lium/tmp/{}.sh", name),
+            &format!("/cro3/tmp/{}.sh", name),
         ])
         .current_dir(&self.repo_path)
         .stdin(Stdio::piped());
@@ -117,21 +117,21 @@ impl Chroot {
             .spawn()
             .context(anyhow!("spawn failed. cmd = {cmd:?}"))?;
 
-        // Hit Ctrl-C twice to terminate lium immediately.
+        // Hit Ctrl-C twice to terminate cro3 immediately.
         // Note that the Ctrl-C (SIGINT) will be sent to both the bash script
-        // in chroot and the parent lium process from the terminal.
+        // in chroot and the parent cro3 process from the terminal.
         // The bash script will (hopefully) terminates its child process but
-        // it may take a while. Since lium will quit immediately by default
+        // it may take a while. Since cro3 will quit immediately by default
         // we need to setup SIGINT handlers to wait it.
         let intr = Arc::new(AtomicBool::new(false));
-        // This will shutdown lium only if the 'intr' is true.
+        // This will shutdown cro3 only if the 'intr' is true.
         signal_hook::flag::register_conditional_shutdown(SIGINT, 1, Arc::clone(&intr))?;
         // This will handle the first SIGINT to set the 'intr' flag true.
         signal_hook::flag::register(SIGINT, Arc::clone(&intr))?;
         // As a result, the first SIGINT set 'intr' flag true and the child bash
         // script will be terminated (but it takes a time.)
         // If user wants to quit immediately, send the 2nd SIGINT and it
-        // will shutdown lium because 'intr' is true now.
+        // will shutdown cro3 because 'intr' is true now.
 
         let result = run
             .wait_with_output()

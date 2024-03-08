@@ -66,7 +66,7 @@ use crate::util::shell_helpers::get_stdout;
 use crate::util::shell_helpers::run_bash_command;
 use crate::util::shell_helpers::run_bash_command_with_timeout;
 use crate::util::super_user_helpers::has_root_privilege;
-use crate::util::super_user_helpers::run_lium_with_sudo;
+use crate::util::super_user_helpers::run_cro3_with_sudo;
 
 lazy_static! {
     static ref RE_MAC_ADDR: Regex =
@@ -444,7 +444,7 @@ impl LocalServo {
             }
             Ok(())
         } else {
-            run_lium_with_sudo(&["servo", "reset", self.serial()])
+            run_cro3_with_sudo(&["servo", "reset", self.serial()])
         }
     }
     pub fn from_serial(serial: &str) -> Result<LocalServo> {

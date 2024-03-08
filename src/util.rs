@@ -4,6 +4,6 @@
 // license that can be found in the LICENSE file or at
 // https://developers.google.com/open-source/licenses/bsd
 
-pub mod lium_paths;
+pub mod cro3_paths;
 pub mod shell_helpers;
 pub mod super_user_helpers;

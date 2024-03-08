@@ -6,9 +6,9 @@
 
 use anyhow::Result;
 use argh::FromArgs;
-use lium::chroot::Chroot;
-use lium::dut::SshInfo;
-use lium::repo::get_cros_dir;
+use cro3::chroot::Chroot;
+use cro3::dut::SshInfo;
+use cro3::repo::get_cros_dir;
 
 #[derive(FromArgs, PartialEq, Debug)]
 /// run in chroot

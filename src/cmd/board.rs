@@ -7,10 +7,10 @@
 use anyhow::bail;
 use anyhow::Result;
 use argh::FromArgs;
+use cro3::cache::KvCache;
+use cro3::repo::get_cros_dir;
+use cro3::util::shell_helpers::run_bash_command;
 use glob::Pattern;
-use lium::cache::KvCache;
-use lium::repo::get_cros_dir;
-use lium::util::shell_helpers::run_bash_command;
 
 #[derive(FromArgs, PartialEq, Debug)]
 /// list supported boards

@@ -5,10 +5,10 @@
 use anyhow::bail;
 use anyhow::Result;
 use argh::FromArgs;
+use cro3::cache::KvCache;
+use cro3::chroot::Chroot;
+use cro3::repo::get_cros_dir;
 use glob::Pattern;
-use lium::cache::KvCache;
-use lium::chroot::Chroot;
-use lium::repo::get_cros_dir;
 
 #[derive(FromArgs, PartialEq, Debug)]
 /// manage modified package(s)

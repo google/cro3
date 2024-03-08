@@ -11,9 +11,9 @@ use anyhow::Context;
 use anyhow::Error;
 use anyhow::Result;
 use argh::FromArgs;
-use lium::util::lium_paths::gen_path_in_lium_dir;
-use lium::util::shell_helpers::get_stdout;
-use lium::util::shell_helpers::run_bash_command;
+use cro3::util::cro3_paths::gen_path_in_cro3_dir;
+use cro3::util::shell_helpers::get_stdout;
+use cro3::util::shell_helpers::run_bash_command;
 use tracing::error;
 use tracing::info;
 use tracing::warn;
@@ -68,11 +68,11 @@ fn check_gsutil() -> Result<()> {
 
 fn shell_shared_setup() -> Result<(), Error> {
     fs::write(
-        gen_path_in_lium_dir("lium.bash")?,
-        include_bytes!("lium.bash"),
+        gen_path_in_cro3_dir("cro3.bash")?,
+        include_bytes!("cro3.bash"),
     )?;
     run_bash_command(
-        "grep 'lium' ~/.bash_completion || echo \". ~/.lium/lium.bash\" >> ~/.bash_completion",
+        "grep 'cro3' ~/.bash_completion || echo \". ~/.cro3/cro3.bash\" >> ~/.bash_completion",
         None,
     )?
     .status
@@ -81,7 +81,7 @@ fn shell_shared_setup() -> Result<(), Error> {
 }
 
 #[derive(FromArgs, PartialEq, Debug)]
-/// Install bash completion for lium
+/// Install bash completion for cro3
 #[argh(subcommand, name = "bash-completion")]
 pub struct ArgsBashCompletion {}
 fn run_bash_completion(_args: &ArgsBashCompletion) -> Result<()> {
@@ -90,7 +90,7 @@ fn run_bash_completion(_args: &ArgsBashCompletion) -> Result<()> {
     shell_shared_setup()?;
 
     warn!(
-        "Installed ~/.lium/lium.bash and an entry in ~/.bash_completion. Please run `source \
+        "Installed ~/.cro3/cro3.bash and an entry in ~/.bash_completion. Please run `source \
          ~/.bash_completion` for the current shell."
     );
 
@@ -98,7 +98,7 @@ fn run_bash_completion(_args: &ArgsBashCompletion) -> Result<()> {
 }
 
 #[derive(FromArgs, PartialEq, Debug)]
-/// Print zsh completion instructions for lium
+/// Print zsh completion instructions for cro3
 #[argh(subcommand, name = "zsh-completion")]
 pub struct ArgsZshCompletion {}
 fn run_zsh_completion(_args: &ArgsZshCompletion) -> Result<()> {

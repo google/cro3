@@ -26,12 +26,12 @@ pub mod vm;
 
 #[derive(FromArgs, PartialEq, Debug)]
 /// yet another wrapper for CrOS developers.
-/// For more information, see: https://github.com/google/lium
-/// For Googlers, see go/lium and go/lium-bug
+/// For more information, see: https://github.com/google/cro3
+/// For Googlers, see go/cro3 and go/cro3-bug
 pub struct TopLevel {
     #[argh(option, short = 'v')]
     /// set the verbosity level for the entire program, can also be controlled
-    /// with LIUM_LOG env var as described in the rust tracing crate docs
+    /// with CRO3_LOG env var as described in the rust tracing crate docs
     /// https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html
     pub verbosity: Option<String>,
 
@@ -41,7 +41,7 @@ pub struct TopLevel {
 
 #[derive(FromArgs, PartialEq, Debug)]
 #[argh(subcommand)]
-/// lium's ChromiumOS dev commands
+/// cro3's ChromiumOS dev commands
 pub enum Args {
     Arc(arc::Args),
     Board(board::Args),
