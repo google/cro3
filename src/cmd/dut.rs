@@ -29,6 +29,9 @@
 //!
 //! # Scan DUTs on a remote network
 //! cro3 dut discover --remote ${REMOTE} | tee /tmp/dut_discovered.json
+
+//! # Monitor DUTs and keep them accessible via local port forwarding
+//! cro3 dut monitor ${DUT}
 //! ```
 
 use std::collections::HashMap;
