@@ -7,28 +7,28 @@
 //! ## DUT (Device Under Test) management
 //! ```
 //! # SSH into a DUT using testing_rsa
-//! lium dut shell --dut ${DUT}
+//! cro3 dut shell --dut ${DUT}
 //!
 //! # Execute a shell command on a DUT
-//! lium dut shell --dut ${DUT} -- uname -a
+//! cro3 dut shell --dut ${DUT} -- uname -a
 //!
 //! # Add a DUT to the list
-//! lium dut list --add ${IP}
+//! cro3 dut list --add ${IP}
 //!
 //! # Show the list of DUTs registered
-//! lium dut list
+//! cro3 dut list
 //!
 //! # Check connection and remove DUTs that have reused IP addresses
-//! lium dut list --update
+//! cro3 dut list --update
 //!
 //! # Show DUT info
-//! lium dut info --dut ${DUT}
+//! cro3 dut info --dut ${DUT}
 //!
 //! # Show specific DUT info (e.g. ipv6_addr)
-//! lium dut info --dut ${DUT} ipv6_addr
+//! cro3 dut info --dut ${DUT} ipv6_addr
 //!
 //! # Scan DUTs on a remote network
-//! lium dut discover --remote ${REMOTE} | tee /tmp/dut_discovered.json
+//! cro3 dut discover --remote ${REMOTE} | tee /tmp/dut_discovered.json
 //! ```
 
 use std::collections::HashMap;

@@ -417,7 +417,7 @@ impl SshInfo {
         // > Support for <zone_id> is intentionally omitted.
         // So that we can not parse dut string like:
         // > [fe80::8a54:1fff:fe0f:72a5%en0]
-        // TODO(hikalium): Impl workaround, possibly fix in the url crate.
+        // TODO(hikacro3): Impl workaround, possibly fix in the url crate.
         let url = Url::parse(&url).context(anyhow!("Failed to parse url: {url}"))?;
         let host = url.host_str().unwrap_or("127.0.0.1").to_string();
         let port = url.port().unwrap_or(22);

@@ -6,8 +6,8 @@
 
 //! ## Build packages and images
 //! ```
-//! lium build --cros $CROS --board brya --packages sys-kernel/arcvm-kernel-ack-5_10
-//! lium build --full --cros $CROS --board brya
+//! cro3 build --cros $CROS --board brya --packages sys-kernel/arcvm-kernel-ack-5_10
+//! cro3 build --full --cros $CROS --board brya
 //! ```
 
 use anyhow::anyhow;

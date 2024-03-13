@@ -6,11 +6,11 @@
 
 //! ## Get / update a ChromiumOS source checkout (similar to `git clone` or `git pull`)
 //! ```
-//! lium sync --cros /work/chromiumos_stable/ --version 14899.0.0
-//! lium sync --cros /work/chromiumos_stable/ --version R110-15263.0.0
+//! cro3 sync --cros /work/chromiumos_stable/ --version 14899.0.0
+//! cro3 sync --cros /work/chromiumos_stable/ --version R110-15263.0.0
 //! # following command needs a mirror repo which has cloned with --mirror option
-//! lium sync --cros /work/chromiumos_versions/R110-15248.0.0/ --version R110-15248.0.0 --reference /work/chromiumos_mirror/
-//! lium sync --cros /work/chromiumos_versions/R110-15248.0.0/ --version R110-15248.0.0 # you can omit --reference if the config is set
+//! cro3 sync --cros /work/chromiumos_versions/R110-15248.0.0/ --version R110-15248.0.0 --reference /work/chromiumos_mirror/
+//! cro3 sync --cros /work/chromiumos_versions/R110-15248.0.0/ --version R110-15248.0.0 # you can omit --reference if the config is set
 //! ```
 
 use std::fs;

@@ -6,7 +6,7 @@
 
 //! ## Deploy packages
 //! ```
-//! lium deploy --cros $CROS --dut $DUT --package $PACKAGE_NAME --autologin
+//! cro3 deploy --cros $CROS --dut $DUT --package $PACKAGE_NAME --autologin
 //! ```
 
 use std::cmp::Ordering;

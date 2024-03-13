@@ -8,13 +8,13 @@
 //! Note: the official document is [here](https://chromium.googlesource.com/chromiumos/third_party/hdctools/+/HEAD/docs/servo.md)
 //! ```
 //! # Show list of Servo / Cr50 devices
-//! lium servo list
+//! cro3 servo list
 //!
 //! # Do the same thing in JSON format
-//! lium servo list --json
+//! cro3 servo list --json
 //!
-//! # Reset Servo USB ports (useful when lium servo list does not work)
-//! sudo `which lium` servo reset
+//! # Reset Servo USB ports (useful when cro3 servo list does not work)
+//! sudo `which cro3` servo reset
 //! ```
 
 use std::fs::read_to_string;

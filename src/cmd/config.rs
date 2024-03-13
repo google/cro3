@@ -4,10 +4,10 @@
 // license that can be found in the LICENSE file or at
 // https://developers.google.com/open-source/licenses/bsd
 
-//! ## Config lium behavior
+//! ## Config cro3 behavior
 //! ```
-//! lium config set default_cros_checkout /work/chromiumos_stable/
-//! lium config show
+//! cro3 config set default_cros_checkout /work/chromiumos_stable/
+//! cro3 config show
 //! ```
 
 use anyhow::bail;

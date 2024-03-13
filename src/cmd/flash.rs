@@ -7,9 +7,9 @@
 //! ## Flash images (cros flash wrapper)
 //! ```
 //! # Flash an image into a remote DUT
-//! lium flash --cros ${CROS_DIR} --dut ${DUT}
+//! cro3 flash --cros ${CROS_DIR} --dut ${DUT}
 //! # Flash an image into a USB stick
-//! lium flash --cros ${CROS_DIR} --usb --board ${BOARD}
+//! cro3 flash --cros ${CROS_DIR} --usb --board ${BOARD}
 //! ```
 
 use std::process::Command;
