@@ -4,6 +4,33 @@
 // license that can be found in the LICENSE file or at
 // https://developers.google.com/open-source/licenses/bsd
 
+//! # DUT (Device Under Test) management
+//! ```
+//! # SSH into a DUT using testing_rsa
+//! lium dut shell --dut ${DUT}
+//!
+//! # Execute a shell command on a DUT
+//! lium dut shell --dut ${DUT} -- uname -a
+//!
+//! # Add a DUT to the list
+//! lium dut list --add ${IP}
+//!
+//! # Show the list of DUTs registered
+//! lium dut list
+//!
+//! # Check connection and remove DUTs that have reused IP addresses
+//! lium dut list --update
+//!
+//! # Show DUT info
+//! lium dut info --dut ${DUT}
+//!
+//! # Show specific DUT info (e.g. ipv6_addr)
+//! lium dut info --dut ${DUT} ipv6_addr
+//!
+//! # Scan DUTs on a remote network
+//! lium dut discover --remote ${REMOTE} | tee /tmp/dut_discovered.json
+//! ```
+
 use std::collections::HashMap;
 use std::env::current_exe;
 use std::fs::read_to_string;

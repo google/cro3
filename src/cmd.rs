@@ -26,13 +26,13 @@ pub mod vm;
 
 #[derive(FromArgs, PartialEq, Debug)]
 /// yet another wrapper for CrOS developers.
-/// For more information, see: https://github.com/google/cro3
+/// For more information, see: <https://github.com/google/cro3>
 /// For Googlers, see go/cro3 and go/cro3-bug
 pub struct TopLevel {
     #[argh(option, short = 'v')]
     /// set the verbosity level for the entire program, can also be controlled
     /// with CRO3_LOG env var as described in the rust tracing crate docs
-    /// https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html
+    /// <https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html>
     pub verbosity: Option<String>,
 
     #[argh(subcommand)]

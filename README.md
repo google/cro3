@@ -47,36 +47,11 @@ This will be done automatically after `make install` if your default shell is su
 
 ...are you using other shells? We appreciate your pull-requests!
 
-## Usage examples
+## Command line reference
 
-Note: You can replace `cro3` with `cargo run -- ` to run your own modified version of cro3.
+Please refer to [docs/cmdline.md](docs/cmdline.md)
 
-### DUT
-```
-# SSH into a DUT using testing_rsa
-cro3 dut shell --dut ${DUT}
-
-# Execute a shell command on a DUT
-cro3 dut shell --dut ${DUT} -- uname -a
-
-# Add a DUT to the list
-cro3 dut list --add ${IP}
-
-# Show the list of DUTs registered
-cro3 dut list
-
-# Check connection and remove DUTs that have reused IP addresses
-cro3 dut list --update
-
-# Show DUT info
-cro3 dut info --dut ${DUT}
-
-# Show specific DUT info (e.g. ipv6_addr)
-cro3 dut info --dut ${DUT} ipv6_addr
-
-# Scan DUTs on a remote network
-cro3 dut discover --remote ${REMOTE} | tee /tmp/dut_discovered.json
-```
+Tips: You can replace `cro3` with `cargo run -- ` to use your own modified version of cro3 instead.
 
 ### Servo / Cr50
 

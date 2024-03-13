@@ -6,7 +6,7 @@
 
 RUSTFLAGS='-C target-feature=+crt-static'
 
-build:
+build: docs/cmdline.md
 	@rustup -q which rustc > /dev/null || { echo "Please install rustup via https://rustup.rs/" ; exit 1 ; }
 	RUSTFLAGS=$(RUSTFLAGS) cargo build --target x86_64-unknown-linux-gnu
 
@@ -36,3 +36,7 @@ test:
 
 release:
 	bash scripts/deploy_release.sh
+
+DOC_SRC=$(shell git ls-files src/cmd/*.rs)
+docs/cmdline.md: ${DOC_SRC} Makefile
+	cat ${DOC_SRC} | grep '//!' | sed -E 's#^//!##' > ./docs/cmdline.md
