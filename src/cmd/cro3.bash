@@ -165,7 +165,7 @@ _cro3() { # command current prev
   elif [ x"$prev" = x"--board" ]; then
     local BOARDS=`_cro3_get_boards`
     COMPREPLY=($(compgen -W "${BOARDS}" -- $cur))
-  elif [ x"$prev" = x"--branch"]; then 
+  elif [ x"$prev" = x"--branch" ]; then
     local BRANCHES=`_cro3_get_branches`
     COMPREPLY=($(compgen -W "${BRANCHES}" -- $cur))
   elif _cro3_arg_included ${prev} ${servo_serial_opts}; then
