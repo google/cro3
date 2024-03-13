@@ -49,7 +49,7 @@ This will be done automatically after `make install` if your default shell is su
 
 ## Command line reference
 
-Please refer to [docs/cmdline.md](docs/cmdline.md) ( [HTML version](https://google.github.io/lium/cmdline.html) )
+Please refer to [docs/cmdline.md](docs/cmdline.md) ( [HTML version](https://google.github.io/cro3/cmdline.html) )
 
 Tips: You can replace `cro3` with `cargo run -- ` to use your own modified version of cro3 instead.
 
