@@ -36,6 +36,7 @@ check:
 
 .PHONY : commit
 commit:
+	make
 	make check
 	git add -A
 	git commit
