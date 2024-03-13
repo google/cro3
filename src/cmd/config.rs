@@ -4,6 +4,12 @@
 // license that can be found in the LICENSE file or at
 // https://developers.google.com/open-source/licenses/bsd
 
+//! ## Config lium behavior
+//! ```
+//! lium config set default_cros_checkout /work/chromiumos_stable/
+//! lium config show
+//! ```
+
 use anyhow::bail;
 use anyhow::Result;
 use argh::FromArgs;

@@ -4,6 +4,9 @@
 // license that can be found in the LICENSE file or at
 // https://developers.google.com/open-source/licenses/bsd
 
+//! ## ARC (Android Runtime on Chrome) related utilities
+//! This feature is mainly for the internal developers.
+
 use std::process::Command;
 
 use anyhow::Result;

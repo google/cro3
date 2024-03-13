@@ -49,7 +49,7 @@ This will be done automatically after `make install` if your default shell is su
 
 ## Command line reference
 
-Please refer to [docs/cmdline.md](docs/cmdline.md)
+Please refer to [docs/cmdline.md](docs/cmdline)
 
 Tips: You can replace `cro3` with `cargo run -- ` to use your own modified version of cro3 instead.
 
@@ -58,41 +58,6 @@ Also, you can preview the command line reference by running:
 ```
 gh extension install https://github.com/yusukebe/gh-markdown-preview
 make preview
-```
-
-### Servo / Cr50
-
-```
-# Show list of Servo / Cr50 devices
-cro3 servo list
-
-# Do the same thing in JSON format
-cro3 servo list --json
-```
-
-### Flash
-
-```
-cro3 flash --cros ${CROS_DIR} --dut ${DUT}
-cro3 flash --cros ${CROS_DIR} --board ${BOARD}
-```
-
-### Misc
-
-```
-cro3 arc guest_kernel_uprev --cros /work/chromiumos_stable/
-cro3 build --cros /work/chromiumos_stable --board brya --packages sys-kernel/arcvm-kernel-ack-5_10
-cro3 build --full --cros /work/chromiumos_stable --board brya
-cro3 config set default_cros_checkout /work/chromiumos_stable/
-cro3 config show
-cro3 deploy --cros /work/chromiumos_stable --dut localhost:2282 --package sys-kernel/arcvm-kernel-ack-5_10 --autologin
-cro3 dut discover --remote kled_SOMESERIALNUMBERS1234 --v6prefix 2001:DB8::
-sudo `which cro3` servo reset
-cro3 sync --cros /work/chromiumos_stable/ --version 14899.0.0
-cro3 sync --cros /work/chromiumos_stable/ --version R110-15263.0.0
-# following command needs a mirror repo which has cloned with --mirror option
-cro3 sync --cros /work/chromiumos_versions/R110-15248.0.0/ --version R110-15248.0.0 --reference /work/chromiumos_mirror/
-cro3 sync --cros /work/chromiumos_versions/R110-15248.0.0/ --version R110-15248.0.0 # you can omit --reference if the config is set
 ```
 
 ## How to contribute
