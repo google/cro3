@@ -15,6 +15,7 @@ use cro3::cros::ensure_testing_rsa_is_there;
 use cro3::dut::SshInfo;
 use cro3::repo::get_cros_dir;
 use glob::Pattern;
+use tracing::warn;
 
 #[derive(FromArgs, PartialEq, Debug)]
 /// run Tast test
@@ -222,7 +223,11 @@ fn run_tast_run(args: &ArgsRun) -> Result<()> {
     }
 
     if !matched {
-        bail!("{0} did not match any cached tests.", args.tests);
+        warn!(
+            "{0} did not match any cached tests. Run it with default bundle.",
+            args.tests
+        );
+        run_test_with_bundle(DEFAULT_BUNDLE, &filter, &chroot, port, opt)?
     }
 
     Ok(())
