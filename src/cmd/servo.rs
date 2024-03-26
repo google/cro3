@@ -4,6 +4,19 @@
 // license that can be found in the LICENSE file or at
 // https://developers.google.com/open-source/licenses/bsd
 
+//! ## Controlling a Servo (Hardware debugging tool)
+//! Note: the official document is [here](https://chromium.googlesource.com/chromiumos/third_party/hdctools/+/HEAD/docs/servo.md)
+//! ```
+//! # Show list of Servo / Cr50 devices
+//! cro3 servo list
+//!
+//! # Do the same thing in JSON format
+//! cro3 servo list --json
+//!
+//! # Reset Servo USB ports (useful when cro3 servo list does not work)
+//! sudo `which cro3` servo reset
+//! ```
+
 use std::fs::read_to_string;
 use std::process;
 

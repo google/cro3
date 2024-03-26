@@ -4,6 +4,36 @@
 // license that can be found in the LICENSE file or at
 // https://developers.google.com/open-source/licenses/bsd
 
+//! ## DUT (Device Under Test) management
+//! ```
+//! # SSH into a DUT using testing_rsa
+//! cro3 dut shell --dut ${DUT}
+//!
+//! # Execute a shell command on a DUT
+//! cro3 dut shell --dut ${DUT} -- uname -a
+//!
+//! # Add a DUT to the list
+//! cro3 dut list --add ${IP}
+//!
+//! # Show the list of DUTs registered
+//! cro3 dut list
+//!
+//! # Check connection and remove DUTs that have reused IP addresses
+//! cro3 dut list --update
+//!
+//! # Show DUT info
+//! cro3 dut info --dut ${DUT}
+//!
+//! # Show specific DUT info (e.g. ipv6_addr)
+//! cro3 dut info --dut ${DUT} ipv6_addr
+//!
+//! # Scan DUTs on a remote network
+//! cro3 dut discover --remote ${REMOTE} | tee /tmp/dut_discovered.json
+
+//! # Monitor DUTs and keep them accessible via local port forwarding
+//! cro3 dut monitor ${DUT}
+//! ```
+
 use std::collections::HashMap;
 use std::env::current_exe;
 use std::fs::read_to_string;

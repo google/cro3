@@ -4,6 +4,12 @@
 // license that can be found in the LICENSE file or at
 // https://developers.google.com/open-source/licenses/bsd
 
+//! ## Config cro3 behavior
+//! ```
+//! cro3 config set default_cros_checkout /work/chromiumos_stable/
+//! cro3 config show
+//! ```
+
 use anyhow::bail;
 use anyhow::Result;
 use argh::FromArgs;

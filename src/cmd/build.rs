@@ -4,6 +4,12 @@
 // license that can be found in the LICENSE file or at
 // https://developers.google.com/open-source/licenses/bsd
 
+//! ## Build packages and images
+//! ```
+//! cro3 build --cros $CROS --board brya --packages sys-kernel/arcvm-kernel-ack-5_10
+//! cro3 build --full --cros $CROS --board brya
+//! ```
+
 use anyhow::anyhow;
 use anyhow::Result;
 use argh::FromArgs;

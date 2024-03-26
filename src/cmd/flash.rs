@@ -4,6 +4,14 @@
 // license that can be found in the LICENSE file or at
 // https://developers.google.com/open-source/licenses/bsd
 
+//! ## Flash images (cros flash wrapper)
+//! ```
+//! # Flash an image into a remote DUT
+//! cro3 flash --cros ${CROS_DIR} --dut ${DUT}
+//! # Flash an image into a USB stick
+//! cro3 flash --cros ${CROS_DIR} --usb --board ${BOARD}
+//! ```
+
 use std::process::Command;
 
 use anyhow::anyhow;

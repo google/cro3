@@ -4,6 +4,11 @@
 // license that can be found in the LICENSE file or at
 // https://developers.google.com/open-source/licenses/bsd
 
+//! ## Deploy packages
+//! ```
+//! cro3 deploy --cros $CROS --dut $DUT --package $PACKAGE_NAME --autologin
+//! ```
+
 use std::cmp::Ordering;
 
 use anyhow::bail;
