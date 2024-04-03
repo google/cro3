@@ -52,6 +52,8 @@ fn run_env(_args: &ArgsEnv) -> Result<()> {
         Ok(())
     };
     check_gsutil().or_else(print_err_and_ignore)?;
+    check_gcloud().or_else(print_err_and_ignore)?;
+    check_gcloud_auth_list().or_else(print_err_and_ignore)?;
     Ok(())
 }
 
@@ -60,7 +62,29 @@ fn check_gsutil() -> Result<()> {
     result
         .status
         .exit_ok()
-        .context(anyhow!("Failed to run `which gsutil`"))?;
+        .context(anyhow!("Failed to find gsutil command"))?;
+    let result = get_stdout(&result);
+    info!("gsutil command is at: {}", result);
+    Ok(())
+}
+
+fn check_gcloud() -> Result<()> {
+    let result = run_bash_command("which gcloud", None)?;
+    result
+        .status
+        .exit_ok()
+        .context(anyhow!("Failed to find gcloud command"))?;
+    let result = get_stdout(&result);
+    info!("gcloud command is at: {}", result);
+    Ok(())
+}
+
+fn check_gcloud_auth_list() -> Result<()> {
+    let result = run_bash_command("gcloud auth list", None)?;
+    result
+        .status
+        .exit_ok()
+        .context(anyhow!("Failed to run gcloud auth list command"))?;
     let result = get_stdout(&result);
     info!("{}", result);
     Ok(())
