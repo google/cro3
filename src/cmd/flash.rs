@@ -152,7 +152,7 @@ pub fn run(args: &Args) -> Result<()> {
                 "flashing local image other than `--version latest` is not yet supported"
             ));
         }
-        let variant = if args.recovery { "recovery" } else { "test" };
+        let variant = if args.recovery { "signed" } else { "test" };
         format!("xBuddy://{host}/{board_to_flash}/{version}/{variant}")
     };
 
