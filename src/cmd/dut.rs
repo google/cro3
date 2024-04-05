@@ -522,11 +522,11 @@ fn enable_ccd_testlab(servo: &LocalServo) -> Result<()> {
         return Ok(());
     }
     let result = cr50
-        .run_cmd("Shell", "ccd testlab")
+        .run_cmd("Shell", "ccd testlab enable")
         .context(anyhow!("Failed to run `ccd testlab` command"))?;
     if !result.trim().contains("CCD test lab mode enabled") {
         return Err(anyhow!(
-            "CCD testlab mode is disabled. Please run `minicom -w -D {}` and run `ccd testlab \
+            "CCD testlab mode is still disabled. Please run `minicom -w -D {}` and run `ccd testlab \
              enable` on it and follow the instructions.",
             cr50.tty_path("Shell")?
         ));

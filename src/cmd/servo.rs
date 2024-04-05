@@ -30,6 +30,7 @@ use cro3::servo::reset_devices;
 use cro3::servo::LocalServo;
 use cro3::servo::ServoList;
 use cro3::servo::ServodConnection;
+use cro3::servo::get_servo_attached_to_cr50;
 use cro3::util::cro3_paths::cro3_dir;
 use cro3::util::cro3_paths::gen_path_in_cro3_dir;
 use cro3::util::shell_helpers::run_bash_command;
@@ -81,6 +82,7 @@ pub struct ArgsGet {
 pub fn run_get(args: &ArgsGet) -> Result<()> {
     let list = ServoList::discover()?;
     let s = list.find_by_serial(&args.serial)?;
+    let s = get_servo_attached_to_cr50(&s)?;
     match args.key.as_str() {
         "ipv6_addr" => {
             println!("{}", s.read_ipv6_addr()?);

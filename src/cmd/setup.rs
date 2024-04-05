@@ -51,9 +51,21 @@ fn run_env(_args: &ArgsEnv) -> Result<()> {
         error!("FAIL: {}", e);
         Ok(())
     };
+    check_depot_tools().or_else(print_err_and_ignore)?;
     check_gsutil().or_else(print_err_and_ignore)?;
     check_gcloud().or_else(print_err_and_ignore)?;
     check_gcloud_auth_list().or_else(print_err_and_ignore)?;
+    Ok(())
+}
+
+fn check_depot_tools() -> Result<()> {
+    let result = run_bash_command("which repo", None)?;
+    result
+        .status
+        .exit_ok()
+        .context(anyhow!("Failed to find repo command"))?;
+    let result = get_stdout(&result);
+    info!("repo command is at: {}", result);
     Ok(())
 }
 
