@@ -152,18 +152,22 @@ pub fn run(args: &Args) -> Result<()> {
                 "flashing local image other than `--version latest` is not yet supported"
             ));
         }
-        let variant = if args.recovery { "recovery" } else { "test" };
+        let variant = if args.recovery { "signed" } else { "test" };
         format!("xBuddy://{host}/{board_to_flash}/{version}/{variant}")
     };
 
     // Determine a destination
-    let destination = match (&args.dut, args.usb) {
-        (Some(dut), false) => {
+    let destination = match (&args.dut, args.usb, args.recovery) {
+        (Some(dut), false, false) => {
             ensure_testing_rsa_is_there()?;
             let dut = &DutInfo::new(dut)?;
             dut.ssh().host_and_port()
         }
-        (None, true) => "usb://".to_string(),
+        (Some(_), false, true) => bail!(
+            "Recovery image is not for flashing via SSH. Please specify --usb as a destination \
+             instead of --dut."
+        ),
+        (None, true, _) => "usb://".to_string(),
         _ => bail!("Please specify either --dut or --usb"),
     };
 
