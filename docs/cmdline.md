@@ -6,14 +6,21 @@
 
 - `$CROS`
   - `/path/to/chromiumos`
+  - Relative paths are also accepted
 - `$DUT`
-  - `127.0.0.1` for IPv4 address
-  - `[2001:db8::1234]` for IPv6 address
-  - `dut_id` which contains `model_name` and `serial_number`
+  - All things listed under `$IP`, plus...
+  - `dut_id` which contains `model_name` and `serial_number`, connected with `_`, e.g. `boten_PF2LBG2H`.
     - `cros dut list` displays the `dut_id` for registered DUTs
 - `$BOARD`
   - `eve` for example
   - Same as `BOARD` variable explained in [the official documentation](https://chromium.googlesource.com/chromiumos/docs/+/HEAD/developer_guide.md#Select-a-board)
+- `$IP`
+  - Something like `192.0.2.1` for IPv4 address
+  - Something like `[2001:db8::1234]` for IPv6 address
+  - Usually this is used to refer a DUT for the first time. If the parameter accepts `dut_id` as well, please use `$DUT` instead.
+- `$PACKAGE_NAME`
+  - A portage package name to be built / deployed / worked on
+  - e.g. `chromeos-base/system_api` `crosvm`
 ## ARC (Android Runtime on Chrome) related utilities
 This feature is mainly for the internal developers.
 ## Build packages and images
@@ -53,17 +60,17 @@ cro3 dut info --dut ${DUT}
 # Show specific DUT info (e.g. ipv6_addr)
 cro3 dut info --dut ${DUT} ipv6_addr
 
-# Scan DUTs on a remote network
-cro3 dut discover --remote ${REMOTE} | tee /tmp/dut_discovered.json
+# Scan DUTs on the same network where `--remote` is connected.
+cro3 dut discover --remote ${IP} | tee /tmp/dut_discovered.json
 # Monitor DUTs and keep them accessible via local port forwarding
 cro3 dut monitor ${DUT}
 ```
 ## Flash images (cros flash wrapper)
 ```
 # Flash an image into a remote DUT
-cro3 flash --cros ${CROS_DIR} --dut ${DUT}
+cro3 flash --cros ${CROS} --dut ${DUT}
 # Flash an image into a USB stick
-cro3 flash --cros ${CROS_DIR} --usb --board ${BOARD}
+cro3 flash --cros ${CROS} --usb --board ${BOARD}
 ```
 ## Controlling a Servo (Hardware debugging tool)
 Note: the official document is [here](https://chromium.googlesource.com/chromiumos/third_party/hdctools/+/HEAD/docs/servo.md)

@@ -27,8 +27,8 @@
 //! # Show specific DUT info (e.g. ipv6_addr)
 //! cro3 dut info --dut ${DUT} ipv6_addr
 //!
-//! # Scan DUTs on a remote network
-//! cro3 dut discover --remote ${REMOTE} | tee /tmp/dut_discovered.json
+//! # Scan DUTs on the same network where `--remote` is connected.
+//! cro3 dut discover --remote ${IP} | tee /tmp/dut_discovered.json
 
 //! # Monitor DUTs and keep them accessible via local port forwarding
 //! cro3 dut monitor ${DUT}
@@ -526,8 +526,8 @@ fn enable_ccd_testlab(servo: &LocalServo) -> Result<()> {
         .context(anyhow!("Failed to run `ccd testlab` command"))?;
     if !result.trim().contains("CCD test lab mode enabled") {
         return Err(anyhow!(
-            "CCD testlab mode is still disabled. Please run `minicom -w -D {}` and run `ccd testlab \
-             enable` on it and follow the instructions.",
+            "CCD testlab mode is still disabled. Please run `minicom -w -D {}` and run `ccd \
+             testlab enable` on it and follow the instructions.",
             cr50.tty_path("Shell")?
         ));
     }

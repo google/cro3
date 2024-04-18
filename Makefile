@@ -43,6 +43,7 @@ commit:
 
 .PHONY : test
 test:
+	make build
 	cargo test
 	make cmdline_doc_check
 

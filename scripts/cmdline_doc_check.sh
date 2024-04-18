@@ -2,7 +2,7 @@
 VARS_USED="$(cat docs/cmdline.md | grep -o -E '\$\{?[_A-Z]{1,}\}?' | tr -d '{' | tr -d '}' | tr -d '$' | sort -u)"
 VARS_EXPLAINED="$(cat docs/cmdline_preface.md | grep -o -E '\$\{?[_A-Z]{1,}\}?' | tr -d '{' | tr -d '}' | tr -d '$' | sort -u)"
 
-if [ $"VARS_USED" != $"VARS_EXPLAINED" ]; then
+if [ "$VARS_USED" != "$VARS_EXPLAINED" ]; then
 	echo "----"
 	echo "# VARS_USED:"
 	echo "${VARS_USED}"
