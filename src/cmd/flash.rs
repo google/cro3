@@ -24,6 +24,7 @@ use cro3::dut::DutInfo;
 use cro3::repo::get_cros_dir;
 use regex::Regex;
 use tracing::error;
+use tracing::info;
 
 fn get_board_from_dut(dut: &str) -> Result<String> {
     let dut = DutInfo::new(dut)?;
@@ -130,6 +131,7 @@ pub fn run(args: &Args) -> Result<()> {
         image.clone()
     } else {
         let board_to_flash = determine_board_to_flash(&args.dut, &args.board)?;
+        info!("{board_to_flash}");
 
         // Determine an image to flash
         let host = if args.use_local_image {
@@ -161,7 +163,8 @@ pub fn run(args: &Args) -> Result<()> {
         (Some(dut), false) => {
             ensure_testing_rsa_is_there()?;
             let dut = &DutInfo::new(dut)?;
-            dut.ssh().host_and_port()
+            let dut = dut.ssh().into_forwarded()?.host_and_port().to_string();
+            dut
         }
         (None, true) => "usb://".to_string(),
         _ => bail!("Please specify either --dut or --usb"),

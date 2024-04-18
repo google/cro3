@@ -35,8 +35,8 @@ pub fn run(args: &Args) -> Result<()> {
     let repo = get_cros_dir(&args.cros)?;
     let mut additional_args = Vec::new();
     if let Some(dut) = &args.dut {
-        let dut = SshInfo::new(dut)?;
-        let port = dut.start_ssh_forwarding_range_background(4100..4200)?;
+        let dut = SshInfo::new(dut)?.into_forwarded()?;
+        let port = dut.port();
         additional_args.push(format!("DUT=localhost:{port}"));
     }
     if let Some(board) = &args.board {
