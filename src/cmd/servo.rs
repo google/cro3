@@ -82,7 +82,7 @@ pub struct ArgsGet {
 pub fn run_get(args: &ArgsGet) -> Result<()> {
     let list = ServoList::discover()?;
     let s = list.find_by_serial(&args.serial)?;
-    let s = get_servo_attached_to_cr50(&s)?;
+    let s = get_servo_attached_to_cr50(s)?;
     match args.key.as_str() {
         "ipv6_addr" => {
             println!("{}", s.read_ipv6_addr()?);

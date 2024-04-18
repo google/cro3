@@ -163,8 +163,7 @@ pub fn run(args: &Args) -> Result<()> {
         (Some(dut), false) => {
             ensure_testing_rsa_is_there()?;
             let dut = &DutInfo::new(dut)?;
-            let dut = dut.ssh().into_forwarded()?.host_and_port().to_string();
-            dut
+            dut.ssh().into_forwarded()?.host_and_port().to_string()
         }
         (None, true) => "usb://".to_string(),
         _ => bail!("Please specify either --dut or --usb"),
