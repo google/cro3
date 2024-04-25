@@ -37,11 +37,15 @@ check:
 .PHONY : shellcheck
 shellcheck:
 	shellcheck `git ls-files *.sh *.bash`
+	# - https://google.github.io/styleguide/shellguide.html#indentation
+	# > Indent 2 spaces. No tabs.
+	shfmt -w -i 2 .
 
 .PHONY : commit
 commit:
 	make
 	make check
+	make shellcheck
 	git add -A
 	git commit
 

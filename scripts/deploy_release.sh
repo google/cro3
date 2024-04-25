@@ -19,27 +19,27 @@ VERSION=$(cargo run --release -- version | cut -d ' ' -f 2 | grep -E '[0-9]+\.[0
 PROJECT_PATH=$(dirname -- "$(cargo locate-project --message-format plain)")
 BINPATH=$(readlink -f "${PROJECT_PATH}"/target/x86_64-unknown-linux-gnu/release/cro3)
 file "${BINPATH}"
-if ! ldd "${BINPATH}" | grep 'statically linked' ; then
-	echo "The binary is not statically-linked. exiting..."
-	exit 1
+if ! ldd "${BINPATH}" | grep 'statically linked'; then
+  echo "The binary is not statically-linked. exiting..."
+  exit 1
 fi
 
-if gh release list | grep "${VERSION}" ; then
-	# Release with the version found. Quit.
-	echo "release with the same version on GitHub is found. Please delete the version first by running:"
-	echo "gh release delete -y ${VERSION}"
-	exit 1
+if gh release list | grep "${VERSION}"; then
+  # Release with the version found. Quit.
+  echo "release with the same version on GitHub is found. Please delete the version first by running:"
+  echo "gh release delete -y ${VERSION}"
+  exit 1
 fi
 echo "Testing and releasing ${VERSION}"
 
 if [ -n "$(git status --porcelain)" ]; then
-	echo "Uncommited changes found. Please commit and upload the changes first."
-	exit 1
+  echo "Uncommited changes found. Please commit and upload the changes first."
+  exit 1
 fi
 
-if ! git status | grep 'up to date' ; then
-	echo "Remote branch is not up to date. Please push the commits first."
-	exit 1
+if ! git status | grep 'up to date'; then
+  echo "Remote branch is not up to date. Please push the commits first."
+  exit 1
 fi
 
 # Create a new release on GitHub

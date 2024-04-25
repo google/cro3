@@ -13,7 +13,7 @@ __cro3_arg_used() { # arg
   local i=0
   while [ $i -lt "$COMP_CWORD" ]; do
     test "${COMP_WORDS[i]}" = "$1" && return 0
-    i=$((i+1))
+    i=$((i + 1))
   done
   return 1
 }
@@ -41,11 +41,11 @@ _cro3_current_repo() {
   local i=0
   while [ $i -lt "$COMP_CWORD" ]; do
     if [ "${COMP_WORDS[i]}" = "--repo" ]; then
-      i=$((i+1))
+      i=$((i + 1))
       echo "${COMP_WORDS[i]}"
       return
     fi
-    i=$((i+1))
+    i=$((i + 1))
   done
   if [ -d "$PWD/.repo" ] && [ -d "$PWD/chroot" ]; then
     echo "$PWD"
@@ -81,9 +81,9 @@ _cro3_get_dut_actions() {
 }
 
 _cro3_comp_fs() { # option(-d|-f) current
-	local DIR
-	DIR=$(compgen "${1}" "${2}")
-	if [ "$(echo "${DIR}" | wc -w)" = 1 ] && [ -d "${DIR}" ]; then
+  local DIR
+  DIR=$(compgen "${1}" "${2}")
+  if [ "$(echo "${DIR}" | wc -w)" = 1 ] && [ -d "${DIR}" ]; then
     compgen "${1}" "${DIR}/"
   else
     compgen "${1}" "${2}"
@@ -94,52 +94,59 @@ _cro3_current_command() {
   local i=0
   while [ $i -lt "$COMP_CWORD" ]; do
     case "${COMP_WORDS[i]}" in
-      -*) i=$COMP_CWORD;;
-      *)
-        echo "${COMP_WORDS[i]} ";;
+    -*) i=$COMP_CWORD ;;
+    *)
+      echo "${COMP_WORDS[i]} "
+      ;;
     esac
-    i=$((i+1))
+    i=$((i + 1))
   done
 }
 
 _cro3_get_options() { # current
-	local cmd
-	cmd="$(_cro3_current_command)"
+  local cmd
+  cmd="$(_cro3_current_command)"
   local otype=0
   local a _b
 
-  ${cmd} --help 2>/dev/null | awk '/^..[^ ]/{print $0}' | while read -r a _b ; do
+  ${cmd} --help 2>/dev/null | awk '/^..[^ ]/{print $0}' | while read -r a _b; do
     case ${a} in
-      Positional) otype=1;;
-      Options:) otype=2;;
-      Commands:) otype=3;;
-      -*)
-        # All options start with '-'.
-        if [ ${otype} -eq 2 ]; then
-          _cro3_arg_used "${a}" || echo "${a}"
-        fi;;
-      *)
-        # Positional arguments must be converted.
-        if [ ${otype} -eq 1 ]; then
-          case "${a}" in
-          dut|duts)
-            _cro3_get_duts;;
-          actions)
-            _cro3_get_dut_actions;;
-          tests)
-            _cro3_get_tests;;
-          packages)
-            _cro3_get_packages;;
-          files)
-            if [ "${1#-}" == "${1}" ]; then
-              _cro3_comp_fs -f "${1}"
-            fi;;
-          esac
-        # Subcommands must be shown as it is.
-        elif [ ${otype} = 3 ]; then
-          echo "${a}"
-        fi
-        ;;
+    Positional) otype=1 ;;
+    Options:) otype=2 ;;
+    Commands:) otype=3 ;;
+    -*)
+      # All options start with '-'.
+      if [ ${otype} -eq 2 ]; then
+        _cro3_arg_used "${a}" || echo "${a}"
+      fi
+      ;;
+    *)
+      # Positional arguments must be converted.
+      if [ ${otype} -eq 1 ]; then
+        case "${a}" in
+        dut | duts)
+          _cro3_get_duts
+          ;;
+        actions)
+          _cro3_get_dut_actions
+          ;;
+        tests)
+          _cro3_get_tests
+          ;;
+        packages)
+          _cro3_get_packages
+          ;;
+        files)
+          if [ "${1#-}" == "${1}" ]; then
+            _cro3_comp_fs -f "${1}"
+          fi
+          ;;
+        esac
+      # Subcommands must be shown as it is.
+      elif [ ${otype} = 3 ]; then
+        echo "${a}"
+      fi
+      ;;
     esac
   done
 }
@@ -159,28 +166,28 @@ _cro3() { # command current prev
     return 0
   fi
 
-  if _cro3_arg_included "${prev}" "${todo_opts}" ; then
+  if _cro3_arg_included "${prev}" "${todo_opts}"; then
     # TODO: support completion for each options. currently it is stopped.
     return 0
   elif [ "$prev" = "--dut" ]; then
     local DUTS
-	DUTS="$(_cro3_get_duts)"
+    DUTS="$(_cro3_get_duts)"
     compgen -W "${DUTS}" -- "$cur" | mapfile -t COMPREPLY
   elif [ "$prev" = "--board" ]; then
     local BOARDS
-	BOARDS=$(_cro3_get_boards)
+    BOARDS=$(_cro3_get_boards)
     compgen -W "${BOARDS}" -- "$cur" | mapfile -t COMPREPLY
   elif [ "$prev" = "--branch" ]; then
     local BRANCHES
-	BRANCHES=$(_cro3_get_branches)
+    BRANCHES=$(_cro3_get_branches)
     compgen -W "${BRANCHES}" -- "$cur" | mapfile -t COMPREPLY
-  elif _cro3_arg_included "${prev}" "${servo_serial_opts}" ; then
+  elif _cro3_arg_included "${prev}" "${servo_serial_opts}"; then
     local SERVOS
-	SERVOS=$(_cro3_get_servos)
+    SERVOS=$(_cro3_get_servos)
     compgen -W "${SERVOS}" -- "$cur" | mapfile -t COMPREPLY
   elif [ "$prev" = "--remove" ] && [ "${COMP_WORDS[1]}" = "dut" ] && [ "${COMP_WORDS[2]}" = "list" ]; then
     local DUTS
-	DUTS=$(_cro3_get_duts)
+    DUTS=$(_cro3_get_duts)
     compgen -W "${DUTS}" -- "$cur" | mapfile -t COMPREPLY
   elif _cro3_arg_included "${prev}" "${dir_opts}"; then
     _cro3_comp_fs -d "$cur" | mapfile -t COMPREPLY
@@ -188,7 +195,7 @@ _cro3() { # command current prev
     _cro3_comp_fs -f "$cur" | mapfile -t COMPREPLY
   else
     local OPTS
-	OPTS=$(_cro3_get_options "${cur}")
+    OPTS=$(_cro3_get_options "${cur}")
     compgen -W "${OPTS}" -- "$cur" | mapfile -t COMPREPLY
   fi
 }
