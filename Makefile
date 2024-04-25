@@ -71,4 +71,5 @@ cmdline_doc_check:
 .PHONY : preview
 preview: docs/cmdline.md
 	make --silent cmdline_doc_check 2>/dev/null || echo "^^^^ Warning: This warning has been ignored but please fix them before submitting!"
-	gh markdown-preview docs/cmdline.md
+	gh extension exec markdown-preview docs/cmdline.md --host 0.0.0.0 || \
+		echo "To install markdown-preview, run: gh extension install https://github.com/yusukebe/gh-markdown-preview | cat -"
