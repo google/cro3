@@ -1,3 +1,4 @@
+#!/bin/bash -e
 # Copyright 2023 The ChromiumOS Authors
 #
 # Use of this source code is governed by a BSD-style
@@ -26,13 +27,12 @@ _cro3_arg_used() { # arg [arg...]
   return 1
 }
 
-# return 0 if carg is included in the rest of args
-_cro3_arg_included() { # carg [args...]
+# return 0 if carg is found in the space-separated keywords in list
+_cro3_arg_included() { # carg list
   local cur=$1
-  shift 1
-  while [ "$#" -ne 0 ]; do
+  local list=$2
+  for cur in $list; do
     test "${cur}" = "$1" && return 0
-    shift 1
   done
   return 1
 }
@@ -77,11 +77,12 @@ _cro3_get_branches() {
 }
 
 _cro3_get_dut_actions() {
-  cro3 dut do --list-actions 2>/dev/null
+  cro3 dut 'do' --list-actions 2>/dev/null
 }
 
 _cro3_comp_fs() { # option(-d|-f) current
-	local DIR=$(compgen "${1}" "${2}")
+	local DIR
+	DIR=$(compgen "${1}" "${2}")
 	if [ "$(echo "${DIR}" | wc -w)" = 1 ] && [ -d "${DIR}" ]; then
     compgen "${1}" "${DIR}/"
   else
@@ -102,11 +103,12 @@ _cro3_current_command() {
 }
 
 _cro3_get_options() { # current
-	local cmd="$(_cro3_current_command)"
+	local cmd
+	cmd="$(_cro3_current_command)"
   local otype=0
-  local a b
+  local a _b
 
-  ${cmd} --help 2>/dev/null | awk '/^..[^ ]/{print $0}' | while read a b ;do
+  ${cmd} --help 2>/dev/null | awk '/^..[^ ]/{print $0}' | while read -r a _b ; do
     case ${a} in
       Positional) otype=1;;
       Options:) otype=2;;
@@ -150,37 +152,44 @@ _cro3() { # command current prev
   local todo_opts="--version --workon"
   local servo_serial_opts="--serial --servo"
 
-  COMPREPLY=
+  COMPREPLY=()
+
   # If there is --help option, no more options available.
   if _cro3_arg_used "--help"; then
     return 0
   fi
 
-  if _cro3_arg_included ${prev} ${todo_opts}; then
+  if _cro3_arg_included "${prev}" "${todo_opts}" ; then
     # TODO: support completion for each options. currently it is stopped.
     return 0
-  elif [ x"$prev" = x"--dut" ]; then
-    local DUTS=`_cro3_get_duts`
-    COMPREPLY=($(compgen -W "${DUTS}" -- $cur))
-  elif [ x"$prev" = x"--board" ]; then
-    local BOARDS=`_cro3_get_boards`
-    COMPREPLY=($(compgen -W "${BOARDS}" -- $cur))
-  elif [ x"$prev" = x"--branch" ]; then
-    local BRANCHES=`_cro3_get_branches`
-    COMPREPLY=($(compgen -W "${BRANCHES}" -- $cur))
-  elif _cro3_arg_included ${prev} ${servo_serial_opts}; then
-    local DUTS=`_cro3_get_servos`
-    COMPREPLY=($(compgen -W "${DUTS}" -- $cur))
-  elif [ x"$prev" = x"--remove" -a "${COMP_WORDS[1]}" = "dut" -a "${COMP_WORDS[2]}" = "list" ]; then
-    local DUTS=`_cro3_get_duts`
-    COMPREPLY=($(compgen -W "${DUTS}" -- $cur))
-  elif _cro3_arg_included ${prev} ${dir_opts}; then
-    COMPREPLY=($(_cro3_comp_fs -d ${cur}))
-  elif _cro3_arg_included ${prev} ${file_opts}; then
-    COMPREPLY=($(_cro3_comp_fs -f ${cur}))
+  elif [ "$prev" = "--dut" ]; then
+    local DUTS
+	DUTS="$(_cro3_get_duts)"
+    compgen -W "${DUTS}" -- "$cur" | mapfile -t COMPREPLY
+  elif [ "$prev" = "--board" ]; then
+    local BOARDS
+	BOARDS=$(_cro3_get_boards)
+    compgen -W "${BOARDS}" -- "$cur" | mapfile -t COMPREPLY
+  elif [ "$prev" = "--branch" ]; then
+    local BRANCHES
+	BRANCHES=$(_cro3_get_branches)
+    compgen -W "${BRANCHES}" -- "$cur" | mapfile -t COMPREPLY
+  elif _cro3_arg_included "${prev}" "${servo_serial_opts}" ; then
+    local SERVOS
+	SERVOS=$(_cro3_get_servos)
+    compgen -W "${SERVOS}" -- "$cur" | mapfile -t COMPREPLY
+  elif [ "$prev" = "--remove" ] && [ "${COMP_WORDS[1]}" = "dut" ] && [ "${COMP_WORDS[2]}" = "list" ]; then
+    local DUTS
+	DUTS=$(_cro3_get_duts)
+    compgen -W "${DUTS}" -- "$cur" | mapfile -t COMPREPLY
+  elif _cro3_arg_included "${prev}" "${dir_opts}"; then
+    _cro3_comp_fs -d "$cur" | mapfile -t COMPREPLY
+  elif _cro3_arg_included "${prev}" "${file_opts}"; then
+    _cro3_comp_fs -f "$cur" | mapfile -t COMPREPLY
   else
-    local OPTS=`_cro3_get_options ${cur}`
-    COMPREPLY=($(compgen -W "${OPTS}" -- ${cur}))
+    local OPTS
+	OPTS=$(_cro3_get_options "${cur}")
+    compgen -W "${OPTS}" -- "$cur" | mapfile -t COMPREPLY
   fi
 }
 
