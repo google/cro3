@@ -34,6 +34,10 @@ check:
 	cargo test
 	cargo check
 
+.PHONY : shellcheck
+shellcheck:
+	shellcheck `git ls-files *.sh *.bash`
+
 .PHONY : commit
 commit:
 	make
