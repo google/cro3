@@ -10,8 +10,8 @@
 # return 0(OK) if given argument is already used
 __cro3_arg_used() { # arg
   local i=0
-  while [ $i -lt $COMP_CWORD ]; do
-    test x"${COMP_WORDS[i]}" = x"$1" && return 0
+  while [ $i -lt "$COMP_CWORD" ]; do
+    test "${COMP_WORDS[i]}" = "$1" && return 0
     i=$((i+1))
   done
   return 1
@@ -20,7 +20,7 @@ __cro3_arg_used() { # arg
 # return 0 (OK) if one of given arguments is already used
 _cro3_arg_used() { # arg [arg...]
   while [ "$#" -ne 0 ]; do
-    __cro3_arg_used $1 && return 0
+    __cro3_arg_used "$1" && return 0
     shift 1
   done
   return 1
@@ -31,7 +31,7 @@ _cro3_arg_included() { # carg [args...]
   local cur=$1
   shift 1
   while [ "$#" -ne 0 ]; do
-    test x"${cur}" = x"$1" && return 0
+    test "${cur}" = "$1" && return 0
     shift 1
   done
   return 1
@@ -39,7 +39,7 @@ _cro3_arg_included() { # carg [args...]
 
 _cro3_current_repo() {
   local i=0
-  while [ $i -lt $COMP_CWORD ]; do
+  while [ $i -lt "$COMP_CWORD" ]; do
     if [ "${COMP_WORDS[i]}" = "--repo" ]; then
       i=$((i+1))
       echo "${COMP_WORDS[i]}"
@@ -47,8 +47,8 @@ _cro3_current_repo() {
     fi
     i=$((i+1))
   done
-  if [ -d $PWD/.repo -a -d $PWD/chroot ]; then
-    echo $PWD
+  if [ -d "$PWD/.repo" ] && [ -d "$PWD/chroot" ]; then
+    echo "$PWD"
   fi
 }
 
@@ -73,7 +73,7 @@ _cro3_get_boards() {
 }
 
 _cro3_get_branches() {
-  ${COMP_WORDS[0]} config show android_branches 2>/dev/null | sed -e 's/[]["]//g' | sed -e 's/,/ /g'  
+  ${COMP_WORDS[0]} config show android_branches 2>/dev/null | sed -e 's/[]["]//g' | sed -e 's/,/ /g'
 }
 
 _cro3_get_dut_actions() {
@@ -81,17 +81,17 @@ _cro3_get_dut_actions() {
 }
 
 _cro3_comp_fs() { # option(-d|-f) current
-  local DIR=`compgen ${1} ${2}`
-  if [ `echo ${DIR} | wc -w` = 1 -a -d "${DIR}" ]; then
-    compgen ${1} "${DIR}/"
+	local DIR=$(compgen "${1}" "${2}")
+	if [ "$(echo "${DIR}" | wc -w)" = 1 ] && [ -d "${DIR}" ]; then
+    compgen "${1}" "${DIR}/"
   else
-    compgen ${1} ${2}
+    compgen "${1}" "${2}"
   fi
 }
 
 _cro3_current_command() {
   local i=0
-  while [ $i -lt $COMP_CWORD ]; do
+  while [ $i -lt "$COMP_CWORD" ]; do
     case "${COMP_WORDS[i]}" in
       -*) i=$COMP_CWORD;;
       *)
@@ -102,7 +102,7 @@ _cro3_current_command() {
 }
 
 _cro3_get_options() { # current
-  local cmd=`_cro3_current_command`
+	local cmd="$(_cro3_current_command)"
   local otype=0
   local a b
 
@@ -114,7 +114,7 @@ _cro3_get_options() { # current
       -*)
         # All options start with '-'.
         if [ ${otype} -eq 2 ]; then
-          _cro3_arg_used ${a} || echo ${a}
+          _cro3_arg_used "${a}" || echo "${a}"
         fi;;
       *)
         # Positional arguments must be converted.
@@ -130,12 +130,12 @@ _cro3_get_options() { # current
             _cro3_get_packages;;
           files)
             if [ "${1#-}" == "${1}" ]; then
-              _cro3_comp_fs -f ${1}
+              _cro3_comp_fs -f "${1}"
             fi;;
           esac
         # Subcommands must be shown as it is.
         elif [ ${otype} = 3 ]; then
-          echo ${a}
+          echo "${a}"
         fi
         ;;
     esac
