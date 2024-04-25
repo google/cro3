@@ -1,6 +1,6 @@
 #!/bin/bash -e
-VARS_USED="$(cat docs/cmdline.md | grep -o -E '\$\{?[_A-Z]{1,}\}?' | tr -d '{' | tr -d '}' | tr -d '$' | sort -u)"
-VARS_EXPLAINED="$(cat docs/cmdline_preface.md | grep -o -E '\$\{?[_A-Z]{1,}\}?' | tr -d '{' | tr -d '}' | tr -d '$' | sort -u)"
+VARS_USED="$(grep -o -E '\$\{?[_A-Z]{1,}\}?' docs/cmdline.md | tr -d '{' | tr -d '}' | tr -d '$' | sort -u)"
+VARS_EXPLAINED="$(grep -o -E '\$\{?[_A-Z]{1,}\}?' docs/cmdline_preface.md | tr -d '{' | tr -d '}' | tr -d '$' | sort -u)"
 
 if [ "$VARS_USED" != "$VARS_EXPLAINED" ]; then
 	echo "----"

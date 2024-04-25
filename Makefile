@@ -36,8 +36,7 @@ check:
 
 .PHONY : shellcheck
 shellcheck:
-	# shellcheck `git ls-files *.sh *.bash`
-	shellcheck src/cmd/cro3.bash
+	shellcheck `git ls-files *.sh *.bash`
 
 .PHONY : commit
 commit:
