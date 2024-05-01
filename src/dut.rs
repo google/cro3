@@ -461,6 +461,14 @@ impl SshInfo {
             format!("{host}:{port}")
         }
     }
+    pub fn into_forwarded(&self) -> Result<Self> {
+        if self.needs_port_forwarding_in_chroot() {
+            let port = self.start_ssh_forwarding_background()?;
+            Self::new_host_and_port("127.0.0.1", port)
+        } else {
+            Ok(self.clone())
+        }
+    }
 
     fn gen_ssh_options(&self) -> Result<Vec<String>> {
         let mut args: Vec<String> = Vec::from(COMMON_SSH_OPTIONS)
@@ -642,7 +650,7 @@ impl SshInfo {
     // Start SSH port forwarding on a given port.
     // The future will be resolved once the first connection attempt is succeeded.
     pub async fn start_ssh_forwarding(&self, port: u16) -> Result<async_process::Child> {
-        self.start_ssh_forwarding_range(Range {
+        self.start_ssh_forwarding_in_range(Range {
             start: port,
             end: port + 1,
         })
@@ -650,7 +658,7 @@ impl SshInfo {
         .map(|e| e.0)
     }
     // Start SSH port forwarding in a given range without timeout.
-    async fn start_ssh_forwarding_range(
+    async fn start_ssh_forwarding_in_range(
         &self,
         port_range: Range<u16>,
     ) -> Result<(async_process::Child, u16)> {
@@ -700,8 +708,8 @@ impl SshInfo {
     /// error. Forwarding port on this side will be automatically determined by
     /// start_ssh_forwarding, and the same port will be used for reconnecting
     /// while this cro3 instance is running.
-    pub fn start_ssh_forwarding_range_background(&self, port_range: Range<u16>) -> Result<u16> {
-        let (mut child, port) = block_on(self.start_ssh_forwarding_range(port_range))?;
+    fn start_ssh_forwarding_background_in_range(&self, port_range: Range<u16>) -> Result<u16> {
+        let (mut child, port) = block_on(self.start_ssh_forwarding_in_range(port_range))?;
         let ssh = self.clone();
         thread::spawn(move || {
             block_on(async move {
@@ -721,7 +729,9 @@ impl SshInfo {
         });
         Ok(port)
     }
-
+    pub fn start_ssh_forwarding_background(&self) -> Result<u16> {
+        self.start_ssh_forwarding_background_in_range(4100..4200)
+    }
     pub fn run_cmd_stdio(&self, cmd: &str) -> Result<String> {
         let output = self.run_cmd_captured(cmd)?;
         if output.status.success() {

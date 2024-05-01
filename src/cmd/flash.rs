@@ -7,9 +7,9 @@
 //! ## Flash images (cros flash wrapper)
 //! ```
 //! # Flash an image into a remote DUT
-//! cro3 flash --cros ${CROS_DIR} --dut ${DUT}
+//! cro3 flash --cros ${CROS} --dut ${DUT}
 //! # Flash an image into a USB stick
-//! cro3 flash --cros ${CROS_DIR} --usb --board ${BOARD}
+//! cro3 flash --cros ${CROS} --usb --board ${BOARD}
 //! ```
 
 use std::process::Command;
@@ -24,6 +24,7 @@ use cro3::dut::DutInfo;
 use cro3::repo::get_cros_dir;
 use regex::Regex;
 use tracing::error;
+use tracing::info;
 
 fn get_board_from_dut(dut: &str) -> Result<String> {
     let dut = DutInfo::new(dut)?;
@@ -130,6 +131,7 @@ pub fn run(args: &Args) -> Result<()> {
         image.clone()
     } else {
         let board_to_flash = determine_board_to_flash(&args.dut, &args.board)?;
+        info!("{board_to_flash}");
 
         // Determine an image to flash
         let host = if args.use_local_image {
@@ -161,7 +163,7 @@ pub fn run(args: &Args) -> Result<()> {
         (Some(dut), false, false) => {
             ensure_testing_rsa_is_there()?;
             let dut = &DutInfo::new(dut)?;
-            dut.ssh().host_and_port()
+            dut.ssh().into_forwarded()?.host_and_port().to_string()
         }
         (Some(_), false, true) => bail!(
             "Recovery image is not for flashing via SSH. Please specify --usb as a destination \

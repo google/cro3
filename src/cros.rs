@@ -5,6 +5,7 @@
 // https://developers.google.com/open-source/licenses/bsd
 
 use std::process::Command;
+use std::process::Stdio;
 
 use anyhow::bail;
 use anyhow::Context;
@@ -94,7 +95,8 @@ pub fn setup_cros_repo(repo: &str, version: &str, reference: &Option<String>) ->
         .arg("-u")
         .arg(url)
         .arg("-b")
-        .arg("main");
+        .arg("main")
+        .stdin(Stdio::null());
 
     if let Some(reference) = reference {
         info!("Using {reference} as a local mirror.");
@@ -112,7 +114,7 @@ pub fn setup_cros_repo(repo: &str, version: &str, reference: &Option<String>) ->
         cmd.arg(format!("buildspecs/{}/{}.xml", milestone, version));
     };
 
-    info!("Running repo init with the given version...");
+    info!("Running: {cmd:?}");
     let cld = cmd.spawn().context("Failed to execute repo init")?;
     cld.wait_with_output()
         .context("Failed to wait for repo init")?;

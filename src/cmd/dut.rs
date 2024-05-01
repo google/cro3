@@ -27,8 +27,8 @@
 //! # Show specific DUT info (e.g. ipv6_addr)
 //! cro3 dut info --dut ${DUT} ipv6_addr
 //!
-//! # Scan DUTs on a remote network
-//! cro3 dut discover --remote ${REMOTE} | tee /tmp/dut_discovered.json
+//! # Scan DUTs on the same network where `--remote` is connected.
+//! cro3 dut discover --remote ${IP} | tee /tmp/dut_discovered.json
 
 //! # Monitor DUTs and keep them accessible via local port forwarding
 //! cro3 dut monitor ${DUT}
@@ -522,12 +522,12 @@ fn enable_ccd_testlab(servo: &LocalServo) -> Result<()> {
         return Ok(());
     }
     let result = cr50
-        .run_cmd("Shell", "ccd testlab")
+        .run_cmd("Shell", "ccd testlab enable")
         .context(anyhow!("Failed to run `ccd testlab` command"))?;
     if !result.trim().contains("CCD test lab mode enabled") {
         return Err(anyhow!(
-            "CCD testlab mode is disabled. Please run `minicom -w -D {}` and run `ccd testlab \
-             enable` on it and follow the instructions.",
+            "CCD testlab mode is still disabled. Please run `minicom -w -D {}` and run `ccd \
+             testlab enable` on it and follow the instructions.",
             cr50.tty_path("Shell")?
         ));
     }
@@ -793,7 +793,7 @@ fn run_dut_list(args: &ArgsDutList) -> Result<()> {
                 (id.to_owned(), status, e.1.clone())
             })
             .collect();
-        let (duts_to_be_removed, duts) = if args.update {
+        let (addr_reused, duts) = if args.update {
             (
                 duts.iter()
                     .filter(|e| e.1 == DutStatus::AddressReused)
@@ -810,11 +810,18 @@ fn run_dut_list(args: &ArgsDutList) -> Result<()> {
         for dut in duts {
             println!("{:32} {:13} {:?}", dut.0, &format!("{:?}", dut.1), dut.2);
         }
-        if !duts_to_be_removed.is_empty() {
-            println!("\nFollowing DUTs are removed: ");
-            for dut in duts_to_be_removed {
+        if !addr_reused.is_empty() {
+            println!("\nFollowing DUT addresses are reused by other devices: ");
+            for dut in &addr_reused {
                 println!("{:32} {:13} {:?}", dut.0, &format!("{:?}", dut.1), dut.2);
                 SSH_CACHE.remove(&dut.0)?;
+            }
+            // Re-register the DUT
+            for dut in &addr_reused {
+                let addr = dut.2.host_and_port();
+                if let Err(e) = &register_dut(&addr) {
+                    warn!("Failed to add {addr}: {e:#}");
+                }
             }
         }
         return Ok(());

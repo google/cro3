@@ -108,13 +108,13 @@ fn update_cached_tests(bundles: &Vec<&str>, dut: &str, repodir: &str) -> Result<
     ensure_testing_rsa_is_there()?;
     let chroot = Chroot::new(repodir)?;
     let ssh = SshInfo::new(dut).context("failed to create SshInfo")?;
-    let port = ssh.start_ssh_forwarding_range_background(4100..4200)?;
+    let ssh = ssh.into_forwarded()?;
 
     // To avoid "build failed: failed checking build deps:" error
     chroot.run_bash_script_in_chroot("update_board_chroot", "update_chroot", None)?;
 
     for b in bundles {
-        update_cached_tests_in_bundle(b, &chroot, port)?
+        update_cached_tests_in_bundle(b, &chroot, ssh.port())?
     }
     Ok(())
 }
@@ -205,7 +205,7 @@ fn run_tast_run(args: &ArgsRun) -> Result<()> {
     let chroot = Chroot::new(&repodir)?;
     let ssh = SshInfo::new(&args.dut).context("failed to create SshInfo")?;
     // setup port forwarding for chroot.
-    let port = ssh.start_ssh_forwarding_range_background(4100..4200)?;
+    let ssh = ssh.into_forwarded()?;
     let opt = args.option.as_deref();
 
     let mut matched = false;
@@ -218,7 +218,7 @@ fn run_tast_run(args: &ArgsRun) -> Result<()> {
     for b in bundles {
         if bundle_has_test(b, &filter) {
             matched = true;
-            run_test_with_bundle(b, &filter, &chroot, port, opt)?
+            run_test_with_bundle(b, &filter, &chroot, ssh.port(), opt)?
         }
     }
 
@@ -227,7 +227,7 @@ fn run_tast_run(args: &ArgsRun) -> Result<()> {
             "{0} did not match any cached tests. Run it with default bundle.",
             args.tests
         );
-        run_test_with_bundle(DEFAULT_BUNDLE, &filter, &chroot, port, opt)?
+        run_test_with_bundle(DEFAULT_BUNDLE, &filter, &chroot, ssh.port(), opt)?
     }
 
     Ok(())

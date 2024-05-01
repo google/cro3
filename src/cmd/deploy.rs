@@ -56,15 +56,7 @@ pub struct Args {
 pub fn run(args: &Args) -> Result<()> {
     ensure_testing_rsa_is_there()?;
 
-    let target = {
-        let t = SshInfo::new(&args.dut)?;
-        if t.needs_port_forwarding_in_chroot() {
-            let port = t.start_ssh_forwarding_range_background(4100..4200)?;
-            SshInfo::new_host_and_port("localhost", port)?
-        } else {
-            t
-        }
-    };
+    let target = SshInfo::new(&args.dut)?.into_forwarded()?;
     info!("Target DUT is {:?}", target);
 
     let board = target.get_board()?;
