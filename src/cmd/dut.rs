@@ -727,7 +727,8 @@ struct ArgsDutList {
     #[argh(switch)]
     clear: bool,
 
-    /// display space-separated DUT IDs on one line (stable)
+    /// display space-separated DUT IDs on one line in alphabetical order
+    /// (stable)
     #[argh(switch)]
     ids: bool,
 
@@ -758,7 +759,8 @@ fn run_dut_list(args: &ArgsDutList) -> Result<()> {
         .entries()
         .context(anyhow!("SSH_CACHE is not initialized yet"))?;
     if args.ids {
-        let keys: Vec<String> = duts.keys().map(|s| s.to_string()).collect();
+        let mut keys: Vec<String> = duts.keys().map(|s| s.to_string()).collect();
+        keys.sort();
         println!("{}", keys.join(" "));
         return Ok(());
     }
