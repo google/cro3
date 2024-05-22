@@ -7,6 +7,7 @@
 use anyhow::Result;
 use argh::FromArgs;
 
+pub mod abtest;
 pub mod arc;
 pub mod board;
 pub mod build;
