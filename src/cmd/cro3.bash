@@ -172,31 +172,39 @@ _cro3() { # command current prev
   elif [ "$prev" = "--dut" ]; then
     local DUTS
     DUTS="$(_cro3_get_duts)"
+    # shellcheck disable=SC2207
     COMPREPLY=($(compgen -W "${DUTS}" -- "$cur"))
   elif [ "$prev" = "--board" ]; then
     local BOARDS
     BOARDS=$(_cro3_get_boards)
+    # shellcheck disable=SC2207
     COMPREPLY=($(compgen -W "${BOARDS}" -- "$cur"))
   elif [ "$prev" = "--branch" ]; then
     local BRANCHES
     BRANCHES=$(_cro3_get_branches)
+    # shellcheck disable=SC2207
     COMPREPLY=($(compgen -W "${BRANCHES}" -- "$cur"))
   elif _cro3_arg_included "${prev}" "${servo_serial_opts}"; then
     local SERVOS
     SERVOS=$(_cro3_get_servos)
+    # shellcheck disable=SC2207
     COMPREPLY=($(compgen -W "${SERVOS}" -- "$cur"))
   elif [ "$prev" = "--remove" ] && [ "${COMP_WORDS[1]}" = "dut" ] && [ "${COMP_WORDS[2]}" = "list" ]; then
     local DUTS
     DUTS=$(_cro3_get_duts)
+    # shellcheck disable=SC2207
     COMPREPLY=($(compgen -W "${DUTS}" -- "$cur"))
   elif _cro3_arg_included "${prev}" "${dir_opts}"; then
+    # shellcheck disable=SC2207
     COMPREPLY=($(_cro3_comp_fs -d "$cur"))
   elif _cro3_arg_included "${prev}" "${file_opts}"; then
+    # shellcheck disable=SC2207
     COMPREPLY=($(_cro3_comp_fs -f "$cur"))
   else
     local OPTS
     OPTS=$(_cro3_get_options "${cur}")
-    COMPREPLY=($(compgen -W "${OPTS}" -- ${cur}))
+    # shellcheck disable=SC2207
+    COMPREPLY=($(compgen -W "${OPTS}" -- "${cur}"))
   fi
 }
 
