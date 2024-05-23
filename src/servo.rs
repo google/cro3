@@ -64,7 +64,7 @@ use crate::config::Config;
 use crate::util::shell_helpers::get_async_lines;
 use crate::util::shell_helpers::get_stdout;
 use crate::util::shell_helpers::run_bash_command;
-use crate::util::shell_helpers::run_bash_command_with_timeout;
+use crate::util::shell_helpers::run_bash_command_async;
 use crate::util::super_user_helpers::has_root_privilege;
 use crate::util::super_user_helpers::run_cro3_with_sudo;
 
@@ -422,13 +422,44 @@ impl LocalServo {
         if !fs::metadata(tty_path)?.file_type().is_char_device() {
             bail!("{tty_path} is not a char device");
         }
-        let output = run_bash_command_with_timeout(
+        block_on(async {
+        let mut output = run_bash_command_async(
             &format!("echo {cmd} | socat - {tty_path},echo=0,crtscts=1 2>&1"),
             None,
-            Duration::from_secs(1),
         )
         .context(anyhow!("Servo command failed: {cmd}"))?;
-        Ok(output)
+                let (servod_stdout, servod_stderr) = get_async_lines(&mut output);
+                let mut servod_stdout = servod_stdout.context(anyhow!("servod_stdout was None"))?;
+                let mut servod_stderr = servod_stderr.context(anyhow!("servod_stdout was None"))?;
+                let mut stdout_string = String::new();
+                loop {
+                    let mut servod_stdout = servod_stdout.next().fuse();
+                    let mut servod_stderr = servod_stderr.next().fuse();
+                    select! {
+                            line = servod_stderr => {
+                                if let Some(line) = line {
+                                    let line = line?;
+                                    trace!("{}", line);
+                                } else {
+                                    return Ok(stdout_string);
+                                }
+                            }
+                            line = servod_stdout => {
+                                if let Some(line) = line {
+                                    let line = line?;
+                                    stdout_string.push_str(&line);
+                                    stdout_string.push('\n');
+                                    info!("{:?}", line);
+                                    if line.contains(">") {
+                                        return Ok(stdout_string);
+                                    }
+                                } else {
+                                    return Ok(stdout_string);
+                                }
+                            }
+                        }
+                }
+        })
     }
     pub fn usb_sysfs_path(&self) -> &str {
         &self.usb_sysfs_path
@@ -560,8 +591,15 @@ impl LocalServo {
         })
         .or(Err(anyhow!("Failed to get mac_addr after retries")))
     }
+    pub fn try_to_servo(&self) -> Result<LocalServo> {
+        if self.is_servo() {
+            Ok(self.clone())
+        } else {
+        get_servo_attached_to_cr50(self)
+        }
+    }
     pub fn read_mac_addr6(&self) -> Result<MacAddr6> {
-        MacAddr6::from_str(&self.read_mac_addr()?)
+        MacAddr6::from_str(&self.try_to_servo()?.read_mac_addr()?)
             .context("Failed to convert MAC address string to MacAddr6")
     }
     pub fn read_mac_addr8(&self) -> Result<MacAddr8> {

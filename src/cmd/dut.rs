@@ -63,6 +63,8 @@ use cro3::servo::LocalServo;
 use cro3::servo::ServoList;
 use lazy_static::lazy_static;
 use rayon::prelude::*;
+use retry::delay;
+use retry::retry;
 use termion::screen::IntoAlternateScreen;
 use tracing::error;
 use tracing::info;
@@ -353,20 +355,23 @@ lazy_static! {
 }
 
 fn is_ccd_opened(cr50: &LocalServo) -> Result<bool> {
-    let ccd_state = cr50.run_cmd("Shell", "ccd")?;
-    let ccd_state = ccd_state
-        .split('\n')
-        .rev()
-        .find(|line| line.starts_with("State: "))
-        .context("Could not detect CCD state")?
-        .trim();
-    if ccd_state == "State: Locked" {
-        Ok(false)
-    } else if ccd_state == "State: Opened" {
-        Ok(true)
-    } else {
-        bail!("Unexpected ccd state: {}", ccd_state)
-    }
+    retry(delay::Fixed::from_millis(500).take(2), || {
+        let ccd_state = cr50.run_cmd("Shell", "ccd")?;
+        let ccd_state = ccd_state
+            .split('\n')
+            .rev()
+            .find(|line| line.starts_with("State: "))
+            .context("Could not detect CCD state")?
+            .trim();
+        if ccd_state == "State: Locked" {
+            Ok(false)
+        } else if ccd_state == "State: Opened" {
+            Ok(true)
+        } else {
+            bail!("Unexpected ccd state: {}", ccd_state)
+        }
+    })
+    .or(Err(anyhow!("Failed to get if CCD is opened after retries")))
 }
 
 fn do_rma_auth(cr50: &LocalServo) -> Result<()> {
@@ -516,7 +521,10 @@ fn is_ccd_testlab_enabled(cr50: &LocalServo) -> Result<bool> {
 fn enable_ccd_testlab(servo: &LocalServo) -> Result<()> {
     let cr50 = get_cr50_attached_to_servo(servo)?;
     info!("Enabling CCD testlab mode of DUT: {}", cr50.serial());
-    open_ccd(&cr50)?;
+    if !is_ccd_opened(&cr50)? {
+        info!("CCD is not opened yet");
+        return Ok(());
+    }
     if is_ccd_testlab_enabled(&cr50)? {
         info!("CCD testlab mode is already enabled");
         return Ok(());
@@ -656,8 +664,11 @@ fn run_setup(args: &ArgsSetup) -> Result<()> {
     } else {
         open_ccd(&cr50)?;
         enable_ccd_testlab(&cr50)?;
-        let dut = check_ssh(&servo)?;
-        check_dev_gbb_flags(&dut)?;
+        if let Ok(dut) = check_ssh(&servo) {
+            check_dev_gbb_flags(&dut)?;
+        } else {
+            set_dev_gbb_flags(&repo, &cr50)?;
+        }
     }
     Ok(())
 }
