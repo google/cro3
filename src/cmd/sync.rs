@@ -82,9 +82,9 @@ pub fn run(args: &Args) -> Result<()> {
     };
 
     let repo = if is_cros {
-        get_cros_dir_unchecked(&args.cros)?
+        get_cros_dir_unchecked(args.cros.as_deref())?
     } else {
-        get_cros_dir_unchecked(&args.arc)?
+        get_cros_dir_unchecked(args.arc.as_deref())?
     };
 
     // Inform user of sync information.

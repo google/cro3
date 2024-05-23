@@ -602,7 +602,7 @@ struct ArgsSetup {
     check_ssh: bool,
 }
 fn run_setup(args: &ArgsSetup) -> Result<()> {
-    let repo = get_cros_dir(&args.cros)?;
+    let repo = get_cros_dir(args.cros.as_deref())?;
     let servo = if let Some(serial) = &args.serial {
         let list = ServoList::discover()?;
         list.find_by_serial(serial)

@@ -88,7 +88,7 @@ fn run_board_list(args: &ArgsList) -> Result<()> {
         .unwrap_or_else(|| Pattern::new("*"))?;
 
     if !args.cached {
-        update_cached_boards(&get_cros_dir(&args.cros)?)?;
+        update_cached_boards(&get_cros_dir(args.cros.as_deref())?)?;
     }
 
     print_cached_boards(&filter)

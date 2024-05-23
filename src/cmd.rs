@@ -44,6 +44,7 @@ pub struct TopLevel {
 #[argh(subcommand)]
 /// cro3's ChromiumOS dev commands
 pub enum Args {
+    Abtest(abtest::Args),
     Arc(arc::Args),
     Board(board::Args),
     Build(build::Args),
@@ -65,6 +66,7 @@ pub enum Args {
 #[tracing::instrument(level = "trace")]
 pub fn run(args: &TopLevel) -> Result<()> {
     match &args.nested {
+        Args::Abtest(args) => args.run(),
         Args::Arc(args) => arc::run(args),
         Args::Board(args) => board::run(args),
         Args::Build(args) => build::run(args),

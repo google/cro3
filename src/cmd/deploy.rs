@@ -61,7 +61,7 @@ pub fn run(args: &Args) -> Result<()> {
 
     let board = target.get_board()?;
     let packages_str = args.packages.join(" ");
-    let chroot = Chroot::new(&get_cros_dir(&args.cros)?)?;
+    let chroot = Chroot::new(&get_cros_dir(args.cros.as_deref())?)?;
 
     let kernel_pkg = extract_kernel_pkg(&args.packages)?;
 

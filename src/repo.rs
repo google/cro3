@@ -33,7 +33,7 @@ use crate::util::shell_helpers::run_bash_command;
 /// 2. CROS_DIR environmental variables
 /// 3. default_cros_checkout config setting
 /// 4. current directory
-pub fn get_cros_dir_unchecked(dir: &Option<String>) -> Result<String> {
+pub fn get_cros_dir_unchecked(dir: Option<&str>) -> Result<String> {
     if let Some(crosdir) = dir {
         return Ok(crosdir.to_string());
     }
@@ -49,7 +49,7 @@ pub fn get_cros_dir_unchecked(dir: &Option<String>) -> Result<String> {
     find_cros_dir_from_cwd()
 }
 
-pub fn get_cros_dir(dir: &Option<String>) -> Result<String> {
+pub fn get_cros_dir(dir: Option<&str>) -> Result<String> {
     let repo = get_cros_dir_unchecked(dir)?;
     ensure_is_cros_dir(&repo)?;
     Ok(repo)

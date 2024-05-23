@@ -107,7 +107,7 @@ pub fn run_get(args: &ArgsGet) -> Result<()> {
             let _list = read_to_string(gen_path_in_cro3_dir("recovery.conf")?)?;
         }
         "gbb_flags" => {
-            let repo = get_cros_dir(&None)?;
+            let repo = get_cros_dir(None)?;
             println!("{:#X}", s.read_gbb_flags(&repo)?);
         }
         key => {

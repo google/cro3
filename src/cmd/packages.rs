@@ -90,7 +90,7 @@ fn run_packages_list(args: &ArgsList) -> Result<()> {
         return print_cached_packages(&filter, board);
     }
 
-    update_cached_packages(&get_cros_dir(&args.cros)?, board)?;
+    update_cached_packages(&get_cros_dir(args.cros.as_deref())?, board)?;
 
     print_cached_packages(&filter, board)
 }

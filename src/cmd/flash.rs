@@ -124,7 +124,7 @@ pub struct Args {
 pub fn run(args: &Args) -> Result<()> {
     // repo path is needed since cros flash outside chroot only works within the
     // cros checkout
-    let repo = &get_cros_dir(&args.cros)?;
+    let repo = &get_cros_dir(args.cros.as_deref())?;
 
     let image_path = if let Some(image) = &args.image {
         // If --image is specified, use the local file

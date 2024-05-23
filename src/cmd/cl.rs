@@ -63,7 +63,7 @@ fn run_pick(args: &ArgsPick) -> Result<()> {
     let cl_suffix = &cl[cl.len() - 2..];
     let patchset = &capture["patchset"];
     let dir = &args.dir;
-    let chroot = Chroot::new(&get_cros_dir(&args.cros)?)?;
+    let chroot = Chroot::new(&get_cros_dir(args.cros.as_deref())?)?;
     chroot.run_bash_script_in_chroot(
         "checkout",
         &format!(

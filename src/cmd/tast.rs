@@ -134,7 +134,7 @@ fn run_tast_list(args: &ArgsList) -> Result<()> {
             .as_ref()
             .expect("Test name is not cached. Please rerun with --dut <DUT>");
 
-        update_cached_tests(&bundles, dut, &get_cros_dir(&args.cros)?)?;
+        update_cached_tests(&bundles, dut, &get_cros_dir(args.cros.as_deref())?)?;
     }
 
     print_cached_tests(&filter, &bundles)?;
@@ -195,15 +195,17 @@ fn run_test_with_bundle(
     Ok(())
 }
 
-fn run_tast_run(args: &ArgsRun) -> Result<()> {
+pub fn run_tast_test(
+    chroot: &Chroot,
+    dut: &str,
+    test_query: &str,
+    tast_options: Option<&str>,
+) -> Result<()> {
     ensure_testing_rsa_is_there()?;
-    let filter = Pattern::new(&args.tests)?;
-    let repodir = get_cros_dir(&args.cros)?;
-    let chroot = Chroot::new(&repodir)?;
-    let ssh = SshInfo::new(&args.dut).context("failed to create SshInfo")?;
+    let ssh = SshInfo::new(dut).context("failed to create SshInfo")?;
     // setup port forwarding for chroot.
     let ssh = ssh.into_forwarded()?;
-    let opt = args.option.as_deref();
+    let filter = Pattern::new(test_query)?;
 
     let mut matched = false;
     let config = Config::read()?;
@@ -215,17 +217,20 @@ fn run_tast_run(args: &ArgsRun) -> Result<()> {
     for b in bundles {
         if bundle_has_test(b, &filter) {
             matched = true;
-            run_test_with_bundle(b, &filter, &chroot, ssh.port(), opt)?
+            run_test_with_bundle(b, &filter, &chroot, ssh.port(), tast_options)?
         }
     }
 
     if !matched {
-        warn!(
-            "{0} did not match any cached tests. Run it with default bundle.",
-            args.tests
-        );
-        run_test_with_bundle(DEFAULT_BUNDLE, &filter, &chroot, ssh.port(), opt)?
+        warn!("{test_query} did not match any cached tests. Run it with default bundle.");
+        run_test_with_bundle(DEFAULT_BUNDLE, &filter, &chroot, ssh.port(), tast_options)?
     }
 
     Ok(())
+}
+
+fn run_tast_run(args: &ArgsRun) -> Result<()> {
+    let repodir = get_cros_dir(args.cros.as_deref())?;
+    let chroot = Chroot::new(&repodir)?;
+    run_tast_test(&chroot, &args.dut, &args.tests, args.option.as_deref())
 }

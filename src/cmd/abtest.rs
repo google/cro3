@@ -8,39 +8,13 @@
 //! ```
 //! ```
 
-use std::collections::HashMap;
-use std::env::current_exe;
-use std::fs::read_to_string;
-use std::io::stdout;
-use std::io::Read;
-use std::io::Write;
-use std::thread;
-use std::time;
-
-use anyhow::anyhow;
-use anyhow::bail;
-use anyhow::Context;
 use anyhow::Result;
 use argh::FromArgs;
 use cro3::chroot::Chroot;
-use cro3::cros;
-use cro3::dut::discover_local_nodes;
-use cro3::dut::fetch_dut_info_in_parallel;
-use cro3::dut::register_dut;
-use cro3::dut::DutInfo;
-use cro3::dut::MonitoredDut;
-use cro3::dut::SshInfo;
-use cro3::dut::SSH_CACHE;
 use cro3::repo::get_cros_dir;
-use cro3::servo::get_cr50_attached_to_servo;
-use cro3::servo::LocalServo;
-use cro3::servo::ServoList;
-use lazy_static::lazy_static;
-use rayon::prelude::*;
-use termion::screen::IntoAlternateScreen;
-use tracing::error;
-use tracing::info;
 use tracing::warn;
+
+use crate::cmd::tast::run_tast_test;
 
 #[derive(FromArgs, PartialEq, Debug)]
 /// Run / analyze performance experiments
@@ -49,22 +23,28 @@ pub struct Args {
     #[argh(subcommand)]
     nested: SubCommand,
 }
+impl Args {
+    #[tracing::instrument(level = "trace")]
+    pub fn run(&self) -> Result<()> {
+        match &self.nested {
+            SubCommand::Run(args) => args.run(),
+        }
+    }
+}
 #[derive(FromArgs, PartialEq, Debug)]
 #[argh(subcommand)]
 enum SubCommand {
     Run(ArgsRun),
-}
-#[tracing::instrument(level = "trace")]
-pub fn run(args: &Args) -> Result<()> {
-    match &args.nested {
-        SubCommand::Run(args) => args.run(),
-    }
 }
 
 #[derive(FromArgs, PartialEq, Debug)]
 /// Run performance experiments
 #[argh(subcommand, name = "run")]
 struct ArgsRun {
+    /// cros repo dir to be used
+    #[argh(option)]
+    cros: String,
+
     /// target DUT
     #[argh(option)]
     dut: String,
@@ -81,9 +61,9 @@ struct ArgsRun {
     #[argh(option)]
     script_config_b: String,
 
-    /// path to a test script
+    /// tast test identifier
     #[argh(option)]
-    script_test: String,
+    tast_test: String,
 
     /// number of test runs in a row without modifying the environment
     #[argh(option)]
@@ -107,12 +87,13 @@ struct ArgsRun {
 
     /// number of test runs in a row without modifying the environment
     #[argh(option)]
-    result_dir: String,
+    result_dir: Option<String>,
 }
 impl ArgsRun {
     fn run(&self) -> Result<()> {
-        cros::ensure_testing_rsa_is_there()?;
-        let target = &SshInfo::new(&self.dut)?;
+        let repodir = get_cros_dir(Some(&self.cros))?;
+        let chroot = Chroot::new(&repodir)?;
+        run_tast_test(&chroot, &self.dut, &self.tast_test, None)?;
         Ok(())
     }
 }

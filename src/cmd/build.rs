@@ -59,7 +59,7 @@ pub struct Args {
 pub fn run(args: &Args) -> Result<()> {
     let board = &args.board;
     let use_flags = &args.use_flags;
-    let chroot = Chroot::new(&get_cros_dir(&args.cros)?)?;
+    let chroot = Chroot::new(&get_cros_dir(args.cros.as_deref())?)?;
     if !args.skip_setup {
         chroot.run_bash_script_in_chroot(
             "board_setup",
