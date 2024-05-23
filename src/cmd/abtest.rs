@@ -11,6 +11,7 @@
 use anyhow::Result;
 use argh::FromArgs;
 use cro3::chroot::Chroot;
+use cro3::dut::SshInfo;
 use cro3::repo::get_cros_dir;
 use tracing::warn;
 
@@ -35,6 +36,12 @@ impl Args {
 #[argh(subcommand)]
 enum SubCommand {
     Run(ArgsRun),
+}
+
+#[derive(Debug)]
+enum ExperimentConfig {
+    A,
+    B,
 }
 
 #[derive(FromArgs, PartialEq, Debug)]
@@ -69,11 +76,12 @@ struct ArgsRun {
     #[argh(option)]
     run_per_cluster: Option<usize>,
 
-    /// number of test runs in a row without modifying the environment
+    /// number of clusters (per-group setup(A/B) + test runs(T)) before
+    /// switching to another
     #[argh(option)]
     cluster_per_group: Option<usize>,
 
-    /// number of test runs in a row without modifying the environment
+    /// number of cluster pairs under the same instance of configuration
     #[argh(option)]
     group_per_iteration: Option<usize>,
 
@@ -90,10 +98,33 @@ struct ArgsRun {
     result_dir: Option<String>,
 }
 impl ArgsRun {
-    fn run(&self) -> Result<()> {
+    fn run_group(&self, config: ExperimentConfig, dut: &SshInfo) -> Result<()> {
         let repodir = get_cros_dir(Some(&self.cros))?;
         let chroot = Chroot::new(&repodir)?;
+        match config {
+            ExperimentConfig::A => dut.switch_partition_set(cro3::dut::PartitionSet::Primary),
+            ExperimentConfig::B => dut.switch_partition_set(cro3::dut::PartitionSet::Secondary),
+        }?;
+        dut.reboot()?;
+        dut.wait_online()?;
+
         run_tast_test(&chroot, &self.dut, &self.tast_test, None)?;
         Ok(())
+    }
+    fn run_cluster(&self, dut: &SshInfo) -> Result<()> {
+        self.run_group(ExperimentConfig::A, dut)?;
+        self.run_group(ExperimentConfig::B, dut)?;
+        Ok(())
+    }
+    fn run_iteration(&self, dut: &SshInfo) -> Result<()> {
+        self.run_cluster(dut)
+    }
+    fn run_experiment(&self, dut: &SshInfo) -> Result<()> {
+        self.run_iteration(dut)
+    }
+    fn run(&self) -> Result<()> {
+        let dut = SshInfo::new(&self.dut)?;
+        let dut = dut.into_forwarded()?;
+        self.run_experiment(&dut)
     }
 }

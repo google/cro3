@@ -31,6 +31,7 @@ use rand::seq::SliceRandom;
 use rand::thread_rng;
 use rayon::prelude::*;
 use regex::Regex;
+use retry::retry;
 use serde::{Deserialize, Serialize};
 use tracing::error;
 use tracing::info;
@@ -81,6 +82,11 @@ lazy_static! {
 }
 
 pub static SSH_CACHE: KvCache<SshInfo> = KvCache::new("ssh_cache");
+
+pub enum PartitionSet {
+    Primary,
+    Secondary,
+}
 
 /// MonitoredDut holds connection to a monitoring Dut
 #[derive(Debug)]
@@ -829,6 +835,43 @@ stderr:
             "Failed to run scp {cmd:?}:\nstderr:\n    {}",
             stderr
         ))
+    }
+    pub fn switch_partition_set(&self, target: PartitionSet) -> Result<()> {
+        let rootdev = self.get_rootdev()?;
+        let rootdisk = self.get_rootdisk()?;
+        let part = self.get_partnum_info()?;
+        let kern_a = part.get("kern_a").ok_or(anyhow!("KERN-A not found"))?;
+        let kern_b = part.get("kern_b").ok_or(anyhow!("KERN-B not found"))?;
+        let root_a = part.get("root_a").ok_or(anyhow!("ROOT-A not found"))?;
+        let root_b = part.get("root_b").ok_or(anyhow!("ROOT-B not found"))?;
+        let (current_name, current_kern, current_root, other_name, other_kern, other_root) =
+            if rootdev.ends_with(root_a) {
+                ("A", kern_a, root_a, "B", kern_b, root_b)
+            } else if rootdev.ends_with(root_b) {
+                ("B", kern_b, root_b, "A", kern_a, root_a)
+            } else {
+                bail!("unsupported partition layout");
+            };
+        let cmd = match target {
+            PartitionSet::Primary => {
+                println!("switching to primary: {current_name} ({rootdisk}p{current_root})");
+                format!("cgpt prioritize -P2 -i {current_kern} {rootdisk}")
+            }
+            PartitionSet::Secondary => {
+                println!("switching to secondary: {other_name} ({rootdisk}p{other_root})");
+                format!("cgpt prioritize -P2 -i {other_kern} {rootdisk}")
+            }
+        };
+        self.run_cmd_piped(&[cmd])
+    }
+    pub fn reboot(&self) -> Result<()> {
+        self.run_cmd_piped(&["reboot; exit"])
+    }
+    pub fn wait_online(&self) -> Result<()> {
+        retry(retry::delay::Fixed::from_millis(1000), || {
+            self.run_cmd_piped(&["echo ok"])
+        })
+        .or(Err(anyhow!("Timed out while waiting for DUT to be online")))
     }
 }
 

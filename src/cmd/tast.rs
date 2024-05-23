@@ -217,13 +217,13 @@ pub fn run_tast_test(
     for b in bundles {
         if bundle_has_test(b, &filter) {
             matched = true;
-            run_test_with_bundle(b, &filter, &chroot, ssh.port(), tast_options)?
+            run_test_with_bundle(b, &filter, chroot, ssh.port(), tast_options)?
         }
     }
 
     if !matched {
         warn!("{test_query} did not match any cached tests. Run it with default bundle.");
-        run_test_with_bundle(DEFAULT_BUNDLE, &filter, &chroot, ssh.port(), tast_options)?
+        run_test_with_bundle(DEFAULT_BUNDLE, &filter, chroot, ssh.port(), tast_options)?
     }
 
     Ok(())
