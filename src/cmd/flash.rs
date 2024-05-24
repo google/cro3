@@ -158,16 +158,21 @@ pub fn run(args: &Args) -> Result<()> {
         format!("xBuddy://{host}/{board_to_flash}/{version}/{variant}")
     };
 
+    // Setup port forwarding if needed
+    let dut = if let Some(dut) = &args.dut {
+        ensure_testing_rsa_is_there()?;
+        let dut = &DutInfo::new(dut)?;
+        let dut = dut.ssh().into_forwarded()?;
+        Some(dut)
+    } else {
+        None
+    };
+
     // Determine a destination
-    let destination = match (&args.dut, args.usb, args.recovery) {
+    let destination = match (&dut, args.usb, args.recovery) {
         (Some(dut), false, false) => {
             ensure_testing_rsa_is_there()?;
-            let dut = &DutInfo::new(dut)?;
-            dut.ssh()
-                .into_forwarded()?
-                .ssh()
-                .host_and_port()
-                .to_string()
+            dut.ssh().host_and_port().to_string()
         }
         (Some(_), false, true) => bail!(
             "Recovery image is not for flashing via SSH. Please specify --usb as a destination \
