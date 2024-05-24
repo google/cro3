@@ -8,6 +8,7 @@
 //! ```
 //! ```
 
+use anyhow::anyhow;
 use anyhow::Result;
 use argh::FromArgs;
 use cro3::chroot::Chroot;
@@ -113,7 +114,10 @@ impl ArgsRun {
 
         for i in 0..self.run_per_group.unwrap_or(20) {
             info!("#### run {i}");
-            run_tast_test(&chroot, dut, &self.tast_test, None)?;
+            retry::retry(retry::delay::Fixed::from_millis(500).take(3), || {
+                run_tast_test(&chroot, dut, &self.tast_test, None)
+            })
+            .or(Err(anyhow!("Failed to run tast test after retries")))?;
         }
         Ok(())
     }
