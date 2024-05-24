@@ -954,21 +954,28 @@ struct ArgsForward {
 }
 impl ArgsForward {
     fn run(&self) -> Result<()> {
+        use signal_hook::consts::*;
+        use signal_hook::iterator::Signals;
+        let mut signals = Signals::new(&[SIGHUP, SIGTERM, SIGINT, SIGQUIT])?;
         block_on(
             async {
                 info!("{:?}", self);
+
                 let mut port_file = std::fs::File::create(&self.port_file)?;
                 match SshInfo::new(&self.dut) {
                     Ok(dut) => {
-                    if let Ok((child, port)) = dut
+                    if let Ok((mut child, port)) = dut
                         .start_ssh_forwarding_in_range(self.port_first..=self.port_last)
                         .await
                     {
                         info!("child pid: {}", child.id());
                         port_file.write_all(format!("{port}\n").as_bytes())?;
-                        loop {
-                            std::thread::park()
+                        for sig in signals.forever() {
+                            info!("Received signal {:?}. Exiting...", sig);
+                            break;
                         }
+                        child.kill()?;
+                        Ok(())
                     } else {
                         bail!("forwarding failed");
                     }

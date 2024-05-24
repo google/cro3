@@ -57,6 +57,7 @@ pub fn run(args: &Args) -> Result<()> {
     ensure_testing_rsa_is_there()?;
 
     let target = SshInfo::new(&args.dut)?.into_forwarded()?;
+    let target = target.ssh();
     info!("Target DUT is {:?}", target);
 
     let board = target.get_board()?;

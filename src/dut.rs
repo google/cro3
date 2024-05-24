@@ -6,14 +6,13 @@
 
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::env::current_exe;
 use std::ffi::OsStr;
-use std::ops::Range;
 use std::ops::RangeInclusive;
 use std::process::Command;
 use std::process::Output;
 use std::process::Stdio;
 use std::str::FromStr;
-use std::thread;
 use std::time::Duration;
 
 use anyhow::anyhow;
@@ -394,6 +393,24 @@ impl DutInfo {
     }
 }
 
+pub struct ForwardedDut {
+    ssh: SshInfo,
+    forwarding_process: Option<async_process::Child>,
+}
+impl ForwardedDut {
+    pub fn ssh(&self) -> &SshInfo {
+        &self.ssh
+    }
+}
+impl Drop for ForwardedDut {
+    fn drop(&mut self) {
+        if let Some(forwarding_process) = &mut self.forwarding_process {
+            info!("Sending SIGTERM to the forwarding process {}", forwarding_process.id());
+            nix::sys::signal::kill(nix::unistd::Pid::from_raw(forwarding_process.id() as i32), nix::sys::signal::Signal::SIGTERM).expect("failed to kill");
+        }
+    }
+}
+
 /// SshInfo holds information needed to establish an ssh connection
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SshInfo {
@@ -468,15 +485,21 @@ impl SshInfo {
             format!("{host}:{port}")
         }
     }
-    pub fn into_forwarded(&self) -> Result<Self> {
+    pub fn into_forwarded(&self) -> Result<ForwardedDut> {
         if self.needs_port_forwarding_in_chroot() {
-            let port = self.start_ssh_forwarding_background()?;
-            Self::new_host_and_port("127.0.0.1", port)
+            let (port, forwarding_process) = self.start_ssh_forwarding_background()?;
+            let ssh = Self::new_host_and_port("127.0.0.1", port)?;
+            Ok(ForwardedDut {
+                ssh,
+                forwarding_process: Some(forwarding_process),
+            })
         } else {
-            Ok(self.clone())
+            Ok(ForwardedDut {
+                ssh: self.clone(),
+                forwarding_process: None,
+            })
         }
     }
-
     fn gen_ssh_options(&self) -> Result<Vec<String>> {
         let mut args: Vec<String> = Vec::from(COMMON_SSH_OPTIONS)
             .iter()
@@ -712,28 +735,36 @@ impl SshInfo {
     /// error. Forwarding port on this side will be automatically determined by
     /// start_ssh_forwarding, and the same port will be used for reconnecting
     /// while this cro3 instance is running.
-    fn start_ssh_forwarding_background_in_range(&self, port_range: RangeInclusive<u16>) -> Result<u16> {
-        let (mut child, port) = block_on(self.start_ssh_forwarding_in_range(port_range))?;
-        let ssh = self.clone();
-        thread::spawn(move || {
-            block_on(async move {
-                loop {
-                    let status = child.status().await;
-                    info!("SSH forwarding process exited with {status:?}");
-                    loop {
-                        info!("Reconnecting to {ssh:?}...");
-                        if let Ok(new_child) = ssh.start_ssh_forwarding(port).await {
-                            child = new_child;
-                            break;
-                        }
-                        thread::sleep(Duration::from_secs(5));
-                    }
-                }
-            });
-        });
-        Ok(port)
+    fn start_ssh_forwarding_background_in_range(&self, port_range: RangeInclusive<u16>) -> Result<(u16, async_process::Child)> {
+        let port_file = tempfile::NamedTempFile::new()?;
+        let port_file_path = port_file.into_temp_path();
+        let child = async_process::Command::new(current_exe()?)
+            .args(&[
+                "dut",
+                "forward",
+                "--dut",
+                &self.host_and_port(),
+                "--port-file",
+                &port_file_path.as_os_str().to_string_lossy(),
+                "--port-first",
+                &format!("{}", port_range.start()),
+                "--port-last",
+                &format!("{}", port_range.end()),
+            ])
+            .kill_on_drop(false)
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()?;
+        let port = retry(retry::delay::Fixed::from_millis(1000).take(60), || -> Result<u16> {
+            info!("setting up a port forwarding...");
+            let port = std::fs::read_to_string(&port_file_path)?;
+            let port: u16 = port.trim().parse()?;
+            Result::Ok(port)
+        }).or(Err(anyhow!("Failed to establish the port forwarding")))?;
+        Ok((port, child))
     }
-    pub fn start_ssh_forwarding_background(&self) -> Result<u16> {
+    pub fn start_ssh_forwarding_background(&self) -> Result<(u16, async_process::Child)> {
         self.start_ssh_forwarding_background_in_range(4100..=4200)
     }
     pub fn run_cmd_stdio(&self, cmd: &str) -> Result<String> {

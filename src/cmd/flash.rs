@@ -163,7 +163,11 @@ pub fn run(args: &Args) -> Result<()> {
         (Some(dut), false, false) => {
             ensure_testing_rsa_is_there()?;
             let dut = &DutInfo::new(dut)?;
-            dut.ssh().into_forwarded()?.host_and_port().to_string()
+            dut.ssh()
+                .into_forwarded()?
+                .ssh()
+                .host_and_port()
+                .to_string()
         }
         (Some(_), false, true) => bail!(
             "Recovery image is not for flashing via SSH. Please specify --usb as a destination \

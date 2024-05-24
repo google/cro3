@@ -145,6 +145,6 @@ impl ArgsRun {
     fn run(&self) -> Result<()> {
         let dut = SshInfo::new(&self.dut)?;
         let dut = dut.into_forwarded()?;
-        self.run_experiment(&dut)
+        self.run_experiment(dut.ssh())
     }
 }

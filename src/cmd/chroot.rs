@@ -36,7 +36,7 @@ pub fn run(args: &Args) -> Result<()> {
     let mut additional_args = Vec::new();
     if let Some(dut) = &args.dut {
         let dut = SshInfo::new(dut)?.into_forwarded()?;
-        let port = dut.port();
+        let port = dut.ssh().port();
         additional_args.push(format!("DUT=localhost:{port}"));
     }
     if let Some(board) = &args.board {

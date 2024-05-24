@@ -109,6 +109,7 @@ fn update_cached_tests(bundles: &Vec<&str>, dut: &str, repodir: &str) -> Result<
     let chroot = Chroot::new(repodir)?;
     let ssh = SshInfo::new(dut).context("failed to create SshInfo")?;
     let ssh = ssh.into_forwarded()?;
+    let ssh = ssh.ssh();
 
     for b in bundles {
         update_cached_tests_in_bundle(b, &chroot, ssh.port())?
@@ -205,6 +206,7 @@ pub fn run_tast_test(
     let ssh = SshInfo::new(dut).context("failed to create SshInfo")?;
     // setup port forwarding for chroot.
     let ssh = ssh.into_forwarded()?;
+    let ssh = ssh.ssh();
     let filter = Pattern::new(test_query)?;
 
     let mut matched = false;
@@ -223,8 +225,7 @@ pub fn run_tast_test(
 
     if !matched {
         warn!("{test_query} did not match any cached tests. Run it with default bundle.");
-        //run_test_with_bundle(DEFAULT_BUNDLE, &filter, chroot, ssh.port(),
-        // tast_options)?
+        run_test_with_bundle(DEFAULT_BUNDLE, &filter, chroot, ssh.port(), tast_options)?
     }
 
     Ok(())
