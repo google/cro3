@@ -395,7 +395,7 @@ impl DutInfo {
 
 pub struct ForwardedDut {
     ssh: SshInfo,
-    forwarding_process: Option<async_process::Child>,
+    forwarding_process: Option<std::process::Child>,
 }
 impl ForwardedDut {
     pub fn from_ssh(ssh: &SshInfo) -> Result<ForwardedDut> {
@@ -422,10 +422,10 @@ impl ForwardedDut {
     fn start_ssh_forwarding_background_in_range(
         ssh: &SshInfo,
         port_range: RangeInclusive<u16>,
-    ) -> Result<(u16, async_process::Child)> {
+    ) -> Result<(u16, std::process::Child)> {
         let port_file = tempfile::NamedTempFile::new()?;
         let port_file_path = port_file.into_temp_path();
-        let child = async_process::Command::new(current_exe()?)
+        let child = std::process::Command::new(current_exe()?)
             .args([
                 "dut",
                 "forward",
@@ -438,10 +438,9 @@ impl ForwardedDut {
                 "--port-last",
                 &format!("{}", port_range.end()),
             ])
-            .kill_on_drop(false)
             .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::inherit())
             .spawn()?;
         let port = retry(
             retry::delay::Fixed::from_millis(1000).take(60),
@@ -455,7 +454,7 @@ impl ForwardedDut {
         .or(Err(anyhow!("Failed to establish the port forwarding")))?;
         Ok((port, child))
     }
-    fn start_ssh_forwarding_background(ssh: &SshInfo) -> Result<(u16, async_process::Child)> {
+    fn start_ssh_forwarding_background(ssh: &SshInfo) -> Result<(u16, std::process::Child)> {
         Self::start_ssh_forwarding_background_in_range(ssh, 4100..=4200)
     }
     pub fn ssh(&self) -> &SshInfo {

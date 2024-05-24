@@ -198,13 +198,11 @@ fn run_test_with_bundle(
 
 pub fn run_tast_test(
     chroot: &Chroot,
-    dut: &str,
+    ssh: &SshInfo,
     test_query: &str,
     tast_options: Option<&str>,
 ) -> Result<()> {
     ensure_testing_rsa_is_there()?;
-    let ssh = SshInfo::new(dut).context("failed to create SshInfo")?;
-    // setup port forwarding for chroot.
     let ssh = ssh.into_forwarded()?;
     let ssh = ssh.ssh();
     let filter = Pattern::new(test_query)?;
@@ -234,5 +232,10 @@ pub fn run_tast_test(
 fn run_tast_run(args: &ArgsRun) -> Result<()> {
     let repodir = get_cros_dir(args.cros.as_deref())?;
     let chroot = Chroot::new(&repodir)?;
-    run_tast_test(&chroot, &args.dut, &args.tests, args.option.as_deref())
+    run_tast_test(
+        &chroot,
+        &SshInfo::new(&args.dut)?,
+        &args.tests,
+        args.option.as_deref(),
+    )
 }

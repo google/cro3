@@ -113,7 +113,7 @@ impl ArgsRun {
 
         for i in 0..self.run_per_group.unwrap_or(20) {
             info!("#### run {i}");
-            run_tast_test(&chroot, &self.dut, &self.tast_test, None)?;
+            run_tast_test(&chroot, dut, &self.tast_test, None)?;
         }
         Ok(())
     }
