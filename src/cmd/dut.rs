@@ -954,9 +954,6 @@ struct ArgsForward {
 }
 impl ArgsForward {
     fn run(&self) -> Result<()> {
-        use signal_hook::consts::*;
-        use signal_hook::iterator::Signals;
-        let mut signals = Signals::new(&[SIGHUP, SIGTERM, SIGINT, SIGQUIT])?;
         block_on(
             async {
                 info!("{:?}", self);
@@ -970,12 +967,18 @@ impl ArgsForward {
                     {
                         info!("child pid: {}", child.id());
                         port_file.write_all(format!("{port}\n").as_bytes())?;
-                        for sig in signals.forever() {
-                            info!("Received signal {:?}. Exiting...", sig);
-                            break;
+                        loop {
+                            let status = child.status().await;
+                            warn!("SSH forwarding process exited with {status:?}");
+                            loop {
+                                warn!("Reconnecting to {dut:?}...");
+                                if let Ok(new_child) = dut.start_ssh_forwarding(port).await {
+                                    child = new_child;
+                                    break;
+                                }
+                                thread::sleep(std::time::Duration::from_secs(1));
+                            }
                         }
-                        child.kill()?;
-                        Ok(())
                     } else {
                         bail!("forwarding failed");
                     }

@@ -398,6 +398,59 @@ pub struct ForwardedDut {
     forwarding_process: Option<async_process::Child>,
 }
 impl ForwardedDut {
+    pub fn from_ssh(ssh: &SshInfo) -> Result<ForwardedDut> {
+        if ssh.needs_port_forwarding_in_chroot() {
+            let (port, forwarding_process) = Self::start_ssh_forwarding_background(ssh)?;
+            let ssh = SshInfo::new_host_and_port("127.0.0.1", port)?;
+            Ok(ForwardedDut {
+                ssh,
+                forwarding_process: Some(forwarding_process),
+            })
+        } else {
+            Ok(ForwardedDut {
+                ssh: ssh.clone(),
+                forwarding_process: None,
+            })
+        }
+    }
+    /// Keep forwarding in background.
+    /// The execution will be blocked until the first attemp succeeds, and the
+    /// return value represents which port is used for this forwarding, or an
+    /// error. Forwarding port on this side will be automatically determined by
+    /// start_ssh_forwarding, and the same port will be used for reconnecting
+    /// while this cro3 instance is running.
+    fn start_ssh_forwarding_background_in_range(ssh: &SshInfo, port_range: RangeInclusive<u16>) -> Result<(u16, async_process::Child)> {
+        let port_file = tempfile::NamedTempFile::new()?;
+        let port_file_path = port_file.into_temp_path();
+        let child = async_process::Command::new(current_exe()?)
+            .args(&[
+                "dut",
+                "forward",
+                "--dut",
+                &ssh.host_and_port(),
+                "--port-file",
+                &port_file_path.as_os_str().to_string_lossy(),
+                "--port-first",
+                &format!("{}", port_range.start()),
+                "--port-last",
+                &format!("{}", port_range.end()),
+            ])
+            .kill_on_drop(false)
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()?;
+        let port = retry(retry::delay::Fixed::from_millis(1000).take(60), || -> Result<u16> {
+            info!("setting up a port forwarding...");
+            let port = std::fs::read_to_string(&port_file_path)?;
+            let port: u16 = port.trim().parse()?;
+            Result::Ok(port)
+        }).or(Err(anyhow!("Failed to establish the port forwarding")))?;
+        Ok((port, child))
+    }
+    fn start_ssh_forwarding_background(ssh: &SshInfo) -> Result<(u16, async_process::Child)> {
+        Self::start_ssh_forwarding_background_in_range(ssh, 4100..=4200)
+    }
     pub fn ssh(&self) -> &SshInfo {
         &self.ssh
     }
@@ -483,21 +536,6 @@ impl SshInfo {
             format!("[{host}]:{port}")
         } else {
             format!("{host}:{port}")
-        }
-    }
-    pub fn into_forwarded(&self) -> Result<ForwardedDut> {
-        if self.needs_port_forwarding_in_chroot() {
-            let (port, forwarding_process) = self.start_ssh_forwarding_background()?;
-            let ssh = Self::new_host_and_port("127.0.0.1", port)?;
-            Ok(ForwardedDut {
-                ssh,
-                forwarding_process: Some(forwarding_process),
-            })
-        } else {
-            Ok(ForwardedDut {
-                ssh: self.clone(),
-                forwarding_process: None,
-            })
         }
     }
     fn gen_ssh_options(&self) -> Result<Vec<String>> {
@@ -729,43 +767,8 @@ impl SshInfo {
 
         bail!("Could not find a port available for forwarding")
     }
-    /// Keep forwarding in background.
-    /// The execution will be blocked until the first attemp succeeds, and the
-    /// return value represents which port is used for this forwarding, or an
-    /// error. Forwarding port on this side will be automatically determined by
-    /// start_ssh_forwarding, and the same port will be used for reconnecting
-    /// while this cro3 instance is running.
-    fn start_ssh_forwarding_background_in_range(&self, port_range: RangeInclusive<u16>) -> Result<(u16, async_process::Child)> {
-        let port_file = tempfile::NamedTempFile::new()?;
-        let port_file_path = port_file.into_temp_path();
-        let child = async_process::Command::new(current_exe()?)
-            .args(&[
-                "dut",
-                "forward",
-                "--dut",
-                &self.host_and_port(),
-                "--port-file",
-                &port_file_path.as_os_str().to_string_lossy(),
-                "--port-first",
-                &format!("{}", port_range.start()),
-                "--port-last",
-                &format!("{}", port_range.end()),
-            ])
-            .kill_on_drop(false)
-            .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()?;
-        let port = retry(retry::delay::Fixed::from_millis(1000).take(60), || -> Result<u16> {
-            info!("setting up a port forwarding...");
-            let port = std::fs::read_to_string(&port_file_path)?;
-            let port: u16 = port.trim().parse()?;
-            Result::Ok(port)
-        }).or(Err(anyhow!("Failed to establish the port forwarding")))?;
-        Ok((port, child))
-    }
-    pub fn start_ssh_forwarding_background(&self) -> Result<(u16, async_process::Child)> {
-        self.start_ssh_forwarding_background_in_range(4100..=4200)
+    pub fn into_forwarded(&self) -> Result<ForwardedDut> {
+        ForwardedDut::from_ssh(self)
     }
     pub fn run_cmd_stdio(&self, cmd: &str) -> Result<String> {
         let output = self.run_cmd_captured(cmd)?;
