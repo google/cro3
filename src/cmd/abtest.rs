@@ -13,6 +13,7 @@ use argh::FromArgs;
 use cro3::chroot::Chroot;
 use cro3::dut::SshInfo;
 use cro3::repo::get_cros_dir;
+use tracing::info;
 use tracing::warn;
 
 use crate::cmd::tast::run_tast_test;
@@ -72,28 +73,30 @@ struct ArgsRun {
     #[argh(option)]
     tast_test: String,
 
-    /// number of test runs in a row without modifying the environment
+    /// a group contains one invocation of script_config_a (or b) and some
+    /// invocation of tast_test (for run_per_cluster times)
     #[argh(option)]
-    run_per_cluster: Option<usize>,
+    run_per_group: Option<usize>,
 
-    /// number of clusters (per-group setup(A/B) + test runs(T)) before
-    /// switching to another
+    /// a cluster contains some groups for config A and config B (for
+    /// group_per_cluster times for each config)
     #[argh(option)]
-    cluster_per_group: Option<usize>,
+    group_per_cluster: Option<usize>,
 
-    /// number of cluster pairs under the same instance of configuration
+    /// an iteration contains one invocation of script_init and some clusters
+    /// (cluster_per_iteration times)
     #[argh(option)]
-    group_per_iteration: Option<usize>,
+    cluster_per_iteration: Option<usize>,
 
-    /// number of test runs in a row without modifying the environment
+    /// an experiment contains some iterations (num_of_iterations times)
     #[argh(option)]
     num_of_iterations: Option<usize>,
 
-    /// number of test runs in a row without modifying the environment
+    /// name of this experiment for identification
     #[argh(option)]
     experiment_name: String,
 
-    /// number of test runs in a row without modifying the environment
+    /// path to a dir to store the results
     #[argh(option)]
     result_dir: Option<String>,
 }
@@ -108,19 +111,36 @@ impl ArgsRun {
         dut.reboot()?;
         dut.wait_online()?;
 
-        run_tast_test(&chroot, &self.dut, &self.tast_test, None)?;
+        for i in 0..self.run_per_group.unwrap_or(20) {
+            info!("#### run {i}");
+            run_tast_test(&chroot, &self.dut, &self.tast_test, None)?;
+        }
         Ok(())
     }
     fn run_cluster(&self, dut: &SshInfo) -> Result<()> {
-        self.run_group(ExperimentConfig::A, dut)?;
-        self.run_group(ExperimentConfig::B, dut)?;
+        for i in 0..self.group_per_cluster.unwrap_or(1) {
+            info!("### group A-{i}");
+            self.run_group(ExperimentConfig::A, dut)?;
+        }
+        for i in 0..self.group_per_cluster.unwrap_or(1) {
+            info!("### group A-{i}");
+            self.run_group(ExperimentConfig::B, dut)?;
+        }
         Ok(())
     }
     fn run_iteration(&self, dut: &SshInfo) -> Result<()> {
-        self.run_cluster(dut)
+        for i in 0..self.cluster_per_iteration.unwrap_or(1000) {
+            info!("## cluster {i}");
+            self.run_cluster(dut)?;
+        }
+        Ok(())
     }
     fn run_experiment(&self, dut: &SshInfo) -> Result<()> {
-        self.run_iteration(dut)
+        for i in 0..self.num_of_iterations.unwrap_or(1) {
+            info!("# iteration {i}");
+            self.run_iteration(dut)?;
+        }
+        Ok(())
     }
     fn run(&self) -> Result<()> {
         let dut = SshInfo::new(&self.dut)?;

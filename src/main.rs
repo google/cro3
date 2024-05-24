@@ -7,10 +7,10 @@
 #![feature(exit_status_error)]
 #![feature(result_option_inspect)]
 
+use std::process::ExitCode;
 use std::str::FromStr;
 
-use anyhow::bail;
-use anyhow::Result;
+use tracing::error;
 use tracing::trace;
 use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::layer::SubscriberExt;
@@ -21,7 +21,7 @@ extern crate lazy_static;
 
 mod cmd;
 
-fn main() -> Result<()> {
+fn main() -> ExitCode {
     let args: cmd::TopLevel = argh::from_env();
 
     let command_line_log_level = args.verbosity.as_ref().map(|s| {
@@ -50,11 +50,16 @@ fn main() -> Result<()> {
     trace!("running with args: {:?}", args_log);
 
     if args_log.contains(&"--repo".to_string()) {
-        bail!(
+        panic!(
             "--repo option was renamed to --cros/--arc option. `cro3 {} --help` has more details.",
             args_log[0]
         );
     }
 
-    cmd::run(&args)
+    if let Err(e) = cmd::run(&args) {
+        error!("{e:#}");
+        ExitCode::FAILURE
+    } else {
+        ExitCode::SUCCESS
+    }
 }
