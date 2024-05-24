@@ -954,13 +954,11 @@ struct ArgsForward {
 }
 impl ArgsForward {
     fn run(&self) -> Result<()> {
-        block_on(
-            async {
-                info!("{:?}", self);
-
-                let mut port_file = std::fs::File::create(&self.port_file)?;
-                match SshInfo::new(&self.dut) {
-                    Ok(dut) => {
+        block_on(async {
+            info!("{:?}", self);
+            let mut port_file = std::fs::File::create(&self.port_file)?;
+            match SshInfo::new(&self.dut) {
+                Ok(dut) => {
                     if let Ok((mut child, port)) = dut
                         .start_ssh_forwarding_in_range(self.port_first..=self.port_last)
                         .await
@@ -982,12 +980,11 @@ impl ArgsForward {
                     } else {
                         bail!("forwarding failed");
                     }
-                    },
-                    Err(e) => {
-                    bail!("ssh info creation failed: {e:#}");
-                    }
                 }
-            },
-        )
+                Err(e) => {
+                    bail!("ssh info creation failed: {e:#}");
+                }
+            }
+        })
     }
 }

@@ -66,7 +66,7 @@ pub fn run(args: &Args) -> Result<()> {
 
     let kernel_pkg = extract_kernel_pkg(&args.packages)?;
 
-    cros_workon_user_packages(&chroot, &board, &args.packages, &packages_str, &target)?;
+    cros_workon_user_packages(&chroot, &board, &args.packages, &packages_str, target)?;
 
     if kernel_pkg.is_some() {
         chroot.run_bash_script_in_chroot(

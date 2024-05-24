@@ -419,11 +419,14 @@ impl ForwardedDut {
     /// error. Forwarding port on this side will be automatically determined by
     /// start_ssh_forwarding, and the same port will be used for reconnecting
     /// while this cro3 instance is running.
-    fn start_ssh_forwarding_background_in_range(ssh: &SshInfo, port_range: RangeInclusive<u16>) -> Result<(u16, async_process::Child)> {
+    fn start_ssh_forwarding_background_in_range(
+        ssh: &SshInfo,
+        port_range: RangeInclusive<u16>,
+    ) -> Result<(u16, async_process::Child)> {
         let port_file = tempfile::NamedTempFile::new()?;
         let port_file_path = port_file.into_temp_path();
         let child = async_process::Command::new(current_exe()?)
-            .args(&[
+            .args([
                 "dut",
                 "forward",
                 "--dut",
@@ -440,12 +443,16 @@ impl ForwardedDut {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()?;
-        let port = retry(retry::delay::Fixed::from_millis(1000).take(60), || -> Result<u16> {
-            info!("setting up a port forwarding...");
-            let port = std::fs::read_to_string(&port_file_path)?;
-            let port: u16 = port.trim().parse()?;
-            Result::Ok(port)
-        }).or(Err(anyhow!("Failed to establish the port forwarding")))?;
+        let port = retry(
+            retry::delay::Fixed::from_millis(1000).take(60),
+            || -> Result<u16> {
+                info!("setting up a port forwarding...");
+                let port = std::fs::read_to_string(&port_file_path)?;
+                let port: u16 = port.trim().parse()?;
+                Result::Ok(port)
+            },
+        )
+        .or(Err(anyhow!("Failed to establish the port forwarding")))?;
         Ok((port, child))
     }
     fn start_ssh_forwarding_background(ssh: &SshInfo) -> Result<(u16, async_process::Child)> {
@@ -458,8 +465,15 @@ impl ForwardedDut {
 impl Drop for ForwardedDut {
     fn drop(&mut self) {
         if let Some(forwarding_process) = &mut self.forwarding_process {
-            info!("Sending SIGTERM to the forwarding process {}", forwarding_process.id());
-            nix::sys::signal::kill(nix::unistd::Pid::from_raw(forwarding_process.id() as i32), nix::sys::signal::Signal::SIGTERM).expect("failed to kill");
+            info!(
+                "Sending SIGTERM to the forwarding process {}",
+                forwarding_process.id()
+            );
+            nix::sys::signal::kill(
+                nix::unistd::Pid::from_raw(forwarding_process.id() as i32),
+                nix::sys::signal::Signal::SIGTERM,
+            )
+            .expect("failed to kill");
         }
     }
 }
@@ -719,8 +733,8 @@ impl SshInfo {
     // The future will be resolved once the first connection attempt is succeeded.
     pub async fn start_ssh_forwarding(&self, port: u16) -> Result<async_process::Child> {
         self.start_ssh_forwarding_in_range(port..=port)
-        .await
-        .map(|e| e.0)
+            .await
+            .map(|e| e.0)
     }
     // Start SSH port forwarding in a given range without timeout.
     pub async fn start_ssh_forwarding_in_range(
