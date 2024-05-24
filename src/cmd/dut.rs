@@ -62,6 +62,7 @@ use cro3::repo::get_cros_dir;
 use cro3::servo::get_cr50_attached_to_servo;
 use cro3::servo::LocalServo;
 use cro3::servo::ServoList;
+use futures::executor::block_on;
 use lazy_static::lazy_static;
 use rayon::prelude::*;
 use retry::delay;
@@ -84,6 +85,7 @@ enum SubCommand {
     ArcInfo(ArgsArcInfo),
     Discover(ArgsDiscover),
     Do(ArgsDutDo),
+    Forward(ArgsForward),
     Info(ArgsDutInfo),
     KernelConfig(ArgsDutKernelConfig),
     List(ArgsDutList),
@@ -100,6 +102,7 @@ pub fn run(args: &Args) -> Result<()> {
         SubCommand::ArcInfo(args) => run_arc_info(args),
         SubCommand::Discover(args) => run_discover(args),
         SubCommand::Do(args) => run_dut_do(args),
+        SubCommand::Forward(args) => args.run(),
         SubCommand::Info(args) => run_dut_info(args),
         SubCommand::KernelConfig(args) => run_dut_kernel_config(args),
         SubCommand::List(args) => run_dut_list(args),
@@ -923,4 +926,58 @@ fn run_arc_info(args: &ArgsArcInfo) -> Result<()> {
     println!("ARC device: {}", target.get_arc_device()?);
     println!("image type: {}", target.get_arc_image_type()?);
     Ok(())
+}
+
+#[derive(FromArgs, PartialEq, Debug)]
+/// Forward DUT ssh port on an available port on the local host.
+/// The forwarding port will be notified through the --port-file, which will be
+/// written when the connection is established. The written data is a port
+/// number (u16) in a decimal string.
+#[argh(subcommand, name = "forward")]
+struct ArgsForward {
+    /// target DUT
+    #[argh(option)]
+    dut: String,
+
+    /// path to a file that will be written with a string of a port number on
+    /// the localhost.
+    #[argh(option)]
+    port_file: String,
+
+    /// first port number to be used for a forwarding range
+    #[argh(option, default = "49152")]
+    port_first: u16,
+
+    /// last port number to be used for a forwarding range
+    #[argh(option, default = "65535")]
+    port_last: u16,
+}
+impl ArgsForward {
+    fn run(&self) -> Result<()> {
+        block_on(
+            async {
+                info!("{:?}", self);
+                let mut port_file = std::fs::File::create(&self.port_file)?;
+                match SshInfo::new(&self.dut) {
+                    Ok(dut) => {
+                    if let Ok((child, port)) = dut
+                        .start_ssh_forwarding_in_range(self.port_first..=self.port_last)
+                        .await
+                    {
+                        info!("child pid: {}", child.id());
+                        port_file.write_all(format!("{port}\n").as_bytes())?;
+                        loop {
+                            std::thread::park()
+                        }
+                    } else {
+                        bail!("forwarding failed");
+                    }
+                    },
+                    Err(e) => {
+                    bail!("ssh info creation failed: {e:#}");
+                    }
+                }
+            },
+        )
+    }
 }

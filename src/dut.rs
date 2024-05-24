@@ -8,6 +8,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::ffi::OsStr;
 use std::ops::Range;
+use std::ops::RangeInclusive;
 use std::process::Command;
 use std::process::Output;
 use std::process::Stdio;
@@ -656,17 +657,14 @@ impl SshInfo {
     // Start SSH port forwarding on a given port.
     // The future will be resolved once the first connection attempt is succeeded.
     pub async fn start_ssh_forwarding(&self, port: u16) -> Result<async_process::Child> {
-        self.start_ssh_forwarding_in_range(Range {
-            start: port,
-            end: port + 1,
-        })
+        self.start_ssh_forwarding_in_range(port..=port)
         .await
         .map(|e| e.0)
     }
     // Start SSH port forwarding in a given range without timeout.
-    async fn start_ssh_forwarding_in_range(
+    pub async fn start_ssh_forwarding_in_range(
         &self,
-        port_range: Range<u16>,
+        port_range: RangeInclusive<u16>,
     ) -> Result<(async_process::Child, u16)> {
         const COMMON_PORT_FORWARD_TOKEN: &str = "cro3-ssh-portforward";
         let sshcmd = &format!("echo {COMMON_PORT_FORWARD_TOKEN}; sleep 8h");
@@ -714,16 +712,16 @@ impl SshInfo {
     /// error. Forwarding port on this side will be automatically determined by
     /// start_ssh_forwarding, and the same port will be used for reconnecting
     /// while this cro3 instance is running.
-    fn start_ssh_forwarding_background_in_range(&self, port_range: Range<u16>) -> Result<u16> {
+    fn start_ssh_forwarding_background_in_range(&self, port_range: RangeInclusive<u16>) -> Result<u16> {
         let (mut child, port) = block_on(self.start_ssh_forwarding_in_range(port_range))?;
         let ssh = self.clone();
         thread::spawn(move || {
             block_on(async move {
                 loop {
                     let status = child.status().await;
-                    info!("cro3: SSH forwarding process exited with {status:?}");
+                    info!("SSH forwarding process exited with {status:?}");
                     loop {
-                        info!("cro3: Reconnecting to {ssh:?}...");
+                        info!("Reconnecting to {ssh:?}...");
                         if let Ok(new_child) = ssh.start_ssh_forwarding(port).await {
                             child = new_child;
                             break;
@@ -736,7 +734,7 @@ impl SshInfo {
         Ok(port)
     }
     pub fn start_ssh_forwarding_background(&self) -> Result<u16> {
-        self.start_ssh_forwarding_background_in_range(4100..4200)
+        self.start_ssh_forwarding_background_in_range(4100..=4200)
     }
     pub fn run_cmd_stdio(&self, cmd: &str) -> Result<String> {
         let output = self.run_cmd_captured(cmd)?;
