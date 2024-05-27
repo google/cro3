@@ -109,7 +109,9 @@ impl ArgsRun {
             ExperimentConfig::A => dut.switch_partition_set(cro3::dut::PartitionSet::Primary),
             ExperimentConfig::B => dut.switch_partition_set(cro3::dut::PartitionSet::Secondary),
         }?;
-        dut.reboot()?;
+        if let Err(e) = dut.reboot() {
+            warn!("reboot failed (ignored): {e:?}");
+        }
         dut.wait_online()?;
 
         for i in 0..self.run_per_group.unwrap_or(20) {
