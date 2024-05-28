@@ -36,9 +36,7 @@ function updateFilterDiv(g) {
   const labels = g.getLabels().splice(1);
   const filterDiv = document.getElementById('filterDiv');
   const hwidDict = {};
-  filterDiv.innerHTML = '';
-  window.filterDiv = filterDiv;
-  filterDiv.innerHTML += '<h2>Series</h2>';
+
   for (const labelIndex in labels) {
     const label = labels[labelIndex];
     const labelElements = label.split('/');
@@ -47,33 +45,47 @@ function updateFilterDiv(g) {
       hwidDict[hwid] = {};
     }
     hwidDict[hwid][label] = true;
+  }
+
+  filterDiv.innerHTML = '';
+  window.filterDiv = filterDiv;
+  filterDiv.append("<h2>HWID</h2>");
+  for (const hwid in hwidDict) {
+    const row = filterDiv.appendChild(document.createElement('div'));
+    const key = btoa(hwid);
+    {
+      const showButton = row.appendChild(document.createElement('button'));
+      showButton.innerText = 'Show';
+      showButton.addEventListener("click", function() {
+        console.log(`show ${hwid}`);
+        for (const seriesName in hwidDict[hwid]) {
+          for (g of window.charts) {
+            showSeries(g, seriesName);
+          }
+        }
+      });
+    }
+    {
+      const hideButton = row.appendChild(document.createElement('button'));
+      hideButton.innerText = 'Hide';
+      hideButton.addEventListener("click", function() {
+        console.log(`hide ${hwid}`);
+        for (const seriesName in hwidDict[hwid]) {
+          for (g of window.charts) {
+            hideSeries(g, seriesName);
+          }
+        }
+      });
+    }
+    row.appendChild(document.createTextNode(hwid));
+  }
+
+  filterDiv.append("<h2>Series</h2>");
+  for (const labelIndex in labels) {
+    const label = labels[labelIndex];
     const labelNode = createFilterLabels(label);
     labelNode.style.color = colorPalette[labelIndex % colorPalette.length];
     filterDiv.append(labelNode);
-  }
-  filterDiv.innerHTML += '<h2>HWID</h2>';
-  for (const hwid in hwidDict) {
-    const row = document.createElement('div');
-    row.innerHTML =
-        `<button>Show</button><button>Hide</button><span class="toggleLabel">${
-            hwid}</span>`
-    filterDiv.append(row);
-    row.children[0].onclick = () => {
-      console.log(`show ${hwid}`);
-      for (const seriesName in hwidDict[hwid]) {
-        for (g of window.charts) {
-          showSeries(g, seriesName);
-        }
-      }
-    };
-    row.children[1].onclick = () => {
-      console.log(`hide ${hwid}`);
-      for (const seriesName in hwidDict[hwid]) {
-        for (g of window.charts) {
-          hideSeries(g, seriesName);
-        }
-      }
-    };
   }
 }
 
@@ -133,7 +145,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         if (res.status == 404) {
           statusDiv.innerHTML +=
               `<p>404 Not found: ${p.path} - Skipping...</p>`;
-          csvList.push("");
+          csvList.push('');
           done = true;
           break;
         }
@@ -153,17 +165,17 @@ document.addEventListener('DOMContentLoaded', async function() {
   statusDiv.innerHTML +=
       '<p>Fetch is done. Rendering... please be patient...</p>';
   const chartsDiv = document.getElementById('charts');
-  chartsDiv.innerHTML = "";
+  chartsDiv.innerHTML = '';
   for (const i in params) {
     const p = params[i];
     const data = csvList[i];
-    if (data === "") {
+    if (data === '') {
       // Skip empty data
       continue;
     }
     const div = document.createElement('div');
     div.id = p.id;
-    div.className = "chart";
+    div.className = 'chart';
     chartsDiv.appendChild(div);
     const options = structuredClone(baseOptions);
     options.title = p.title;
