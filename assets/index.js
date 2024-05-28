@@ -27,8 +27,7 @@ function showSeries(g, name) {
 function createFilterLabels(name) {
   const row = document.createElement('div');
   const key = btoa(name);
-  row.innerHTML = `<span class="toggleLabel" id="filter_${
-      key}" onclick="toggleSeriesVisibility('${name}')">${name}</span>`;
+  row.innerHTML = `<span class="toggleLabel" id="filter_${key}">${name}</span>`;
   return row;
 }
 
@@ -49,14 +48,32 @@ function updateFilterDiv(g) {
 
   filterDiv.innerHTML = '';
   window.filterDiv = filterDiv;
-  filterDiv.append("<h2>HWID</h2>");
+
+  {
+    const header = document.createElement('h2');
+    header.text = 'Series';
+    filterDiv.appendChild(header);
+  }
+
+  for (const labelIndex in labels) {
+    const label = labels[labelIndex];
+    const labelNode = createFilterLabels(label);
+    labelNode.style.color = colorPalette[labelIndex % colorPalette.length];
+    filterDiv.appendChild(labelNode);
+  }
+
+  {
+    const header = document.createElement('h2');
+    header.text = 'HWID';
+    filterDiv.appendChild(header);
+  }
   for (const hwid in hwidDict) {
     const row = filterDiv.appendChild(document.createElement('div'));
     const key = btoa(hwid);
     {
       const showButton = row.appendChild(document.createElement('button'));
       showButton.innerText = 'Show';
-      showButton.addEventListener("click", function() {
+      showButton.addEventListener('click', function() {
         console.log(`show ${hwid}`);
         for (const seriesName in hwidDict[hwid]) {
           for (g of window.charts) {
@@ -68,7 +85,7 @@ function updateFilterDiv(g) {
     {
       const hideButton = row.appendChild(document.createElement('button'));
       hideButton.innerText = 'Hide';
-      hideButton.addEventListener("click", function() {
+      hideButton.addEventListener('click', function() {
         console.log(`hide ${hwid}`);
         for (const seriesName in hwidDict[hwid]) {
           for (g of window.charts) {
@@ -77,15 +94,25 @@ function updateFilterDiv(g) {
         }
       });
     }
+    {
+      const showOnlyButton = row.appendChild(document.createElement('button'));
+      showOnlyButton.innerText = 'Only';
+      showOnlyButton.addEventListener('click', function() {
+        console.log(`only ${hwid}`);
+        for (const k in hwidDict) {
+          for (const seriesName in hwidDict[k]) {
+            for (g of window.charts) {
+              if (k === hwid) {
+                showSeries(g, seriesName);
+              } else {
+                hideSeries(g, seriesName);
+              }
+            }
+          }
+        }
+      });
+    }
     row.appendChild(document.createTextNode(hwid));
-  }
-
-  filterDiv.append("<h2>Series</h2>");
-  for (const labelIndex in labels) {
-    const label = labels[labelIndex];
-    const labelNode = createFilterLabels(label);
-    labelNode.style.color = colorPalette[labelIndex % colorPalette.length];
-    filterDiv.append(labelNode);
   }
 }
 
