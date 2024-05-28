@@ -216,6 +216,9 @@ struct ArgsAnalyze {
     /// test name (e.g. perf.TabOpenLatency)
     #[argh(option)]
     test_name: String,
+    /// hwid
+    #[argh(option)]
+    hwid: Option<String>,
 
     /// serve the result
     #[argh(switch)]
@@ -446,8 +449,20 @@ struct BluebenchResult {
     cycles: Vec<BluebenchCycleResult>,
 }
 
-fn analyze_one_result(path: &PathBuf, test_name: &str) -> Result<BluebenchResult> {
+fn analyze_one_result(
+    path: &PathBuf,
+    test_name: &str,
+    hwid_expected: Option<&str>,
+) -> Result<BluebenchResult> {
     let t0 = std::time::Instant::now();
+    if let Some(hwid_expected) = hwid_expected {
+        let hwid = BluebenchMetadata::hwid(path, test_name)?;
+        if hwid != hwid_expected {
+            // Only parse results from some hwid to speed up the parsing
+            info!("Skipping due to hwid mismatch");
+            bail!("Skipping due to hwid mismatch");
+        }
+    }
     let metadata = BluebenchMetadata::from_path(path, test_name)?;
     let result_csv = path.join("tests").join(test_name).join("bluebench_log.txt");
     if !result_csv.is_file() {
@@ -519,10 +534,10 @@ fn extract_hwid(path: &Path, test_name: &str) -> Result<String> {
     BluebenchMetadata::hwid(path, test_name)
 }
 
-fn analyze_all(results: Vec<PathBuf>, test_name: &str) -> Vec<BluebenchResult> {
+fn analyze_all(results: Vec<PathBuf>, test_name: &str, hwid: Option<&str>) -> Vec<BluebenchResult> {
     results
         .par_iter()
-        .flat_map(|e| analyze_one_result(e, test_name))
+        .flat_map(|e| analyze_one_result(e, test_name, hwid))
         .collect()
 }
 
@@ -530,7 +545,7 @@ fn analyze_latest_succesfull(results: Vec<PathBuf>, test_name: &str) -> Vec<Blue
     results
         .iter()
         .rev()
-        .flat_map(|e| analyze_one_result(e, test_name))
+        .flat_map(|e| analyze_one_result(e, test_name, None))
         .take(5)
         .collect()
 }
@@ -724,7 +739,7 @@ fn generate(args: &ArgsAnalyze) -> Result<()> {
             dump_result(result)?;
         }
     } else {
-        let results = analyze_all(results, &args.test_name);
+        let results = analyze_all(results, &args.test_name, args.hwid.as_deref());
         write_results(results)?;
     }
     Ok(())

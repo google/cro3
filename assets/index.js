@@ -131,26 +131,14 @@ function updateSync() {
   }
 }
 
+function xAxisLabelFormatter(d, gran) {
+  return d.toISOString().split('T').join("<br>T");
+}
+
 document.addEventListener('DOMContentLoaded', async function() {
   const clickInfoDiv = document.getElementById('clickInfo');
   const filterDiv = document.getElementById('filterDiv');
   window.charts = [];
-  const baseOptions = {
-    colors: colorPalette,
-    connectSeparatedPoints: true,
-    drawPoints: true,
-    highlightCircleSize: 5,
-    highlightSeriesOpts:
-        {strokeWidth: 3, strokeBorderWidth: 1, highlightCircleSize: 5},
-    legend: 'never',
-    pointSize: 1,
-    rollPeriod: 1,
-    showRoller: true,
-    strokeBorderWidth: 1,
-    strokeWidth: 0.5,
-    title: 'THIS_IS_TEMPLATE',
-    hideOverlayOnMouseOut: true,
-  };
   const params = [
     {path: './data.csv', id: 'chart0', title: 'Tab open latency (ms)'},
     //{path: './x86_pkg_temp.csv', id: 'chart1', title: 'x86_pkg_temp (C)'},
@@ -204,7 +192,30 @@ document.addEventListener('DOMContentLoaded', async function() {
     div.id = p.id;
     div.className = 'chart';
     chartsDiv.appendChild(div);
-    const options = structuredClone(baseOptions);
+    const options = {
+      colors: colorPalette,
+      connectSeparatedPoints: true,
+      drawPoints: true,
+      highlightSeriesBackgroundAlpha: 1,
+      pointSize: 2,
+      highlightSeriesOpts: {strokeWidth: 5, strokeBorderWidth: 3, pointSize: 5},
+      strokeWidth: 1,
+      strokeBorderWidth: 1,
+      legend: 'never',
+      rollPeriod: 1,
+      showRoller: true,
+      title: 'THIS_IS_TEMPLATE',
+      hideOverlayOnMouseOut: true,
+      axes: {
+        x: {
+          axisLabelWidth: 150,
+          pixelsPerLabel: 100,
+          axisLabelFontSize: 10,
+          axisLabelFormatter: xAxisLabelFormatter,
+        }
+      },
+      xAxisHeight: 50,
+    };
     options.title = p.title;
     const g = new Dygraph(div, data, options);
     var onclick = function(ev) {
