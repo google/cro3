@@ -29,6 +29,11 @@ END_DATE?=$(shell date -d 'now' +%Y%m%d-%H%M%S)
 cro3 abtest analyze --serve --cros /work/chromiumos/ --start $(START_DATE) --end $(END_DATE) --test-name perf.TabOpenLatencyPerf --port 8080
 cro3 abtest analyze --generate --cros /work/chromiumos/ --start $(START_DATE) --end $(END_DATE) --test-name perf.TabOpenLatencyPerf
 ```
+If you want to re-build and serve automatically, you can use:
+```
+cargo install cargo-watch
+cargo watch -x run -- abtest analyze --serve --cros /work/chromiumos/ --start $(START_DATE) --end $(END_DATE) --test-name perf.TabOpenLatencyPerf --port 8080
+```
 ## ARC (Android Runtime on Chrome) related utilities
 This feature is mainly for the internal developers.
 ## Build packages and images

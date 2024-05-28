@@ -45,6 +45,7 @@ use rayon::prelude::*;
 use regex::Regex;
 use serde::Deserialize;
 use serde::Serialize;
+use tracing::error;
 use tracing::info;
 use tracing::warn;
 
@@ -222,6 +223,10 @@ struct ArgsAnalyze {
     /// port
     #[argh(option, default = "8080")]
     port: u16,
+
+    /// list HWIDs from the tests
+    #[argh(switch)]
+    list_hwid: bool,
 }
 impl ArgsAnalyze {
     fn run(&self) -> Result<()> {
@@ -231,6 +236,11 @@ impl ArgsAnalyze {
         }
         if self.serve {
             listen_http(self.port)?;
+        }
+        if self.list_hwid {
+            for hwid in hwid_list(self)? {
+                println!("{}", hwid);
+            }
         }
         Ok(())
     }
@@ -274,7 +284,7 @@ struct BluebenchMetadata {
     temperature_sensor_readouts: HashMap<String, Vec<(String, f64)>>,
 }
 impl BluebenchMetadata {
-    fn serial_number(path: &PathBuf, test_name: &str) -> Result<String> {
+    fn serial_number(path: &Path, test_name: &str) -> Result<String> {
         let path = path.join("tests").join(test_name).join("vpd.txt");
         let text = fs::read_to_string(&path).context(anyhow!("Failed to read {path:?}"))?;
         let lines: Vec<&str> = text.split('\n').collect();
@@ -283,33 +293,33 @@ impl BluebenchMetadata {
             .filter(|s| s.contains("\"serial_number\""))
             .collect();
         let line = lines.last().context("no text found")?;
-        let line = line.split("=").nth(1).context("invalid dut_id")?;
+        let line = line.split('=').nth(1).context("invalid dut_id")?;
         let line = line.split('"').nth(1).context("invalid dut_id")?;
         let line = line.trim();
         Ok(line.to_string())
     }
-    fn hwid(path: &PathBuf, test_name: &str) -> Result<String> {
+    fn hwid(path: &Path, test_name: &str) -> Result<String> {
         let path = path.join("tests").join(test_name).join("crossystem.txt");
         let text = fs::read_to_string(&path).context(anyhow!("Failed to read {path:?}"))?;
         let lines: Vec<&str> = text.split('\n').collect();
         let lines: Vec<&&str> = lines.iter().filter(|s| s.contains("hwid")).collect();
         let line = lines.last().context("no text found")?;
-        let line = line.split("=").nth(1).context("invalid dut_id")?;
+        let line = line.split('=').nth(1).context("invalid dut_id")?;
         let line = line.split('#').nth(0).context("invalid dut_id")?;
         let line = line.trim();
         Ok(line.to_string())
     }
-    fn kernel_version(path: &PathBuf, test_name: &str) -> Result<String> {
+    fn kernel_version(path: &Path, test_name: &str) -> Result<String> {
         let path = path
             .join("tests")
             .join(test_name)
             .join("kernel_version.txt");
         let s = fs::read_to_string(&path).context(anyhow!("Failed to read {path:?}"))?;
-        let s = s.split(" ").nth(2).context("invalid dut_id")?;
+        let s = s.split(' ').nth(2).context("invalid dut_id")?;
         let s = s.trim();
         Ok(s.to_string())
     }
-    fn os_release(path: &PathBuf, test_name: &str) -> Result<String> {
+    fn os_release(path: &Path, test_name: &str) -> Result<String> {
         let path = path.join("tests").join(test_name).join("lsb_release.txt");
         let s = fs::read_to_string(&path).context(anyhow!("Failed to read {path:?}"))?;
         let s: Vec<&str> = s.split('\n').collect();
@@ -318,21 +328,21 @@ impl BluebenchMetadata {
             .filter(|s| s.contains("CHROMEOS_RELEASE_BUILDER_PATH="))
             .collect();
         let s = s.last().context("no text found")?;
-        let s = s.split("=").nth(1).context("invalid dut_id")?;
+        let s = s.split('=').nth(1).context("invalid dut_id")?;
         let s = s.trim();
         Ok(s.to_string())
     }
-    fn bootid(path: &PathBuf, test_name: &str) -> Result<String> {
+    fn bootid(path: &Path, test_name: &str) -> Result<String> {
         let path = path.join("tests").join(test_name).join("bootid.txt");
         let s = fs::read_to_string(&path).context(anyhow!("Failed to read {path:?}"))?;
         let s = s.trim();
         Ok(s.to_string())
     }
-    fn kernel_cmdline_mitigations(path: &PathBuf, test_name: &str) -> Result<String> {
+    fn kernel_cmdline_mitigations(path: &Path, test_name: &str) -> Result<String> {
         let path = path.join("tests").join(test_name).join("cmdline.txt");
         let s = fs::read_to_string(&path).context(anyhow!("Failed to read {path:?}"))?;
         let s = s
-            .split(" ")
+            .split(' ')
             .find(|s| s.contains("mitigations="))
             .unwrap_or("")
             .trim();
@@ -340,11 +350,11 @@ impl BluebenchMetadata {
     }
     fn parse_temp_log_line(s: &str) -> Result<(String, HashMap<String, f64>)> {
         let mut data: HashMap<String, f64> = HashMap::new();
-        let mut it = s.trim().split(" ");
+        let mut it = s.trim().split(' ');
         let t = it.next().context("timestamp should be there")?.to_string();
         let it = it.skip_while(|s| !s.starts_with("x86_pkg_temp"));
         for e in it {
-            let mut it = e.split(":");
+            let mut it = e.split(':');
             let mut key = it.next().context("name should be there")?.to_string();
             let value: &str = it.next().context("value should be there")?;
             let unit = value.chars().last().context("unit should be there")?; // Assuming that the last char is unit (e.g. C, W)
@@ -357,14 +367,14 @@ impl BluebenchMetadata {
         Ok((t, data))
     }
     fn temperature_sensor_readouts(
-        path: &PathBuf,
+        path: &Path,
         test_name: &str,
     ) -> Result<HashMap<String, Vec<(String, f64)>>> {
         let mut temp_data: HashMap<String, Vec<(String, f64)>> = HashMap::new();
         let path = path.join("tests").join(test_name).join("messages.txt");
         let s = fs::read_to_string(&path).context(anyhow!("Failed to read {path:?}"))?;
         let s: Vec<(String, HashMap<String, f64>)> = s
-            .split("\n")
+            .split('\n')
             .filter(|s| s.contains("x86_pkg_temp"))
             .filter_map(|s| Self::parse_temp_log_line(s).ok())
             .collect();
@@ -376,12 +386,12 @@ impl BluebenchMetadata {
                 temp_data
                     .get_mut(&k)
                     .context("key should have value")?
-                    .push((t.to_string(), v.clone()));
+                    .push((t.to_string(), v));
             }
         }
         Ok(temp_data)
     }
-    fn from_path(path: &PathBuf, test_name: &str) -> Result<Self> {
+    fn from_path(path: &Path, test_name: &str) -> Result<Self> {
         let dut_id = Self::serial_number(path, test_name)
             .or_else(|_| Result::<String>::Ok("NoSerial".to_string()))?;
         let hwid = Self::hwid(path, test_name)?;
@@ -391,7 +401,7 @@ impl BluebenchMetadata {
         let kernel_cmdline_mitigations = Self::kernel_cmdline_mitigations(path, test_name)?;
         let temperature_sensor_readouts = Self::temperature_sensor_readouts(path, test_name)?;
         let key = format!("{hwid}/{dut_id}/{bootid}/{kernel_cmdline_mitigations}");
-        let path = path.as_os_str().to_string_lossy().to_owned().to_string();
+        let path = path.as_os_str().to_string_lossy().into_owned().to_string();
         Ok(Self {
             path,
             key,
@@ -437,6 +447,7 @@ struct BluebenchResult {
 }
 
 fn analyze_one_result(path: &PathBuf, test_name: &str) -> Result<BluebenchResult> {
+    let t0 = std::time::Instant::now();
     let metadata = BluebenchMetadata::from_path(path, test_name)?;
     let result_csv = path.join("tests").join(test_name).join("bluebench_log.txt");
     if !result_csv.is_file() {
@@ -447,7 +458,7 @@ fn analyze_one_result(path: &PathBuf, test_name: &str) -> Result<BluebenchResult
     let result_lines: Vec<&str> = result_text.split('\n').collect();
     let parse_f64_optional = |s: Option<&&str>| -> Result<Option<f64>> {
         if let Some(v) = s {
-            if v.len() == 0 {
+            if v.is_empty() {
                 Ok(None)
             } else {
                 Ok(Some(
@@ -462,10 +473,10 @@ fn analyze_one_result(path: &PathBuf, test_name: &str) -> Result<BluebenchResult
     let cycles: Vec<BluebenchCycleResult> = result_lines
         .iter()
         .map(|s| -> &str { str::trim(s) })
-        .filter(|s| s.len() > 0)
+        .filter(|s| !s.is_empty())
         .map(|line| -> Result<BluebenchCycleResult> {
-            let line: Vec<&str> = line.split(",").collect();
-            let date = line.get(0).context("Date is invalid")?.to_string();
+            let line: Vec<&str> = line.split(',').collect();
+            let date = line.first().context("Date is invalid")?.to_string();
             let iter_index: usize = line
                 .get(1)
                 .context("Iter index was empty")?
@@ -492,13 +503,10 @@ fn analyze_one_result(path: &PathBuf, test_name: &str) -> Result<BluebenchResult
             })
         })
         .collect::<Result<Vec<BluebenchCycleResult>>>()?;
-    let converged_means: Vec<f64> = cycles
-        .iter()
-        .filter(|c| c.converged_mean.is_some())
-        .map(|c| c.converged_mean.unwrap())
-        .collect();
+    let converged_means: Vec<f64> = cycles.iter().filter_map(|c| c.converged_mean).collect();
     let converged_mean_mean = converged_means.iter().sum::<f64>() / converged_means.len() as f64;
     let last_result_date = cycles.last().unwrap().date.clone();
+    info!("parse done: {:?} {:?}", t0.elapsed(), path);
     Ok(BluebenchResult {
         metadata,
         last_result_date,
@@ -507,18 +515,14 @@ fn analyze_one_result(path: &PathBuf, test_name: &str) -> Result<BluebenchResult
     })
 }
 
+fn extract_hwid(path: &Path, test_name: &str) -> Result<String> {
+    BluebenchMetadata::hwid(path, test_name)
+}
+
 fn analyze_all(results: Vec<PathBuf>, test_name: &str) -> Vec<BluebenchResult> {
     results
         .par_iter()
-        .map(|e| {
-            let f = e.clone();
-            let e = analyze_one_result(e, test_name);
-            if let Err(e) = &e {
-                eprintln!("Failed to parse {f:?}: {e:?}")
-            }
-            e
-        })
-        .flatten()
+        .flat_map(|e| analyze_one_result(e, test_name))
         .collect()
 }
 
@@ -526,21 +530,13 @@ fn analyze_latest_succesfull(results: Vec<PathBuf>, test_name: &str) -> Vec<Blue
     results
         .iter()
         .rev()
-        .map(|e| {
-            let f = e.clone();
-            let e = analyze_one_result(e, test_name);
-            if let Err(e) = &e {
-                eprintln!("Failed to parse {f:?}: {e:?}")
-            }
-            e
-        })
-        .flatten()
+        .flat_map(|e| analyze_one_result(e, test_name))
         .take(5)
         .collect()
 }
 
 fn write_latency_csv(
-    results: &Vec<BluebenchResult>,
+    results: &[BluebenchResult],
     result_key_order: &HashMap<String, usize>,
 ) -> Result<()> {
     // Generate
@@ -576,12 +572,12 @@ fn write_latency_csv(
             ",".repeat(result_key_order.len() - 1 - key_order),
         )?;
     }
-    eprintln!("Generated data.csv");
+    info!("Generated data.csv");
     Ok(())
 }
 
 fn write_temp_csv(
-    results: &Vec<BluebenchResult>,
+    results: &[BluebenchResult],
     result_key_order: &HashMap<String, usize>,
     temp_key: &str,
     file_name: &str,
@@ -596,7 +592,7 @@ fn write_temp_csv(
                 .get(temp_key)
                 .map(|e| {
                     e.iter()
-                        .map(|(t, v)| (t.clone(), v.clone(), k.clone()))
+                        .map(|(t, v)| (t.clone(), *v, k.clone()))
                         .collect::<Vec<(String, f64, String)>>()
                 })
                 .unwrap_or_default()
@@ -624,11 +620,11 @@ fn write_temp_csv(
             ",".repeat(result_key_order.len() - 1 - key_order),
         )?;
     }
-    eprintln!("Generated {file_name}");
+    info!("Generated {file_name}");
     Ok(())
 }
 
-fn result_key_order(results: &Vec<BluebenchResult>) -> HashMap<String, usize> {
+fn result_key_order(results: &[BluebenchResult]) -> HashMap<String, usize> {
     let mut result_keys = BTreeSet::<String>::new();
     let mut result_key_counts = HashMap::<String, usize>::new();
     for r in results.iter() {
@@ -640,14 +636,14 @@ fn result_key_order(results: &Vec<BluebenchResult>) -> HashMap<String, usize> {
     }
     let mut result_key_order = HashMap::<String, usize>::new();
     for (i, k) in result_keys.iter().enumerate() {
-        eprintln!("index {i}: {k} has {} valid results", result_key_counts[k]);
+        info!("index {i}: {k} has {} valid results", result_key_counts[k]);
         result_key_order.insert(k.to_string(), i);
     }
     result_key_order
 }
 
 fn write_results(results: Vec<BluebenchResult>) -> Result<()> {
-    eprintln!(
+    info!(
         "{} succesfull test results in the specified range",
         results.len()
     );
@@ -694,7 +690,7 @@ fn collect_candidates(args: &ArgsAnalyze) -> Result<Vec<PathBuf>> {
         .map(|e| e.path().to_path_buf())
         .collect();
     results.sort();
-    eprintln!("{} test results found", results.len());
+    info!("{} test results found", results.len());
     let start = args.start.clone().unwrap_or("0".to_string());
     let start = OsStr::new(&start);
     let end = args.end.clone().unwrap_or("9".to_string());
@@ -710,13 +706,13 @@ fn collect_candidates(args: &ArgsAnalyze) -> Result<Vec<PathBuf>> {
         })
         .cloned()
         .collect();
-    eprintln!("{} test results in the specified range", results.len());
+    info!("{} test results in the specified range", results.len());
 
     Ok(results)
 }
 
 fn dump_result(result: &BluebenchResult) -> Result<()> {
-    eprintln!("{:?} {:?}", result.metadata, result.converged_mean_mean);
+    info!("{:?} {:?}", result.metadata, result.converged_mean_mean);
     Ok(())
 }
 
@@ -734,6 +730,18 @@ fn generate(args: &ArgsAnalyze) -> Result<()> {
     Ok(())
 }
 
+fn hwid_list(args: &ArgsAnalyze) -> Result<Vec<String>> {
+    let results = collect_candidates(args)?;
+    let mut hwid_list: Vec<String> = results
+        .par_iter()
+        .map(|e| extract_hwid(e, &args.test_name))
+        .flatten()
+        .collect();
+    hwid_list.sort();
+    hwid_list.dedup();
+    Ok(hwid_list)
+}
+
 fn handle_write(stream: &TcpStream, path: &str) -> Result<()> {
     let mut res = BufWriter::new(stream);
     match path {
@@ -741,37 +749,37 @@ fn handle_write(stream: &TcpStream, path: &str) -> Result<()> {
         "/" | "/index.html" => {
             writeln!(res, "{}", HTTP_RESPONSE_HEADER_200_OK)?;
             writeln!(res, "{}", HTTP_RESPONSE_HEADER_HTML_UTF8)?;
-            writeln!(res, "")?;
+            writeln!(res)?;
             res.write_all(include_bytes!("../../assets/index.html"))?;
         }
         "/index.js" => {
             writeln!(res, "{}", HTTP_RESPONSE_HEADER_200_OK)?;
             writeln!(res, "{}", HTTP_RESPONSE_HEADER_JS_UTF8)?;
-            writeln!(res, "")?;
+            writeln!(res)?;
             res.write_all(include_bytes!("../../assets/index.js"))?;
         }
         "/index.css" => {
             writeln!(res, "{}", HTTP_RESPONSE_HEADER_200_OK)?;
             writeln!(res, "{}", HTTP_RESPONSE_HEADER_CSS_UTF8)?;
-            writeln!(res, "")?;
+            writeln!(res)?;
             res.write_all(include_bytes!("../../assets/index.css"))?;
         }
         "/third_party/dygraph.js" => {
             writeln!(res, "{}", HTTP_RESPONSE_HEADER_200_OK)?;
             writeln!(res, "{}", HTTP_RESPONSE_HEADER_JS_UTF8)?;
-            writeln!(res, "")?;
+            writeln!(res)?;
             res.write_all(include_bytes!("../../third_party/dygraph.js"))?;
         }
         "/third_party/synchronizer.js" => {
             writeln!(res, "{}", HTTP_RESPONSE_HEADER_200_OK)?;
             writeln!(res, "{}", HTTP_RESPONSE_HEADER_JS_UTF8)?;
-            writeln!(res, "")?;
+            writeln!(res)?;
             res.write_all(include_bytes!("../../third_party/synchronizer.js"))?;
         }
         "/third_party/dygraph.css" => {
             writeln!(res, "{}", HTTP_RESPONSE_HEADER_200_OK)?;
             writeln!(res, "{}", HTTP_RESPONSE_HEADER_CSS_UTF8)?;
-            writeln!(res, "")?;
+            writeln!(res)?;
             res.write_all(include_bytes!("../../third_party/dygraph.css"))?;
         }
         // Data from the local path
@@ -782,20 +790,20 @@ fn handle_write(stream: &TcpStream, path: &str) -> Result<()> {
             writeln!(res, "{}", HTTP_RESPONSE_HEADER_KEEP_ALIVE)?;
             writeln!(res, "{}", HTTP_RESPONSE_HEADER_CSV_UTF8)?;
             writeln!(res, "Content-Length: {}", data.len())?;
-            writeln!(res, "")?;
-            eprintln!("path = {path:?}: Content length: {}", data.len());
+            writeln!(res)?;
+            info!("path = {path:?}: Content length: {}", data.len());
             res.write_all(data)?;
         }
         "/data.json" => {
             writeln!(res, "{}", HTTP_RESPONSE_HEADER_200_OK)?;
             writeln!(res, "{}", HTTP_RESPONSE_HEADER_JSON_UTF8)?;
-            writeln!(res, "")?;
+            writeln!(res)?;
             write!(res, "{}", fs::read_to_string("data.json")?.as_str())?;
         }
         _ => {
             writeln!(res, "{}", HTTP_RESPONSE_HEADER_404_NOT_FOUND)?;
             writeln!(res, "{}", HTTP_RESPONSE_HEADER_HTML_UTF8)?;
-            writeln!(res, "")?;
+            writeln!(res)?;
             writeln!(res, "404 Not Found")?;
         }
     };
@@ -808,11 +816,11 @@ fn handle_read(mut stream: &TcpStream) -> Result<String> {
     let len = stream.read(&mut buf)?;
     let req = String::from_utf8_lossy(&buf[..len]);
     let path = req
-        .split(" ")
+        .split(' ')
         .map(str::to_string)
         .nth(1)
         .context("Path should be specified");
-    eprintln!("path = {path:?}");
+    info!("path = {path:?}");
     path
 }
 
@@ -822,7 +830,7 @@ fn handle_client(mut stream: TcpStream) -> Result<()> {
     if handle_write(&stream, &path).is_err() {
         writeln!(stream, "{}", HTTP_RESPONSE_HEADER_404_NOT_FOUND)?;
         writeln!(stream, "{}", HTTP_RESPONSE_HEADER_HTML_UTF8)?;
-        writeln!(stream, "")?;
+        writeln!(stream)?;
         writeln!(stream, "404 Not Found")?;
     }
     stream.flush()?;
@@ -833,19 +841,19 @@ fn handle_client(mut stream: TcpStream) -> Result<()> {
 }
 
 fn listen_http(port: u16) -> Result<()> {
-    let listener = TcpListener::bind(&format!("127.0.0.1:{port}")).unwrap();
-    eprintln!("Listening on port {port}");
+    let listener = TcpListener::bind(format!("127.0.0.1:{port}")).unwrap();
+    info!("Listening on port {port}");
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {
                 spawn(|| {
                     if let Err(e) = handle_client(stream) {
-                        eprintln!("handle_client failed: {e:?}");
+                        error!("handle_client failed: {e:?}");
                     }
                 });
             }
             Err(e) => {
-                eprintln!("Incoming stream failed: {e:?}");
+                error!("Incoming stream failed: {e:?}");
             }
         }
     }
