@@ -23,6 +23,11 @@
   - e.g. `chromeos-base/system_api` `crosvm`
 ## Run / analyze performance experiments
 ```
+START_DATE?=$(shell date -d '2 hours ago' +%Y%m%d-%H%M%S)
+END_DATE?=$(shell date -d 'now' +%Y%m%d-%H%M%S)
+# START_DATE?=20240507-000000
+cro3 abtest analyze --serve --cros /work/chromiumos/ --start $(START_DATE) --end $(END_DATE) --test-name perf.TabOpenLatencyPerf --port 8080
+cro3 abtest analyze --generate --cros /work/chromiumos/ --start $(START_DATE) --end $(END_DATE) --test-name perf.TabOpenLatencyPerf
 ```
 ## ARC (Android Runtime on Chrome) related utilities
 This feature is mainly for the internal developers.

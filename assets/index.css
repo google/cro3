@@ -1,0 +1,39 @@
+.toggleLabel {
+  font-size: 24px;
+  margin: 8px;
+  -webkit-touch-callout: none; /* iOS Safari */
+  -webkit-user-select: none; /* Safari */
+  -khtml-user-select: none; /* Konqueror HTML */
+  -moz-user-select: none; /* Old versions of Firefox */
+  -ms-user-select: none; /* Internet Explorer/Edge */
+  user-select: none; /* Non-prefixed version, currently
+  supported by Chrome, Edge, Opera and Firefox */
+}
+button {
+  font-size: 24px;
+  margin: 8px;
+  font-family: monospace;
+}
+.dygraph-legend {
+  font-size: 10px;
+  font-family: monospace;
+}
+#filterDiv {
+  text-wrap: nowrap;
+  font-family: monospace;
+  line-height: 1.2;
+  font-weight: bold;
+}
+#labels0 > span {
+  display: block
+}
+#charts {
+  padding: 0;
+  width: 100%;
+}
+.chart {
+  padding: 0;
+  margin: 16px;
+  height: calc(25vh - 50px);
+  width: calc(100vw - 50px);
+}
