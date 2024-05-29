@@ -285,6 +285,8 @@ struct BluebenchMetadata {
     bootid: String,
     kernel_cmdline_mitigations: String,
     temperature_sensor_readouts: HashMap<String, Vec<(String, f64)>>,
+    test_start_timestamp: String,
+    test_end_timestamp: String,
 }
 impl BluebenchMetadata {
     fn serial_number(path: &Path, test_name: &str) -> Result<String> {
@@ -372,6 +374,8 @@ impl BluebenchMetadata {
     fn temperature_sensor_readouts(
         path: &Path,
         test_name: &str,
+        test_start_timestamp: &str,
+        test_end_timestamp: &str,
     ) -> Result<HashMap<String, Vec<(String, f64)>>> {
         let mut temp_data: HashMap<String, Vec<(String, f64)>> = HashMap::new();
         let path = path.join("tests").join(test_name).join("messages.txt");
@@ -382,6 +386,9 @@ impl BluebenchMetadata {
             .filter_map(|s| Self::parse_temp_log_line(s).ok())
             .collect();
         for (t, entries) in s {
+            if t.as_str() < test_start_timestamp || test_end_timestamp < t.as_str() {
+                continue;
+            }
             for (k, v) in entries {
                 if !temp_data.contains_key(&k) {
                     temp_data.insert(k.clone(), Vec::new());
@@ -394,15 +401,34 @@ impl BluebenchMetadata {
         }
         Ok(temp_data)
     }
+    fn test_start_end_timestamp(path: &Path, test_name: &str) -> Result<(String, String)> {
+        let path = path.join("tests").join(test_name).join("log.txt");
+        let s = fs::read_to_string(&path).context(anyhow!("Failed to read {path:?}"))?;
+        let mut it = s.split('\n');
+        let start_ts = it
+            .find(|s| s.contains("Started test"))
+            .context("Started test line not found");
+        let end_ts = it
+            .find(|s| s.contains("Completed test"))
+            .context("Started test line not found");
+        Ok((start_ts?.to_string(), end_ts?.to_string()))
+    }
     fn from_path(path: &Path, test_name: &str) -> Result<Self> {
         let dut_id = Self::serial_number(path, test_name)
             .or_else(|_| Result::<String>::Ok("NoSerial".to_string()))?;
         let hwid = Self::hwid(path, test_name)?;
+        let (test_start_timestamp, test_end_timestamp) =
+            Self::test_start_end_timestamp(path, test_name)?;
         let kernel_version = Self::kernel_version(path, test_name)?;
         let os_release = Self::os_release(path, test_name)?;
         let bootid = Self::bootid(path, test_name)?;
         let kernel_cmdline_mitigations = Self::kernel_cmdline_mitigations(path, test_name)?;
-        let temperature_sensor_readouts = Self::temperature_sensor_readouts(path, test_name)?;
+        let temperature_sensor_readouts = Self::temperature_sensor_readouts(
+            path,
+            test_name,
+            &test_start_timestamp,
+            &test_end_timestamp,
+        )?;
         let key = format!("{hwid}/{dut_id}/{bootid}/{kernel_cmdline_mitigations}");
         let path = path.as_os_str().to_string_lossy().into_owned().to_string();
         Ok(Self {
@@ -415,6 +441,8 @@ impl BluebenchMetadata {
             bootid,
             kernel_cmdline_mitigations,
             temperature_sensor_readouts,
+            test_start_timestamp,
+            test_end_timestamp,
         })
     }
 }
@@ -459,7 +487,6 @@ fn analyze_one_result(
         let hwid = BluebenchMetadata::hwid(path, test_name)?;
         if hwid != hwid_expected {
             // Only parse results from some hwid to speed up the parsing
-            info!("Skipping due to hwid mismatch");
             bail!("Skipping due to hwid mismatch");
         }
     }

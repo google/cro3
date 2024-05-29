@@ -17,12 +17,24 @@ function setSeriesVisibility(g, name, visible) {
     labelNode.style.color = '#c0c0c0';
   }
 }
+function setSeriesColor(g, name, color) {
+  const option = {};
+  option.series = {};
+  option.series[name] = {color: color};
+  g.updateOptions(option)
+
+  const key = btoa(name);
+  const labelNode = document.getElementById(`filter_${key}`);
+  labelNode.style.color = color;
+}
+
 function hideSeries(g, name) {
   setSeriesVisibility(g, name, false);
 }
 function showSeries(g, name) {
   setSeriesVisibility(g, name, true);
 }
+
 
 function createFilterLabels(name) {
   const row = document.createElement('div');
@@ -132,7 +144,7 @@ function updateSync() {
 }
 
 function xAxisLabelFormatter(d, gran) {
-  return d.toISOString().split('T').join("<br>T");
+  return d.toISOString().split('T').join('<br>T');
 }
 
 document.addEventListener('DOMContentLoaded', async function() {
@@ -141,12 +153,12 @@ document.addEventListener('DOMContentLoaded', async function() {
   window.charts = [];
   const params = [
     {path: './data.csv', id: 'chart0', title: 'Tab open latency (ms)'},
-    //{path: './x86_pkg_temp.csv', id: 'chart1', title: 'x86_pkg_temp (C)'},
-    //{path: './tsr0_temp.csv', id: 'chart2', title: 'TSR0_temp (C)'},
-    //{path: './tsr1_temp.csv', id: 'chart3', title: 'TSR1_temp (C)'},
-    //{path: './tsr2_temp.csv', id: 'chart4', title: 'TSR2_temp (C)'},
-    //{path: './tsr3_temp.csv', id: 'chart5', title: 'TSR3_temp (C)'},
-    //{path: './tcpu_pci_temp.csv', id: 'chart6', title: 'TCPU_PCI_temp (C)'},
+    {path: './x86_pkg_temp.csv', id: 'chart1', title: 'x86_pkg_temp (C)'},
+    {path: './tsr0_temp.csv', id: 'chart2', title: 'TSR0_temp (C)'},
+    {path: './tsr1_temp.csv', id: 'chart3', title: 'TSR1_temp (C)'},
+    {path: './tsr2_temp.csv', id: 'chart4', title: 'TSR2_temp (C)'},
+    {path: './tsr3_temp.csv', id: 'chart5', title: 'TSR3_temp (C)'},
+    {path: './tcpu_pci_temp.csv', id: 'chart6', title: 'TCPU_PCI_temp (C)'},
   ];
   const csvList = [];
   const statusDiv = document.getElementById('statusDiv');
@@ -235,4 +247,10 @@ document.addEventListener('DOMContentLoaded', async function() {
   statusDiv.style.display = 'none';
   updateSync();
   updateFilterDiv(window.charts[0])
+  for (g of window.charts) {
+    g.getLabels().splice(1).map(
+        (name) => {setSeriesColor(
+            g, name,
+            name.endsWith('auto') ? colorPalette[0] : colorPalette[1])})
+  }
 });
