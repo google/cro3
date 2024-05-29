@@ -215,7 +215,7 @@ struct ArgsAnalyze {
     test: bool,
     /// test name (e.g. perf.TabOpenLatency)
     #[argh(option)]
-    test_name: String,
+    test_name: Option<String>,
     /// hwid
     #[argh(option)]
     hwid: Option<String>,
@@ -235,13 +235,21 @@ impl ArgsAnalyze {
     fn run(&self) -> Result<()> {
         info!("{self:?}");
         if self.generate {
-            generate(self)?;
+            let test_name = self
+                .test_name
+                .as_ref()
+                .context("--test-name should be specified")?;
+            generate(self, &test_name)?;
         }
         if self.serve {
             listen_http(self.port)?;
         }
         if self.list_hwid {
-            for hwid in hwid_list(self)? {
+            let test_name = self
+                .test_name
+                .as_ref()
+                .context("--test-name should be specified")?;
+            for hwid in hwid_list(self, &test_name)? {
                 println!("{}", hwid);
             }
         }
@@ -758,25 +766,25 @@ fn dump_result(result: &BluebenchResult) -> Result<()> {
     Ok(())
 }
 
-fn generate(args: &ArgsAnalyze) -> Result<()> {
+fn generate(args: &ArgsAnalyze, test_name: &str) -> Result<()> {
     let results = collect_candidates(args)?;
     if args.test {
-        let results = analyze_latest_succesfull(results, &args.test_name);
+        let results = analyze_latest_succesfull(results, test_name);
         for result in &results {
             dump_result(result)?;
         }
     } else {
-        let results = analyze_all(results, &args.test_name, args.hwid.as_deref());
+        let results = analyze_all(results, test_name, args.hwid.as_deref());
         write_results(results)?;
     }
     Ok(())
 }
 
-fn hwid_list(args: &ArgsAnalyze) -> Result<Vec<String>> {
+fn hwid_list(args: &ArgsAnalyze, test_name: &str) -> Result<Vec<String>> {
     let results = collect_candidates(args)?;
     let mut hwid_list: Vec<String> = results
         .par_iter()
-        .map(|e| extract_hwid(e, &args.test_name))
+        .map(|e| extract_hwid(e, test_name))
         .flatten()
         .collect();
     hwid_list.sort();

@@ -45,19 +45,27 @@ function createFilterLabels(name) {
 
 function updateFilterDiv(g) {
   const labels = g.getLabels().splice(1);
-  const filterDiv = document.getElementById('filterDiv');
-  const hwidDict = {};
 
+  const hwidDict = {};
+  const serialDict = {};
   for (const labelIndex in labels) {
     const label = labels[labelIndex];
     const labelElements = label.split('/');
+
     const hwid = labelElements[0];
     if (hwidDict[hwid] === undefined) {
       hwidDict[hwid] = {};
     }
     hwidDict[hwid][label] = true;
+
+    const serial = labelElements[1];
+    if (serialDict[serial] === undefined) {
+      serialDict[serial] = {};
+    }
+    serialDict[serial][label] = true;
   }
 
+  const filterDiv = document.getElementById('filterDiv');
   filterDiv.innerHTML = '';
   window.filterDiv = filterDiv;
 
@@ -126,6 +134,59 @@ function updateFilterDiv(g) {
     }
     row.appendChild(document.createTextNode(hwid));
   }
+
+  {
+    const header = document.createElement('h2');
+    header.text = 'DUT';
+    filterDiv.appendChild(header);
+  }
+  for (const serial in serialDict) {
+    const row = filterDiv.appendChild(document.createElement('div'));
+    const key = btoa(serial);
+    {
+      const showButton = row.appendChild(document.createElement('button'));
+      showButton.innerText = 'Show';
+      showButton.addEventListener('click', function() {
+        console.log(`show ${serial}`);
+        for (const seriesName in serialDict[serial]) {
+          for (g of window.charts) {
+            showSeries(g, seriesName);
+          }
+        }
+      });
+    }
+    {
+      const hideButton = row.appendChild(document.createElement('button'));
+      hideButton.innerText = 'Hide';
+      hideButton.addEventListener('click', function() {
+        console.log(`hide ${serial}`);
+        for (const seriesName in serialDict[serial]) {
+          for (g of window.charts) {
+            hideSeries(g, seriesName);
+          }
+        }
+      });
+    }
+    {
+      const showOnlyButton = row.appendChild(document.createElement('button'));
+      showOnlyButton.innerText = 'Only';
+      showOnlyButton.addEventListener('click', function() {
+        console.log(`only ${serial}`);
+        for (const k in serialDict) {
+          for (const seriesName in serialDict[k]) {
+            for (g of window.charts) {
+              if (k === serial) {
+                showSeries(g, seriesName);
+              } else {
+                hideSeries(g, seriesName);
+              }
+            }
+          }
+        }
+      });
+    }
+    row.appendChild(document.createTextNode(serial));
+  }
 }
 
 let sync = null;
@@ -153,12 +214,12 @@ document.addEventListener('DOMContentLoaded', async function() {
   window.charts = [];
   const params = [
     {path: './data.csv', id: 'chart0', title: 'Tab open latency (ms)'},
-    {path: './x86_pkg_temp.csv', id: 'chart1', title: 'x86_pkg_temp (C)'},
-    {path: './tsr0_temp.csv', id: 'chart2', title: 'TSR0_temp (C)'},
-    {path: './tsr1_temp.csv', id: 'chart3', title: 'TSR1_temp (C)'},
-    {path: './tsr2_temp.csv', id: 'chart4', title: 'TSR2_temp (C)'},
-    {path: './tsr3_temp.csv', id: 'chart5', title: 'TSR3_temp (C)'},
-    {path: './tcpu_pci_temp.csv', id: 'chart6', title: 'TCPU_PCI_temp (C)'},
+    //{path: './x86_pkg_temp.csv', id: 'chart1', title: 'x86_pkg_temp (C)'},
+    //{path: './tsr0_temp.csv', id: 'chart2', title: 'TSR0_temp (C)'},
+    //{path: './tsr1_temp.csv', id: 'chart3', title: 'TSR1_temp (C)'},
+    //{path: './tsr2_temp.csv', id: 'chart4', title: 'TSR2_temp (C)'},
+    //{path: './tsr3_temp.csv', id: 'chart5', title: 'TSR3_temp (C)'},
+    //{path: './tcpu_pci_temp.csv', id: 'chart6', title: 'TCPU_PCI_temp (C)'},
   ];
   const csvList = [];
   const statusDiv = document.getElementById('statusDiv');
