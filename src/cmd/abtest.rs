@@ -20,6 +20,7 @@
 
 use std::collections::BTreeSet;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::ffi::OsStr;
 use std::fs;
 use std::fs::read_dir;
@@ -227,9 +228,9 @@ struct ArgsAnalyze {
     #[argh(option, default = "8080")]
     port: u16,
 
-    /// list HWIDs from the tests
+    /// list DUT information from the specified results
     #[argh(switch)]
-    list_hwid: bool,
+    list_duts: bool,
 }
 impl ArgsAnalyze {
     fn run(&self) -> Result<()> {
@@ -239,18 +240,24 @@ impl ArgsAnalyze {
                 .test_name
                 .as_ref()
                 .context("--test-name should be specified")?;
-            generate(self, &test_name)?;
+            generate(self, test_name)?;
         }
         if self.serve {
             listen_http(self.port)?;
         }
-        if self.list_hwid {
+        if self.list_duts {
             let test_name = self
                 .test_name
                 .as_ref()
                 .context("--test-name should be specified")?;
-            for hwid in hwid_list(self, &test_name)? {
-                println!("{}", hwid);
+            let hwid_and_info_map = hwid_and_info_map(self, test_name)?;
+            for (hwid, info_set) in hwid_and_info_map {
+                println!("{hwid}");
+                for info in info_set {
+                    println!("  {}", info.serial_number);
+                    println!("    {}", info.cpu_product_name);
+                    println!("    {}", info.cpu_bugs);
+                }
             }
         }
         Ok(())
@@ -297,6 +304,29 @@ struct BluebenchMetadata {
     test_end_timestamp: String,
 }
 impl BluebenchMetadata {
+    fn cpu_product_name(path: &Path, test_name: &str) -> Result<String> {
+        let path = path.join("tests").join(test_name).join("cpuinfo.txt");
+        let text = fs::read_to_string(&path).context(anyhow!("Failed to read {path:?}"))?;
+        let lines: Vec<&str> = text.split('\n').collect();
+        let lines: Vec<&&str> = lines
+            .iter()
+            .filter(|s| s.starts_with("model name"))
+            .collect();
+        let line = lines.last().context("no text found")?;
+        let line = line.split(':').nth(1).context("invalid cpu model name")?;
+        let line = line.trim();
+        Ok(line.to_string())
+    }
+    fn cpu_bugs(path: &Path, test_name: &str) -> Result<String> {
+        let path = path.join("tests").join(test_name).join("cpuinfo.txt");
+        let text = fs::read_to_string(&path).context(anyhow!("Failed to read {path:?}"))?;
+        let lines: Vec<&str> = text.split('\n').collect();
+        let lines: Vec<&&str> = lines.iter().filter(|s| s.starts_with("bugs")).collect();
+        let line = lines.last().context("no text found")?;
+        let line = line.split(':').nth(1).context("invalid cpu model name")?;
+        let line = line.trim();
+        Ok(line.to_string())
+    }
     fn serial_number(path: &Path, test_name: &str) -> Result<String> {
         let path = path.join("tests").join(test_name).join("vpd.txt");
         let text = fs::read_to_string(&path).context(anyhow!("Failed to read {path:?}"))?;
@@ -565,10 +595,6 @@ fn analyze_one_result(
     })
 }
 
-fn extract_hwid(path: &Path, test_name: &str) -> Result<String> {
-    BluebenchMetadata::hwid(path, test_name)
-}
-
 fn analyze_all(results: Vec<PathBuf>, test_name: &str, hwid: Option<&str>) -> Vec<BluebenchResult> {
     results
         .par_iter()
@@ -780,16 +806,54 @@ fn generate(args: &ArgsAnalyze, test_name: &str) -> Result<()> {
     Ok(())
 }
 
-fn hwid_list(args: &ArgsAnalyze, test_name: &str) -> Result<Vec<String>> {
+#[derive(PartialEq, Eq, Debug, Hash, PartialOrd, Ord)]
+struct HardwareInfo {
+    hwid: String,
+    serial_number: String,
+    cpu_product_name: String,
+    cpu_bugs: String,
+}
+impl HardwareInfo {
+    pub fn parse(path: &Path, test_name: &str) -> Result<Self> {
+        let hwid = BluebenchMetadata::hwid(path, test_name)?;
+        let serial_number = BluebenchMetadata::serial_number(path, test_name)?;
+        let cpu_product_name =
+            BluebenchMetadata::cpu_product_name(path, test_name).unwrap_or("N/A".to_string());
+        let cpu_bugs = BluebenchMetadata::cpu_bugs(path, test_name).unwrap_or("N/A".to_string());
+        Ok(Self {
+            hwid,
+            serial_number,
+            cpu_product_name,
+            cpu_bugs,
+        })
+    }
+}
+
+fn hwid_and_info_map(
+    args: &ArgsAnalyze,
+    test_name: &str,
+) -> Result<HashMap<String, HashSet<HardwareInfo>>> {
     let results = collect_candidates(args)?;
-    let mut hwid_list: Vec<String> = results
+    let mut list: Vec<(String, HardwareInfo)> = results
         .par_iter()
-        .map(|e| extract_hwid(e, test_name))
+        .map(|e| {
+            let info = HardwareInfo::parse(e, test_name);
+            info.map(|info| (info.hwid.clone(), info)).or(Err(()))
+        })
         .flatten()
         .collect();
-    hwid_list.sort();
-    hwid_list.dedup();
-    Ok(hwid_list)
+    list.sort();
+    list.dedup();
+    let mut dict = HashMap::new();
+    for e in list {
+        let hwid = &e.0;
+        let serial = e.1;
+        if !dict.contains_key(hwid) {
+            dict.insert(hwid.clone(), HashSet::new());
+        }
+        (*dict.get_mut(hwid).unwrap()).insert(serial);
+    }
+    Ok(dict)
 }
 
 fn handle_write(stream: &TcpStream, path: &str) -> Result<()> {

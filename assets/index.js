@@ -214,12 +214,12 @@ document.addEventListener('DOMContentLoaded', async function() {
   window.charts = [];
   const params = [
     {path: './data.csv', id: 'chart0', title: 'Tab open latency (ms)'},
-    //{path: './x86_pkg_temp.csv', id: 'chart1', title: 'x86_pkg_temp (C)'},
-    //{path: './tsr0_temp.csv', id: 'chart2', title: 'TSR0_temp (C)'},
-    //{path: './tsr1_temp.csv', id: 'chart3', title: 'TSR1_temp (C)'},
-    //{path: './tsr2_temp.csv', id: 'chart4', title: 'TSR2_temp (C)'},
-    //{path: './tsr3_temp.csv', id: 'chart5', title: 'TSR3_temp (C)'},
-    //{path: './tcpu_pci_temp.csv', id: 'chart6', title: 'TCPU_PCI_temp (C)'},
+    {path: './x86_pkg_temp.csv', id: 'chart1', title: 'x86_pkg_temp (C)'},
+    {path: './tsr0_temp.csv', id: 'chart2', title: 'TSR0_temp (C)'},
+    {path: './tsr1_temp.csv', id: 'chart3', title: 'TSR1_temp (C)'},
+    {path: './tsr2_temp.csv', id: 'chart4', title: 'TSR2_temp (C)'},
+    {path: './tsr3_temp.csv', id: 'chart5', title: 'TSR3_temp (C)'},
+    {path: './tcpu_pci_temp.csv', id: 'chart6', title: 'TCPU_PCI_temp (C)'},
   ];
   const csvList = [];
   const statusDiv = document.getElementById('statusDiv');
