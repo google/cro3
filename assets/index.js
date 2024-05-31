@@ -4,19 +4,6 @@ const colorPalette = [
   '#1a53ff', '#0d88e6', '#00b7c7', '#5ad45a', '#8be04e', '#ebdc78',
 ];
 
-function setSeriesVisibility(g, name, visible) {
-  const key = btoa(name);
-  const labelNode = document.getElementById(`filter_${key}`);
-  let props = g.getPropertiesForSeries(name);
-  const idx = g.indexFromSetName(name) - 1;
-  g.setVisibility(idx, visible);
-  if (visible) {
-    props = g.getPropertiesForSeries(name);
-    labelNode.style.color = props.color;
-  } else {
-    labelNode.style.color = '#c0c0c0';
-  }
-}
 function setSeriesColor(g, name, color) {
   const option = {};
   option.series = {};
@@ -28,11 +15,35 @@ function setSeriesColor(g, name, color) {
   labelNode.style.color = color;
 }
 
-function hideSeries(g, name) {
-  setSeriesVisibility(g, name, false);
+function setSeriesLabelVisibility(g, name, isVisible) {
+  // isVisible === true => make it visible
+  // isVisible === false => make it invisible
+  // isVisible === null => keep the current state
+  if (isVisible === null) {
+    return;
+  }
+  const key = btoa(name);
+  const labelNode = document.getElementById(`filter_${key}`);
+  if (isVisible) {
+    const props = g.getPropertiesForSeries(name);
+    labelNode.style.color = props.color;
+  } else {
+    labelNode.style.color = '#c0c0c0';
+  }
 }
-function showSeries(g, name) {
-  setSeriesVisibility(g, name, true);
+
+function setSeriesVisibilityWithPredicate(g, f) {
+  const visibilityList = g.visibility();
+  const labels = g.getLabels().splice(1);
+  for (const i in labels) {
+    const name = labels[i];
+    const v = f(name);
+    if (v !== null) {
+      visibilityList[i] = v;
+      setSeriesLabelVisibility(g, name, v);
+    }
+  }
+  g.setVisibility(visibilityList);
 }
 
 
@@ -78,7 +89,8 @@ function updateFilterDiv(g) {
   for (const labelIndex in labels) {
     const label = labels[labelIndex];
     const labelNode = createFilterLabels(label);
-    labelNode.style.color = colorPalette[labelIndex % colorPalette.length];
+    const props = g.getPropertiesForSeries(label);
+    labelNode.style.color = props.color;
     filterDiv.appendChild(labelNode);
   }
 
@@ -95,10 +107,10 @@ function updateFilterDiv(g) {
       showButton.innerText = 'Show';
       showButton.addEventListener('click', function() {
         console.log(`show ${hwid}`);
-        for (const seriesName in hwidDict[hwid]) {
-          for (g of window.charts) {
-            showSeries(g, seriesName);
-          }
+        for (g of window.charts) {
+          setSeriesVisibilityWithPredicate(g, (name) => {
+            return hwidDict[hwid][name] ? true : null;
+          });
         }
       });
     }
@@ -107,11 +119,9 @@ function updateFilterDiv(g) {
       hideButton.innerText = 'Hide';
       hideButton.addEventListener('click', function() {
         console.log(`hide ${hwid}`);
-        for (const seriesName in hwidDict[hwid]) {
-          for (g of window.charts) {
-            hideSeries(g, seriesName);
-          }
-        }
+        setSeriesVisibilityWithPredicate(g, (name) => {
+          return hwidDict[hwid][name] ? false : null;
+        });
       });
     }
     {
@@ -119,17 +129,9 @@ function updateFilterDiv(g) {
       showOnlyButton.innerText = 'Only';
       showOnlyButton.addEventListener('click', function() {
         console.log(`only ${hwid}`);
-        for (const k in hwidDict) {
-          for (const seriesName in hwidDict[k]) {
-            for (g of window.charts) {
-              if (k === hwid) {
-                showSeries(g, seriesName);
-              } else {
-                hideSeries(g, seriesName);
-              }
-            }
-          }
-        }
+        setSeriesVisibilityWithPredicate(g, (name) => {
+          return hwidDict[hwid][name] ? true : false;
+        });
       });
     }
     row.appendChild(document.createTextNode(hwid));
@@ -148,10 +150,10 @@ function updateFilterDiv(g) {
       showButton.innerText = 'Show';
       showButton.addEventListener('click', function() {
         console.log(`show ${serial}`);
-        for (const seriesName in serialDict[serial]) {
-          for (g of window.charts) {
-            showSeries(g, seriesName);
-          }
+        for (g of window.charts) {
+          setSeriesVisibilityWithPredicate(g, (name) => {
+            return serialDict[serial][name] ? true : null;
+          });
         }
       });
     }
@@ -160,10 +162,10 @@ function updateFilterDiv(g) {
       hideButton.innerText = 'Hide';
       hideButton.addEventListener('click', function() {
         console.log(`hide ${serial}`);
-        for (const seriesName in serialDict[serial]) {
-          for (g of window.charts) {
-            hideSeries(g, seriesName);
-          }
+        for (g of window.charts) {
+          setSeriesVisibilityWithPredicate(g, (name) => {
+            return serialDict[serial][name] ? false : null;
+          });
         }
       });
     }
@@ -172,16 +174,10 @@ function updateFilterDiv(g) {
       showOnlyButton.innerText = 'Only';
       showOnlyButton.addEventListener('click', function() {
         console.log(`only ${serial}`);
-        for (const k in serialDict) {
-          for (const seriesName in serialDict[k]) {
-            for (g of window.charts) {
-              if (k === serial) {
-                showSeries(g, seriesName);
-              } else {
-                hideSeries(g, seriesName);
-              }
-            }
-          }
+        for (g of window.charts) {
+          setSeriesVisibilityWithPredicate(g, (name) => {
+            return serialDict[serial][name] ? true : false;
+          });
         }
       });
     }
@@ -214,12 +210,12 @@ document.addEventListener('DOMContentLoaded', async function() {
   window.charts = [];
   const params = [
     {path: './data.csv', id: 'chart0', title: 'Tab open latency (ms)'},
-    {path: './x86_pkg_temp.csv', id: 'chart1', title: 'x86_pkg_temp (C)'},
-    {path: './tsr0_temp.csv', id: 'chart2', title: 'TSR0_temp (C)'},
-    {path: './tsr1_temp.csv', id: 'chart3', title: 'TSR1_temp (C)'},
-    {path: './tsr2_temp.csv', id: 'chart4', title: 'TSR2_temp (C)'},
-    {path: './tsr3_temp.csv', id: 'chart5', title: 'TSR3_temp (C)'},
-    {path: './tcpu_pci_temp.csv', id: 'chart6', title: 'TCPU_PCI_temp (C)'},
+    //{path: './x86_pkg_temp.csv', id: 'chart1', title: 'x86_pkg_temp (C)'},
+    //{path: './tsr0_temp.csv', id: 'chart2', title: 'TSR0_temp (C)'},
+    //{path: './tsr1_temp.csv', id: 'chart3', title: 'TSR1_temp (C)'},
+    //{path: './tsr2_temp.csv', id: 'chart4', title: 'TSR2_temp (C)'},
+    //{path: './tsr3_temp.csv', id: 'chart5', title: 'TSR3_temp (C)'},
+    //{path: './tcpu_pci_temp.csv', id: 'chart6', title: 'TCPU_PCI_temp (C)'},
   ];
   const csvList = [];
   const statusDiv = document.getElementById('statusDiv');
@@ -290,6 +286,17 @@ document.addEventListener('DOMContentLoaded', async function() {
       xAxisHeight: 50,
     };
     options.title = p.title;
+    options.series = {};
+    const seriesNames = data.substr(0, data.indexOf('\n')).split(',').splice(1);
+    for (const name of seriesNames) {
+      let color = '#c6c6c6';
+      if (name.endsWith('mitigations=auto')) {
+        color = colorPalette[1];
+      } else if (name.endsWith('mitigations=off')) {
+        color = colorPalette[0];
+      }
+      options.series[name] = {color: color};
+    }
     const g = new Dygraph(div, data, options);
     var onclick = function(ev) {
       const sname = g.getHighlightSeries();
@@ -308,10 +315,4 @@ document.addEventListener('DOMContentLoaded', async function() {
   statusDiv.style.display = 'none';
   updateSync();
   updateFilterDiv(window.charts[0])
-  for (g of window.charts) {
-    g.getLabels().splice(1).map(
-        (name) => {setSeriesColor(
-            g, name,
-            name.endsWith('auto') ? colorPalette[0] : colorPalette[1])})
-  }
 });

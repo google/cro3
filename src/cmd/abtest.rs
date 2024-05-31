@@ -194,9 +194,12 @@ impl ArgsRun {
 /// Analyze performance experiment result
 #[argh(subcommand, name = "analyze")]
 struct ArgsAnalyze {
-    /// serve the result
+    /// generate the result files
     #[argh(switch)]
     generate: bool,
+    /// include temperature sensor readouts
+    #[argh(switch)]
+    with_temp_data: bool,
 
     /// cros source dir to be used for data retrieval(exclusive with
     /// --results-dir)
@@ -233,6 +236,152 @@ struct ArgsAnalyze {
     list_duts: bool,
 }
 impl ArgsAnalyze {
+    fn write_results(&self, results: Vec<BluebenchResult>) -> Result<()> {
+        info!(
+            "{} succesfull test results in the specified range",
+            results.len()
+        );
+        let result_key_order = result_key_order(&results);
+        write_latency_csv(&results, &result_key_order)?;
+        write_tast_analyzer_json(&results, &result_key_order)?;
+        if self.with_temp_data {
+            write_temp_csv(
+                &results,
+                &result_key_order,
+                "x86_pkg_temp_C",
+                "x86_pkg_temp.csv",
+            )?;
+            write_temp_csv(&results, &result_key_order, "TSR0_C", "tsr0_temp.csv")?;
+            write_temp_csv(&results, &result_key_order, "TSR1_C", "tsr1_temp.csv")?;
+            write_temp_csv(&results, &result_key_order, "TSR2_C", "tsr2_temp.csv")?;
+            write_temp_csv(&results, &result_key_order, "TSR3_C", "tsr3_temp.csv")?;
+            write_temp_csv(
+                &results,
+                &result_key_order,
+                "TCPU_PCI_C",
+                "tcpu_pci_temp.csv",
+            )?;
+        }
+        Ok(())
+    }
+    fn analyze_one_result(
+        &self,
+        path: &PathBuf,
+        test_name: &str,
+        hwid_expected: Option<&str>,
+    ) -> Result<BluebenchResult> {
+        let t0 = std::time::Instant::now();
+        if let Some(hwid_expected) = hwid_expected {
+            let hwid = BluebenchMetadata::hwid(path, test_name)?;
+            if hwid != hwid_expected {
+                // Only parse results from some hwid to speed up the parsing
+                bail!("Skipping due to hwid mismatch");
+            }
+        }
+        let metadata = BluebenchMetadata::from_path(path, test_name, self.with_temp_data)?;
+        let result_csv = path.join("tests").join(test_name).join("bluebench_log.txt");
+        if !result_csv.is_file() {
+            bail!("{result_csv:?} is not a file");
+        }
+        let result_text = fs::read_to_string(&result_csv)
+            .context(anyhow!("Failed to read the result file: {:?}", &result_csv))?;
+        let result_lines: Vec<&str> = result_text.split('\n').collect();
+        let parse_f64_optional = |s: Option<&&str>| -> Result<Option<f64>> {
+            if let Some(v) = s {
+                if v.is_empty() {
+                    Ok(None)
+                } else {
+                    Ok(Some(
+                        v.parse()
+                            .context(anyhow!("converged_mean ({v}) is invalid"))?,
+                    ))
+                }
+            } else {
+                Ok(None)
+            }
+        };
+        let cycles: Vec<BluebenchCycleResult> = result_lines
+            .iter()
+            .map(|s| -> &str { str::trim(s) })
+            .filter(|s| !s.is_empty())
+            .map(|line| -> Result<BluebenchCycleResult> {
+                let line: Vec<&str> = line.split(',').collect();
+                let date = line.first().context("Date is invalid")?.to_string();
+                let iter_index: usize = line
+                    .get(1)
+                    .context("Iter index was empty")?
+                    .parse()
+                    .context("Failed to parse iter index")?;
+                let status = line.get(2).unwrap_or(&"Invalid").to_string();
+                let converged_mean = parse_f64_optional(line.get(3))?;
+                let t1 = parse_f64_optional(line.get(4))?;
+                let t2 = parse_f64_optional(line.get(5))?;
+                let t3 = parse_f64_optional(line.get(6))?;
+                let raw: Vec<f64> = line[7..]
+                    .iter()
+                    .map(|e| -> f64 { e.parse().unwrap() })
+                    .collect();
+                Ok(BluebenchCycleResult {
+                    date,
+                    iter_index,
+                    status,
+                    converged_mean,
+                    t1,
+                    t2,
+                    t3,
+                    raw,
+                })
+            })
+            .collect::<Result<Vec<BluebenchCycleResult>>>()?;
+        let converged_means: Vec<f64> = cycles.iter().filter_map(|c| c.converged_mean).collect();
+        let converged_mean_mean =
+            converged_means.iter().sum::<f64>() / converged_means.len() as f64;
+        let last_result_date = cycles.last().unwrap().date.clone();
+        info!("parse done: {:?} {:?}", t0.elapsed(), path);
+        Ok(BluebenchResult {
+            metadata,
+            last_result_date,
+            cycles,
+            converged_mean_mean,
+        })
+    }
+    fn analyze_all(
+        &self,
+        results: Vec<PathBuf>,
+        test_name: &str,
+        hwid: Option<&str>,
+    ) -> Vec<BluebenchResult> {
+        results
+            .par_iter()
+            .flat_map(|e| self.analyze_one_result(e, test_name, hwid))
+            .collect()
+    }
+    fn analyze_latest_succesfull(
+        &self,
+        results: Vec<PathBuf>,
+        test_name: &str,
+    ) -> Vec<BluebenchResult> {
+        results
+            .iter()
+            .rev()
+            .flat_map(|e| self.analyze_one_result(e, test_name, None))
+            .take(5)
+            .collect()
+    }
+
+    fn generate_result_files(&self, test_name: &str) -> Result<()> {
+        let results = collect_candidates(self)?;
+        if self.test {
+            let results = self.analyze_latest_succesfull(results, test_name);
+            for result in &results {
+                dump_result(result)?;
+            }
+        } else {
+            let results = self.analyze_all(results, test_name, self.hwid.as_deref());
+            self.write_results(results)?;
+        }
+        Ok(())
+    }
     fn run(&self) -> Result<()> {
         info!("{self:?}");
         if self.generate {
@@ -240,7 +389,7 @@ impl ArgsAnalyze {
                 .test_name
                 .as_ref()
                 .context("--test-name should be specified")?;
-            generate(self, test_name)?;
+            self.generate_result_files(test_name)?;
         }
         if self.serve {
             listen_http(self.port)?;
@@ -451,7 +600,7 @@ impl BluebenchMetadata {
             .context("Started test line not found");
         Ok((start_ts?.to_string(), end_ts?.to_string()))
     }
-    fn from_path(path: &Path, test_name: &str) -> Result<Self> {
+    fn from_path(path: &Path, test_name: &str, with_temp_data: bool) -> Result<Self> {
         let dut_id = Self::serial_number(path, test_name)
             .or_else(|_| Result::<String>::Ok("NoSerial".to_string()))?;
         let hwid = Self::hwid(path, test_name)?;
@@ -461,12 +610,16 @@ impl BluebenchMetadata {
         let os_release = Self::os_release(path, test_name)?;
         let bootid = Self::bootid(path, test_name)?;
         let kernel_cmdline_mitigations = Self::kernel_cmdline_mitigations(path, test_name)?;
-        let temperature_sensor_readouts = Self::temperature_sensor_readouts(
-            path,
-            test_name,
-            &test_start_timestamp,
-            &test_end_timestamp,
-        )?;
+        let temperature_sensor_readouts = if with_temp_data {
+            Self::temperature_sensor_readouts(
+                path,
+                test_name,
+                &test_start_timestamp,
+                &test_end_timestamp,
+            )?
+        } else {
+            HashMap::new()
+        };
         let key = format!("{hwid}/{dut_id}/{bootid}/{kernel_cmdline_mitigations}");
         let path = path.as_os_str().to_string_lossy().into_owned().to_string();
         Ok(Self {
@@ -515,103 +668,48 @@ struct BluebenchResult {
     cycles: Vec<BluebenchCycleResult>,
 }
 
-fn analyze_one_result(
-    path: &PathBuf,
-    test_name: &str,
-    hwid_expected: Option<&str>,
-) -> Result<BluebenchResult> {
-    let t0 = std::time::Instant::now();
-    if let Some(hwid_expected) = hwid_expected {
-        let hwid = BluebenchMetadata::hwid(path, test_name)?;
-        if hwid != hwid_expected {
-            // Only parse results from some hwid to speed up the parsing
-            bail!("Skipping due to hwid mismatch");
-        }
-    }
-    let metadata = BluebenchMetadata::from_path(path, test_name)?;
-    let result_csv = path.join("tests").join(test_name).join("bluebench_log.txt");
-    if !result_csv.is_file() {
-        bail!("{result_csv:?} is not a file");
-    }
-    let result_text = fs::read_to_string(&result_csv)
-        .context(anyhow!("Failed to read the result file: {:?}", &result_csv))?;
-    let result_lines: Vec<&str> = result_text.split('\n').collect();
-    let parse_f64_optional = |s: Option<&&str>| -> Result<Option<f64>> {
-        if let Some(v) = s {
-            if v.is_empty() {
-                Ok(None)
-            } else {
-                Ok(Some(
-                    v.parse()
-                        .context(anyhow!("converged_mean ({v}) is invalid"))?,
-                ))
-            }
-        } else {
-            Ok(None)
-        }
-    };
-    let cycles: Vec<BluebenchCycleResult> = result_lines
-        .iter()
-        .map(|s| -> &str { str::trim(s) })
-        .filter(|s| !s.is_empty())
-        .map(|line| -> Result<BluebenchCycleResult> {
-            let line: Vec<&str> = line.split(',').collect();
-            let date = line.first().context("Date is invalid")?.to_string();
-            let iter_index: usize = line
-                .get(1)
-                .context("Iter index was empty")?
-                .parse()
-                .context("Failed to parse iter index")?;
-            let status = line.get(2).unwrap_or(&"Invalid").to_string();
-            let converged_mean = parse_f64_optional(line.get(3))?;
-            let t1 = parse_f64_optional(line.get(4))?;
-            let t2 = parse_f64_optional(line.get(5))?;
-            let t3 = parse_f64_optional(line.get(6))?;
-            let raw: Vec<f64> = line[7..]
-                .iter()
-                .map(|e| -> f64 { e.parse().unwrap() })
-                .collect();
-            Ok(BluebenchCycleResult {
-                date,
-                iter_index,
-                status,
-                converged_mean,
-                t1,
-                t2,
-                t3,
-                raw,
-            })
-        })
-        .collect::<Result<Vec<BluebenchCycleResult>>>()?;
-    let converged_means: Vec<f64> = cycles.iter().filter_map(|c| c.converged_mean).collect();
-    let converged_mean_mean = converged_means.iter().sum::<f64>() / converged_means.len() as f64;
-    let last_result_date = cycles.last().unwrap().date.clone();
-    info!("parse done: {:?} {:?}", t0.elapsed(), path);
-    Ok(BluebenchResult {
-        metadata,
-        last_result_date,
-        cycles,
-        converged_mean_mean,
-    })
-}
-
-fn analyze_all(results: Vec<PathBuf>, test_name: &str, hwid: Option<&str>) -> Vec<BluebenchResult> {
-    results
-        .par_iter()
-        .flat_map(|e| analyze_one_result(e, test_name, hwid))
-        .collect()
-}
-
-fn analyze_latest_succesfull(results: Vec<PathBuf>, test_name: &str) -> Vec<BluebenchResult> {
-    results
-        .iter()
-        .rev()
-        .flat_map(|e| analyze_one_result(e, test_name, None))
-        .take(5)
-        .collect()
-}
-
 fn write_latency_csv(
+    results: &[BluebenchResult],
+    result_key_order: &HashMap<String, usize>,
+) -> Result<()> {
+    // Generate
+    let mut data: Vec<(String, f64, String)> = results
+        .iter()
+        .map(|r| {
+            (
+                r.last_result_date.to_string(),
+                r.converged_mean_mean,
+                r.metadata.key.to_string(),
+            )
+        })
+        .collect();
+    data.sort_by(|l, r| l.0.cmp(&r.0));
+    data.dedup();
+    // Write
+    let mut csv_file = fs::File::create("data.csv")?;
+    // header
+    let mut header_keys: Vec<(&String, &usize)> =
+        result_key_order.iter().collect::<Vec<(&String, &usize)>>();
+    header_keys.sort_by_key(|e| e.1);
+    let header_keys: Vec<String> = header_keys.iter().map(|e| e.0.clone()).collect();
+    writeln!(csv_file, "t,{}", header_keys.join(","))?;
+    // data
+    for e in data.iter() {
+        let key_order: usize = result_key_order[&e.2];
+        writeln!(
+            csv_file,
+            "{},{}{}{}",
+            e.0,
+            ",".repeat(key_order),
+            e.1,
+            ",".repeat(result_key_order.len() - 1 - key_order),
+        )?;
+    }
+    info!("Generated data.csv");
+    Ok(())
+}
+
+fn write_tast_analyzer_json(
     results: &[BluebenchResult],
     result_key_order: &HashMap<String, usize>,
 ) -> Result<()> {
@@ -718,32 +816,6 @@ fn result_key_order(results: &[BluebenchResult]) -> HashMap<String, usize> {
     result_key_order
 }
 
-fn write_results(results: Vec<BluebenchResult>) -> Result<()> {
-    info!(
-        "{} succesfull test results in the specified range",
-        results.len()
-    );
-    let result_key_order = result_key_order(&results);
-    write_latency_csv(&results, &result_key_order)?;
-    write_temp_csv(
-        &results,
-        &result_key_order,
-        "x86_pkg_temp_C",
-        "x86_pkg_temp.csv",
-    )?;
-    write_temp_csv(&results, &result_key_order, "TSR0_C", "tsr0_temp.csv")?;
-    write_temp_csv(&results, &result_key_order, "TSR1_C", "tsr1_temp.csv")?;
-    write_temp_csv(&results, &result_key_order, "TSR2_C", "tsr2_temp.csv")?;
-    write_temp_csv(&results, &result_key_order, "TSR3_C", "tsr3_temp.csv")?;
-    write_temp_csv(
-        &results,
-        &result_key_order,
-        "TCPU_PCI_C",
-        "tcpu_pci_temp.csv",
-    )?;
-    Ok(())
-}
-
 fn collect_candidates(args: &ArgsAnalyze) -> Result<Vec<PathBuf>> {
     let results_dir = match (&args.cros, &args.results_dir) {
         (Some(cros), None) => {
@@ -789,20 +861,6 @@ fn collect_candidates(args: &ArgsAnalyze) -> Result<Vec<PathBuf>> {
 
 fn dump_result(result: &BluebenchResult) -> Result<()> {
     info!("{:?} {:?}", result.metadata, result.converged_mean_mean);
-    Ok(())
-}
-
-fn generate(args: &ArgsAnalyze, test_name: &str) -> Result<()> {
-    let results = collect_candidates(args)?;
-    if args.test {
-        let results = analyze_latest_succesfull(results, test_name);
-        for result in &results {
-            dump_result(result)?;
-        }
-    } else {
-        let results = analyze_all(results, test_name, args.hwid.as_deref());
-        write_results(results)?;
-    }
     Ok(())
 }
 
