@@ -82,21 +82,7 @@ function updateFilterDiv(g) {
 
   {
     const header = document.createElement('h2');
-    header.text = 'Series';
-    filterDiv.appendChild(header);
-  }
-
-  for (const labelIndex in labels) {
-    const label = labels[labelIndex];
-    const labelNode = createFilterLabels(label);
-    const props = g.getPropertiesForSeries(label);
-    labelNode.style.color = props.color;
-    filterDiv.appendChild(labelNode);
-  }
-
-  {
-    const header = document.createElement('h2');
-    header.text = 'HWID';
+    header.innerText = 'HWID';
     filterDiv.appendChild(header);
   }
   for (const hwid in hwidDict) {
@@ -139,7 +125,7 @@ function updateFilterDiv(g) {
 
   {
     const header = document.createElement('h2');
-    header.text = 'DUT';
+    header.innerText = 'DUT';
     filterDiv.appendChild(header);
   }
   for (const serial in serialDict) {
@@ -183,6 +169,21 @@ function updateFilterDiv(g) {
     }
     row.appendChild(document.createTextNode(serial));
   }
+
+  {
+    const header = document.createElement('h2');
+    header.innerText = 'Series';
+    filterDiv.appendChild(header);
+  }
+
+  for (const labelIndex in labels) {
+    const label = labels[labelIndex];
+    const labelNode = createFilterLabels(label);
+    const props = g.getPropertiesForSeries(label);
+    labelNode.style.color = props.color;
+    filterDiv.appendChild(labelNode);
+  }
+
 }
 
 let sync = null;

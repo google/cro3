@@ -1,5 +1,5 @@
 .toggleLabel {
-  font-size: 24px;
+  font-size: 12px;
   margin: 8px;
   -webkit-touch-callout: none; /* iOS Safari */
   -webkit-user-select: none; /* Safari */
@@ -34,6 +34,6 @@ button {
 .chart {
   padding: 0;
   margin: 16px;
-  height: calc(25vh - 50px);
+  height: calc(40vh - 50px);
   width: calc(100vw - 50px);
 }
