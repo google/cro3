@@ -223,6 +223,9 @@ struct ArgsAnalyze {
     /// hwid
     #[argh(option)]
     hwid: Option<String>,
+    /// serial
+    #[argh(option)]
+    serial: Option<String>,
 
     /// serve the result
     #[argh(switch)]
@@ -236,14 +239,14 @@ struct ArgsAnalyze {
     list_duts: bool,
 }
 impl ArgsAnalyze {
-    fn write_results(&self, results: Vec<BluebenchResult>) -> Result<()> {
+    fn write_results(&self, results: Vec<BluebenchResult>, test_name: &str) -> Result<()> {
         info!(
             "{} succesfull test results in the specified range",
             results.len()
         );
         let result_key_order = result_key_order(&results);
         write_latency_csv(&results, &result_key_order)?;
-        write_tast_analyzer_json(&results, &result_key_order)?;
+        write_tast_analyzer_json(&results, test_name)?;
         if self.with_temp_data {
             write_temp_csv(
                 &results,
@@ -269,6 +272,7 @@ impl ArgsAnalyze {
         path: &PathBuf,
         test_name: &str,
         hwid_expected: Option<&str>,
+        serial_expected: Option<&str>,
     ) -> Result<BluebenchResult> {
         let t0 = std::time::Instant::now();
         if let Some(hwid_expected) = hwid_expected {
@@ -276,6 +280,13 @@ impl ArgsAnalyze {
             if hwid != hwid_expected {
                 // Only parse results from some hwid to speed up the parsing
                 bail!("Skipping due to hwid mismatch");
+            }
+        }
+        if let Some(serial_expected) = serial_expected {
+            let serial = BluebenchMetadata::serial_number(path, test_name)?;
+            if serial != serial_expected {
+                // Only parse results from some serial to speed up the parsing
+                bail!("Skipping due to serial mismatch");
             }
         }
         let metadata = BluebenchMetadata::from_path(path, test_name, self.with_temp_data)?;
@@ -350,10 +361,11 @@ impl ArgsAnalyze {
         results: Vec<PathBuf>,
         test_name: &str,
         hwid: Option<&str>,
+        serial: Option<&str>,
     ) -> Vec<BluebenchResult> {
         results
             .par_iter()
-            .flat_map(|e| self.analyze_one_result(e, test_name, hwid))
+            .flat_map(|e| self.analyze_one_result(e, test_name, hwid, serial))
             .collect()
     }
     fn analyze_latest_succesfull(
@@ -364,7 +376,7 @@ impl ArgsAnalyze {
         results
             .iter()
             .rev()
-            .flat_map(|e| self.analyze_one_result(e, test_name, None))
+            .flat_map(|e| self.analyze_one_result(e, test_name, None, None))
             .take(5)
             .collect()
     }
@@ -377,8 +389,13 @@ impl ArgsAnalyze {
                 dump_result(result)?;
             }
         } else {
-            let results = self.analyze_all(results, test_name, self.hwid.as_deref());
-            self.write_results(results)?;
+            let results = self.analyze_all(
+                results,
+                test_name,
+                self.hwid.as_deref(),
+                self.serial.as_deref(),
+            );
+            self.write_results(results, test_name)?;
         }
         Ok(())
     }
@@ -400,12 +417,22 @@ impl ArgsAnalyze {
                 .as_ref()
                 .context("--test-name should be specified")?;
             let hwid_and_info_map = hwid_and_info_map(self, test_name)?;
-            for (hwid, info_set) in hwid_and_info_map {
+            if let Some(hwid) = &self.hwid {
+                let info_set = &hwid_and_info_map[hwid];
                 println!("{hwid}");
                 for info in info_set {
                     println!("  {}", info.serial_number);
                     println!("    {}", info.cpu_product_name);
                     println!("    {}", info.cpu_bugs);
+                }
+            } else {
+                for (hwid, info_set) in hwid_and_info_map {
+                    println!("{hwid}");
+                    for info in info_set {
+                        println!("  {}", info.serial_number);
+                        println!("    {}", info.cpu_product_name);
+                        println!("    {}", info.cpu_bugs);
+                    }
                 }
             }
         }
@@ -709,44 +736,68 @@ fn write_latency_csv(
     Ok(())
 }
 
-fn write_tast_analyzer_json(
-    results: &[BluebenchResult],
-    result_key_order: &HashMap<String, usize>,
-) -> Result<()> {
-    // Generate
-    let mut data: Vec<(String, f64, String)> = results
-        .iter()
-        .map(|r| {
-            (
-                r.last_result_date.to_string(),
-                r.converged_mean_mean,
-                r.metadata.key.to_string(),
-            )
-        })
-        .collect();
-    data.sort_by(|l, r| l.0.cmp(&r.0));
-    data.dedup();
-    // Write
-    let mut csv_file = fs::File::create("data.csv")?;
-    // header
-    let mut header_keys: Vec<(&String, &usize)> =
-        result_key_order.iter().collect::<Vec<(&String, &usize)>>();
-    header_keys.sort_by_key(|e| e.1);
-    let header_keys: Vec<String> = header_keys.iter().map(|e| e.0.clone()).collect();
-    writeln!(csv_file, "t,{}", header_keys.join(","))?;
-    // data
-    for e in data.iter() {
-        let key_order: usize = result_key_order[&e.2];
-        writeln!(
-            csv_file,
-            "{},{}{}{}",
-            e.0,
-            ",".repeat(key_order),
-            e.1,
-            ",".repeat(result_key_order.len() - 1 - key_order),
-        )?;
+/*
+{
+  "20231007-232944|ui.DesksCUJ.lacros|Overview.EventLatency.KeyPressed.TotalLatency": {
+    "average": {
+      "units": "microseconds",
+      "improvement_direction": "down",
+      "type": "scalar",
+      "value": 94801.93607305936
     }
-    info!("Generated data.csv");
+  }
+}
+*/
+#[derive(Serialize, Deserialize, Debug, Default)]
+struct TastAnalyzerScalarResultInner {
+    units: String,
+    improvement_direction: String,
+    #[serde(rename = "type")]
+    value_type: String,
+    value: f64,
+}
+#[derive(Serialize, Deserialize, Debug, Default)]
+struct TastAnalyzerScalarResult {
+    average: TastAnalyzerScalarResultInner,
+}
+// data['${RESULT_DIR_NAME}|${TEST_NAME}|${METRIC_NAME}']['${?}']
+// = TastAnalyzerScalarResult{}
+#[derive(Serialize, Deserialize, Debug, Default)]
+struct TastAnalyzerInputJson(HashMap<String, TastAnalyzerScalarResult>);
+
+fn write_tast_analyzer_json(results: &[BluebenchResult], test_name: &str) -> Result<()> {
+    // Generate
+    let mut data_experiment = TastAnalyzerInputJson::default();
+    let mut data_control = TastAnalyzerInputJson::default();
+    for r in results {
+        let hwid = r.metadata.hwid.to_string();
+        let result_dir = PathBuf::from(r.metadata.path.clone())
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string();
+        let value = r.converged_mean_mean;
+        let v = TastAnalyzerScalarResult {
+            average: TastAnalyzerScalarResultInner {
+                units: "milliseconds".to_string(),
+                improvement_direction: "down".to_string(),
+                value_type: "scalar".to_string(),
+                value,
+            },
+        };
+        let data = if r.metadata.kernel_cmdline_mitigations.ends_with("off") {
+            &mut data_experiment.0
+        } else {
+            &mut data_control.0
+        };
+        data.insert(format!("{result_dir}|{hwid}/{test_name}|TabOpenLatency"), v);
+    }
+    let mut csv_file = fs::File::create("tast_analyzer_experiment.json")?;
+    csv_file.write_all(&serde_json::to_string(&data_experiment)?.into_bytes())?;
+    info!("Generated {csv_file:?}");
+    let mut csv_file = fs::File::create("tast_analyzer_control.json")?;
+    csv_file.write_all(&serde_json::to_string(&data_control)?.into_bytes())?;
+    info!("Generated {csv_file:?}");
     Ok(())
 }
 
