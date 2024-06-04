@@ -81,6 +81,80 @@ enum ExperimentConfig {
     B,
 }
 
+struct ExperimentRunner {
+    tast: TastTestExecutionType,
+    ssh: SshInfo,
+    dut_id: String,
+    run_per_group: usize,
+    group_per_cluster: usize,
+    cluster_per_iteration: usize,
+    num_of_iterations: usize,
+    tast_test: String,
+    result_dir_stem: String,
+}
+impl ExperimentRunner {
+    fn run_group(&self, config: ExperimentConfig) -> Result<()> {
+        match config {
+            ExperimentConfig::A => self
+                .ssh
+                .switch_partition_set(cro3::dut::PartitionSet::Primary),
+            ExperimentConfig::B => self
+                .ssh
+                .switch_partition_set(cro3::dut::PartitionSet::Secondary),
+        }?;
+        if let Err(e) = self.ssh.reboot() {
+            warn!("reboot failed (ignored): {e:?}");
+        }
+        self.ssh.wait_online()?;
+
+        for i in 0..self.run_per_group {
+            info!("#### run {i} with {}", self.dut_id);
+            retry::retry(retry::delay::Fixed::from_millis(500).take(3), || {
+                run_tast_test(
+                    &self.ssh,
+                    &self.tast,
+                    &self.tast_test,
+                    Some(
+                        format!(
+                            "-resultsdir {}_{}",
+                            self.result_dir_stem,
+                            chrono::Local::now().format("%Y%m%d_%H%M%S_%f"),
+                        )
+                        .as_str(),
+                    ),
+                )
+            })
+            .or(Err(anyhow!("Failed to run tast test after retries")))?;
+        }
+        Ok(())
+    }
+    fn run_cluster(&self) -> Result<()> {
+        for i in 0..self.group_per_cluster {
+            info!("### group A-{i}");
+            self.run_group(ExperimentConfig::A)?;
+        }
+        for i in 0..self.group_per_cluster {
+            info!("### group B-{i}");
+            self.run_group(ExperimentConfig::B)?;
+        }
+        Ok(())
+    }
+    fn run_iteration(&self) -> Result<()> {
+        for i in 0..self.cluster_per_iteration {
+            info!("## cluster {i}");
+            self.run_cluster()?;
+        }
+        Ok(())
+    }
+    fn run_experiment(&self) -> Result<()> {
+        for i in 0..self.num_of_iterations {
+            info!("# iteration {i}");
+            self.run_iteration()?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(FromArgs, PartialEq, Debug)]
 /// Run performance experiments
 #[argh(subcommand, name = "run")]
@@ -141,66 +215,9 @@ struct ArgsRun {
     result_dir: Option<String>,
 }
 impl ArgsRun {
-    fn run_group(
-        &self,
-        tast: &TastTestExecutionType,
-        config: ExperimentConfig,
-        dut: &SshInfo,
-    ) -> Result<()> {
-        match config {
-            ExperimentConfig::A => dut.switch_partition_set(cro3::dut::PartitionSet::Primary),
-            ExperimentConfig::B => dut.switch_partition_set(cro3::dut::PartitionSet::Secondary),
-        }?;
-        if let Err(e) = dut.reboot() {
-            warn!("reboot failed (ignored): {e:?}");
-        }
-        dut.wait_online()?;
-
-        for i in 0..self.run_per_group.unwrap_or(20) {
-            info!("#### run {i}");
-            retry::retry(retry::delay::Fixed::from_millis(500).take(3), || {
-                run_tast_test(
-                    dut,
-                    tast,
-                    &self.tast_test,
-                    Some(&format!(
-                        "-resultsdir /tmp/tast/results/{}",
-                        self.experiment_name
-                    )),
-                )
-            })
-            .or(Err(anyhow!("Failed to run tast test after retries")))?;
-        }
-        Ok(())
-    }
-    fn run_cluster(&self, tast: &TastTestExecutionType, dut: &SshInfo) -> Result<()> {
-        for i in 0..self.group_per_cluster.unwrap_or(1) {
-            info!("### group A-{i}");
-            self.run_group(tast, ExperimentConfig::A, dut)?;
-        }
-        for i in 0..self.group_per_cluster.unwrap_or(1) {
-            info!("### group A-{i}");
-            self.run_group(tast, ExperimentConfig::B, dut)?;
-        }
-        Ok(())
-    }
-    fn run_iteration(&self, tast: &TastTestExecutionType, dut: &SshInfo) -> Result<()> {
-        for i in 0..self.cluster_per_iteration.unwrap_or(1000) {
-            info!("## cluster {i}");
-            self.run_cluster(tast, dut)?;
-        }
-        Ok(())
-    }
-    fn run_experiment(&self, tast: &TastTestExecutionType, dut: &SshInfo) -> Result<()> {
-        for i in 0..self.num_of_iterations.unwrap_or(1) {
-            info!("# iteration {i}");
-            self.run_iteration(tast, dut)?;
-        }
-        Ok(())
-    }
     fn run(&self) -> Result<()> {
-        let dut = SshInfo::new(&self.dut)?;
-        let dut = dut.into_forwarded()?;
+        let ssh = SshInfo::new(&self.dut)?;
+        let ssh = ssh.into_forwarded()?;
         let tast = match (&self.cros, &self.tastpack) {
             (Some(cros), None) => {
                 let repodir = get_cros_dir(Some(cros))?;
@@ -213,7 +230,18 @@ impl ArgsRun {
             }
         };
         info!("Using Tast from: {tast:?}");
-        self.run_experiment(&tast, dut.ssh())
+        let runner = ExperimentRunner {
+            ssh: ssh.ssh().clone(),
+            dut_id: self.dut.clone(),
+            tast_test: self.tast_test.clone(),
+            tast,
+            num_of_iterations: self.num_of_iterations.unwrap_or(1),
+            run_per_group: self.run_per_group.unwrap_or(20),
+            cluster_per_iteration: self.cluster_per_iteration.unwrap_or(1000),
+            group_per_cluster: self.group_per_cluster.unwrap_or(1),
+            result_dir_stem: format!("/tmp/tast/results/{}_{}", self.experiment_name, self.dut,),
+        };
+        runner.run_experiment()
     }
 }
 

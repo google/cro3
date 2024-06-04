@@ -130,6 +130,8 @@ pub async fn monitor_and_await_tast_execution(mut child: Child) -> Result<()> {
     let so = so.context(anyhow!("ssh_stdout was None"))?;
     let se = se.context(anyhow!("ssh_stderr was None"))?;
     let mut merged_stream = stream::select(se.fuse(), so.fuse());
+    let mut num_lines = 0;
+    let mut num_network_diagnosis = 0;
     loop {
         let mut merged_stream = merged_stream.next();
         select! {
@@ -137,6 +139,16 @@ pub async fn monitor_and_await_tast_execution(mut child: Child) -> Result<()> {
                 if let Some(Ok(line)) = line {
                     // Using eprintln!() instead of info!() to reduce the headers
                     eprintln!("{line}");
+                    if line.contains("Running network diagnosis") {
+                        num_network_diagnosis += 1;
+                    }
+                    num_lines += 1;
+                    if num_lines % 100 == 0 {
+                        num_network_diagnosis = 0;
+                    }
+                    if num_network_diagnosis > 5 {
+                        bail!("network diagnosi burst detected. terminating the test...");
+                    }
                 }
             }
             complete => {
@@ -172,8 +184,10 @@ pub fn run_test_with_bundle(
             let mut path = path.clone();
             path.push("run_tast.sh");
             let path = path.as_os_str().to_string_lossy();
-            let output =
-                run_bash_command_async(&format!("{path} localhost:{port} {filter}"), None)?;
+            let output = run_bash_command_async(
+                &format!("{path} {} 127.0.0.1:{port} {filter}", opt.unwrap_or("")),
+                None,
+            )?;
             block_on(monitor_and_await_tast_execution(output))?;
         }
     }
