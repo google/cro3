@@ -159,7 +159,15 @@ impl ArgsRun {
         for i in 0..self.run_per_group.unwrap_or(20) {
             info!("#### run {i}");
             retry::retry(retry::delay::Fixed::from_millis(500).take(3), || {
-                run_tast_test(dut, tast, &self.tast_test, None)
+                run_tast_test(
+                    dut,
+                    tast,
+                    &self.tast_test,
+                    Some(&format!(
+                        "-resultsdir /tmp/tast/results/{}",
+                        self.experiment_name
+                    )),
+                )
             })
             .or(Err(anyhow!("Failed to run tast test after retries")))?;
         }
