@@ -26,6 +26,7 @@ use anyhow::Result;
 use argh::FromArgs;
 use cro3::chroot::Chroot;
 use cro3::repo::get_cros_dir;
+use cro3::servo::get_cr50_attached_to_servo;
 use cro3::servo::get_servo_attached_to_cr50;
 use cro3::servo::reset_devices;
 use cro3::servo::LocalServo;
@@ -266,12 +267,37 @@ fn run_show(args: &ArgsShow) -> Result<()> {
     if args.json {
         println!("{s}");
     } else {
-        println!(
-            "{} {} {}",
-            s.serial(),
-            s.usb_sysfs_path(),
-            s.tty_path("Servo EC Shell")?
-        );
+        if s.is_cr50() {
+            println!(
+                "{} {} {}",
+                s.serial(),
+                s.usb_sysfs_path(),
+                s.tty_path("Shell")?
+            );
+            if let Ok(s) = get_servo_attached_to_cr50(s) {
+                println!(
+                    "Paired with: {} {} {}",
+                    s.serial(),
+                    s.usb_sysfs_path(),
+                    s.tty_path("Servo EC Shell")?
+                );
+            }
+        } else if s.is_servo() {
+            println!(
+                "{} {} {}",
+                s.serial(),
+                s.usb_sysfs_path(),
+                s.tty_path("Servo EC Shell")?
+            );
+            if let Ok(s) = get_cr50_attached_to_servo(s) {
+                println!(
+                    "Paired with: {} {} {}",
+                    s.serial(),
+                    s.usb_sysfs_path(),
+                    s.tty_path("Shell")?
+                );
+            }
+        }
     }
     Ok(())
 }
