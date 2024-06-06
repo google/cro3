@@ -5,6 +5,8 @@
 // https://developers.google.com/open-source/licenses/bsd
 
 use std::path::PathBuf;
+use std::ffi::OsStr;
+use std::path::Path;
 
 use anyhow::anyhow;
 use anyhow::bail;
@@ -17,6 +19,8 @@ use futures::stream;
 use futures::StreamExt;
 use glob::Pattern;
 use tracing::warn;
+use tracing::info;
+use std::fs::read_dir;
 
 use crate::cache::KvCache;
 use crate::chroot::Chroot;
@@ -225,4 +229,50 @@ pub fn run_tast_test(
     }
 
     Ok(())
+}
+
+pub fn collect_results(cros: Option<&str>, results_dir: Option<&str>, start: Option<&str>, end: Option<&str>) -> Result<Vec<PathBuf>> {
+    let results_dir = match (&cros, &results_dir) {
+        (Some(cros), None) => {
+            let cros = Path::new(cros);
+            if !cros.is_dir() {
+                bail!("{cros:?} is not a dir");
+            }
+            cros.join("out").join("tmp").join("tast").join("results")
+        }
+        (None, Some(results_dir)) => Path::new(results_dir).to_path_buf(),
+        _ => {
+            bail!("Please specify --cros xor --results-dir")
+        }
+    };
+    if !results_dir.is_dir() {
+        bail!("{results_dir:?} is not a dir");
+    }
+    let mut results: Vec<PathBuf> = read_dir(&results_dir)?
+        .flatten()
+        .map(|e| e.path().to_path_buf())
+        .collect();
+    results.sort();
+    info!("{} test results found", results.len());
+    let start = start.map(OsStr::new);
+    let end = end.map(OsStr::new);
+    let results: Vec<PathBuf> = results
+        .iter()
+        .filter(|f| -> bool {
+            if let Some(f) = f.file_name() {
+                match (start, end) {
+                    (Some(start), None) => start <= f,
+                    (Some(start), Some(end)) => start <= f && f <= end,
+                    (None, Some(end)) => f <= end,
+                    (None, None) => true
+                }
+            } else {
+                false
+            }
+        })
+        .cloned()
+        .collect();
+    info!("{} test results in the specified range", results.len());
+
+    Ok(results)
 }

@@ -9,6 +9,7 @@ use argh::FromArgs;
 use cro3::config::Config;
 use cro3::dut::SshInfo;
 use cro3::repo::get_cros_dir;
+use cro3::tast::collect_results;
 use cro3::tast::print_cached_tests;
 use cro3::tast::run_tast_test;
 use cro3::tast::update_cached_tests;
@@ -27,14 +28,49 @@ pub struct Args {
 #[derive(FromArgs, PartialEq, Debug)]
 #[argh(subcommand)]
 enum SubCommand {
+    Analyze(ArgsAnalyze),
     List(ArgsList),
     Run(ArgsRun),
 }
 #[tracing::instrument(level = "trace")]
 pub fn run(args: &Args) -> Result<()> {
     match &args.nested {
+        SubCommand::Analyze(args) => args.run(),
         SubCommand::List(args) => run_tast_list(args),
         SubCommand::Run(args) => args.run(),
+    }
+}
+
+#[derive(FromArgs, PartialEq, Debug)]
+/// Analyze tast results
+#[argh(subcommand, name = "analyze")]
+pub struct ArgsAnalyze {
+    /// cros source dir to be used for data retrieval(exclusive with
+    /// --results-dir)
+    #[argh(option)]
+    cros: Option<String>,
+
+    /// results dir to be used (exclusive with --cros)
+    #[argh(option)]
+    results_dir: Option<String>,
+
+    /// start datetime to be analyzed in YYYYMMDD-hhmmss format.
+    #[argh(option)]
+    start: Option<String>,
+
+    /// end datetime to be analyzed in YYYYMMDD-hhmmss format.
+    #[argh(option)]
+    end: Option<String>,
+}
+impl ArgsAnalyze {
+    fn run(&self) -> Result<()> {
+        let results = collect_results(
+            self.cros.as_deref(),
+            self.results_dir.as_deref(),
+            self.start.as_deref(),
+            self.end.as_deref(),
+        )?;
+        Ok(())
     }
 }
 

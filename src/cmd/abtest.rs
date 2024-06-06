@@ -21,9 +21,7 @@
 use std::collections::BTreeSet;
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::ffi::OsStr;
 use std::fs;
-use std::fs::read_dir;
 use std::io::BufWriter;
 use std::io::Read;
 use std::io::Write;
@@ -41,6 +39,7 @@ use argh::FromArgs;
 use cro3::chroot::Chroot;
 use cro3::dut::SshInfo;
 use cro3::repo::get_cros_dir;
+use cro3::tast;
 use cro3::tast::run_tast_test;
 use cro3::tast::TastTestExecutionType;
 use lazy_static::lazy_static;
@@ -437,7 +436,12 @@ impl ArgsAnalyze {
     }
 
     fn generate_result_files(&self, test_name: &str) -> Result<()> {
-        let results = collect_candidates(self)?;
+        let results = tast::collect_results(
+            self.cros.as_deref(),
+            self.results_dir.as_deref(),
+            self.start.as_deref(),
+            self.end.as_deref(),
+        )?;
         if self.test {
             let results = self.analyze_latest_succesfull(results, test_name);
             for result in &results {
@@ -922,49 +926,6 @@ fn result_key_order(results: &[BluebenchResult]) -> HashMap<String, usize> {
     result_key_order
 }
 
-fn collect_candidates(args: &ArgsAnalyze) -> Result<Vec<PathBuf>> {
-    let results_dir = match (&args.cros, &args.results_dir) {
-        (Some(cros), None) => {
-            let cros = Path::new(cros);
-            if !cros.is_dir() {
-                bail!("{cros:?} is not a dir");
-            }
-            cros.join("out").join("tmp").join("tast").join("results")
-        }
-        (None, Some(results_dir)) => Path::new(results_dir).to_path_buf(),
-        _ => {
-            bail!("Please specify --cros xor --results-dir")
-        }
-    };
-    if !results_dir.is_dir() {
-        bail!("{results_dir:?} is not a dir");
-    }
-    let mut results: Vec<PathBuf> = read_dir(&results_dir)?
-        .flatten()
-        .map(|e| e.path().to_path_buf())
-        .collect();
-    results.sort();
-    info!("{} test results found", results.len());
-    let start = args.start.clone().unwrap_or("0".to_string());
-    let start = OsStr::new(&start);
-    let end = args.end.clone().unwrap_or("9".to_string());
-    let end = OsStr::new(&end);
-    let results: Vec<PathBuf> = results
-        .iter()
-        .filter(|f| -> bool {
-            if let Some(f) = f.file_name() {
-                start <= f && f < end
-            } else {
-                false
-            }
-        })
-        .cloned()
-        .collect();
-    info!("{} test results in the specified range", results.len());
-
-    Ok(results)
-}
-
 fn dump_result(result: &BluebenchResult) -> Result<()> {
     info!("{:?} {:?}", result.metadata, result.converged_mean_mean);
     Ok(())
@@ -997,7 +958,12 @@ fn hwid_and_info_map(
     args: &ArgsAnalyze,
     test_name: &str,
 ) -> Result<HashMap<String, HashSet<HardwareInfo>>> {
-    let results = collect_candidates(args)?;
+    let results = tast::collect_results(
+        args.cros.as_deref(),
+        args.results_dir.as_deref(),
+        args.start.as_deref(),
+        args.end.as_deref(),
+    )?;
     let mut list: Vec<(String, HardwareInfo)> = results
         .par_iter()
         .map(|e| {
