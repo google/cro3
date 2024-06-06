@@ -4,9 +4,10 @@
 // license that can be found in the LICENSE file or at
 // https://developers.google.com/open-source/licenses/bsd
 
-use std::path::PathBuf;
 use std::ffi::OsStr;
+use std::fs::read_dir;
 use std::path::Path;
+use std::path::PathBuf;
 
 use anyhow::anyhow;
 use anyhow::bail;
@@ -18,9 +19,11 @@ use futures::select;
 use futures::stream;
 use futures::StreamExt;
 use glob::Pattern;
-use tracing::warn;
+use rayon::prelude::*;
+use serde::Deserialize;
+use serde::Serialize;
 use tracing::info;
-use std::fs::read_dir;
+use tracing::warn;
 
 use crate::cache::KvCache;
 use crate::chroot::Chroot;
@@ -231,7 +234,12 @@ pub fn run_tast_test(
     Ok(())
 }
 
-pub fn collect_results(cros: Option<&str>, results_dir: Option<&str>, start: Option<&str>, end: Option<&str>) -> Result<Vec<PathBuf>> {
+pub fn collect_results(
+    cros: Option<&str>,
+    results_dir: Option<&str>,
+    start: Option<&str>,
+    end: Option<&str>,
+) -> Result<Vec<PathBuf>> {
     let results_dir = match (&cros, &results_dir) {
         (Some(cros), None) => {
             let cros = Path::new(cros);
@@ -253,7 +261,7 @@ pub fn collect_results(cros: Option<&str>, results_dir: Option<&str>, start: Opt
         .map(|e| e.path().to_path_buf())
         .collect();
     results.sort();
-    info!("{} test results found", results.len());
+    info!("{} test invocations found", results.len());
     let start = start.map(OsStr::new);
     let end = end.map(OsStr::new);
     let results: Vec<PathBuf> = results
@@ -264,7 +272,7 @@ pub fn collect_results(cros: Option<&str>, results_dir: Option<&str>, start: Opt
                     (Some(start), None) => start <= f,
                     (Some(start), Some(end)) => start <= f && f <= end,
                     (None, Some(end)) => f <= end,
-                    (None, None) => true
+                    (None, None) => true,
                 }
             } else {
                 false
@@ -272,7 +280,42 @@ pub fn collect_results(cros: Option<&str>, results_dir: Option<&str>, start: Opt
         })
         .cloned()
         .collect();
-    info!("{} test results in the specified range", results.len());
+    info!("{} test invocations in the specified range", results.len());
 
     Ok(results)
+}
+
+/// Subset of /tmp/tast/results/*/results.json
+type TastResultJson = Vec<TastResultsJsonItem>;
+#[derive(Serialize, Deserialize)]
+struct TastResultsJsonError {
+    time: String,
+    reason: String,
+}
+#[derive(Serialize, Deserialize)]
+struct TastResultsJsonItem {
+    name: String,
+    errors: Option<Vec<String>>,
+}
+
+pub fn results_passed(results: &[PathBuf]) -> Result<Vec<PathBuf>> {
+    let results: Vec<PathBuf> = results
+        .iter()
+        .flat_map(|f| -> Result<(PathBuf, TastResultJson)> {
+            let results_json = f.join("results.json");
+            let results_json = std::fs::File::open(results_json)?;
+            let results_json = std::io::BufReader::new(results_json);
+            let results_json = serde_json::from_reader(results_json)?;
+            Ok((f.to_path_buf(), results_json))
+        })
+        .filter_map(|(f, results_json)| -> Option<PathBuf> {
+            if results_json.par_iter().all(|e| e.errors.is_none()) {
+                Some(f)
+            } else {
+                None
+            }
+        })
+        .collect();
+    info!("{} test invocations are succeeded entirely", results.len());
+    Ok(Vec::new())
 }

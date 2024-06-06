@@ -11,6 +11,7 @@ use cro3::dut::SshInfo;
 use cro3::repo::get_cros_dir;
 use cro3::tast::collect_results;
 use cro3::tast::print_cached_tests;
+use cro3::tast::results_passed;
 use cro3::tast::run_tast_test;
 use cro3::tast::update_cached_tests;
 use cro3::tast::TastTestExecutionType;
@@ -70,6 +71,7 @@ impl ArgsAnalyze {
             self.start.as_deref(),
             self.end.as_deref(),
         )?;
+        let results = results_passed(&results)?;
         Ok(())
     }
 }
