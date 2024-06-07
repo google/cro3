@@ -54,6 +54,7 @@ test:
 	make build
 	cargo test
 	make cmdline_doc_check
+	make bash_completion_check
 
 .PHONY : release
 release:
