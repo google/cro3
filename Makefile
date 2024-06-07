@@ -68,6 +68,10 @@ docs/cmdline.md: docs/cmdline_preface.md ${DOC_SRC} Makefile
 cmdline_doc_check:
 	./scripts/cmdline_doc_check.sh
 
+.PHONY : bash_completion_check
+bash_completion_check:
+	./scripts/bash_completion_check.sh
+
 .PHONY : preview
 preview: docs/cmdline.md
 	make --silent cmdline_doc_check 2>/dev/null || echo "^^^^ Warning: This warning has been ignored but please fix them before submitting!"
