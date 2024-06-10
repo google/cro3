@@ -309,6 +309,9 @@ pub fn results_passed(results: &[PathBuf]) -> Result<Vec<PathBuf>> {
             Ok((f.to_path_buf(), results_json))
         })
         .filter_map(|(f, results_json)| -> Option<PathBuf> {
+            for e in &results_json {
+                println!("{} {f:?}", e.name);
+            }
             if results_json.par_iter().all(|e| e.errors.is_none()) {
                 Some(f)
             } else {
@@ -317,5 +320,6 @@ pub fn results_passed(results: &[PathBuf]) -> Result<Vec<PathBuf>> {
         })
         .collect();
     info!("{} test invocations are succeeded entirely", results.len());
-    Ok(Vec::new())
+    Ok(results)
 }
+

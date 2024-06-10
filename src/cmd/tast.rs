@@ -16,6 +16,7 @@ use cro3::tast::run_tast_test;
 use cro3::tast::update_cached_tests;
 use cro3::tast::TastTestExecutionType;
 use glob::Pattern;
+use tracing::info;
 use tracing::warn;
 
 #[derive(FromArgs, PartialEq, Debug)]
@@ -72,6 +73,9 @@ impl ArgsAnalyze {
             self.end.as_deref(),
         )?;
         let results = results_passed(&results)?;
+        if let Some(result) = results.first() {
+            info!("Sample: {result:?}");
+        }
         Ok(())
     }
 }
