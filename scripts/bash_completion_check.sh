@@ -13,11 +13,16 @@ dummy cro3 for test
 
 Options:
   --help show help
+  --dut  show dut list
 
 Commands:
   shibuya
   roppongi
+  dut
 EOF
+  fi
+  if [ "$*" = "dut list --ids" ]; then
+    echo "dut1 dut2 dut3"
   fi
 }
 
@@ -37,3 +42,11 @@ COMP_WORDS=("cro3" "shi" "")
 test_complete
 test "${COMPREPLY[@]}" = "shibuya"
 
+COMP_CWORD=3
+COMP_WORDS=("cro3" "dut" "--dut" "")
+test_complete
+echo "${COMPREPLY[@]}" | grep -wq "dut1"
+echo "${COMPREPLY[@]}" | grep -wq "dut2"
+echo "${COMPREPLY[@]}" | grep -wq "dut5" && exit 1
+
+exit 0
