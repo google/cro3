@@ -5,8 +5,8 @@ set -e
 . src/cmd/cro3.bash
 
 cro3() {
-  if [ "$1" = "--help" -o "$1" = "help" ]; then
-    cat << EOF
+  if [ "$1" = "--help" ] || [ "$1" = "help" ]; then
+    cat <<EOF
 Usage: cro3 [options]
 
 dummy cro3 for test
@@ -27,7 +27,7 @@ EOF
   fi
 
   if [ "$*" = "tast run --help" ]; then
-    cat << EOF
+    cat <<EOF
 Usage: cro3 tast run <tests>
 
 Get tast test for the target DUT
@@ -47,7 +47,7 @@ EOF
 }
 
 test_complete() {
-  _cro3 "${COMP_WORDS[0]}" "${COMP_WORDS[${COMP_CWORD}]}" "${COMP_WORDS[${COMP_CWORD}-1]}"
+  _cro3 "${COMP_WORDS[0]}" "${COMP_WORDS[${COMP_CWORD}]}" "${COMP_WORDS[${COMP_CWORD} - 1]}"
 }
 
 COMP_CWORD=1

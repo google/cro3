@@ -320,7 +320,7 @@ pub fn results_passed(results: &[PathBuf]) -> Result<Vec<PathBuf>> {
             }
         })
         .collect();
-    eprintln!("");
+    eprintln!();
     info!("{} test invocations are succeeded entirely", results.len());
     Ok(results)
 }
