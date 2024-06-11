@@ -21,6 +21,7 @@
 use std::collections::BTreeSet;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::fmt::Display;
 use std::fs;
 use std::io::BufWriter;
 use std::io::Read;
@@ -79,9 +80,22 @@ enum ExperimentConfig {
     A,
     B,
 }
+impl Display for ExperimentConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                ExperimentConfig::A => 'A',
+                ExperimentConfig::B => 'B',
+            }
+        )
+    }
+}
 
 struct ExperimentRunner {
     tast: TastTestExecutionType,
+    experiment_name: String,
     ssh: SshInfo,
     dut_id: String,
     run_per_group: usize,
@@ -89,10 +103,16 @@ struct ExperimentRunner {
     cluster_per_iteration: usize,
     num_of_iterations: usize,
     tast_test: String,
-    result_dir_stem: String,
+    results_dir: PathBuf,
 }
 impl ExperimentRunner {
-    fn run_group(&self, config: ExperimentConfig) -> Result<()> {
+    fn run_group(
+        &self,
+        iteration: usize,
+        cluster: usize,
+        config: ExperimentConfig,
+        group: usize,
+    ) -> Result<()> {
         match config {
             ExperimentConfig::A => self
                 .ssh
@@ -108,47 +128,48 @@ impl ExperimentRunner {
 
         for i in 0..self.run_per_group {
             info!("#### run {i} with {}", self.dut_id);
+            let mut result_dir = self.results_dir.clone();
+            result_dir.push(format!(
+                "{}_{}_i{iteration}_c{cluster}_g{config}{group}_{}",
+                self.experiment_name,
+                self.dut_id,
+                chrono::Local::now().format("%Y%m%d_%H%M%S_%f"),
+            ));
+
             retry::retry(retry::delay::Fixed::from_millis(500).take(3), || {
                 run_tast_test(
                     &self.ssh,
                     &self.tast,
                     &self.tast_test,
-                    Some(
-                        format!(
-                            "-resultsdir {}_{}",
-                            self.result_dir_stem,
-                            chrono::Local::now().format("%Y%m%d_%H%M%S_%f"),
-                        )
-                        .as_str(),
-                    ),
+                    Some(format!("-resultsdir {}", result_dir.to_string_lossy()).as_str()),
                 )
             })
             .or(Err(anyhow!("Failed to run tast test after retries")))?;
         }
         Ok(())
     }
-    fn run_cluster(&self) -> Result<()> {
+    fn run_cluster(&self, iteration: usize, cluster: usize) -> Result<()> {
         for i in 0..self.group_per_cluster {
             info!("### group A-{i}");
-            self.run_group(ExperimentConfig::A)?;
+            self.run_group(iteration, cluster, ExperimentConfig::A, i)?;
         }
         for i in 0..self.group_per_cluster {
             info!("### group B-{i}");
-            self.run_group(ExperimentConfig::B)?;
+            self.run_group(iteration, cluster, ExperimentConfig::B, i)?;
         }
         Ok(())
     }
-    fn run_iteration(&self) -> Result<()> {
+    fn run_iteration(&self, iteration: usize) -> Result<()> {
         for i in 0..self.cluster_per_iteration {
             info!("## cluster {i}");
-            self.run_cluster()?;
+            self.run_cluster(iteration, i)?;
         }
         Ok(())
     }
     fn run_experiment(&self) -> Result<()> {
         for i in 0..self.num_of_iterations {
             info!("# iteration {i}");
-            self.run_iteration()?;
+            self.run_iteration(i)?;
         }
         Ok(())
     }
@@ -211,7 +232,7 @@ struct ArgsRun {
 
     /// path to a dir to store the results
     #[argh(option)]
-    result_dir: Option<String>,
+    results_dir: Option<String>,
 }
 impl ArgsRun {
     fn run(&self) -> Result<()> {
@@ -238,7 +259,8 @@ impl ArgsRun {
             run_per_group: self.run_per_group.unwrap_or(20),
             cluster_per_iteration: self.cluster_per_iteration.unwrap_or(1000),
             group_per_cluster: self.group_per_cluster.unwrap_or(1),
-            result_dir_stem: format!("/tmp/tast/results/{}_{}", self.experiment_name, self.dut,),
+            experiment_name: self.experiment_name.clone(),
+            results_dir: Path::new(self.results_dir.as_deref().unwrap_or("results")).to_path_buf(),
         };
         runner.run_experiment()
     }

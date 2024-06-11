@@ -266,37 +266,35 @@ fn run_show(args: &ArgsShow) -> Result<()> {
     let s = list.find_by_serial(&args.servo)?;
     if args.json {
         println!("{s}");
-    } else {
-        if s.is_cr50() {
+    } else if s.is_cr50() {
+        println!(
+            "{} {} {}",
+            s.serial(),
+            s.usb_sysfs_path(),
+            s.tty_path("Shell")?
+        );
+        if let Ok(s) = get_servo_attached_to_cr50(s) {
             println!(
-                "{} {} {}",
-                s.serial(),
-                s.usb_sysfs_path(),
-                s.tty_path("Shell")?
-            );
-            if let Ok(s) = get_servo_attached_to_cr50(s) {
-                println!(
-                    "Paired with: {} {} {}",
-                    s.serial(),
-                    s.usb_sysfs_path(),
-                    s.tty_path("Servo EC Shell")?
-                );
-            }
-        } else if s.is_servo() {
-            println!(
-                "{} {} {}",
+                "Paired with: {} {} {}",
                 s.serial(),
                 s.usb_sysfs_path(),
                 s.tty_path("Servo EC Shell")?
             );
-            if let Ok(s) = get_cr50_attached_to_servo(s) {
-                println!(
-                    "Paired with: {} {} {}",
-                    s.serial(),
-                    s.usb_sysfs_path(),
-                    s.tty_path("Shell")?
-                );
-            }
+        }
+    } else if s.is_servo() {
+        println!(
+            "{} {} {}",
+            s.serial(),
+            s.usb_sysfs_path(),
+            s.tty_path("Servo EC Shell")?
+        );
+        if let Ok(s) = get_cr50_attached_to_servo(s) {
+            println!(
+                "Paired with: {} {} {}",
+                s.serial(),
+                s.usb_sysfs_path(),
+                s.tty_path("Shell")?
+            );
         }
     }
     Ok(())

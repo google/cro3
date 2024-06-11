@@ -4,6 +4,8 @@
 // license that can be found in the LICENSE file or at
 // https://developers.google.com/open-source/licenses/bsd
 
+use std::collections::HashMap;
+use std::collections::HashSet;
 use std::ffi::OsStr;
 use std::fs::read_dir;
 use std::path::Path;
@@ -309,17 +311,36 @@ pub fn results_passed(results: &[PathBuf]) -> Result<Vec<PathBuf>> {
             Ok((f.to_path_buf(), results_json))
         })
         .filter_map(|(f, results_json)| -> Option<PathBuf> {
-            for e in &results_json {
-                println!("{} {f:?}", e.name);
-            }
             if results_json.par_iter().all(|e| e.errors.is_none()) {
+                eprint!(".");
                 Some(f)
             } else {
+                eprint!("x");
                 None
             }
         })
         .collect();
+    eprintln!("");
     info!("{} test invocations are succeeded entirely", results.len());
     Ok(results)
 }
 
+pub fn results_per_experiment(results: &[PathBuf]) -> Result<HashMap<String, Vec<PathBuf>>> {
+    let keys: Vec<String> = results
+        .iter()
+        .flat_map(|s| -> Option<String> {
+            Some(
+                s.file_name()?
+                    .to_string_lossy()
+                    .split('_')
+                    .next()
+                    .unwrap_or("UNKNOWN")
+                    .to_string(),
+            )
+        })
+        .collect();
+    let keys: HashSet<String> = HashSet::from_iter(keys.iter().cloned());
+    info!("{} experiments found", keys.len());
+    info!("{keys:?}");
+    Ok(HashMap::new())
+}

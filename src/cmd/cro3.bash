@@ -154,7 +154,7 @@ _cro3_get_options() { # current
 _cro3() { # command current prev
   local cur=$2
   local prev=$3
-  local dir_opts="--dir --dest --cros --arc"
+  local dir_opts="--dir --dest --cros --arc --results-dir"
   local file_opts="--image"
   local todo_opts="--version --workon"
   local servo_serial_opts="--serial --servo"

@@ -12,6 +12,7 @@ use cro3::repo::get_cros_dir;
 use cro3::tast::collect_results;
 use cro3::tast::print_cached_tests;
 use cro3::tast::results_passed;
+use cro3::tast::results_per_experiment;
 use cro3::tast::run_tast_test;
 use cro3::tast::update_cached_tests;
 use cro3::tast::TastTestExecutionType;
@@ -45,6 +46,8 @@ pub fn run(args: &Args) -> Result<()> {
 
 #[derive(FromArgs, PartialEq, Debug)]
 /// Analyze tast results
+/// # List results
+/// cro3 tast analyze --results-dir /data/tast/results
 #[argh(subcommand, name = "analyze")]
 pub struct ArgsAnalyze {
     /// cros source dir to be used for data retrieval(exclusive with
@@ -76,6 +79,7 @@ impl ArgsAnalyze {
         if let Some(result) = results.first() {
             info!("Sample: {result:?}");
         }
+        let _results = results_per_experiment(&results);
         Ok(())
     }
 }
