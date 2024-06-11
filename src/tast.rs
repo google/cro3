@@ -21,7 +21,9 @@ use futures::select;
 use futures::stream;
 use futures::StreamExt;
 use glob::Pattern;
+use once_cell::sync::Lazy;
 use rayon::prelude::*;
+use regex::Regex;
 use serde::Deserialize;
 use serde::Serialize;
 use tracing::info;
@@ -295,21 +297,29 @@ struct TastResultsJsonError {
     reason: String,
 }
 #[derive(Serialize, Deserialize)]
-struct TastResultsJsonItem {
+pub struct TastResultsJsonItem {
     name: String,
     errors: Option<Vec<String>>,
+}
+
+pub fn results_json_from_path(path: &Path) -> Result<(PathBuf, TastResultJson)> {
+    let results_json = path.join("results.json");
+    let results_json = std::fs::File::open(results_json)?;
+    let results_json = std::io::BufReader::new(results_json);
+    let results_json = serde_json::from_reader(results_json)?;
+    Ok((path.to_path_buf(), results_json))
+}
+
+pub fn test_names_from_path(path: &Path) -> Result<Vec<(PathBuf, String)>> {
+    let e = results_json_from_path(path)?;
+    let (path, e) = &e;
+    Ok(e.iter().map(|e| (path.clone(), e.name.clone())).collect())
 }
 
 pub fn results_passed(results: &[PathBuf]) -> Result<Vec<PathBuf>> {
     let results: Vec<PathBuf> = results
         .iter()
-        .flat_map(|f| -> Result<(PathBuf, TastResultJson)> {
-            let results_json = f.join("results.json");
-            let results_json = std::fs::File::open(results_json)?;
-            let results_json = std::io::BufReader::new(results_json);
-            let results_json = serde_json::from_reader(results_json)?;
-            Ok((f.to_path_buf(), results_json))
-        })
+        .flat_map(|f| results_json_from_path(f))
         .filter_map(|(f, results_json)| -> Option<PathBuf> {
             if results_json.par_iter().all(|e| e.errors.is_none()) {
                 eprint!(".");
@@ -325,7 +335,7 @@ pub fn results_passed(results: &[PathBuf]) -> Result<Vec<PathBuf>> {
     Ok(results)
 }
 
-pub fn results_per_experiment(results: &[PathBuf]) -> Result<HashMap<String, Vec<PathBuf>>> {
+pub fn experiments_in_results(results: &[PathBuf]) -> Result<HashMap<String, Vec<PathBuf>>> {
     let keys: Vec<String> = results
         .iter()
         .flat_map(|s| -> Option<String> {
@@ -343,4 +353,184 @@ pub fn results_per_experiment(results: &[PathBuf]) -> Result<HashMap<String, Vec
     info!("{} experiments found", keys.len());
     info!("{keys:?}");
     Ok(HashMap::new())
+}
+
+pub fn tests_in_results(results: &[PathBuf]) -> Result<HashMap<String, Vec<PathBuf>>> {
+    let results: Vec<(PathBuf, String)> = results
+        .iter()
+        .flat_map(|e| test_names_from_path(e))
+        .flatten()
+        .collect();
+    let keys: HashSet<String> = HashSet::from_iter(results.iter().map(|e| e.1.clone()));
+    info!("{} tests found", keys.len());
+    info!("{keys:?}");
+    Ok(HashMap::new())
+}
+
+pub fn models_in_results(results: &[PathBuf]) -> Result<HashMap<String, Vec<PathBuf>>> {
+    let results: Vec<(PathBuf, String)> = results
+        .iter()
+        .flat_map(|e| -> Result<(PathBuf, String)> {
+            Ok((
+                e.clone(),
+                TastResultMetadata::from_path(e)?
+                    .model()
+                    .context("No model populated")?
+                    .to_string(),
+            ))
+        })
+        .collect();
+    let keys: HashSet<String> = HashSet::from_iter(results.iter().map(|e| e.1.clone()));
+    info!("{} models found", keys.len());
+    info!("{keys:?}");
+    Ok(HashMap::new())
+}
+
+pub fn os_release_in_results(results: &[PathBuf]) -> Result<HashMap<String, Vec<PathBuf>>> {
+    let results: Vec<(PathBuf, String)> = results
+        .iter()
+        .flat_map(|e| -> Result<(PathBuf, String)> {
+            Ok((
+                e.clone(),
+                TastResultMetadata::from_path(e)?.os_release().to_string(),
+            ))
+        })
+        .collect();
+    let keys: HashSet<String> = HashSet::from_iter(results.iter().map(|e| e.1.clone()));
+    info!("{} os releases found", keys.len());
+    info!("{keys:?}");
+    Ok(HashMap::new())
+}
+
+pub fn kernel_cmdline_in_results(results: &[PathBuf]) -> Result<HashMap<String, Vec<PathBuf>>> {
+    let results: Vec<(PathBuf, String)> = results
+        .iter()
+        .flat_map(|e| -> Result<(PathBuf, String)> {
+            Ok((
+                e.clone(),
+                TastResultMetadata::from_path(e)?
+                    .kernel_cmdline()
+                    .to_string(),
+            ))
+        })
+        .collect();
+    let keys: HashSet<String> = HashSet::from_iter(results.iter().map(|e| e.1.clone()));
+    info!("{} kernel cmdline found", keys.len());
+    for k in keys {
+        info!("{k}");
+    }
+    Ok(HashMap::new())
+}
+
+pub fn kernel_cmdline_masked_in_results(
+    results: &[PathBuf],
+) -> Result<HashMap<String, Vec<PathBuf>>> {
+    let results: Vec<(PathBuf, String)> = results
+        .iter()
+        .flat_map(|e| -> Result<(PathBuf, String)> {
+            Ok((
+                e.clone(),
+                TastResultMetadata::from_path(e)?
+                    .kernel_cmdline_masked()
+                    .to_string(),
+            ))
+        })
+        .collect();
+    let keys: HashSet<String> = HashSet::from_iter(results.iter().map(|e| e.1.clone()));
+    info!("{} kernel cmdline found", keys.len());
+    for k in keys {
+        info!("{k}");
+    }
+    Ok(HashMap::new())
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct TastResultMetadata {
+    path: PathBuf,
+    os_release: String,
+    model: Option<String>,
+    kernel_cmdline: String,
+    kernel_cmdline_masked: String,
+}
+impl TastResultMetadata {
+    fn probe_os_release(path: &Path) -> Result<String> {
+        let path = path.join("system_logs").join("lsb-release");
+        let s = std::fs::read_to_string(&path).context(anyhow!("Failed to read {path:?}"))?;
+        let s: Vec<&str> = s.split('\n').collect();
+        let s: Vec<&&str> = s
+            .iter()
+            .filter(|s| s.contains("CHROMEOS_RELEASE_BUILDER_PATH="))
+            .collect();
+        let s = s.last().context("no text found")?;
+        let s = s.split('=').nth(1).context("invalid release version")?;
+        let s = s.trim();
+        Ok(s.to_string())
+    }
+    fn probe_model(path: &Path) -> Result<String> {
+        let path = path.join("dut-info.txt");
+        let s = std::fs::read_to_string(&path).context(anyhow!("Failed to read {path:?}"))?;
+        let s: Vec<&str> = s.split('\n').collect();
+        if let Some(s) = s
+            .iter()
+            .skip_while(|s| !s.contains("deprecated_device_config"))
+            .find(|s| s.contains("model:"))
+        {
+            Ok(s.split(':')
+                .last()
+                .context("model format error")?
+                .trim()
+                .trim_matches('"')
+                .to_string())
+        } else {
+            Err(anyhow!("model info not found in dut-info.txt"))
+        }
+    }
+    fn probe_kernel_cmdline(path: &Path) -> Result<String> {
+        let path = path.join("system_logs").join("dmesg.txt");
+        let s = std::fs::read_to_string(&path).context(anyhow!("Failed to read {path:?}"))?;
+        let s = s
+            .split('\n')
+            .find(|s| s.contains("Kernel command line:"))
+            .context(anyhow!("Kernel command line not found in the dmesg.txt"))?;
+        let s = &s[s.find(':').map(|i| i + 1).unwrap_or_default()..].trim();
+        Ok(s.to_string())
+    }
+    fn to_kernel_cmdline_masked(s: &str) -> Result<String> {
+        static RE_CMDLINE_DM_HASH: Lazy<Regex> = Lazy::new(|| Regex::new("[0-9a-z]{64}").unwrap());
+        static RE_CMDLINE_UUID: Lazy<Regex> = Lazy::new(|| {
+            Regex::new("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}").unwrap()
+        });
+        static RE_CMDLINE_CROS_LSB_RELEASE_HASH: Lazy<Regex> =
+            Lazy::new(|| Regex::new("cros_lsb_release_hash=.{44}").unwrap());
+        let s = RE_CMDLINE_DM_HASH.replace_all(s, "{HASH{64}}");
+        let s = RE_CMDLINE_UUID.replace_all(&s, "{UUID}");
+        let s = RE_CMDLINE_CROS_LSB_RELEASE_HASH.replace_all(&s, "{CROS_LSB_HASH}");
+        Ok(s.to_string())
+    }
+    fn model(&self) -> Option<&str> {
+        self.model.as_deref()
+    }
+    fn os_release(&self) -> &str {
+        &self.os_release
+    }
+    fn kernel_cmdline(&self) -> &str {
+        &self.kernel_cmdline
+    }
+    fn kernel_cmdline_masked(&self) -> &str {
+        &self.kernel_cmdline_masked
+    }
+    fn from_path(path: &Path) -> Result<Self> {
+        let path = path.to_path_buf();
+        let os_release = Self::probe_os_release(&path)?;
+        let model = Self::probe_model(&path).ok();
+        let kernel_cmdline = Self::probe_kernel_cmdline(&path)?;
+        let kernel_cmdline_masked = Self::to_kernel_cmdline_masked(&kernel_cmdline)?;
+        Ok(Self {
+            path,
+            os_release,
+            model,
+            kernel_cmdline,
+            kernel_cmdline_masked,
+        })
+    }
 }

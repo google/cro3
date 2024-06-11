@@ -10,10 +10,14 @@ use cro3::config::Config;
 use cro3::dut::SshInfo;
 use cro3::repo::get_cros_dir;
 use cro3::tast::collect_results;
+use cro3::tast::experiments_in_results;
+use cro3::tast::kernel_cmdline_masked_in_results;
+use cro3::tast::models_in_results;
+use cro3::tast::os_release_in_results;
 use cro3::tast::print_cached_tests;
 use cro3::tast::results_passed;
-use cro3::tast::results_per_experiment;
 use cro3::tast::run_tast_test;
+use cro3::tast::tests_in_results;
 use cro3::tast::update_cached_tests;
 use cro3::tast::TastTestExecutionType;
 use glob::Pattern;
@@ -77,9 +81,16 @@ impl ArgsAnalyze {
         )?;
         let results = results_passed(&results)?;
         if let Some(result) = results.first() {
-            info!("Sample: {result:?}");
+            info!("Sample (first): {result:?}");
         }
-        let _results = results_per_experiment(&results);
+        if let Some(result) = results.last() {
+            info!("Sample (last): {result:?}");
+        }
+        let _experiments = experiments_in_results(&results);
+        let _tests = tests_in_results(&results);
+        let _os_releases = os_release_in_results(&results);
+        let _models_in_results = models_in_results(&results);
+        let _kernel_cmdline_masked = kernel_cmdline_masked_in_results(&results);
         Ok(())
     }
 }
