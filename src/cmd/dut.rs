@@ -812,6 +812,8 @@ fn run_dut_list(args: &ArgsDutList) -> Result<()> {
         return Ok(());
     }
     // List cached DUTs
+    let mut duts: Vec<(&String, &SshInfo)> = duts.iter().collect();
+    duts.sort();
     for it in duts.iter() {
         println!("{:32} {}", it.0, serde_json::to_string(it.1)?);
     }

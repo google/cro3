@@ -23,6 +23,7 @@ use crate::util::shell_helpers::get_stderr;
 use crate::util::shell_helpers::get_stdout;
 use crate::util::shell_helpers::run_bash_command;
 
+#[derive(Debug)]
 pub struct Chroot {
     repo_path: String,
 }

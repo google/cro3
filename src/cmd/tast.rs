@@ -4,16 +4,15 @@
 // license that can be found in the LICENSE file or at
 // https://developers.google.com/open-source/licenses/bsd
 
-use anyhow::bail;
-use anyhow::Context;
 use anyhow::Result;
 use argh::FromArgs;
-use cro3::cache::KvCache;
-use cro3::chroot::Chroot;
 use cro3::config::Config;
-use cro3::cros::ensure_testing_rsa_is_there;
 use cro3::dut::SshInfo;
 use cro3::repo::get_cros_dir;
+use cro3::tast::print_cached_tests;
+use cro3::tast::run_tast_test;
+use cro3::tast::update_cached_tests;
+use cro3::tast::TastTestExecutionType;
 use glob::Pattern;
 use tracing::warn;
 
@@ -25,9 +24,6 @@ pub struct Args {
     nested: SubCommand,
 }
 
-pub static TEST_CACHE: KvCache<Vec<String>> = KvCache::new("tast_cache");
-static DEFAULT_BUNDLE: &str = "cros";
-
 #[derive(FromArgs, PartialEq, Debug)]
 #[argh(subcommand)]
 enum SubCommand {
@@ -38,7 +34,7 @@ enum SubCommand {
 pub fn run(args: &Args) -> Result<()> {
     match &args.nested {
         SubCommand::List(args) => run_tast_list(args),
-        SubCommand::Run(args) => run_tast_run(args),
+        SubCommand::Run(args) => args.run(),
     }
 }
 
@@ -66,57 +62,6 @@ pub struct ArgsList {
     repo: Option<String>,
 }
 
-fn print_cached_tests_in_bundle(filter: &Pattern, bundle: &str) -> Result<()> {
-    if let Ok(Some(tests)) = TEST_CACHE.get(bundle) {
-        for t in &tests {
-            if filter.matches(t) {
-                println!("{t}");
-            }
-        }
-        return Ok(());
-    }
-    bail!("No cache found")
-}
-
-fn print_cached_tests(filter: &Pattern, bundles: &Vec<&str>) -> Result<()> {
-    // Ensure all bundles are cached.
-    for b in bundles {
-        if TEST_CACHE.get(b)?.is_none() {
-            bail!("No cache found for {b}.");
-        }
-    }
-    for b in bundles {
-        print_cached_tests_in_bundle(filter, b)?
-    }
-    Ok(())
-}
-
-fn update_cached_tests_in_bundle(bundle: &str, chroot: &Chroot, port: u16) -> Result<()> {
-    let list = chroot.exec_in_chroot(&[
-        "tast",
-        "list",
-        "-installbuilddeps",
-        &format!("--buildbundle={}", bundle),
-        &format!("127.0.0.1:{}", port),
-    ])?;
-    let tests: Vec<String> = list.lines().map(|s| s.to_string()).collect::<Vec<_>>();
-    TEST_CACHE.set(bundle, tests)?;
-    Ok(())
-}
-
-fn update_cached_tests(bundles: &Vec<&str>, dut: &str, repodir: &str) -> Result<()> {
-    ensure_testing_rsa_is_there()?;
-    let chroot = Chroot::new(repodir)?;
-    let ssh = SshInfo::new(dut).context("failed to create SshInfo")?;
-    let ssh = ssh.into_forwarded()?;
-    let ssh = ssh.ssh();
-
-    for b in bundles {
-        update_cached_tests_in_bundle(b, &chroot, ssh.port())?
-    }
-    Ok(())
-}
-
 fn run_tast_list(args: &ArgsList) -> Result<()> {
     let filter = args
         .tests
@@ -126,7 +71,7 @@ fn run_tast_list(args: &ArgsList) -> Result<()> {
     let config = Config::read()?;
     let mut bundles = config.tast_bundles();
     if bundles.is_empty() {
-        bundles.push(DEFAULT_BUNDLE);
+        bundles.push(cro3::tast::DEFAULT_BUNDLE);
     }
 
     if !args.cached {
@@ -151,6 +96,10 @@ pub struct ArgsRun {
     #[argh(option)]
     cros: Option<String>,
 
+    /// tastpack directory
+    #[argh(option)]
+    tastpack: Option<String>,
+
     /// target DUT
     #[argh(option)]
     dut: String,
@@ -166,76 +115,17 @@ pub struct ArgsRun {
     #[argh(option, hidden_help)]
     repo: Option<String>,
 }
-
-fn bundle_has_test(bundle: &str, filter: &Pattern) -> bool {
-    if let Ok(Some(tests)) = TEST_CACHE.get(bundle) {
-        for t in tests {
-            if filter.matches(&t) {
-                return true;
-            }
-        }
+impl ArgsRun {
+    fn run(&self) -> Result<()> {
+        let tast = TastTestExecutionType::from_cros_or_tastpack(
+            self.cros.as_deref(),
+            self.tastpack.as_deref(),
+        )?;
+        run_tast_test(
+            &SshInfo::new(&self.dut)?,
+            &tast,
+            &self.tests,
+            self.option.as_deref(),
+        )
     }
-    false
-}
-
-fn run_test_with_bundle(
-    bundle: &str,
-    filter: &Pattern,
-    chroot: &Chroot,
-    port: u16,
-    opt: Option<&str>,
-) -> Result<()> {
-    chroot.run_bash_script_in_chroot(
-        "tast_run_cmd",
-        &format!(
-            "tast run -installbuilddeps -buildbundle={bundle} {} 127.0.0.1:{port} {filter}",
-            opt.unwrap_or("")
-        ),
-        None,
-    )?;
-    Ok(())
-}
-
-pub fn run_tast_test(
-    chroot: &Chroot,
-    ssh: &SshInfo,
-    test_query: &str,
-    tast_options: Option<&str>,
-) -> Result<()> {
-    ensure_testing_rsa_is_there()?;
-    let ssh = ssh.into_forwarded()?;
-    let ssh = ssh.ssh();
-    let filter = Pattern::new(test_query)?;
-
-    let mut matched = false;
-    let config = Config::read()?;
-    let mut bundles = config.tast_bundles();
-    if bundles.is_empty() {
-        bundles.push(DEFAULT_BUNDLE);
-    }
-
-    for b in bundles {
-        if bundle_has_test(b, &filter) {
-            matched = true;
-            run_test_with_bundle(b, &filter, chroot, ssh.port(), tast_options)?
-        }
-    }
-
-    if !matched {
-        warn!("{test_query} did not match any cached tests. Run it with default bundle.");
-        run_test_with_bundle(DEFAULT_BUNDLE, &filter, chroot, ssh.port(), tast_options)?
-    }
-
-    Ok(())
-}
-
-fn run_tast_run(args: &ArgsRun) -> Result<()> {
-    let repodir = get_cros_dir(args.cros.as_deref())?;
-    let chroot = Chroot::new(&repodir)?;
-    run_tast_test(
-        &chroot,
-        &SshInfo::new(&args.dut)?,
-        &args.tests,
-        args.option.as_deref(),
-    )
 }

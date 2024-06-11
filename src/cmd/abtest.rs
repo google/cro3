@@ -41,6 +41,8 @@ use argh::FromArgs;
 use cro3::chroot::Chroot;
 use cro3::dut::SshInfo;
 use cro3::repo::get_cros_dir;
+use cro3::tast::run_tast_test;
+use cro3::tast::TastTestExecutionType;
 use lazy_static::lazy_static;
 use rayon::prelude::*;
 use regex::Regex;
@@ -49,8 +51,6 @@ use serde::Serialize;
 use tracing::error;
 use tracing::info;
 use tracing::warn;
-
-use crate::cmd::tast::run_tast_test;
 
 #[derive(FromArgs, PartialEq, Debug)]
 /// Run / analyze performance experiments
@@ -85,9 +85,13 @@ enum ExperimentConfig {
 /// Run performance experiments
 #[argh(subcommand, name = "run")]
 struct ArgsRun {
-    /// cros repo dir to be used
+    /// cros repo dir to be used for tast test
     #[argh(option)]
-    cros: String,
+    cros: Option<String>,
+
+    /// path to an unpacked Tast remote execution package
+    #[argh(option)]
+    tastpack: Option<String>,
 
     /// target DUT
     #[argh(option)]
@@ -137,9 +141,12 @@ struct ArgsRun {
     result_dir: Option<String>,
 }
 impl ArgsRun {
-    fn run_group(&self, config: ExperimentConfig, dut: &SshInfo) -> Result<()> {
-        let repodir = get_cros_dir(Some(&self.cros))?;
-        let chroot = Chroot::new(&repodir)?;
+    fn run_group(
+        &self,
+        tast: &TastTestExecutionType,
+        config: ExperimentConfig,
+        dut: &SshInfo,
+    ) -> Result<()> {
         match config {
             ExperimentConfig::A => dut.switch_partition_set(cro3::dut::PartitionSet::Primary),
             ExperimentConfig::B => dut.switch_partition_set(cro3::dut::PartitionSet::Secondary),
@@ -152,41 +159,53 @@ impl ArgsRun {
         for i in 0..self.run_per_group.unwrap_or(20) {
             info!("#### run {i}");
             retry::retry(retry::delay::Fixed::from_millis(500).take(3), || {
-                run_tast_test(&chroot, dut, &self.tast_test, None)
+                run_tast_test(dut, tast, &self.tast_test, None)
             })
             .or(Err(anyhow!("Failed to run tast test after retries")))?;
         }
         Ok(())
     }
-    fn run_cluster(&self, dut: &SshInfo) -> Result<()> {
+    fn run_cluster(&self, tast: &TastTestExecutionType, dut: &SshInfo) -> Result<()> {
         for i in 0..self.group_per_cluster.unwrap_or(1) {
             info!("### group A-{i}");
-            self.run_group(ExperimentConfig::A, dut)?;
+            self.run_group(tast, ExperimentConfig::A, dut)?;
         }
         for i in 0..self.group_per_cluster.unwrap_or(1) {
             info!("### group A-{i}");
-            self.run_group(ExperimentConfig::B, dut)?;
+            self.run_group(tast, ExperimentConfig::B, dut)?;
         }
         Ok(())
     }
-    fn run_iteration(&self, dut: &SshInfo) -> Result<()> {
+    fn run_iteration(&self, tast: &TastTestExecutionType, dut: &SshInfo) -> Result<()> {
         for i in 0..self.cluster_per_iteration.unwrap_or(1000) {
             info!("## cluster {i}");
-            self.run_cluster(dut)?;
+            self.run_cluster(tast, dut)?;
         }
         Ok(())
     }
-    fn run_experiment(&self, dut: &SshInfo) -> Result<()> {
+    fn run_experiment(&self, tast: &TastTestExecutionType, dut: &SshInfo) -> Result<()> {
         for i in 0..self.num_of_iterations.unwrap_or(1) {
             info!("# iteration {i}");
-            self.run_iteration(dut)?;
+            self.run_iteration(tast, dut)?;
         }
         Ok(())
     }
     fn run(&self) -> Result<()> {
         let dut = SshInfo::new(&self.dut)?;
         let dut = dut.into_forwarded()?;
-        self.run_experiment(dut.ssh())
+        let tast = match (&self.cros, &self.tastpack) {
+            (Some(cros), None) => {
+                let repodir = get_cros_dir(Some(cros))?;
+                let chroot = Chroot::new(&repodir)?;
+                TastTestExecutionType::Chroot(chroot)
+            }
+            (None, Some(tastpack)) => TastTestExecutionType::TastPack(PathBuf::from(tastpack)),
+            _ => {
+                bail!("Please specify either --cros or --tastpack")
+            }
+        };
+        info!("Using Tast from: {tast:?}");
+        self.run_experiment(&tast, dut.ssh())
     }
 }
 

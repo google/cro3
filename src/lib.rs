@@ -22,4 +22,5 @@ pub mod google_storage;
 pub mod parser;
 pub mod repo;
 pub mod servo;
+pub mod tast;
 pub mod util;

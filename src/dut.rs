@@ -478,7 +478,7 @@ impl Drop for ForwardedDut {
 }
 
 /// SshInfo holds information needed to establish an ssh connection
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub struct SshInfo {
     /// An IPv4 address, an IPv6 address or DNS name.
     /// IPv6 address MUST NOT not have brackets.

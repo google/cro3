@@ -32,7 +32,7 @@ cro3 abtest analyze --generate --cros /work/chromiumos/ --start $(START_DATE) --
 If you want to re-build and serve automatically, you can use:
 ```
 cargo install cargo-watch
-cargo watch -x run -- abtest analyze --serve --cros /work/chromiumos/ --start $(START_DATE) --end $(END_DATE) --test-name perf.TabOpenLatencyPerf --port 8080
+cargo watch -s 'cargo run --release -- abtest analyze --serve --cros /work/chromiumos/ --port 8080 --serve'
 ```
 ## ARC (Android Runtime on Chrome) related utilities
 This feature is mainly for the internal developers.
