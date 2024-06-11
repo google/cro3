@@ -54,6 +54,7 @@ test:
 	make build
 	cargo test
 	make cmdline_doc_check
+	make bash_completion_check
 
 .PHONY : release
 release:
@@ -67,6 +68,10 @@ docs/cmdline.md: docs/cmdline_preface.md ${DOC_SRC} Makefile
 .PHONY : cmdline_doc_check
 cmdline_doc_check:
 	./scripts/cmdline_doc_check.sh
+
+.PHONY : bash_completion_check
+bash_completion_check:
+	./scripts/bash_completion_check.sh
 
 .PHONY : preview
 preview: docs/cmdline.md
