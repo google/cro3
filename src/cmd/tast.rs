@@ -110,9 +110,6 @@ fn update_cached_tests(bundles: &Vec<&str>, dut: &str, repodir: &str) -> Result<
     let ssh = SshInfo::new(dut).context("failed to create SshInfo")?;
     let ssh = ssh.into_forwarded()?;
 
-    // To avoid "build failed: failed checking build deps:" error
-    chroot.run_bash_script_in_chroot("update_board_chroot", "update_chroot", None)?;
-
     for b in bundles {
         update_cached_tests_in_bundle(b, &chroot, ssh.port())?
     }

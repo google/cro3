@@ -33,7 +33,7 @@ pub struct Args {
     #[argh(positional)]
     packages: Vec<String>,
 
-    /// if specified, skip update_chroot and setup_board
+    /// if specified, skip setup_board
     #[argh(switch)]
     skip_setup: bool,
 
@@ -66,7 +66,6 @@ pub fn run(args: &Args) -> Result<()> {
             &format!(
                 r###"
 setup_board --force --board={board}
-update_chroot
 "###,
             ),
             None,
