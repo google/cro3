@@ -331,7 +331,7 @@ pub fn results_passed(results: &[PathBuf]) -> Result<Vec<PathBuf>> {
         })
         .collect();
     eprintln!();
-    info!("{} test invocations are succeeded entirely", results.len());
+    info!("{} test invocations are succeeded", results.len());
     Ok(results)
 }
 
@@ -415,10 +415,6 @@ pub fn kernel_cmdline_in_results(results: &[PathBuf]) -> Result<HashMap<String, 
         })
         .collect();
     let keys: HashSet<String> = HashSet::from_iter(results.iter().map(|e| e.1.clone()));
-    info!("{} kernel cmdline found", keys.len());
-    for k in keys {
-        info!("{k}");
-    }
     Ok(HashMap::new())
 }
 
@@ -445,7 +441,7 @@ pub fn kernel_cmdline_masked_in_results(
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct TastResultMetadata {
+pub struct TastResultMetadata {
     path: PathBuf,
     os_release: String,
     model: Option<String>,
@@ -519,7 +515,7 @@ impl TastResultMetadata {
     fn kernel_cmdline_masked(&self) -> &str {
         &self.kernel_cmdline_masked
     }
-    fn from_path(path: &Path) -> Result<Self> {
+    pub fn from_path(path: &Path) -> Result<Self> {
         let path = path.to_path_buf();
         let os_release = Self::probe_os_release(&path)?;
         let model = Self::probe_model(&path).ok();
