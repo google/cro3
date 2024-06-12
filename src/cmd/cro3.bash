@@ -117,7 +117,13 @@ _cro3_get_options() { # current
     -*)
       # All options start with '-'.
       if [ ${otype} -eq 2 ]; then
-        _cro3_arg_used "${a}" || echo "${a}"
+        _a=${a%,}
+        _cro3_arg_used "${_a}" || echo "${_a}"
+        if [ ${_a} != ${a} ]; then
+          # if there are both short and long option, first option ends with ','
+          _a=`echo ${_b} | awk '{print $1}'`
+          _cro3_arg_used "${_a}" || echo "${_a}"
+        fi
       fi
       ;;
     *)
