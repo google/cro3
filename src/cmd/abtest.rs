@@ -75,7 +75,7 @@ enum SubCommand {
     Analyze(ArgsAnalyze),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Clone)]
 enum ExperimentConfig {
     A,
     B,
@@ -93,6 +93,17 @@ impl Display for ExperimentConfig {
     }
 }
 
+#[derive(Serialize, Debug)]
+struct ExperimentRunMetadata {
+    runner: ExperimentRunner,
+    iteration: usize,
+    cluster: usize,
+    config: ExperimentConfig,
+    group: usize,
+    run: usize,
+}
+
+#[derive(Serialize, Debug, Clone)]
 struct ExperimentRunner {
     tast: TastTestExecutionType,
     experiment_name: String,
@@ -135,7 +146,17 @@ impl ExperimentRunner {
                 self.dut_id,
                 chrono::Local::now().format("%Y%m%d_%H%M%S_%f"),
             ));
-
+            let run_metadata = ExperimentRunMetadata {
+                runner: (*self).clone(),
+                iteration,
+                cluster,
+                config: config.clone(),
+                group,
+                run: i,
+            };
+            fs::create_dir_all(&result_dir).context("Failed to create the result dir")?;
+            let mut file = fs::File::create(&result_dir.join("cro3_abtest_run_metadata.json"))?;
+            write!(file, "{}", serde_json::to_string(&run_metadata)?)?;
             retry::retry(retry::delay::Fixed::from_millis(500).take(3), || {
                 run_tast_test(
                     &self.ssh,

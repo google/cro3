@@ -13,6 +13,8 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use anyhow::Context;
 use anyhow::Result;
+use serde::Deserialize;
+use serde::Serialize;
 use signal_hook::consts::SIGINT;
 use tracing::error;
 use tracing::info;
@@ -23,7 +25,7 @@ use crate::util::shell_helpers::get_stderr;
 use crate::util::shell_helpers::get_stdout;
 use crate::util::shell_helpers::run_bash_command;
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Chroot {
     repo_path: String,
 }

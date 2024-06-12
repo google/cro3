@@ -38,7 +38,7 @@ use crate::repo::get_cros_dir;
 use crate::util::shell_helpers::get_async_lines;
 use crate::util::shell_helpers::run_bash_command_async;
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum TastTestExecutionType {
     Chroot(Chroot),
     TastPack(PathBuf),
