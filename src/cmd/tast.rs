@@ -86,7 +86,12 @@ impl ArgsAnalyze {
                 e
             })
             .collect();
-        info!("{} tests have valid metadata", results.len());
+        info!("{} tests have valid generic Tast metadata", results.len());
+        let results: Vec<&TastResultMetadata> = results
+            .iter()
+            .filter(|e| e.abtest_metadata().is_some())
+            .collect();
+        info!("{} tests have valid cro3 abtest metadata", results.len());
         if let Some(result) = results.first() {
             info!("Sample (first): {result:#?}");
         }

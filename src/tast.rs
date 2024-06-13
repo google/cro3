@@ -490,11 +490,13 @@ impl TastResultMetadata {
         Ok(s.to_string())
     }
     fn probe_abtest_metadata(path: &Path) -> Result<ExperimentRunMetadata> {
-        let path = path
-            .join("system_logs")
-            .join("cro3_abtest_run_metadata.json");
+        let path = path.join("cro3_abtest_run_metadata.json");
         let s = std::fs::read_to_string(&path).context(anyhow!("Failed to read {path:?}"))?;
-        serde_json::from_str(&s).context("Failed to parse")
+        let d = serde_json::from_str(&s).context("Failed to parse");
+        if let Err(e) = &d {
+            warn!("{path:?}: Failed to parse cro3 abtest metadata: {e}");
+        }
+        d
     }
     pub fn model(&self) -> Option<&str> {
         self.model.as_deref()

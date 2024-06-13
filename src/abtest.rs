@@ -58,6 +58,7 @@ pub struct ExperimentRunner {
     experiment_name: String,
     ssh: SshInfo,
     dut_id: String,
+    #[serde(flatten)]
     params: ExperimentRunParameter,
     tast_test: String,
     results_dir: PathBuf,
