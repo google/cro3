@@ -151,17 +151,18 @@ fn run_arc_flash(args: &ArgsArcFlash) -> Result<()> {
         }
     }
 
-    let cmd = Command::new("python")
-        .current_dir(repo)
-        .args([
-            "src/private-overlays/project-cheets-private/scripts/deploy_prebuilt_android.py",
-            "--bid",
-            &version,
-            "--target",
-            &format!("{device}_{arch}-{itype}"),
-            &target.host_and_port(),
-        ])
-        .spawn()?;
+    let cmd = Command::new(
+        "src/private-overlays/project-cheets-private/scripts/deploy_prebuilt_android.py",
+    )
+    .current_dir(repo)
+    .args([
+        "--bid",
+        &version,
+        "--target",
+        &format!("{device}_{arch}-{itype}"),
+        &target.host_and_port(),
+    ])
+    .spawn()?;
     let result = cmd.wait_with_output()?;
     if !result.status.success() {
         error!("prebuilt ARC flash failed");
