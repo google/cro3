@@ -5,6 +5,7 @@
 // https://developers.google.com/open-source/licenses/bsd
 
 use std::collections::HashMap;
+use std::fmt::Debug;
 use std::fs;
 use std::path::Path;
 
@@ -16,7 +17,6 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use serde::Deserialize;
 use serde::Serialize;
-use tracing::info;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BluebenchCycleResult {
@@ -234,17 +234,25 @@ impl BluebenchMetadata {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct BluebenchResult {
     pub metadata: BluebenchMetadata,
     pub last_result_date: String,
     pub converged_mean_mean: f64,
     pub cycles: Vec<BluebenchCycleResult>,
 }
+impl Debug for BluebenchResult {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "BluebenchResult {{ metadata: {:?}, converged_mean_mean: {:?} }}",
+            self.metadata, self.converged_mean_mean
+        )
+    }
+}
 impl BluebenchResult {
     pub fn from_path(path: &Path) -> Result<Self> {
         let test_name = "perf.TabOpenLatencyPerf";
-        let t0 = std::time::Instant::now();
         let metadata = BluebenchMetadata::from_path(path, test_name, false)?;
         let result_csv = path.join("tests").join(test_name).join("bluebench_log.txt");
         if !result_csv.is_file() {
@@ -304,7 +312,6 @@ impl BluebenchResult {
         let converged_mean_mean =
             converged_means.iter().sum::<f64>() / converged_means.len() as f64;
         let last_result_date = cycles.last().unwrap().date.clone();
-        info!("parse done: {:?} {:?}", t0.elapsed(), path);
         Ok(BluebenchResult {
             metadata,
             last_result_date,
