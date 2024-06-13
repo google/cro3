@@ -36,10 +36,10 @@ impl Display for ExperimentConfig {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ExperimentRunMetadata {
-    runner: ExperimentRunner,
+    pub runner: ExperimentRunner,
     iteration: usize,
     cluster: usize,
-    config: ExperimentConfig,
+    pub config: ExperimentConfig,
     group: usize,
     run: usize,
 }
@@ -55,11 +55,11 @@ pub struct ExperimentRunParameter {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ExperimentRunner {
     tast: TastTestExecutionType,
-    experiment_name: String,
+    pub experiment_name: String,
     ssh: SshInfo,
     dut_id: String,
     #[serde(flatten)]
-    params: ExperimentRunParameter,
+    pub params: ExperimentRunParameter,
     tast_test: String,
     results_dir: PathBuf,
 }

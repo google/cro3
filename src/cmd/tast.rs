@@ -17,6 +17,7 @@ use cro3::tast::update_cached_tests;
 use cro3::tast::TastResultMetadata;
 use cro3::tast::TastTestExecutionType;
 use glob::Pattern;
+use hashbrown::HashMap;
 use tracing::info;
 use tracing::warn;
 
@@ -100,6 +101,22 @@ impl ArgsAnalyze {
         }
         if let Some(result) = results.last() {
             info!("Sample (last): {result:#?}");
+        }
+        let mut bucket = HashMap::<String, Vec<&TastResultMetadata>>::new();
+        for e in results.iter() {
+            if let Some(abtest_metadata) = e.abtest_metadata() {
+                let key = format!(
+                    "{}/{}",
+                    abtest_metadata.runner.experiment_name, abtest_metadata.config
+                );
+                if !bucket.contains_key(&key) {
+                    bucket.insert(key.clone(), Vec::new());
+                }
+                bucket.get_mut(&key).unwrap().push(e);
+            }
+        }
+        for (k, v) in bucket {
+            info!("{k}: {}", v.len());
         }
         Ok(())
     }
