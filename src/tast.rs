@@ -29,6 +29,7 @@ use serde::Serialize;
 use tracing::info;
 use tracing::warn;
 
+use crate::abtest::ExperimentRunMetadata;
 use crate::cache::KvCache;
 use crate::chroot::Chroot;
 use crate::config::Config;
@@ -402,22 +403,6 @@ pub fn os_release_in_results(results: &[PathBuf]) -> Result<HashMap<String, Vec<
     Ok(HashMap::new())
 }
 
-pub fn kernel_cmdline_in_results(results: &[PathBuf]) -> Result<HashMap<String, Vec<PathBuf>>> {
-    let results: Vec<(PathBuf, String)> = results
-        .iter()
-        .flat_map(|e| -> Result<(PathBuf, String)> {
-            Ok((
-                e.clone(),
-                TastResultMetadata::from_path(e)?
-                    .kernel_cmdline()
-                    .to_string(),
-            ))
-        })
-        .collect();
-    let keys: HashSet<String> = HashSet::from_iter(results.iter().map(|e| e.1.clone()));
-    Ok(HashMap::new())
-}
-
 pub fn kernel_cmdline_masked_in_results(
     results: &[PathBuf],
 ) -> Result<HashMap<String, Vec<PathBuf>>> {
@@ -447,6 +432,7 @@ pub struct TastResultMetadata {
     model: Option<String>,
     kernel_cmdline: String,
     kernel_cmdline_masked: String,
+    abtest_metadata: Option<ExperimentRunMetadata>,
 }
 impl TastResultMetadata {
     fn probe_os_release(path: &Path) -> Result<String> {
@@ -503,17 +489,27 @@ impl TastResultMetadata {
         let s = RE_CMDLINE_CROS_LSB_RELEASE_HASH.replace_all(&s, "{CROS_LSB_HASH}");
         Ok(s.to_string())
     }
-    fn model(&self) -> Option<&str> {
+    fn probe_abtest_metadata(path: &Path) -> Result<ExperimentRunMetadata> {
+        let path = path
+            .join("system_logs")
+            .join("cro3_abtest_run_metadata.json");
+        let s = std::fs::read_to_string(&path).context(anyhow!("Failed to read {path:?}"))?;
+        serde_json::from_str(&s).context("Failed to parse")
+    }
+    pub fn model(&self) -> Option<&str> {
         self.model.as_deref()
     }
-    fn os_release(&self) -> &str {
+    pub fn os_release(&self) -> &str {
         &self.os_release
     }
-    fn kernel_cmdline(&self) -> &str {
+    pub fn kernel_cmdline(&self) -> &str {
         &self.kernel_cmdline
     }
-    fn kernel_cmdline_masked(&self) -> &str {
+    pub fn kernel_cmdline_masked(&self) -> &str {
         &self.kernel_cmdline_masked
+    }
+    pub fn abtest_metadata(&self) -> Option<&ExperimentRunMetadata> {
+        self.abtest_metadata.as_ref()
     }
     pub fn from_path(path: &Path) -> Result<Self> {
         let path = path.to_path_buf();
@@ -521,12 +517,15 @@ impl TastResultMetadata {
         let model = Self::probe_model(&path).ok();
         let kernel_cmdline = Self::probe_kernel_cmdline(&path)?;
         let kernel_cmdline_masked = Self::to_kernel_cmdline_masked(&kernel_cmdline)?;
+        let abtest_metadata = Self::probe_abtest_metadata(&path).ok();
+        //let abtest_metadata = Self::
         Ok(Self {
             path,
             os_release,
             model,
             kernel_cmdline,
             kernel_cmdline_masked,
+            abtest_metadata,
         })
     }
 }

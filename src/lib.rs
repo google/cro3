@@ -12,6 +12,7 @@
 #![feature(result_option_inspect)]
 #![feature(assert_matches)]
 
+pub mod abtest;
 pub mod arc;
 pub mod cache;
 pub mod chroot;
