@@ -30,6 +30,7 @@ use tracing::info;
 use tracing::warn;
 
 use crate::abtest::ExperimentRunMetadata;
+use crate::bluebench::BluebenchResult;
 use crate::cache::KvCache;
 use crate::chroot::Chroot;
 use crate::config::Config;
@@ -433,6 +434,7 @@ pub struct TastResultMetadata {
     kernel_cmdline: String,
     kernel_cmdline_masked: String,
     abtest_metadata: Option<ExperimentRunMetadata>,
+    bluebench_result: Option<BluebenchResult>,
 }
 impl TastResultMetadata {
     fn probe_os_release(path: &Path) -> Result<String> {
@@ -520,7 +522,7 @@ impl TastResultMetadata {
         let kernel_cmdline = Self::probe_kernel_cmdline(&path)?;
         let kernel_cmdline_masked = Self::to_kernel_cmdline_masked(&kernel_cmdline)?;
         let abtest_metadata = Self::probe_abtest_metadata(&path).ok();
-        //let abtest_metadata = Self::
+        let bluebench_result = BluebenchResult::from_path(&path).ok();
         Ok(Self {
             path,
             os_release,
@@ -528,6 +530,7 @@ impl TastResultMetadata {
             kernel_cmdline,
             kernel_cmdline_masked,
             abtest_metadata,
+            bluebench_result,
         })
     }
 }

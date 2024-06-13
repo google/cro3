@@ -38,6 +38,9 @@ use anyhow::Result;
 use argh::FromArgs;
 use cro3::abtest::ExperimentRunParameter;
 use cro3::abtest::ExperimentRunner;
+use cro3::bluebench::BluebenchCycleResult;
+use cro3::bluebench::BluebenchMetadata;
+use cro3::bluebench::BluebenchResult;
 use cro3::chroot::Chroot;
 use cro3::dut::SshInfo;
 use cro3::repo::get_cros_dir;
@@ -51,6 +54,10 @@ use serde::Serialize;
 use tracing::error;
 use tracing::info;
 use tracing::warn;
+
+lazy_static! {
+    static ref RE_CSV_PATH: Regex = Regex::new(r"^/[A-Za-z0-9_.]+.csv$").unwrap();
+}
 
 #[derive(FromArgs, PartialEq, Debug)]
 /// Run / analyze performance experiments
@@ -254,14 +261,14 @@ impl ArgsAnalyze {
     ) -> Result<BluebenchResult> {
         let t0 = std::time::Instant::now();
         if let Some(hwid_expected) = hwid_expected {
-            let hwid = BluebenchMetadata::hwid(path, test_name)?;
+            let hwid = BluebenchMetadata::parse_hwid(path, test_name)?;
             if hwid != hwid_expected {
                 // Only parse results from some hwid to speed up the parsing
                 bail!("Skipping due to hwid mismatch");
             }
         }
         if let Some(serial_expected) = serial_expected {
-            let serial = BluebenchMetadata::serial_number(path, test_name)?;
+            let serial = BluebenchMetadata::parse_serial_number(path, test_name)?;
             if serial != serial_expected {
                 // Only parse results from some serial to speed up the parsing
                 bail!("Skipping due to serial mismatch");
@@ -432,222 +439,6 @@ const HTTP_RESPONSE_HEADER_CSV_UTF8: &str = r#"Content-Type: application/octet-s
 const HTTP_RESPONSE_HEADER_CSS_UTF8: &str = r#"Content-Type: text/css; charset=UTF-8"#;
 const HTTP_RESPONSE_HEADER_JS_UTF8: &str = r#"Content-Type: text/javascript; charset=UTF-8"#;
 
-#[derive(Debug, Serialize, Deserialize)]
-struct BluebenchCycleResult {
-    date: String,
-    iter_index: usize,
-    status: String,
-    converged_mean: Option<f64>,
-    t1: Option<f64>,
-    t2: Option<f64>,
-    t3: Option<f64>,
-    raw: Vec<f64>,
-}
-
-lazy_static! {
-    static ref RE_CSV_PATH: Regex = Regex::new(r"^/[A-Za-z0-9_.]+.csv$").unwrap();
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct BluebenchMetadata {
-    path: String,
-    key: String,
-    dut_id: String,
-    hwid: String,
-    kernel_version: String,
-    os_release: String,
-    bootid: String,
-    kernel_cmdline_mitigations: String,
-    temperature_sensor_readouts: HashMap<String, Vec<(String, f64)>>,
-    test_start_timestamp: String,
-    test_end_timestamp: String,
-}
-impl BluebenchMetadata {
-    fn cpu_product_name(path: &Path, test_name: &str) -> Result<String> {
-        let path = path.join("tests").join(test_name).join("cpuinfo.txt");
-        let text = fs::read_to_string(&path).context(anyhow!("Failed to read {path:?}"))?;
-        let lines: Vec<&str> = text.split('\n').collect();
-        let lines: Vec<&&str> = lines
-            .iter()
-            .filter(|s| s.starts_with("model name"))
-            .collect();
-        let line = lines.last().context("no text found")?;
-        let line = line.split(':').nth(1).context("invalid cpu model name")?;
-        let line = line.trim();
-        Ok(line.to_string())
-    }
-    fn cpu_bugs(path: &Path, test_name: &str) -> Result<String> {
-        let path = path.join("tests").join(test_name).join("cpuinfo.txt");
-        let text = fs::read_to_string(&path).context(anyhow!("Failed to read {path:?}"))?;
-        let lines: Vec<&str> = text.split('\n').collect();
-        let lines: Vec<&&str> = lines.iter().filter(|s| s.starts_with("bugs")).collect();
-        let line = lines.last().context("no text found")?;
-        let line = line.split(':').nth(1).context("invalid cpu model name")?;
-        let line = line.trim();
-        Ok(line.to_string())
-    }
-    fn serial_number(path: &Path, test_name: &str) -> Result<String> {
-        let path = path.join("tests").join(test_name).join("vpd.txt");
-        let text = fs::read_to_string(&path).context(anyhow!("Failed to read {path:?}"))?;
-        let lines: Vec<&str> = text.split('\n').collect();
-        let lines: Vec<&&str> = lines
-            .iter()
-            .filter(|s| s.contains("\"serial_number\""))
-            .collect();
-        let line = lines.last().context("no text found")?;
-        let line = line.split('=').nth(1).context("invalid dut_id")?;
-        let line = line.split('"').nth(1).context("invalid dut_id")?;
-        let line = line.trim();
-        Ok(line.to_string())
-    }
-    fn hwid(path: &Path, test_name: &str) -> Result<String> {
-        let path = path.join("tests").join(test_name).join("crossystem.txt");
-        let text = fs::read_to_string(&path).context(anyhow!("Failed to read {path:?}"))?;
-        let lines: Vec<&str> = text.split('\n').collect();
-        let lines: Vec<&&str> = lines.iter().filter(|s| s.contains("hwid")).collect();
-        let line = lines.last().context("no text found")?;
-        let line = line.split('=').nth(1).context("invalid dut_id")?;
-        let line = line.split('#').nth(0).context("invalid dut_id")?;
-        let line = line.trim();
-        Ok(line.to_string())
-    }
-    fn kernel_version(path: &Path, test_name: &str) -> Result<String> {
-        let path = path
-            .join("tests")
-            .join(test_name)
-            .join("kernel_version.txt");
-        let s = fs::read_to_string(&path).context(anyhow!("Failed to read {path:?}"))?;
-        let s = s.split(' ').nth(2).context("invalid dut_id")?;
-        let s = s.trim();
-        Ok(s.to_string())
-    }
-    fn os_release(path: &Path, test_name: &str) -> Result<String> {
-        let path = path.join("tests").join(test_name).join("lsb_release.txt");
-        let s = fs::read_to_string(&path).context(anyhow!("Failed to read {path:?}"))?;
-        let s: Vec<&str> = s.split('\n').collect();
-        let s: Vec<&&str> = s
-            .iter()
-            .filter(|s| s.contains("CHROMEOS_RELEASE_BUILDER_PATH="))
-            .collect();
-        let s = s.last().context("no text found")?;
-        let s = s.split('=').nth(1).context("invalid dut_id")?;
-        let s = s.trim();
-        Ok(s.to_string())
-    }
-    fn bootid(path: &Path, test_name: &str) -> Result<String> {
-        let path = path.join("tests").join(test_name).join("bootid.txt");
-        let s = fs::read_to_string(&path).context(anyhow!("Failed to read {path:?}"))?;
-        let s = s.trim();
-        Ok(s.to_string())
-    }
-    fn kernel_cmdline_mitigations(path: &Path, test_name: &str) -> Result<String> {
-        let path = path.join("tests").join(test_name).join("cmdline.txt");
-        let s = fs::read_to_string(&path).context(anyhow!("Failed to read {path:?}"))?;
-        let s = s
-            .split(' ')
-            .find(|s| s.contains("mitigations="))
-            .unwrap_or("")
-            .trim();
-        Ok(s.to_string())
-    }
-    fn parse_temp_log_line(s: &str) -> Result<(String, HashMap<String, f64>)> {
-        let mut data: HashMap<String, f64> = HashMap::new();
-        let mut it = s.trim().split(' ');
-        let t = it.next().context("timestamp should be there")?.to_string();
-        let it = it.skip_while(|s| !s.starts_with("x86_pkg_temp"));
-        for e in it {
-            let mut it = e.split(':');
-            let mut key = it.next().context("name should be there")?.to_string();
-            let value: &str = it.next().context("value should be there")?;
-            let unit = value.chars().last().context("unit should be there")?; // Assuming that the last char is unit (e.g. C, W)
-            let value = &value[..value.len() - 1];
-            let value: f64 = value.parse().context("failed to parse temp value")?;
-            key.push('_');
-            key.push(unit);
-            data.insert(key, value);
-        }
-        Ok((t, data))
-    }
-    fn temperature_sensor_readouts(
-        path: &Path,
-        test_name: &str,
-        test_start_timestamp: &str,
-        test_end_timestamp: &str,
-    ) -> Result<HashMap<String, Vec<(String, f64)>>> {
-        let mut temp_data: HashMap<String, Vec<(String, f64)>> = HashMap::new();
-        let path = path.join("tests").join(test_name).join("messages.txt");
-        let s = fs::read_to_string(&path).context(anyhow!("Failed to read {path:?}"))?;
-        let s: Vec<(String, HashMap<String, f64>)> = s
-            .split('\n')
-            .filter(|s| s.contains("x86_pkg_temp"))
-            .filter_map(|s| Self::parse_temp_log_line(s).ok())
-            .collect();
-        for (t, entries) in s {
-            if t.as_str() < test_start_timestamp || test_end_timestamp < t.as_str() {
-                continue;
-            }
-            for (k, v) in entries {
-                if !temp_data.contains_key(&k) {
-                    temp_data.insert(k.clone(), Vec::new());
-                }
-                temp_data
-                    .get_mut(&k)
-                    .context("key should have value")?
-                    .push((t.to_string(), v));
-            }
-        }
-        Ok(temp_data)
-    }
-    fn test_start_end_timestamp(path: &Path, test_name: &str) -> Result<(String, String)> {
-        let path = path.join("tests").join(test_name).join("log.txt");
-        let s = fs::read_to_string(&path).context(anyhow!("Failed to read {path:?}"))?;
-        let mut it = s.split('\n');
-        let start_ts = it
-            .find(|s| s.contains("Started test"))
-            .context("Started test line not found");
-        let end_ts = it
-            .find(|s| s.contains("Completed test"))
-            .context("Started test line not found");
-        Ok((start_ts?.to_string(), end_ts?.to_string()))
-    }
-    fn from_path(path: &Path, test_name: &str, with_temp_data: bool) -> Result<Self> {
-        let dut_id = Self::serial_number(path, test_name)
-            .or_else(|_| Result::<String>::Ok("NoSerial".to_string()))?;
-        let hwid = Self::hwid(path, test_name)?;
-        let (test_start_timestamp, test_end_timestamp) =
-            Self::test_start_end_timestamp(path, test_name)?;
-        let kernel_version = Self::kernel_version(path, test_name)?;
-        let os_release = Self::os_release(path, test_name)?;
-        let bootid = Self::bootid(path, test_name)?;
-        let kernel_cmdline_mitigations = Self::kernel_cmdline_mitigations(path, test_name)?;
-        let temperature_sensor_readouts = if with_temp_data {
-            Self::temperature_sensor_readouts(
-                path,
-                test_name,
-                &test_start_timestamp,
-                &test_end_timestamp,
-            )?
-        } else {
-            HashMap::new()
-        };
-        let key = format!("{hwid}/{dut_id}/{bootid}/{kernel_cmdline_mitigations}");
-        let path = path.as_os_str().to_string_lossy().into_owned().to_string();
-        Ok(Self {
-            path,
-            key,
-            dut_id,
-            hwid,
-            kernel_version,
-            os_release,
-            bootid,
-            kernel_cmdline_mitigations,
-            temperature_sensor_readouts,
-            test_start_timestamp,
-            test_end_timestamp,
-        })
-    }
-}
-
 #[test]
 fn parse_x86_temp_info() {
     let data = BluebenchMetadata::parse_temp_log_line(
@@ -668,14 +459,6 @@ fn parse_x86_temp_info() {
     assert_eq!(data.1["TCPU_C"], 52.0f64);
     assert_eq!(data.1["TCPU_PCI_C"], 54.0f64);
     assert_eq!(data.1["PL1_W"], 15.0f64);
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct BluebenchResult {
-    metadata: BluebenchMetadata,
-    last_result_date: String,
-    converged_mean_mean: f64,
-    cycles: Vec<BluebenchCycleResult>,
 }
 
 fn write_latency_csv(
@@ -864,11 +647,12 @@ struct HardwareInfo {
 }
 impl HardwareInfo {
     pub fn parse(path: &Path, test_name: &str) -> Result<Self> {
-        let hwid = BluebenchMetadata::hwid(path, test_name)?;
-        let serial_number = BluebenchMetadata::serial_number(path, test_name)?;
+        let hwid = BluebenchMetadata::parse_hwid(path, test_name)?;
+        let serial_number = BluebenchMetadata::parse_serial_number(path, test_name)?;
         let cpu_product_name =
-            BluebenchMetadata::cpu_product_name(path, test_name).unwrap_or("N/A".to_string());
-        let cpu_bugs = BluebenchMetadata::cpu_bugs(path, test_name).unwrap_or("N/A".to_string());
+            BluebenchMetadata::parse_cpu_product_name(path, test_name).unwrap_or("N/A".to_string());
+        let cpu_bugs =
+            BluebenchMetadata::parse_cpu_bugs(path, test_name).unwrap_or("N/A".to_string());
         Ok(Self {
             hwid,
             serial_number,

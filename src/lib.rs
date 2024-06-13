@@ -14,6 +14,7 @@
 
 pub mod abtest;
 pub mod arc;
+pub mod bluebench;
 pub mod cache;
 pub mod chroot;
 pub mod config;
