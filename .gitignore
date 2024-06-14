@@ -5,3 +5,4 @@
 *.json
 !docs/*/*.json
 plots/
+out/
