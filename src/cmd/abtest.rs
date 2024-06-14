@@ -164,9 +164,9 @@ impl ArgsRun {
             self.dut.clone(),
             ExperimentRunParameter {
                 num_of_iterations: self.num_of_iterations.unwrap_or(1),
-                run_per_group: self.run_per_group.unwrap_or(20),
-                group_per_cluster: self.group_per_cluster.unwrap_or(1),
-                cluster_per_iteration: self.cluster_per_iteration.unwrap_or(1000),
+                run_per_group: self.run_per_group.unwrap_or(5),
+                group_per_cluster: self.group_per_cluster.unwrap_or(4),
+                cluster_per_iteration: self.cluster_per_iteration.unwrap_or(1),
             },
             self.tast_test.clone(),
             Path::new(self.results_dir.as_deref().unwrap_or("results")).to_path_buf(),
