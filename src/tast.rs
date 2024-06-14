@@ -537,24 +537,13 @@ impl TastResultMetadata {
     }
 }
 
-/*
-{
-  "20231007-232944|ui.DesksCUJ.lacros|Overview.EventLatency.KeyPressed.TotalLatency": {
-    "average": {
-      "units": "microseconds",
-      "improvement_direction": "down",
-      "type": "scalar",
-      "value": 94801.93607305936
-    }
-  }
-}
-*/
 #[derive(Serialize, Deserialize, Debug, Default)]
 struct TastAnalyzerScalarResult {
     units: String,
     improvement_direction: String,
     value: f64,
 }
+
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct TastAnalyzerResultJsonKey {
     run_id: String,
@@ -562,6 +551,7 @@ pub struct TastAnalyzerResultJsonKey {
     metric_name: String,
     variant: String,
 }
+
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct TastAnalyzerInputJson(HashMap<String, String>);
 

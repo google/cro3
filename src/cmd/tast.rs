@@ -125,6 +125,16 @@ impl ArgsAnalyze {
             path.push_str(".json");
             t.save(Path::new(&path))?;
         }
+        info!("To compare the results statistically, run:");
+        info!(
+            "PYTHONPATH=$TAST_ANALYZER python3 -m analyzer.run print-results --compare \
+             $RESULT_A_JSON $RESULT_B_JSON"
+        );
+        info!("Note: TAST_ANALYZER can be downloaded from: https://chromium.googlesource.com/chromiumos/platform/tast-tests/");
+        info!(
+            "and please specify the absolute path of tools/tast-analyzer/ in the repo above as \
+             TAST_ANALYZER"
+        );
         Ok(())
     }
 }
