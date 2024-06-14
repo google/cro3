@@ -4,3 +4,4 @@
 *.csv
 *.json
 !docs/*/*.json
+plots/

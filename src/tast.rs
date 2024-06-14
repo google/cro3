@@ -10,6 +10,8 @@ use std::ffi::OsStr;
 use std::fs::read_dir;
 use std::path::Path;
 use std::path::PathBuf;
+use std::fs::File;
+use std::io::Write;
 
 use anyhow::anyhow;
 use anyhow::bail;
@@ -532,5 +534,64 @@ impl TastResultMetadata {
             abtest_metadata,
             bluebench_result,
         })
+    }
+}
+
+/*
+{
+  "20231007-232944|ui.DesksCUJ.lacros|Overview.EventLatency.KeyPressed.TotalLatency": {
+    "average": {
+      "units": "microseconds",
+      "improvement_direction": "down",
+      "type": "scalar",
+      "value": 94801.93607305936
+    }
+  }
+}
+*/
+#[derive(Serialize, Deserialize, Debug, Default)]
+struct TastAnalyzerScalarResultInner {
+    units: String,
+    improvement_direction: String,
+    #[serde(rename = "type")]
+    value_type: String,
+    value: f64,
+}
+#[derive(Serialize, Deserialize, Debug, Default)]
+struct TastAnalyzerScalarResult {
+    average: TastAnalyzerScalarResultInner,
+}
+// data['${RESULT_DIR_NAME}|${TEST_NAME}|${METRIC_NAME}']['${?}']
+// = TastAnalyzerScalarResult{}
+#[derive(Serialize, Deserialize, Debug, Default)]
+pub struct TastAnalyzerInputJson(HashMap<String, TastAnalyzerScalarResult>);
+
+impl TastAnalyzerInputJson {
+    pub fn save(&self, path: &Path) -> Result<()> {
+        let mut f = File::create(path)?;
+        f.write_all(&serde_json::to_string(&self)?.into_bytes())?;
+        info!("Generated {path:?}");
+        Ok(())
+    }
+    pub fn from_results(results: &[&TastResultMetadata]) -> Result<Self> {
+        let mut data = Self::default();
+        for r in results {
+            let abtest_metadata = r.abtest_metadata.as_ref().context("abtest_metadata should be populated")?;
+            let tast_test = &abtest_metadata.runner.tast_test;
+            let r = r.bluebench_result.as_ref().context("bluebench_result is empty")?;
+            let value = r.converged_mean_mean;
+            let v = TastAnalyzerScalarResult {
+                average: TastAnalyzerScalarResultInner {
+                    units: "milliseconds".to_string(),
+                    improvement_direction: "down".to_string(),
+                    value_type: "scalar".to_string(),
+                    value,
+                },
+            };
+            let hwid = &r.metadata.hwid;
+            let ts = chrono::DateTime::parse_from_rfc3339(r.metadata.test_start_timestamp.split(' ').next().context("failed to get test start timestamp")?).context("failed to parse test start timestamp")?;
+            data.0.insert(format!("{}|hoge/{tast_test}|TabOpenLatency", ts.format("%Y%m%d-%H%M%S")), v);
+        }
+        Ok(data)
     }
 }

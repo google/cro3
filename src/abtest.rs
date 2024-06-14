@@ -60,7 +60,7 @@ pub struct ExperimentRunner {
     dut_id: String,
     #[serde(flatten)]
     pub params: ExperimentRunParameter,
-    tast_test: String,
+    pub tast_test: String,
     results_dir: PathBuf,
 }
 impl ExperimentRunner {

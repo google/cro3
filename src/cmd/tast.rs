@@ -4,6 +4,8 @@
 // license that can be found in the LICENSE file or at
 // https://developers.google.com/open-source/licenses/bsd
 
+use std::path::Path;
+
 use anyhow::Result;
 use argh::FromArgs;
 use cro3::config::Config;
@@ -14,6 +16,7 @@ use cro3::tast::print_cached_tests;
 use cro3::tast::results_passed;
 use cro3::tast::run_tast_test;
 use cro3::tast::update_cached_tests;
+use cro3::tast::TastAnalyzerInputJson;
 use cro3::tast::TastResultMetadata;
 use cro3::tast::TastTestExecutionType;
 use glob::Pattern;
@@ -117,6 +120,10 @@ impl ArgsAnalyze {
         }
         for (k, v) in bucket {
             info!("{k}: {}", v.len());
+            let t = TastAnalyzerInputJson::from_results(&v)?;
+            let mut path = k.replace('/', "_").to_string();
+            path.push_str(".json");
+            t.save(Path::new(&path))?;
         }
         Ok(())
     }
