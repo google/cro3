@@ -537,6 +537,18 @@ impl TastResultMetadata {
     }
 }
 
+pub fn save_result_metadata_json(results: &[&TastResultMetadata], prefix: Option<&str>) -> Result<()> {
+    let path = if let Some(prefix) = prefix {
+        format!("{prefix}_parsed_results.json")
+    } else {
+        "parsed_results.json".to_string()
+    };
+    let mut f = std::fs::File::create(&path)?;
+    f.write_all(&serde_json::to_string(&results)?.into_bytes())?;
+    info!("Generated {path:?}");
+    Ok(())
+}
+
 #[derive(Serialize, Deserialize, Debug, Default)]
 struct TastAnalyzerScalarResult {
     units: String,

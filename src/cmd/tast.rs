@@ -4,7 +4,6 @@
 // license that can be found in the LICENSE file or at
 // https://developers.google.com/open-source/licenses/bsd
 
-use std::io::Write;
 use std::path::Path;
 
 use anyhow::Result;
@@ -16,6 +15,7 @@ use cro3::tast::collect_results;
 use cro3::tast::print_cached_tests;
 use cro3::tast::results_passed;
 use cro3::tast::run_tast_test;
+use cro3::tast::save_result_metadata_json;
 use cro3::tast::update_cached_tests;
 use cro3::tast::TastAnalyzerInputJson;
 use cro3::tast::TastResultMetadata;
@@ -124,9 +124,9 @@ impl ArgsAnalyze {
         for (k, v) in bucket {
             info!("{k}: {}", v.len());
             let t = TastAnalyzerInputJson::from_results(&v)?;
-            let mut path = k.replace('/', "_").to_string();
-            path.push_str(".json");
-            t.save(Path::new(&path))?;
+            let name = k.replace('/', "_").to_string();
+            save_result_metadata_json(&v, Some(&name))?;
+            t.save(Path::new(&name).with_extension("json").as_path())?;
         }
         info!("To compare the results statistically, run:");
         info!(
@@ -138,11 +138,7 @@ impl ArgsAnalyze {
             "and please specify the absolute path of tools/tast-analyzer/ in the repo above as \
              TAST_ANALYZER"
         );
-        // Save full results
-        let path = "parsed_results.json";
-        let mut f = std::fs::File::create(path)?;
-        f.write_all(&serde_json::to_string(&results)?.into_bytes())?;
-        info!("Generated {path:?}");
+        save_result_metadata_json(&results, None)?;
         Ok(())
     }
 }
