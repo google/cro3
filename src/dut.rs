@@ -83,9 +83,10 @@ lazy_static! {
 
 pub static SSH_CACHE: KvCache<SshInfo> = KvCache::new("ssh_cache");
 
+#[derive(Debug)]
 pub enum PartitionSet {
-    Primary,
-    Secondary,
+    A,
+    B,
 }
 
 /// MonitoredDut holds connection to a monitoring Dut
@@ -808,15 +809,23 @@ impl SshInfo {
         // Return "x86_64" or "arm64"
         self.run_cmd_stdio("uname -m | sed s/aarch64/arm64/")
     }
-    pub fn get_rootdev(&self) -> Result<String> {
+    pub fn get_rootpart(&self) -> Result<String> {
         self.run_cmd_stdio("rootdev -s")
     }
-    pub fn get_rootdisk(&self) -> Result<String> {
-        let rootdev = self.get_rootdev()?;
-        Ok(rootdev
-            .trim_end_matches(char::is_numeric)
-            .trim_end_matches('p')
-            .to_string())
+    pub fn get_rootdisk_dev(&self) -> Result<String> {
+        // e.g. /dev/sda, /dev/nvme0n1
+        let name = self.get_rootdisk_name()?;
+        Ok(format!("/dev/{name}"))
+    }
+    pub fn get_rootdisk_name(&self) -> Result<String> {
+        // e.g. sda, nvme0n1
+        self.run_cmd_stdio("lsblk -ndo pkname $(rootdev -s)")
+    }
+    pub fn get_kernel_partitions(&self) -> Result<Vec<String>> {
+        // e.g. []
+        let rootdisk = self.get_rootdisk_dev()?;
+        let output = self.run_cmd_stdio(&format!("fdisk -l /dev/{rootdisk} | grep /dev/{rootdisk} | grep kernel | cut -d ' ' -f 1"))?;
+        Ok(output.trim().split("\n").map(|s| s.to_string()).collect())
     }
     pub fn get_partnum_info(&self) -> Result<HashMap<String, String>> {
         let cmd_str = "source /usr/sbin/write_gpt.sh; load_base_vars;
@@ -882,31 +891,20 @@ stderr:
         ))
     }
     pub fn switch_partition_set(&self, target: PartitionSet) -> Result<()> {
-        let rootdev = self.get_rootdev()?;
-        let rootdisk = self.get_rootdisk()?;
+        let rootdisk = self.get_rootdisk_dev()?;
         let part = self.get_partnum_info()?;
         let kern_a = part.get("kern_a").ok_or(anyhow!("KERN-A not found"))?;
         let kern_b = part.get("kern_b").ok_or(anyhow!("KERN-B not found"))?;
-        let root_a = part.get("root_a").ok_or(anyhow!("ROOT-A not found"))?;
-        let root_b = part.get("root_b").ok_or(anyhow!("ROOT-B not found"))?;
-        let (current_name, current_kern, current_root, other_name, other_kern, other_root) =
-            if rootdev.ends_with(root_a) {
-                ("A", kern_a, root_a, "B", kern_b, root_b)
-            } else if rootdev.ends_with(root_b) {
-                ("B", kern_b, root_b, "A", kern_a, root_a)
-            } else {
-                bail!("unsupported partition layout");
-            };
         let cmd = match target {
-            PartitionSet::Primary => {
-                println!("switching to primary: {current_name} ({rootdisk}p{current_root})");
-                format!("cgpt prioritize -P2 -i {current_kern} {rootdisk}")
+            PartitionSet::A => {
+                format!("cgpt prioritize -P2 -i {kern_a} {rootdisk}")
             }
-            PartitionSet::Secondary => {
-                println!("switching to secondary: {other_name} ({rootdisk}p{other_root})");
-                format!("cgpt prioritize -P2 -i {other_kern} {rootdisk}")
+            PartitionSet::B => {
+                format!("cgpt prioritize -P2 -i {kern_b} {rootdisk}")
             }
         };
+        info!("Switching boot partition to {target:?} by running:");
+        info!("{cmd}");
         self.run_cmd_piped(&[cmd])
     }
     pub fn reboot(&self) -> Result<()> {

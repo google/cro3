@@ -91,8 +91,8 @@ impl ExperimentRunner {
         group: usize,
     ) -> Result<()> {
         match config {
-            ExperimentConfig::A => self.ssh.switch_partition_set(PartitionSet::Primary),
-            ExperimentConfig::B => self.ssh.switch_partition_set(PartitionSet::Secondary),
+            ExperimentConfig::A => self.ssh.switch_partition_set(PartitionSet::A),
+            ExperimentConfig::B => self.ssh.switch_partition_set(PartitionSet::B),
         }?;
         if let Err(e) = self.ssh.reboot() {
             warn!("reboot failed (ignored): {e:?}");
