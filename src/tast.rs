@@ -8,10 +8,10 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::ffi::OsStr;
 use std::fs::read_dir;
-use std::path::Path;
-use std::path::PathBuf;
 use std::fs::File;
 use std::io::Write;
+use std::path::Path;
+use std::path::PathBuf;
 
 use anyhow::anyhow;
 use anyhow::bail;
@@ -550,21 +550,20 @@ impl TastResultMetadata {
 }
 */
 #[derive(Serialize, Deserialize, Debug, Default)]
-struct TastAnalyzerScalarResultInner {
+struct TastAnalyzerScalarResult {
     units: String,
     improvement_direction: String,
-    #[serde(rename = "type")]
-    value_type: String,
     value: f64,
 }
 #[derive(Serialize, Deserialize, Debug, Default)]
-struct TastAnalyzerScalarResult {
-    average: TastAnalyzerScalarResultInner,
+pub struct TastAnalyzerResultJsonKey {
+    run_id: String,
+    test_name: String,
+    metric_name: String,
+    variant: String,
 }
-// data['${RESULT_DIR_NAME}|${TEST_NAME}|${METRIC_NAME}']['${?}']
-// = TastAnalyzerScalarResult{}
 #[derive(Serialize, Deserialize, Debug, Default)]
-pub struct TastAnalyzerInputJson(HashMap<String, TastAnalyzerScalarResult>);
+pub struct TastAnalyzerInputJson(HashMap<String, String>);
 
 impl TastAnalyzerInputJson {
     pub fn save(&self, path: &Path) -> Result<()> {
@@ -576,21 +575,39 @@ impl TastAnalyzerInputJson {
     pub fn from_results(results: &[&TastResultMetadata]) -> Result<Self> {
         let mut data = Self::default();
         for r in results {
-            let abtest_metadata = r.abtest_metadata.as_ref().context("abtest_metadata should be populated")?;
+            let abtest_metadata = r
+                .abtest_metadata
+                .as_ref()
+                .context("abtest_metadata should be populated")?;
             let tast_test = &abtest_metadata.runner.tast_test;
-            let r = r.bluebench_result.as_ref().context("bluebench_result is empty")?;
+            let r = r
+                .bluebench_result
+                .as_ref()
+                .context("bluebench_result is empty")?;
             let value = r.converged_mean_mean;
             let v = TastAnalyzerScalarResult {
-                average: TastAnalyzerScalarResultInner {
-                    units: "milliseconds".to_string(),
-                    improvement_direction: "down".to_string(),
-                    value_type: "scalar".to_string(),
-                    value,
-                },
+                units: "milliseconds".to_string(),
+                improvement_direction: "down".to_string(),
+                value,
             };
+            let ts = chrono::DateTime::parse_from_rfc3339(
+                r.metadata
+                    .test_start_timestamp
+                    .split(' ')
+                    .next()
+                    .context("failed to get test start timestamp")?,
+            )
+            .context("failed to parse test start timestamp")?;
             let hwid = &r.metadata.hwid;
-            let ts = chrono::DateTime::parse_from_rfc3339(r.metadata.test_start_timestamp.split(' ').next().context("failed to get test start timestamp")?).context("failed to parse test start timestamp")?;
-            data.0.insert(format!("{}|hoge/{tast_test}|TabOpenLatency", ts.format("%Y%m%d-%H%M%S")), v);
+            let k = TastAnalyzerResultJsonKey {
+                run_id: format!("{hwid}/{ts}"),
+                test_name: tast_test.clone(),
+                metric_name: "TabOpenLatency".to_string(),
+                variant: String::default(),
+            };
+            let k = serde_json::to_string(&k)?;
+            let v = serde_json::to_string(&v)?;
+            data.0.insert(k, v);
         }
         Ok(data)
     }
