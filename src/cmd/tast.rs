@@ -4,6 +4,7 @@
 // license that can be found in the LICENSE file or at
 // https://developers.google.com/open-source/licenses/bsd
 
+use std::io::Write;
 use std::path::Path;
 
 use anyhow::Result;
@@ -109,8 +110,10 @@ impl ArgsAnalyze {
         for e in results.iter() {
             if let Some(abtest_metadata) = e.abtest_metadata() {
                 let key = format!(
-                    "{}/{}",
-                    abtest_metadata.runner.experiment_name, abtest_metadata.config
+                    "{}/{}/{}",
+                    abtest_metadata.runner.experiment_name,
+                    abtest_metadata.config,
+                    e.model().unwrap_or("UNKNOWN_MODEL")
                 );
                 if !bucket.contains_key(&key) {
                     bucket.insert(key.clone(), Vec::new());
@@ -135,6 +138,11 @@ impl ArgsAnalyze {
             "and please specify the absolute path of tools/tast-analyzer/ in the repo above as \
              TAST_ANALYZER"
         );
+        // Save full results
+        let path = "parsed_results.json";
+        let mut f = std::fs::File::create(path)?;
+        f.write_all(&serde_json::to_string(&results)?.into_bytes())?;
+        info!("Generated {path:?}");
         Ok(())
     }
 }
