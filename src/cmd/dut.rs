@@ -778,7 +778,7 @@ fn run_dut_list(args: &ArgsDutList) -> Result<()> {
                 (id.to_owned(), status, e.1.clone())
             })
             .collect();
-        let (addr_reused, duts) = if args.update {
+        let (addr_reused, mut duts) = if args.update {
             (
                 duts.iter()
                     .filter(|e| e.1 == DutStatus::AddressReused)
@@ -792,6 +792,7 @@ fn run_dut_list(args: &ArgsDutList) -> Result<()> {
         } else {
             (Vec::new(), duts)
         };
+        duts.sort_by(|a, b| a.0.cmp(&b.0));
         for dut in duts {
             println!("{:32} {:13} {:?}", dut.0, &format!("{:?}", dut.1), dut.2);
         }

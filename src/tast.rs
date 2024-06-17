@@ -543,6 +543,7 @@ pub fn save_result_metadata_json(results: &[&TastResultMetadata], prefix: Option
     } else {
         "parsed_results.json".to_string()
     };
+    let path = Path::new("out").join(path);
     let mut f = std::fs::File::create(&path)?;
     f.write_all(&serde_json::to_string(&results)?.into_bytes())?;
     info!("Generated {path:?}");

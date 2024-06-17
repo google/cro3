@@ -64,13 +64,19 @@ pub struct ArgsAnalyze {
     #[argh(option)]
     results_dir: Option<String>,
 
+    // TODO: FIX THIS
     /// start datetime to be analyzed in YYYYMMDD-hhmmss format.
     #[argh(option)]
     start: Option<String>,
 
+    // TODO: FIX THIS
     /// end datetime to be analyzed in YYYYMMDD-hhmmss format.
     #[argh(option)]
     end: Option<String>,
+
+    /// model filter (case insensitive)
+    #[argh(option)]
+    model: Option<String>,
 }
 impl ArgsAnalyze {
     fn run(&self) -> Result<()> {
@@ -126,7 +132,7 @@ impl ArgsAnalyze {
             let t = TastAnalyzerInputJson::from_results(&v)?;
             let name = k.replace('/', "_").to_string();
             save_result_metadata_json(&v, Some(&name))?;
-            t.save(Path::new(&name).with_extension("json").as_path())?;
+            t.save(Path::new("out").join(name).with_extension("json").as_path())?;
         }
         info!("To compare the results statistically, run:");
         info!(
