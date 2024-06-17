@@ -8,6 +8,7 @@ use std::path::Path;
 
 use anyhow::Result;
 use argh::FromArgs;
+use cro3::chroot::Chroot;
 use cro3::config::Config;
 use cro3::dut::SshInfo;
 use cro3::repo::get_cros_dir;
@@ -37,6 +38,7 @@ pub struct Args {
 #[argh(subcommand)]
 enum SubCommand {
     Analyze(ArgsAnalyze),
+    Build(ArgsBuild),
     List(ArgsList),
     Run(ArgsRun),
 }
@@ -44,6 +46,7 @@ enum SubCommand {
 pub fn run(args: &Args) -> Result<()> {
     match &args.nested {
         SubCommand::Analyze(args) => args.run(),
+        SubCommand::Build(args) => args.run(),
         SubCommand::List(args) => run_tast_list(args),
         SubCommand::Run(args) => args.run(),
     }
@@ -145,6 +148,60 @@ impl ArgsAnalyze {
              TAST_ANALYZER"
         );
         save_result_metadata_json(&results, None)?;
+        Ok(())
+    }
+}
+
+#[derive(FromArgs, PartialEq, Debug)]
+/// Generate a portable tast execution package
+#[argh(subcommand, name = "build")]
+pub struct ArgsBuild {
+    /// cros source dir
+    #[argh(option)]
+    cros: Option<String>,
+}
+impl ArgsBuild {
+    fn run(&self) -> Result<()> {
+        let cros = get_cros_dir(self.cros.as_deref())?;
+        let chroot = Chroot::new(&cros)?;
+        chroot.run_bash_script_in_chroot(
+            "generate_tast_archive",
+            r#"
+# First, emerge the required packages.
+cros-workon --host start tast-remote-tests-cros tast-tests-remote-data
+sudo emerge tast-remote-tests-cros tast-tests-remote-data
+
+# If the checkout has private repos as well, build the crosint bundle as well.
+if [ -d ~/chromiumos/src/platform/tast-tests-private ] ; then
+  cros-workon --host start tast-remote-tests-crosint
+  sudo emerge tast-remote-tests-crosint
+fi
+
+# Copy all the files to a dir which is visible from the outside of chroot.
+TASTPACK_PATH_COMMON="tmp/tastpack_`date +%Y%m%d_%H%M%S_%N`"
+: "${EXTERNAL_TRUNK_PATH:=/path/to/chromiumos}"
+TASTPACK_PATH_INSIDE="/${TASTPACK_PATH_COMMON}"
+TASTPACK_PATH_OUTSIDE="${EXTERNAL_TRUNK_PATH}/out/${TASTPACK_PATH_COMMON}"
+echo "Copying the files into ${TASTPACK_PATH_INSIDE}"
+mkdir -p ${TASTPACK_PATH_INSIDE}
+cp -r \
+  /usr/bin/remote_test_runner \
+  /usr/bin/tast \
+  /usr/libexec/tast/bundles \
+  /usr/share/tast/data \
+  ~/chromiumos/src/platform/tast/tools/run_tast.sh \
+  ${TASTPACK_PATH_INSIDE}
+
+echo "Done! You can find the tastpack artifact at in the chroot:"
+echo "${TASTPACK_PATH_INSIDE}"
+echo "...or, the same thing is visible from the host at:"
+echo "${TASTPACK_PATH_OUTSIDE}"
+echo ""
+echo "Move into the dir and run something like this to run Tast tests:"
+echo "./run_tast.sh \${DUT} meta.RemotePass"
+"#,
+            None,
+        )?;
         Ok(())
     }
 }
