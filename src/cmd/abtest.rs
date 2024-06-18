@@ -413,17 +413,56 @@ impl ArgsAnalyze {
                 for info in info_set {
                     println!("  {}", info.serial_number);
                     println!("    {}", info.cpu_product_name);
-                    println!("    {}", info.cpu_bugs);
+                    println!("    {:?}", info.cpu_bugs);
                 }
-            } else {
-                for (hwid, info_set) in hwid_and_info_map {
-                    println!("{hwid}");
-                    for info in info_set {
-                        println!("  {}", info.serial_number);
-                        println!("    {}", info.cpu_product_name);
-                        println!("    {}", info.cpu_bugs);
-                    }
+                return Ok(());
+            }
+            let mut vuln_keywords = HashSet::new();
+            for (hwid, info_set) in &hwid_and_info_map {
+                println!("{hwid}");
+                for info in info_set {
+                    println!("  {}", info.serial_number);
+                    println!("    {}", info.cpu_product_name);
+                    println!("    {:?}", info.cpu_bugs);
+                    vuln_keywords.extend(info.cpu_bugs.iter().cloned());
                 }
+            }
+            let mut vuln_keywords: Vec<String> = vuln_keywords.iter().cloned().collect();
+            vuln_keywords.sort();
+            // vuln matrix
+            let vuln_entries: Vec<Vec<(String, String, String, Vec<String>)>> = hwid_and_info_map
+                .iter()
+                .map(|e| {
+                    e.1.iter()
+                        .map(|info| {
+                            (
+                                e.0.clone(),
+                                info.cpu_product_name.clone(),
+                                info.serial_number.clone(),
+                                info.cpu_bugs.clone(),
+                            )
+                        })
+                        .collect()
+                })
+                .collect();
+            let mut vuln_entries: Vec<&(String, String, String, Vec<String>)> =
+                vuln_entries.iter().flatten().collect();
+            vuln_entries.sort();
+            println!("hwid, cpu, serial, {}", vuln_keywords.join(", "));
+            for e in vuln_entries {
+                let vuln_affected: HashSet<&String> = HashSet::from_iter(e.3.iter());
+                let vuln_status = vuln_keywords
+                    .iter()
+                    .map(|e| {
+                        if vuln_affected.contains(e) {
+                            "affected"
+                        } else {
+                            "not affected"
+                        }
+                    })
+                    .collect::<Vec<&str>>()
+                    .join(", ");
+                println!("{}, {}, {}, {}", e.0, e.1, e.2, vuln_status);
             }
         }
         Ok(())
@@ -643,7 +682,7 @@ struct HardwareInfo {
     hwid: String,
     serial_number: String,
     cpu_product_name: String,
-    cpu_bugs: String,
+    cpu_bugs: Vec<String>,
 }
 impl HardwareInfo {
     pub fn parse(path: &Path, test_name: &str) -> Result<Self> {
@@ -651,8 +690,11 @@ impl HardwareInfo {
         let serial_number = BluebenchMetadata::parse_serial_number(path, test_name)?;
         let cpu_product_name =
             BluebenchMetadata::parse_cpu_product_name(path, test_name).unwrap_or("N/A".to_string());
-        let cpu_bugs =
-            BluebenchMetadata::parse_cpu_bugs(path, test_name).unwrap_or("N/A".to_string());
+        let cpu_bugs = BluebenchMetadata::parse_cpu_bugs(path, test_name);
+        let mut cpu_bugs: Vec<String> = cpu_bugs
+            .map(|s| s.trim().split(" ").map(|e| e.to_string()).collect())
+            .unwrap_or_default();
+        cpu_bugs.sort();
         Ok(Self {
             hwid,
             serial_number,
