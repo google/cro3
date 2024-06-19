@@ -119,7 +119,10 @@ impl ExperimentRunner {
             fs::create_dir_all(&result_dir).context("Failed to create the result dir")?;
             let mut file = fs::File::create(&result_dir.join("cro3_abtest_run_metadata.json"))?;
             write!(file, "{}", serde_json::to_string(&run_metadata)?)?;
+            let mut retry_count = 0;
             retry::retry(retry::delay::Fixed::from_millis(500).take(3), || {
+                info!("retry_count: {retry_count}");
+                retry_count += 1;
                 run_tast_test(
                     &self.ssh,
                     &self.tast,

@@ -94,11 +94,29 @@ impl ArgsAnalyze {
             .filter(|e| e.invocation.abtest_metadata().is_some())
             .collect();
         info!("{} tests have valid cro3 abtest metadata", results.len());
+
+        let mut experiments: Vec<&str> = results
+            .iter()
+            .map(|e| {
+                e.invocation
+                    .abtest_metadata
+                    .as_ref()
+                    .map(|e| e.runner.experiment_name.as_str())
+                    .unwrap_or_default()
+            })
+            .collect();
+        experiments.sort();
+        experiments.dedup();
+        eprintln!("Experiments:");
+        for e in experiments {
+            eprintln!("{e}")
+        }
+
         let results: Vec<&TastResultMetadata> = results
             .iter()
             .filter(|e| e.invocation.bluebench_result.is_some())
             .collect();
-        info!("{} tests have valid cro3 abtest metadata", results.len());
+        info!("{} tests have valid bluebench metadata", results.len());
 
         if let Some(result) = results.first() {
             info!("Sample (first): {result:#?}");
