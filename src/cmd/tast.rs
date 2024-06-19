@@ -170,9 +170,8 @@ impl ArgsAnalyze {
             })
             .collect();
 
-        info!("Valid results:");
         for (k, (a, b)) in bucket {
-            info!("{k:60}: (A, B) = ({}, {})", a.len(), b.len());
+            println!("{k:60}: (A, B) = ({}, {})", a.len(), b.len());
             for (v, cfg) in [(&a, ExperimentConfig::A), (&b, ExperimentConfig::B)] {
                 let mut mitigations: Vec<String> = v
                     .iter()
@@ -194,7 +193,7 @@ impl ArgsAnalyze {
                          {mitigations:?}"
                     );
                 } else {
-                    info!(
+                    println!(
                         "{:?}: {}",
                         cfg,
                         mitigations.first().map(|s| s.as_str().trim()).unwrap_or("")
