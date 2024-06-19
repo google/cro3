@@ -28,12 +28,12 @@ use futures::stream;
 use futures::StreamExt;
 use glob::Pattern;
 use once_cell::sync::Lazy;
+use rayon::prelude::*;
 use regex::Regex;
 use serde::Deserialize;
 use serde::Serialize;
 use tracing::info;
 use tracing::warn;
-use rayon::prelude::*;
 
 use crate::abtest::ExperimentRunMetadata;
 use crate::bluebench::BluebenchResult;
@@ -563,7 +563,7 @@ pub fn save_result_metadata_json(
         "parsed_results.json".to_string()
     };
     let path = Path::new("out").join(path);
-    let mut f = std::fs::File::create(&path)?;
+    let mut f = std::fs::File::create(path)?;
     f.write_all(&serde_json::to_string(&results)?.into_bytes())?;
     Ok(())
 }

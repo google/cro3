@@ -112,7 +112,7 @@ impl ExperimentRunner {
                 runner: (*self).clone(),
                 iteration,
                 cluster,
-                config: config.clone(),
+                config,
                 group,
                 run: i,
             };

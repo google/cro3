@@ -149,12 +149,12 @@ impl ArgsAnalyze {
             }
         }
         let mut bucket: Vec<((String, ExperimentConfig), Vec<&TastResultMetadata>)> =
-            Vec::from_iter(bucket.into_iter());
+            Vec::from_iter(bucket);
         bucket.sort_by(|l, r| l.0.cmp(&r.0));
         for (k, v) in bucket {
             info!("{k:?}: {}", v.len());
             let t = TastAnalyzerInputJson::from_results(&v)?;
-            let name = format!("{}_{}", k.0.replace('/', "_").to_string(), k.1.to_string());
+            let name = format!("{}_{}", k.0.replace('/', "_"), k.1);
             save_result_metadata_json(&v, Some(&name))?;
             t.save(Path::new("out").join(name).with_extension("json").as_path())?;
         }
