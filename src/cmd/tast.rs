@@ -53,6 +53,8 @@ pub fn run(args: &Args) -> Result<()> {
     }
 }
 
+type ExperimentResultSet<'a> = (Vec<&'a TastResultMetadata>, Vec<&'a TastResultMetadata>);
+
 #[derive(FromArgs, PartialEq, Debug)]
 /// Analyze tast results
 /// # List results
@@ -114,7 +116,7 @@ impl ArgsAnalyze {
         experiments.sort();
         experiments.dedup();
         eprintln!("Experiments:");
-        for e in experiments {
+        for e in &experiments {
             eprintln!("{e}")
         }
 
@@ -133,7 +135,7 @@ impl ArgsAnalyze {
             }
         }
 
-        let mut bucket = HashMap::<(String, ExperimentConfig), Vec<&TastResultMetadata>>::new();
+        let mut bucket = HashMap::<String, ExperimentResultSet>::new();
         for e in results.iter() {
             if let Some(abtest_metadata) = e.invocation.abtest_metadata() {
                 let key = format!(
@@ -141,22 +143,42 @@ impl ArgsAnalyze {
                     abtest_metadata.runner.experiment_name,
                     e.invocation.model().unwrap_or("UNKNOWN_MODEL")
                 );
-                let key = (key, abtest_metadata.config);
                 if !bucket.contains_key(&key) {
-                    bucket.insert(key.clone(), Vec::new());
+                    bucket.insert(key.clone(), (Vec::new(), Vec::new()));
                 }
-                bucket.get_mut(&key).unwrap().push(e);
+                match abtest_metadata.config {
+                    ExperimentConfig::A => bucket.get_mut(&key).unwrap().0.push(e),
+                    ExperimentConfig::B => bucket.get_mut(&key).unwrap().1.push(e),
+                }
             }
         }
-        let mut bucket: Vec<((String, ExperimentConfig), Vec<&TastResultMetadata>)> =
-            Vec::from_iter(bucket);
+        let mut bucket: Vec<(String, ExperimentResultSet)> = Vec::from_iter(bucket);
         bucket.sort_by(|l, r| l.0.cmp(&r.0));
-        for (k, v) in bucket {
-            info!("{k:?}: {}", v.len());
-            let t = TastAnalyzerInputJson::from_results(&v)?;
-            let name = format!("{}_{}", k.0.replace('/', "_"), k.1);
-            save_result_metadata_json(&v, Some(&name))?;
-            t.save(Path::new("out").join(name).with_extension("json").as_path())?;
+        let bucket: Vec<(String, ExperimentResultSet)> = bucket
+            .into_iter()
+            .filter(|(k, (a, b))| {
+                if a.len() * b.len() > 0 {
+                    true
+                } else {
+                    warn!(
+                        "Missing results from one arm: {k:60?}: (A, B) = ({}, {})",
+                        a.len(),
+                        b.len()
+                    );
+                    false
+                }
+            })
+            .collect();
+
+        info!("Valid results:");
+        for (k, (a, b)) in bucket {
+            info!("{k:60}: (A, B) = ({}, {})", a.len(), b.len());
+            for (v, cfg) in [(&a, ExperimentConfig::A), (&b, ExperimentConfig::B)] {
+                let t = TastAnalyzerInputJson::from_results(&v)?;
+                let name = format!("{}_{}", k.replace('/', "_"), cfg);
+                save_result_metadata_json(&v, Some(&name))?;
+                t.save(Path::new("out").join(name).with_extension("json").as_path())?;
+            }
         }
         info!("To compare the results statistically, run:");
         info!(
@@ -168,6 +190,7 @@ impl ArgsAnalyze {
             "and please specify the absolute path of tools/tast-analyzer/ in the repo above as \
              TAST_ANALYZER"
         );
+        let results: Vec<&TastResultMetadata> = results.into_iter().map(|e| e).collect();
         save_result_metadata_json(&results, None)?;
         Ok(())
     }
