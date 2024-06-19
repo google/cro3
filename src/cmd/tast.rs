@@ -14,7 +14,6 @@ use cro3::dut::SshInfo;
 use cro3::repo::get_cros_dir;
 use cro3::tast::collect_results;
 use cro3::tast::print_cached_tests;
-use cro3::tast::results_passed;
 use cro3::tast::run_tast_test;
 use cro3::tast::save_result_metadata_json;
 use cro3::tast::update_cached_tests;
@@ -89,23 +88,10 @@ impl ArgsAnalyze {
             self.start.as_deref(),
             self.end.as_deref(),
         )?;
-        let results = results_passed(&results)?;
-        let results: Vec<TastResultMetadata> = results
-            .iter()
-            .flat_map(|p| {
-                let e = TastResultMetadata::from_path(p);
-                if e.is_err() {
-                    warn!("{p:?}: {e:?}");
-                }
-                eprint!(".");
-                e
-            })
-            .collect();
-        eprintln!();
         info!("{} tests have valid generic Tast metadata", results.len());
         let results: Vec<&TastResultMetadata> = results
             .iter()
-            .filter(|e| e.abtest_metadata().is_some())
+            .filter(|e| e.invocation.abtest_metadata().is_some())
             .collect();
         info!("{} tests have valid cro3 abtest metadata", results.len());
 
@@ -117,12 +103,12 @@ impl ArgsAnalyze {
         }
         let mut bucket = HashMap::<String, Vec<&TastResultMetadata>>::new();
         for e in results.iter() {
-            if let Some(abtest_metadata) = e.abtest_metadata() {
+            if let Some(abtest_metadata) = e.invocation.abtest_metadata() {
                 let key = format!(
                     "{}/{}/{}",
                     abtest_metadata.runner.experiment_name,
                     abtest_metadata.config,
-                    e.model().unwrap_or("UNKNOWN_MODEL")
+                    e.invocation.model().unwrap_or("UNKNOWN_MODEL")
                 );
                 if !bucket.contains_key(&key) {
                     bucket.insert(key.clone(), Vec::new());

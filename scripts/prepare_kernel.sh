@@ -41,11 +41,11 @@ function change_ro_to_rw() {
 }
 function change_mitigations_auto() {
   # https://www.kernel.org/doc/html/latest/admin-guide/kernel-parameters.html?highlight=kernel%20parameters#:~:text=2.6/mini2440.git-,mitigations,-%3D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%5BX86%2CPPC%2CS390
-  sed -E -e 's/( mitigations=[a-z,]+)|$/ mitigations=auto/'
+  sed -E -e 's/( mitigations=.*$)|$/ mitigations=auto nopti kpti=0/'
 }
 function change_mitigations_off() {
   # https://www.kernel.org/doc/html/latest/admin-guide/kernel-parameters.html?highlight=kernel%20parameters#:~:text=2.6/mini2440.git-,mitigations,-%3D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%5BX86%2CPPC%2CS390
-  sed -E -e 's/( mitigations=[a-z,]+)|$/ mitigations=off/'
+  sed -E -e 's/( mitigations=.*$)|$/ mitigations=off/'
 }
 function set_cros_debug() {
   sed -E -e 's/( cros_debug)|$/ cros_debug/'

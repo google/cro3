@@ -34,7 +34,7 @@ impl Display for ExperimentConfig {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ExperimentRunMetadata {
     pub runner: ExperimentRunner,
     iteration: usize,

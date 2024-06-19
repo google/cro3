@@ -45,6 +45,7 @@ use cro3::chroot::Chroot;
 use cro3::dut::SshInfo;
 use cro3::repo::get_cros_dir;
 use cro3::tast;
+use cro3::tast::TastResultMetadata;
 use cro3::tast::TastTestExecutionType;
 use lazy_static::lazy_static;
 use rayon::prelude::*;
@@ -343,29 +344,17 @@ impl ArgsAnalyze {
     }
     fn analyze_all(
         &self,
-        results: Vec<PathBuf>,
-        test_name: &str,
+        results: Vec<TastResultMetadata>,
         hwid: Option<&str>,
         serial: Option<&str>,
     ) -> Vec<BluebenchResult> {
         results
             .par_iter()
-            .flat_map(|e| self.analyze_one_result(e, test_name, hwid, serial))
+            .flat_map(|e| {
+                self.analyze_one_result(&e.invocation.path, &e.result_json_item.name, hwid, serial)
+            })
             .collect()
     }
-    fn analyze_latest_succesfull(
-        &self,
-        results: Vec<PathBuf>,
-        test_name: &str,
-    ) -> Vec<BluebenchResult> {
-        results
-            .iter()
-            .rev()
-            .flat_map(|e| self.analyze_one_result(e, test_name, None, None))
-            .take(5)
-            .collect()
-    }
-
     fn generate_result_files(&self, test_name: &str) -> Result<()> {
         let results = tast::collect_results(
             self.cros.as_deref(),
@@ -373,20 +362,8 @@ impl ArgsAnalyze {
             self.start.as_deref(),
             self.end.as_deref(),
         )?;
-        if self.test {
-            let results = self.analyze_latest_succesfull(results, test_name);
-            for result in &results {
-                dump_result(result)?;
-            }
-        } else {
-            let results = self.analyze_all(
-                results,
-                test_name,
-                self.hwid.as_deref(),
-                self.serial.as_deref(),
-            );
-            self.write_results(results, test_name)?;
-        }
+        let results = self.analyze_all(results, self.hwid.as_deref(), self.serial.as_deref());
+        self.write_results(results, test_name)?;
         Ok(())
     }
     fn run(&self) -> Result<()> {
@@ -402,11 +379,7 @@ impl ArgsAnalyze {
             listen_http(self.port)?;
         }
         if self.list_duts {
-            let test_name = self
-                .test_name
-                .as_ref()
-                .context("--test-name should be specified")?;
-            let hwid_and_info_map = hwid_and_info_map(self, test_name)?;
+            let hwid_and_info_map = hwid_and_info_map(self)?;
             if let Some(hwid) = &self.hwid {
                 let info_set = &hwid_and_info_map[hwid];
                 println!("{hwid}");
@@ -417,53 +390,15 @@ impl ArgsAnalyze {
                 }
                 return Ok(());
             }
-            let mut vuln_keywords = HashSet::new();
             for (hwid, info_set) in &hwid_and_info_map {
                 println!("{hwid}");
                 for info in info_set {
                     println!("  {}", info.serial_number);
                     println!("    {}", info.cpu_product_name);
                     println!("    {:?}", info.cpu_bugs);
-                    vuln_keywords.extend(info.cpu_bugs.iter().cloned());
                 }
             }
-            let mut vuln_keywords: Vec<String> = vuln_keywords.iter().cloned().collect();
-            vuln_keywords.sort();
-            // vuln matrix
-            let vuln_entries: Vec<Vec<(String, String, String, Vec<String>)>> = hwid_and_info_map
-                .iter()
-                .map(|e| {
-                    e.1.iter()
-                        .map(|info| {
-                            (
-                                e.0.clone(),
-                                info.cpu_product_name.clone(),
-                                info.serial_number.clone(),
-                                info.cpu_bugs.clone(),
-                            )
-                        })
-                        .collect()
-                })
-                .collect();
-            let mut vuln_entries: Vec<&(String, String, String, Vec<String>)> =
-                vuln_entries.iter().flatten().collect();
-            vuln_entries.sort();
-            println!("hwid, cpu, serial, {}", vuln_keywords.join(", "));
-            for e in vuln_entries {
-                let vuln_affected: HashSet<&String> = HashSet::from_iter(e.3.iter());
-                let vuln_status = vuln_keywords
-                    .iter()
-                    .map(|e| {
-                        if vuln_affected.contains(e) {
-                            "affected"
-                        } else {
-                            "not affected"
-                        }
-                    })
-                    .collect::<Vec<&str>>()
-                    .join(", ");
-                println!("{}, {}, {}, {}", e.0, e.1, e.2, vuln_status);
-            }
+            print_vuln_matrix(&hwid_and_info_map)?;
         }
         Ok(())
     }
@@ -672,11 +607,6 @@ fn result_key_order(results: &[BluebenchResult]) -> HashMap<String, usize> {
     result_key_order
 }
 
-fn dump_result(result: &BluebenchResult) -> Result<()> {
-    info!("{:?} {:?}", result.metadata, result.converged_mean_mean);
-    Ok(())
-}
-
 #[derive(PartialEq, Eq, Debug, Hash, PartialOrd, Ord)]
 struct HardwareInfo {
     hwid: String,
@@ -692,7 +622,7 @@ impl HardwareInfo {
             BluebenchMetadata::parse_cpu_product_name(path, test_name).unwrap_or("N/A".to_string());
         let cpu_bugs = BluebenchMetadata::parse_cpu_bugs(path, test_name);
         let mut cpu_bugs: Vec<String> = cpu_bugs
-            .map(|s| s.trim().split(" ").map(|e| e.to_string()).collect())
+            .map(|s| s.trim().split(' ').map(|e| e.to_string()).collect())
             .unwrap_or_default();
         cpu_bugs.sort();
         Ok(Self {
@@ -704,10 +634,66 @@ impl HardwareInfo {
     }
 }
 
-fn hwid_and_info_map(
-    args: &ArgsAnalyze,
-    test_name: &str,
-) -> Result<HashMap<String, HashSet<HardwareInfo>>> {
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
+struct VulnHeaderCoulumns {
+    hwid: String,
+    cpu_product_name: String,
+    serial_number: String,
+}
+
+fn print_vuln_matrix(hwid_and_info_map: &HashMap<String, HashSet<HardwareInfo>>) -> Result<()> {
+    let mut vuln_keywords = HashSet::new();
+    for info_set in hwid_and_info_map.values() {
+        for info in info_set {
+            vuln_keywords.extend(info.cpu_bugs.iter().cloned());
+        }
+    }
+    let mut vuln_keywords: Vec<String> = vuln_keywords.iter().cloned().collect();
+    vuln_keywords.sort();
+    // vuln matrix
+    let vuln_entries: Vec<Vec<(VulnHeaderCoulumns, Vec<String>)>> = hwid_and_info_map
+        .iter()
+        .map(|e| {
+            e.1.iter()
+                .map(|info| {
+                    (
+                        VulnHeaderCoulumns {
+                            hwid: e.0.clone(),
+                            serial_number: info.cpu_product_name.clone(),
+                            cpu_product_name: info.serial_number.clone(),
+                        },
+                        info.cpu_bugs.clone(),
+                    )
+                })
+                .collect()
+        })
+        .collect();
+    let mut vuln_entries: Vec<&(VulnHeaderCoulumns, Vec<String>)> =
+        vuln_entries.iter().flatten().collect();
+    vuln_entries.sort();
+    println!("hwid, cpu, serial, {}", vuln_keywords.join(", "));
+    for e in vuln_entries {
+        let vuln_affected: HashSet<&String> = HashSet::from_iter(e.1.iter());
+        let vuln_status = vuln_keywords
+            .iter()
+            .map(|e| {
+                if vuln_affected.contains(e) {
+                    "affected"
+                } else {
+                    "not affected"
+                }
+            })
+            .collect::<Vec<&str>>()
+            .join(", ");
+        println!(
+            "{}, {}, {}, {}",
+            e.0.hwid, e.0.serial_number, e.0.cpu_product_name, vuln_status
+        );
+    }
+    Ok(())
+}
+
+fn hwid_and_info_map(args: &ArgsAnalyze) -> Result<HashMap<String, HashSet<HardwareInfo>>> {
     let results = tast::collect_results(
         args.cros.as_deref(),
         args.results_dir.as_deref(),
@@ -717,7 +703,7 @@ fn hwid_and_info_map(
     let mut list: Vec<(String, HardwareInfo)> = results
         .par_iter()
         .map(|e| {
-            let info = HardwareInfo::parse(e, test_name);
+            let info = HardwareInfo::parse(&e.invocation.path, &e.result_json_item.name);
             info.map(|info| (info.hwid.clone(), info)).or(Err(()))
         })
         .flatten()

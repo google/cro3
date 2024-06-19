@@ -24,7 +24,6 @@ use futures::stream;
 use futures::StreamExt;
 use glob::Pattern;
 use once_cell::sync::Lazy;
-use rayon::prelude::*;
 use regex::Regex;
 use serde::Deserialize;
 use serde::Serialize;
@@ -247,7 +246,7 @@ pub fn collect_results(
     results_dir: Option<&str>,
     start: Option<&str>,
     end: Option<&str>,
-) -> Result<Vec<PathBuf>> {
+) -> Result<Vec<TastResultMetadata>> {
     let results_dir = match (&cros, &results_dir) {
         (Some(cros), None) => {
             let cros = Path::new(cros);
@@ -289,21 +288,44 @@ pub fn collect_results(
         .cloned()
         .collect();
     info!("{} test invocations in the specified range", results.len());
-
+    let results: Vec<TastResultMetadata> = results
+        .iter()
+        .flat_map(|p| -> Result<Vec<TastResultMetadata>, ()> {
+            let invocation = TastInvocationMetadata::from_path(p).map_err(|e| {
+                warn!("{p:?}: {e:?}");
+            })?;
+            let results_json = results_json_from_path(p).map_err(|e| {
+                warn!("{p:?}: {e:?}");
+            })?;
+            eprint!(".");
+            let results: Vec<TastResultMetadata> = results_json
+                .1
+                .iter()
+                .map(|result_json_item| TastResultMetadata {
+                    invocation: invocation.clone(),
+                    result_json_item: result_json_item.clone(),
+                })
+                .collect();
+            Ok(results)
+        })
+        .flatten()
+        .collect();
+    eprintln!();
+    info!("{} test invocations are succeeded", results.len());
     Ok(results)
 }
 
 /// Subset of /tmp/tast/results/*/results.json
 type TastResultJson = Vec<TastResultsJsonItem>;
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 struct TastResultsJsonError {
     time: String,
     reason: String,
 }
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TastResultsJsonItem {
-    name: String,
-    errors: Option<Vec<String>>,
+    pub name: String,
+    pub errors: Option<Vec<String>>,
 }
 
 pub fn results_json_from_path(path: &Path) -> Result<(PathBuf, TastResultJson)> {
@@ -318,25 +340,6 @@ pub fn test_names_from_path(path: &Path) -> Result<Vec<(PathBuf, String)>> {
     let e = results_json_from_path(path)?;
     let (path, e) = &e;
     Ok(e.iter().map(|e| (path.clone(), e.name.clone())).collect())
-}
-
-pub fn results_passed(results: &[PathBuf]) -> Result<Vec<PathBuf>> {
-    let results: Vec<PathBuf> = results
-        .iter()
-        .flat_map(|f| results_json_from_path(f))
-        .filter_map(|(f, results_json)| -> Option<PathBuf> {
-            if results_json.par_iter().all(|e| e.errors.is_none()) {
-                eprint!(".");
-                Some(f)
-            } else {
-                eprint!("x");
-                None
-            }
-        })
-        .collect();
-    eprintln!();
-    info!("{} test invocations are succeeded", results.len());
-    Ok(results)
 }
 
 pub fn experiments_in_results(results: &[PathBuf]) -> Result<HashMap<String, Vec<PathBuf>>> {
@@ -377,7 +380,7 @@ pub fn models_in_results(results: &[PathBuf]) -> Result<HashMap<String, Vec<Path
         .flat_map(|e| -> Result<(PathBuf, String)> {
             Ok((
                 e.clone(),
-                TastResultMetadata::from_path(e)?
+                TastInvocationMetadata::from_path(e)?
                     .model()
                     .context("No model populated")?
                     .to_string(),
@@ -396,7 +399,9 @@ pub fn os_release_in_results(results: &[PathBuf]) -> Result<HashMap<String, Vec<
         .flat_map(|e| -> Result<(PathBuf, String)> {
             Ok((
                 e.clone(),
-                TastResultMetadata::from_path(e)?.os_release().to_string(),
+                TastInvocationMetadata::from_path(e)?
+                    .os_release()
+                    .to_string(),
             ))
         })
         .collect();
@@ -414,7 +419,7 @@ pub fn kernel_cmdline_masked_in_results(
         .flat_map(|e| -> Result<(PathBuf, String)> {
             Ok((
                 e.clone(),
-                TastResultMetadata::from_path(e)?
+                TastInvocationMetadata::from_path(e)?
                     .kernel_cmdline_masked()
                     .to_string(),
             ))
@@ -430,15 +435,21 @@ pub fn kernel_cmdline_masked_in_results(
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TastResultMetadata {
-    path: PathBuf,
-    os_release: String,
-    model: Option<String>,
-    kernel_cmdline: String,
-    kernel_cmdline_masked: String,
-    abtest_metadata: Option<ExperimentRunMetadata>,
-    bluebench_result: Option<BluebenchResult>,
+    pub invocation: TastInvocationMetadata,
+    pub result_json_item: TastResultsJsonItem,
 }
-impl TastResultMetadata {
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct TastInvocationMetadata {
+    pub path: PathBuf,
+    pub os_release: String,
+    pub model: Option<String>,
+    pub kernel_cmdline: String,
+    pub kernel_cmdline_masked: String,
+    pub abtest_metadata: Option<ExperimentRunMetadata>,
+    pub bluebench_result: Option<BluebenchResult>,
+}
+impl TastInvocationMetadata {
     fn probe_os_release(path: &Path) -> Result<String> {
         let path = path.join("system_logs").join("lsb-release");
         let s = std::fs::read_to_string(&path).context(anyhow!("Failed to read {path:?}"))?;
@@ -537,7 +548,10 @@ impl TastResultMetadata {
     }
 }
 
-pub fn save_result_metadata_json(results: &[&TastResultMetadata], prefix: Option<&str>) -> Result<()> {
+pub fn save_result_metadata_json(
+    results: &[&TastResultMetadata],
+    prefix: Option<&str>,
+) -> Result<()> {
     let path = if let Some(prefix) = prefix {
         format!("{prefix}_parsed_results.json")
     } else {
@@ -579,11 +593,13 @@ impl TastAnalyzerInputJson {
         let mut data = Self::default();
         for r in results {
             let abtest_metadata = r
+                .invocation
                 .abtest_metadata
                 .as_ref()
                 .context("abtest_metadata should be populated")?;
             let tast_test = &abtest_metadata.runner.tast_test;
             let r = r
+                .invocation
                 .bluebench_result
                 .as_ref()
                 .context("bluebench_result is empty")?;

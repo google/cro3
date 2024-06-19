@@ -318,8 +318,14 @@ lazy_static! {
         let mut m: HashMap<&'static str, DutAction> = HashMap::new();
         m.insert("wait_online", Box::new(do_wait_online));
         m.insert("reboot", Box::new(do_reboot));
-        m.insert("switch_to_boot_from_kernel_a", Box::new(switch_to_boot_from_kernel_a));
-        m.insert("switch_to_boot_from_kernel_b", Box::new(switch_to_boot_from_kernel_b));
+        m.insert(
+            "switch_to_boot_from_kernel_a",
+            Box::new(switch_to_boot_from_kernel_a),
+        );
+        m.insert(
+            "switch_to_boot_from_kernel_b",
+            Box::new(switch_to_boot_from_kernel_b),
+        );
         m.insert("login", Box::new(do_login));
         m.insert("tail_messages", Box::new(do_tail_messages));
         m

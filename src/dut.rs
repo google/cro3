@@ -824,8 +824,10 @@ impl SshInfo {
     pub fn get_kernel_partitions(&self) -> Result<Vec<String>> {
         // e.g. []
         let rootdisk = self.get_rootdisk_dev()?;
-        let output = self.run_cmd_stdio(&format!("fdisk -l /dev/{rootdisk} | grep /dev/{rootdisk} | grep kernel | cut -d ' ' -f 1"))?;
-        Ok(output.trim().split("\n").map(|s| s.to_string()).collect())
+        let output = self.run_cmd_stdio(&format!(
+            "fdisk -l /dev/{rootdisk} | grep /dev/{rootdisk} | grep kernel | cut -d ' ' -f 1"
+        ))?;
+        Ok(output.trim().split('\n').map(|s| s.to_string()).collect())
     }
     pub fn get_partnum_info(&self) -> Result<HashMap<String, String>> {
         let cmd_str = "source /usr/sbin/write_gpt.sh; load_base_vars;

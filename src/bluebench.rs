@@ -18,7 +18,7 @@ use regex::Regex;
 use serde::Deserialize;
 use serde::Serialize;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BluebenchCycleResult {
     pub date: String,
     pub iter_index: usize,
@@ -34,7 +34,7 @@ lazy_static! {
     static ref RE_CSV_PATH: Regex = Regex::new(r"^/[A-Za-z0-9_.]+.csv$").unwrap();
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BluebenchMetadata {
     pub path: String,
     pub key: String,
@@ -234,7 +234,7 @@ impl BluebenchMetadata {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct BluebenchResult {
     pub metadata: BluebenchMetadata,
     pub last_result_date: String,
