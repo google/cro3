@@ -174,6 +174,32 @@ impl ArgsAnalyze {
         for (k, (a, b)) in bucket {
             info!("{k:60}: (A, B) = ({}, {})", a.len(), b.len());
             for (v, cfg) in [(&a, ExperimentConfig::A), (&b, ExperimentConfig::B)] {
+                let mut mitigations: Vec<String> = v
+                    .iter()
+                    .map(|e| {
+                        e.invocation
+                            .bluebench_result
+                            .as_ref()
+                            .unwrap()
+                            .metadata
+                            .kernel_cmdline_mitigations
+                            .clone()
+                    })
+                    .collect();
+                mitigations.sort();
+                mitigations.dedup();
+                if mitigations.len() != 1 {
+                    warn!(
+                        "Multiple mitigations args found. Maybe the DUT setup is wrong. : \
+                         {mitigations:?}"
+                    );
+                } else {
+                    info!(
+                        "{:?}: {}",
+                        cfg,
+                        mitigations.first().map(|s| s.as_str().trim()).unwrap_or("")
+                    );
+                }
                 let t = TastAnalyzerInputJson::from_results(&v)?;
                 let name = format!("{}_{}", k.replace('/', "_"), cfg);
                 save_result_metadata_json(&v, Some(&name))?;

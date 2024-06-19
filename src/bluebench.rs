@@ -131,9 +131,9 @@ impl BluebenchMetadata {
         let s = fs::read_to_string(&path).context(anyhow!("Failed to read {path:?}"))?;
         let s = s
             .split(' ')
-            .find(|s| s.contains("mitigations="))
-            .unwrap_or("")
-            .trim();
+            .skip_while(|s| !s.contains("mitigations="))
+            .collect::<Vec<&str>>()
+            .join(" ");
         Ok(s.to_string())
     }
     pub fn parse_temp_log_line(s: &str) -> Result<(String, HashMap<String, f64>)> {
