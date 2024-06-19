@@ -12,8 +12,9 @@ Usage: cro3 [options]
 dummy cro3 for test
 
 Options:
-  --help show help
-  --dut  show dut list
+  -d, --dummy       dummy option
+  --help            show help
+  --dut             show dut list
 
 Commands:
   shibuya
@@ -36,6 +37,7 @@ Positional Arguments:
   tests             test name or pattern
 
 Options:
+  -d, --dummy       dummy option
   --help            display usage information
 EOF
   fi
@@ -56,6 +58,8 @@ test_complete
 echo "${COMPREPLY[@]}" | grep -wq "shibuya"
 echo "${COMPREPLY[@]}" | grep -wq "roppongi"
 echo "${COMPREPLY[@]}" | grep -wq "Commands" && exit 1
+echo "${COMPREPLY[@]}" | grep -wq -e "-d"
+echo "${COMPREPLY[@]}" | grep -wq -e "--dummy"
 
 COMP_CWORD=1
 COMP_WORDS=("cro3" "shi" "")
@@ -75,4 +79,7 @@ test_complete
 echo "${COMPREPLY[@]}" | grep -wq "dummy.Test.First"
 echo "${COMPREPLY[@]}" | grep -wq "dummy.Test.Second"
 echo "${COMPREPLY[@]}" | grep -wq "dummy.Third" && exit 1
+echo "${COMPREPLY[@]}" | grep -wq -e "-d"
+echo "${COMPREPLY[@]}" | grep -wq -e "--dummy"
+
 exit 0
