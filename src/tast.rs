@@ -317,15 +317,15 @@ pub fn collect_results(
 
 /// Subset of /tmp/tast/results/*/results.json
 type TastResultJson = Vec<TastResultsJsonItem>;
-#[derive(Serialize, Deserialize, Debug)]
-struct TastResultsJsonError {
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TastResultsJsonError {
     time: String,
     reason: String,
 }
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TastResultsJsonItem {
     pub name: String,
-    pub errors: Option<Vec<String>>,
+    pub errors: Option<Vec<TastResultsJsonError>>,
 }
 
 pub fn results_json_from_path(path: &Path) -> Result<(PathBuf, TastResultJson)> {
