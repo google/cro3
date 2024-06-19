@@ -6,3 +6,4 @@
 !docs/*/*.json
 plots/
 out/
+__pycache__
