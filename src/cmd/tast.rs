@@ -89,9 +89,14 @@ impl ArgsAnalyze {
             self.end.as_deref(),
         )?;
         info!("{} tests have valid generic Tast metadata", results.len());
+        let results: Vec<TastResultMetadata> = results
+            .into_iter()
+            .filter(|e| e.invocation.abtest_metadata().is_some())
+            .collect();
+        info!("{} tests have valid cro3 abtest metadata", results.len());
         let results: Vec<&TastResultMetadata> = results
             .iter()
-            .filter(|e| e.invocation.abtest_metadata().is_some())
+            .filter(|e| e.invocation.bluebench_result.is_some())
             .collect();
         info!("{} tests have valid cro3 abtest metadata", results.len());
 

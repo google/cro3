@@ -9,7 +9,7 @@ repository = "https://github.com/google/cro3"
 [dependencies]
 argh = "0.1.12"
 regex = "1"
-anyhow = "1.0.75"
+anyhow = { version = "1.0.75", features = ["backtrace"] }
 regex-macro = "0.2.0"
 dirs = "5.0"
 serde_json = {version = "1.0", features = ["preserve_order"]}

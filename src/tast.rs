@@ -4,6 +4,10 @@
 // license that can be found in the LICENSE file or at
 // https://developers.google.com/open-source/licenses/bsd
 
+/*
+cargo run --release -- abtest analyze --list-duts --results-dir /data/tast/results
+*/
+
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::ffi::OsStr;

@@ -57,7 +57,7 @@ fn main() -> ExitCode {
     }
 
     if let Err(e) = cmd::run(&args) {
-        error!("{e:#}");
+        error!("{e}");
         ExitCode::FAILURE
     } else {
         ExitCode::SUCCESS
