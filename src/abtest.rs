@@ -16,7 +16,7 @@ use crate::dut::SshInfo;
 use crate::tast::run_tast_test;
 use crate::tast::TastTestExecutionType;
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Copy)]
 pub enum ExperimentConfig {
     A,
     B,

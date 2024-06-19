@@ -8,6 +8,7 @@ use std::path::Path;
 
 use anyhow::Result;
 use argh::FromArgs;
+use cro3::abtest::ExperimentConfig;
 use cro3::chroot::Chroot;
 use cro3::config::Config;
 use cro3::dut::SshInfo;
@@ -22,6 +23,7 @@ use cro3::tast::TastResultMetadata;
 use cro3::tast::TastTestExecutionType;
 use glob::Pattern;
 use hashbrown::HashMap;
+use rayon::prelude::*;
 use tracing::info;
 use tracing::warn;
 
@@ -79,6 +81,10 @@ pub struct ArgsAnalyze {
     /// model filter (case insensitive)
     #[argh(option)]
     model: Option<String>,
+
+    /// show sampled result (for debugging)
+    #[argh(switch)]
+    sample: bool,
 }
 impl ArgsAnalyze {
     fn run(&self) -> Result<()> {
@@ -96,7 +102,7 @@ impl ArgsAnalyze {
         info!("{} tests have valid cro3 abtest metadata", results.len());
 
         let mut experiments: Vec<&str> = results
-            .iter()
+            .par_iter()
             .map(|e| {
                 e.invocation
                     .abtest_metadata
@@ -118,38 +124,44 @@ impl ArgsAnalyze {
             .collect();
         info!("{} tests have valid bluebench metadata", results.len());
 
-        if let Some(result) = results.first() {
-            info!("Sample (first): {result:#?}");
+        if self.sample {
+            if let Some(result) = results.first() {
+                info!("Sample (first): {result:#?}");
+            }
+            if let Some(result) = results.last() {
+                info!("Sample (last): {result:#?}");
+            }
         }
-        if let Some(result) = results.last() {
-            info!("Sample (last): {result:#?}");
-        }
-        let mut bucket = HashMap::<String, Vec<&TastResultMetadata>>::new();
+
+        let mut bucket = HashMap::<(String, ExperimentConfig), Vec<&TastResultMetadata>>::new();
         for e in results.iter() {
             if let Some(abtest_metadata) = e.invocation.abtest_metadata() {
                 let key = format!(
-                    "{}/{}/{}",
+                    "{}/{}",
                     abtest_metadata.runner.experiment_name,
-                    abtest_metadata.config,
                     e.invocation.model().unwrap_or("UNKNOWN_MODEL")
                 );
+                let key = (key, abtest_metadata.config);
                 if !bucket.contains_key(&key) {
                     bucket.insert(key.clone(), Vec::new());
                 }
                 bucket.get_mut(&key).unwrap().push(e);
             }
         }
+        let mut bucket: Vec<((String, ExperimentConfig), Vec<&TastResultMetadata>)> =
+            Vec::from_iter(bucket.into_iter());
+        bucket.sort_by(|l, r| l.0.cmp(&r.0));
         for (k, v) in bucket {
-            info!("{k}: {}", v.len());
+            info!("{k:?}: {}", v.len());
             let t = TastAnalyzerInputJson::from_results(&v)?;
-            let name = k.replace('/', "_").to_string();
+            let name = format!("{}_{}", k.0.replace('/', "_").to_string(), k.1.to_string());
             save_result_metadata_json(&v, Some(&name))?;
             t.save(Path::new("out").join(name).with_extension("json").as_path())?;
         }
         info!("To compare the results statistically, run:");
         info!(
             "PYTHONPATH=$TAST_ANALYZER python3 -m analyzer.run print-results --compare \
-             $RESULT_A_JSON $RESULT_B_JSON"
+             out/$RESULT_A_JSON out/$RESULT_B_JSON"
         );
         info!("Note: TAST_ANALYZER can be downloaded from: https://chromium.googlesource.com/chromiumos/platform/tast-tests/");
         info!(

@@ -33,6 +33,7 @@ use serde::Deserialize;
 use serde::Serialize;
 use tracing::info;
 use tracing::warn;
+use rayon::prelude::*;
 
 use crate::abtest::ExperimentRunMetadata;
 use crate::bluebench::BluebenchResult;
@@ -276,7 +277,7 @@ pub fn collect_results(
     let start = start.map(OsStr::new);
     let end = end.map(OsStr::new);
     let results: Vec<PathBuf> = results
-        .iter()
+        .par_iter()
         .filter(|f| -> bool {
             if let Some(f) = f.file_name() {
                 match (start, end) {
@@ -293,7 +294,7 @@ pub fn collect_results(
         .collect();
     info!("{} test invocations in the specified range", results.len());
     let results: Vec<TastResultMetadata> = results
-        .iter()
+        .par_iter()
         .flat_map(|p| -> Result<Vec<TastResultMetadata>, ()> {
             let invocation = TastInvocationMetadata::from_path(p).map_err(|e| {
                 warn!("{p:?}: {e:?}");
@@ -564,7 +565,6 @@ pub fn save_result_metadata_json(
     let path = Path::new("out").join(path);
     let mut f = std::fs::File::create(&path)?;
     f.write_all(&serde_json::to_string(&results)?.into_bytes())?;
-    info!("Generated {path:?}");
     Ok(())
 }
 
@@ -590,7 +590,6 @@ impl TastAnalyzerInputJson {
     pub fn save(&self, path: &Path) -> Result<()> {
         let mut f = File::create(path)?;
         f.write_all(&serde_json::to_string(&self)?.into_bytes())?;
-        info!("Generated {path:?}");
         Ok(())
     }
     pub fn from_results(results: &[&TastResultMetadata]) -> Result<Self> {
