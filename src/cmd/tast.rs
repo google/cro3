@@ -117,6 +117,12 @@ fn analyze_cro3_abtast_results(results: Vec<TastResultMetadata>) -> Result<()> {
         .collect();
     info!("{} tests have valid cro3 abtest metadata", results.len());
 
+    show_experiments_in_results(&results)?;
+    analyze_bluebench_results(results)?;
+    Ok(())
+}
+
+fn show_experiments_in_results(results: &[TastResultMetadata]) -> Result<()> {
     let mut experiments: Vec<&str> = results
         .par_iter()
         .map(|e| {
@@ -130,12 +136,12 @@ fn analyze_cro3_abtast_results(results: Vec<TastResultMetadata>) -> Result<()> {
     experiments.sort();
     experiments.dedup();
     eprintln!("Experiments:");
-    for e in &experiments {
+    for e in experiments {
         eprintln!("{e}")
     }
-    analyze_bluebench_results(results)?;
     Ok(())
 }
+
 fn analyze_bluebench_results(results: Vec<TastResultMetadata>) -> Result<()> {
     let results: Vec<&TastResultMetadata> = results
         .iter()
