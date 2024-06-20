@@ -50,7 +50,7 @@ pub struct Args {
     reference: Option<String>,
 
     /// cros or android arc version to sync.
-    /// e.g. for chromeOS: 14899.0.0, tot (for development)
+    /// e.g. for chromeOS: 14899.0.0, tot, stable (for development)
     /// e.g. for arc: rvc, tm, master (which maps to master-arc-dev)
     #[argh(option)]
     version: String,
@@ -116,7 +116,7 @@ pub fn run(args: &Args) -> Result<()> {
 
 /// Extract a appropriate version name from a argument.
 fn extract_cros_version(version: &String) -> Result<String> {
-    if version == "tot" {
+    if version == "tot" || version == "stable" {
         Ok(version.clone())
     } else {
         Ok(lookup_full_version(version, "eve")?)

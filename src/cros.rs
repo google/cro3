@@ -73,18 +73,23 @@ pub fn setup_cros_repo(repo: &str, version: &str, reference: &Option<String>) ->
     // https://chromium.googlesource.com/chromiumos/docs/+/master/developer_guide.md#Get-the-source-code
     let url = if config.is_internal() {
         info!("Using internal repo urls");
-        if version == "tot" {
-            "https://chrome-internal.googlesource.com/chromeos/manifest-internal"
-        } else {
-            "https://chrome-internal.googlesource.com/chromeos/manifest-versions"
+        match version {
+            "tot" | "stable" => {
+                "https://chrome-internal.googlesource.com/chromeos/manifest-internal"
+            }
+            _ => "https://chrome-internal.googlesource.com/chromeos/manifest-versions",
         }
     } else {
         info!("Using public repo urls");
-        if version == "tot" {
-            "https://chromium.googlesource.com/chromiumos/manifest-internal"
-        } else {
-            "https://chromium.googlesource.com/chromiumos/manifest-versions"
+        match version {
+            "tot" | "stable" => "https://chromium.googlesource.com/chromiumos/manifest-internal",
+            _ => "https://chromium.googlesource.com/chromiumos/manifest-versions",
         }
+    };
+
+    let manifest_revision = match version {
+        "stable" => "stable",
+        _ => "main",
     };
 
     let mut cmd = Command::new("repo");
@@ -95,7 +100,7 @@ pub fn setup_cros_repo(repo: &str, version: &str, reference: &Option<String>) ->
         .arg("-u")
         .arg(url)
         .arg("-b")
-        .arg("main")
+        .arg(manifest_revision)
         .stdin(Stdio::null());
 
     if let Some(reference) = reference {
@@ -103,7 +108,7 @@ pub fn setup_cros_repo(repo: &str, version: &str, reference: &Option<String>) ->
         cmd.args(["--reference", reference]);
     }
 
-    if version != "tot" {
+    if version != "tot" && version != "stable" {
         let re_cros_version = regex!(r"R(\d+)\-(\d+\.\d+\.\d+)");
         let output = re_cros_version
             .captures(version.trim())
