@@ -1,4 +1,4 @@
-// Copyright 2023 The ChromiumOS Authors
+// Copyright 2023 The ChEomiumOS Authors
 //
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file or at
@@ -12,6 +12,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::ffi::OsStr;
 use std::fs::read_dir;
+use std::fs::read_to_string;
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
@@ -306,9 +307,27 @@ pub fn collect_results(
             let results: Vec<TastResultMetadata> = results_json
                 .1
                 .iter()
-                .map(|result_json_item| TastResultMetadata {
-                    invocation: invocation.clone(),
-                    result_json_item: result_json_item.clone(),
+                .flat_map(|result_json_item| -> Result<TastResultMetadata> {
+                    let test_name = &result_json_item.name;
+                    let results_chart_json = invocation
+                        .path
+                        .join("tests")
+                        .join(test_name)
+                        .join("results-chart.json");
+                    let results_chart_json = if results_chart_json.exists() {
+                        let results_chart_json = read_to_string(&results_chart_json)?;
+                        let results_chart_json: TastResultsChartJson =
+                            serde_json::from_str(&results_chart_json)?;
+                        Some(results_chart_json)
+                    } else {
+                        None
+                    };
+
+                    Ok(TastResultMetadata {
+                        invocation: invocation.clone(),
+                        result_json_item: result_json_item.clone(),
+                        results_chart_json,
+                    })
                 })
                 .collect();
             Ok(results)
@@ -442,7 +461,17 @@ pub fn kernel_cmdline_masked_in_results(
 pub struct TastResultMetadata {
     pub invocation: TastInvocationMetadata,
     pub result_json_item: TastResultsJsonItem,
+    pub results_chart_json: Option<TastResultsChartJson>,
 }
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct TastResultsChartJsonItem {
+    units: String,
+    improvement_direction: String,
+    value: Option<f64>,
+    values: Option<Vec<f64>>,
+}
+pub type TastResultsChartJson = HashMap<String, HashMap<String, TastResultsChartJsonItem>>;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct TastInvocationMetadata {
