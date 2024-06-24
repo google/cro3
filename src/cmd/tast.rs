@@ -23,6 +23,7 @@ use cro3::tast::run_tast_test;
 use cro3::tast::save_result_metadata_json;
 use cro3::tast::update_cached_tests;
 use cro3::tast::TastAnalyzerInputJson;
+use cro3::tast::TastAnalyzerOutput;
 use cro3::tast::TastResultMetadata;
 use cro3::tast::TastTestExecutionType;
 use cro3::util::shell_helpers::get_stdout;
@@ -151,8 +152,10 @@ fn run_tast_analyzer(tast_analyzer: &Path, input_a: &Path, input_b: &Path) -> Re
         ),
         None,
     )?;
-    let out = get_stdout(&result);
-    println!("{out}");
+    let result = get_stdout(&result);
+    let result = TastAnalyzerOutput::from(&result)?;
+
+    println!("{}", serde_json::to_string(&result)?);
     Ok(())
 }
 
