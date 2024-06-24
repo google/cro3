@@ -56,8 +56,11 @@ fn main() -> ExitCode {
         );
     }
 
-    if let Err(e) = cmd::run(&args) {
-        error!("{e}");
+    if let anyhow::Result::Err(e) = cmd::run(&args) {
+        error!("{e:?}");
+        for e in e.chain() {
+            error!("{e:?}");
+        }
         ExitCode::FAILURE
     } else {
         ExitCode::SUCCESS

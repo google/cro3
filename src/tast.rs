@@ -592,6 +592,9 @@ pub fn save_result_metadata_json(
         "parsed_results.json".to_string()
     };
     let path = Path::new("out").join(path);
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
     let mut f = std::fs::File::create(path)?;
     f.write_all(&serde_json::to_string(&results)?.into_bytes())?;
     Ok(())

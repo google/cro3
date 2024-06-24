@@ -6,6 +6,8 @@
 
 use std::path::Path;
 
+use anyhow::anyhow;
+use anyhow::Context;
 use anyhow::Result;
 use argh::FromArgs;
 use cro3::abtest::ExperimentConfig;
@@ -215,7 +217,8 @@ fn analyze_bluebench_results(results: Vec<TastResultMetadata>) -> Result<()> {
             }
             let t = TastAnalyzerInputJson::from_results(v)?;
             let name = format!("{}_{}", k.replace('/', "_"), cfg);
-            save_result_metadata_json(v, Some(&name))?;
+            save_result_metadata_json(v, Some(&name))
+                .context(anyhow!("Failed to save {}", name))?;
             t.save(Path::new("out").join(name).with_extension("json").as_path())?;
         }
     }

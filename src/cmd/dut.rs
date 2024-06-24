@@ -850,7 +850,7 @@ fn run_dut_info(args: &ArgsDutInfo) -> Result<()> {
     let ssh = SshInfo::new(dut)?;
     let info = DutInfo::fetch_keys(&ssh, &keys)?;
     let result = serde_json::to_string(&info)?;
-    println!("{}", result);
+    println!("{dut}: {}", result);
     Ok(())
 }
 
