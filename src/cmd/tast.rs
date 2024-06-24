@@ -5,8 +5,10 @@
 // https://developers.google.com/open-source/licenses/bsd
 
 use std::path::Path;
+use std::path::PathBuf;
 
 use anyhow::anyhow;
+use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
 use argh::FromArgs;
@@ -23,6 +25,8 @@ use cro3::tast::update_cached_tests;
 use cro3::tast::TastAnalyzerInputJson;
 use cro3::tast::TastResultMetadata;
 use cro3::tast::TastTestExecutionType;
+use cro3::util::shell_helpers::get_stdout;
+use cro3::util::shell_helpers::run_bash_command;
 use glob::Pattern;
 use hashbrown::HashMap;
 use rayon::prelude::*;
@@ -89,6 +93,10 @@ pub struct ArgsAnalyze {
     /// show sampled result (for debugging)
     #[argh(switch)]
     sample: bool,
+
+    /// tast-analyzer path
+    #[argh(option)]
+    tast_analyzer: Option<String>,
 }
 impl ArgsAnalyze {
     fn run(&self) -> Result<()> {
@@ -107,12 +115,46 @@ impl ArgsAnalyze {
                 info!("Sample (last): {result:#?}");
             }
         }
-        analyze_cro3_abtast_results(results)?;
+        let experiments = parse_cro3_abtest_results(results)?;
+        if let Some(tast_analyzer) = &self.tast_analyzer {
+            info!("Using tast-analyzer at: {tast_analyzer}");
+            let tast_analyzer = Path::new(tast_analyzer);
+            if !tast_analyzer.is_dir() || !tast_analyzer.join("analyzer/__init__.py").is_file() {
+                bail!(
+                    "It looks like the directory is not a tast-analyzer. Please check and try \
+                     again"
+                );
+            }
+            for (k, v) in experiments {
+                let input_a = v.get(0).context("experiment A missing")?;
+                let input_b = v.get(1).context("experiment B missing")?;
+                println!("{k}:");
+                println!("  A: {input_a:?}");
+                println!("  B: {input_b:?}");
+                run_tast_analyzer(tast_analyzer, input_a, input_b)?;
+            }
+        }
         Ok(())
     }
 }
 
-fn analyze_cro3_abtast_results(results: Vec<TastResultMetadata>) -> Result<()> {
+fn run_tast_analyzer(tast_analyzer: &Path, input_a: &Path, input_b: &Path) -> Result<()> {
+    let result = run_bash_command(
+        &format!(
+            r#"
+    PYTHONPATH={tast_analyzer:?} python3 -m analyzer.run print-results --compare {input_a:?} {input_b:?}
+        "#
+        ),
+        None,
+    )?;
+    let out = get_stdout(&result);
+    println!("{out}");
+    Ok(())
+}
+
+fn parse_cro3_abtest_results(
+    results: Vec<TastResultMetadata>,
+) -> Result<HashMap<String, Vec<PathBuf>>> {
     let results: Vec<TastResultMetadata> = results
         .into_iter()
         .filter(|e| e.invocation.abtest_metadata().is_some())
@@ -120,8 +162,8 @@ fn analyze_cro3_abtast_results(results: Vec<TastResultMetadata>) -> Result<()> {
     info!("{} tests have valid cro3 abtest metadata", results.len());
 
     show_experiments_in_results(&results)?;
-    analyze_bluebench_results(results)?;
-    Ok(())
+    let experiments = parse_bluebench_results(results)?;
+    Ok(experiments)
 }
 
 fn show_experiments_in_results(results: &[TastResultMetadata]) -> Result<()> {
@@ -144,7 +186,9 @@ fn show_experiments_in_results(results: &[TastResultMetadata]) -> Result<()> {
     Ok(())
 }
 
-fn analyze_bluebench_results(results: Vec<TastResultMetadata>) -> Result<()> {
+fn parse_bluebench_results(
+    results: Vec<TastResultMetadata>,
+) -> Result<HashMap<String, Vec<PathBuf>>> {
     let results: Vec<&TastResultMetadata> = results
         .iter()
         .filter(|e| e.invocation.bluebench_result.is_some())
@@ -186,8 +230,10 @@ fn analyze_bluebench_results(results: Vec<TastResultMetadata>) -> Result<()> {
         })
         .collect();
 
+    let mut experiments = HashMap::<String, Vec<PathBuf>>::new();
     for (k, (a, b)) in bucket {
         println!("{k:60}: (A, B) = ({}, {})", a.len(), b.len());
+        let mut tast_analyzer_input_files = Vec::new();
         for (v, cfg) in [(&a, ExperimentConfig::A), (&b, ExperimentConfig::B)] {
             let mut mitigations: Vec<String> = v
                 .iter()
@@ -219,8 +265,12 @@ fn analyze_bluebench_results(results: Vec<TastResultMetadata>) -> Result<()> {
             let name = format!("{}_{}", k.replace('/', "_"), cfg);
             save_result_metadata_json(v, Some(&name))
                 .context(anyhow!("Failed to save {}", name))?;
-            t.save(Path::new("out").join(name).with_extension("json").as_path())?;
+            let path = PathBuf::from("out");
+            let path = path.join(name).with_extension("json");
+            t.save(&path)?;
+            tast_analyzer_input_files.push(path.clone());
         }
+        experiments.insert(k, tast_analyzer_input_files);
     }
     info!("To compare the results statistically, run:");
     info!(
@@ -234,7 +284,7 @@ fn analyze_bluebench_results(results: Vec<TastResultMetadata>) -> Result<()> {
     );
     let results: Vec<&TastResultMetadata> = results.into_iter().collect();
     save_result_metadata_json(&results, None)?;
-    Ok(())
+    Ok(experiments)
 }
 
 #[derive(FromArgs, PartialEq, Debug)]
