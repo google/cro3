@@ -455,30 +455,3 @@ impl ArgsRun {
         )
     }
 }
-
-struct TastAnalyzerOutput {}
-
-fn parse_tast_analyzer_output(output: &str) -> Result<()> {
-    Ok(())
-}
-
-#[test]
-fn tast_analyzer_output_can_be_parsed() {
-    let output = r#"
-INFO:root:Examining 59 records
-INFO:root:Loaded 1 metrics
-INFO:root:Sample size distribution: [(59, 1)]
-INFO:root:Examining 60 records
-INFO:root:Loaded 1 metrics
-INFO:root:Sample size distribution: [(60, 1)]
-INFO:root:Ignoring 0 metrics, looking at 1 metrics
-1 metrics, 1 better, 0 worse
-0 GOT WORSE FROM A.json to B.json
-
-1 GOT BETTER FROM A.json to B.json
-perf.TabOpenLatencyPerf.TabOpenLatency.:
-  U=3540.0, p=0.000000, dir=down, n=(59, 60), %change=-17.94
-  mean=108.65 milliseconds, std=3.33, min=98.31, max=113.07
-  mean=89.16 milliseconds, std=2.48, min=82.91, max=93.48
-"#;
-}

@@ -666,3 +666,131 @@ impl TastAnalyzerInputJson {
         Ok(data)
     }
 }
+
+#[derive(Debug, PartialEq, Clone)]
+struct TastAnalyzerOutputAnalysisLine {
+    u: f64,
+    p: f64,
+    dir: String,
+    cnt_a: usize,
+    cnt_b: usize,
+    change_percent: f64,
+}
+impl TastAnalyzerOutputAnalysisLine {
+    pub fn from(stats: &str) -> Result<Self> {
+    static RE_ANALYSIS: Lazy<Regex> = Lazy::new(|| {
+        Regex::new(r"U=(?<u>[0-9.]+), p=(?<p>.*), dir=(?<dir>.*), n=\((?<cnt_a>.*), (?<cnt_b>.*)\), %change=(?<change_percent>[0-9-.]+)").unwrap()
+    });
+            let stats = RE_ANALYSIS.captures(stats).context("No stat line match")?;
+                let u = stats.name("u").context("u is missing")?.as_str();
+                let u = u.parse().context("failed to parse U")?;
+                let p = stats.name("p").context("p is missing")?.as_str();
+                let p = p.parse().context("failed to parse U")?;
+                let dir = stats.name("dir").context("dir is missing")?.as_str().to_string();
+                let cnt_a = stats.name("cnt_a").context("cnt_a is missing")?.as_str();
+                let cnt_a = cnt_a.parse().context("failed to parse U")?;
+                let cnt_b = stats.name("cnt_b").context("cnt_b is missing")?.as_str();
+                let cnt_b = cnt_b.parse()?;
+                let change_percent = stats.name("change_percent").context("change_percent is missing")?.as_str();
+                let change_percent = change_percent.parse()?;
+            Ok(Self {
+                u,p,dir,cnt_a,cnt_b,change_percent
+
+            })
+
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+struct TastAnalyzerOutputStatsLine {
+    mean: f64,
+    unit: String,
+    stddev: f64,
+    min: f64,
+    max: f64,
+}
+impl TastAnalyzerOutputStatsLine {
+    pub fn from(stats: &str) -> Result<Self> {
+    static RE_STATS: Lazy<Regex> = Lazy::new(|| {
+        // mean=108.65 milliseconds, std=3.33, min=98.31, max=113.07
+        Regex::new(r"mean=(?<mean>[0-9.]+) (?<unit>[^,]+), std=(?<stddev>[0-9.]+), min=(?<min>[0-9.]+), max=(?<max>.*)").unwrap()
+    });
+            let stats = RE_STATS.captures(stats).context("No stat line match")?;
+                let mean = stats.name("mean").context("mean is missing")?.as_str();
+                let mean = mean.parse().context("failed to parse mean")?;
+                let unit = stats.name("unit").context("unit is missing")?.as_str().to_string();
+                let stddev = stats.name("stddev").context("stddev is missing")?.as_str();
+                let stddev = stddev.parse().context("failed to parse mean")?;
+                let min = stats.name("min").context("min is missing")?.as_str();
+                let min = min.parse().context("failed to parse mean")?;
+                let max = stats.name("max").context("max is missing")?.as_str();
+                let max = max.parse().context("failed to parse mean")?;
+            Ok(Self {
+                mean, unit, stddev, min, max
+
+            })
+
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+struct TastAnalyzerOutput {
+    key: String,
+    analysis: TastAnalyzerOutputAnalysisLine,
+    stats_a: TastAnalyzerOutputStatsLine,
+    stats_b: TastAnalyzerOutputStatsLine,
+}
+
+fn parse_tast_analyzer_output(output: &str) -> Result<Vec<TastAnalyzerOutput>> {
+    let mut results = Vec::new();
+    let output: Vec<&str> = output
+        .split('\n')
+        .filter(|s| s.starts_with("  ") | s.ends_with(':'))
+        .map(|s| s.trim())
+        .collect();
+    for e in output.chunks(4) {
+        if let (Some(key), Some(analysis), Some(a), Some(b)) = (e.get(0), e.get(1), e.get(2), e.get(3))
+        {
+            let key = key.to_string();
+            let analysis = TastAnalyzerOutputAnalysisLine::from(analysis)?;
+            let stats_a = TastAnalyzerOutputStatsLine::from(a)?;
+            let stats_b = TastAnalyzerOutputStatsLine::from(b)?;
+            results.push(TastAnalyzerOutput{
+                key, analysis, stats_a, stats_b
+            })
+        }
+    }
+    Ok(results)
+}
+
+#[test]
+fn tast_analyzer_one_output_can_be_parsed() {
+    let stdout = r#"
+1 metrics, 1 better, 0 worse
+0 GOT WORSE FROM A.json to B.json
+
+1 GOT BETTER FROM A.json to B.json
+perf.TabOpenLatencyPerf.TabOpenLatency.:
+  U=3540.0, p=0.000000, dir=down, n=(59, 60), %change=-17.94
+  mean=108.65 milliseconds, std=3.33, min=98.31, max=113.07
+  mean=89.16 milliseconds, std=2.48, min=82.91, max=93.48
+"#;
+    let actual = parse_tast_analyzer_output(stdout).unwrap();
+    assert_eq!(actual.len(), 1);
+    let actual = actual[0].clone();
+    let expected = TastAnalyzerOutput { key: "perf.TabOpenLatencyPerf.TabOpenLatency.:".to_string(), analysis: TastAnalyzerOutputAnalysisLine { u: 3540.0, p: 0.0, dir: "down".to_string(), cnt_a: 59, cnt_b: 60, change_percent: -17.94 }, stats_a: TastAnalyzerOutputStatsLine { mean: 108.65, unit: "milliseconds".to_string(), stddev: 3.33, min: 98.31, max: 113.07 }, stats_b: TastAnalyzerOutputStatsLine { mean: 89.16, unit: "milliseconds".to_string(), stddev: 2.48, min: 82.91, max: 93.48 } };
+
+    assert_eq!(actual, expected);
+}
+
+#[test]
+fn tast_analyzer_zero_output_can_be_parsed() {
+    let stdout = r#"
+0 metrics, 0 better, 0 worse
+0 GOT WORSE FROM experiment_20240619_164907_892671708_kled_A.json to experiment_20240619_164907_892671708_kled_B.json
+
+0 GOT BETTER FROM experiment_20240619_164907_892671708_kled_A.json to experiment_20240619_164907_892671708_kled_B.json
+"#;
+    let actual = parse_tast_analyzer_output(stdout).unwrap();
+    assert_eq!(actual.len(), 0);
+}
