@@ -97,6 +97,10 @@ pub struct ArgsAnalyze {
     /// tast-analyzer path
     #[argh(option)]
     tast_analyzer: Option<String>,
+
+    /// experiment name filter
+    #[argh(option)]
+    experiment_name: Option<String>,
 }
 impl ArgsAnalyze {
     fn run(&self) -> Result<()> {
@@ -115,7 +119,7 @@ impl ArgsAnalyze {
                 info!("Sample (last): {result:#?}");
             }
         }
-        let experiments = parse_cro3_abtest_results(results)?;
+        let experiments = parse_cro3_abtest_results(results, self.experiment_name.as_deref())?;
         if let Some(tast_analyzer) = &self.tast_analyzer {
             info!("Using tast-analyzer at: {tast_analyzer}");
             let tast_analyzer = Path::new(tast_analyzer);
@@ -154,12 +158,31 @@ fn run_tast_analyzer(tast_analyzer: &Path, input_a: &Path, input_b: &Path) -> Re
 
 fn parse_cro3_abtest_results(
     results: Vec<TastResultMetadata>,
+    experiment_name_filter: Option<&str>,
 ) -> Result<HashMap<String, Vec<PathBuf>>> {
     let results: Vec<TastResultMetadata> = results
         .into_iter()
         .filter(|e| e.invocation.abtest_metadata().is_some())
         .collect();
     info!("{} tests have valid cro3 abtest metadata", results.len());
+    let results: Vec<TastResultMetadata> =
+        if let Some(experiment_name_filter) = experiment_name_filter {
+            let results: Vec<TastResultMetadata> = results
+                .into_iter()
+                .filter(|e| {
+                    e.invocation
+                        .abtest_metadata()
+                        .unwrap()
+                        .runner
+                        .experiment_name
+                        .starts_with(experiment_name_filter)
+                })
+                .collect();
+            info!("{} tests have valid cro3 abtest metadata", results.len());
+            results
+        } else {
+            results
+        };
 
     show_experiments_in_results(&results)?;
     let experiments = parse_bluebench_results(results)?;
