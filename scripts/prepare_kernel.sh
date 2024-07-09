@@ -28,10 +28,10 @@ function get_current_kernel_cmdline() {
   echo "Using ROOTDEV=${ROOTDEV}"
   echo "=> PART_KERN_A=${PART_KERN_A}"
   echo "=> PART_KERN_B=${PART_KERN_B}"
-  CMDLINE_KERN_A=$(cro3 dut shell --dut "${DUT}" -- futility vbutil_kernel --verify "${PART_KERN_A}" | tail -n 1)
-  CMDLINE_KERN_B=$(cro3 dut shell --dut "${DUT}" -- futility vbutil_kernel --verify "${PART_KERN_B}" | tail -n 1)
-  echo "=> CMDLINE_KERN_A=${CMDLINE_KERN_A}"
-  echo "=> CMDLINE_KERN_B=${CMDLINE_KERN_B}"
+  CMDLINE_KERN_A="$(cro3 dut shell --dut "${DUT}" -- futility vbutil_kernel --verify "${PART_KERN_A}" | tail -n 1)"
+  CMDLINE_KERN_B="$(cro3 dut shell --dut "${DUT}" -- futility vbutil_kernel --verify "${PART_KERN_B}" | tail -n 1)"
+  echo "=> CMDLINE_KERN_A='${CMDLINE_KERN_A}'"
+  echo "=> CMDLINE_KERN_B='${CMDLINE_KERN_B}'"
   diff -y <(echo "${CMDLINE_KERN_A}" | tr ' ' '\n') <(echo "${CMDLINE_KERN_B}" | tr ' ' '\n') || true
 }
 
@@ -41,11 +41,11 @@ function change_ro_to_rw() {
 }
 function change_mitigations_auto() {
   # https://www.kernel.org/doc/html/latest/admin-guide/kernel-parameters.html?highlight=kernel%20parameters#:~:text=2.6/mini2440.git-,mitigations,-%3D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%5BX86%2CPPC%2CS390
-  sed -E -e 's/( mitigations=.*$)|$/ mitigations=auto nopti kpti=0/'
+  sed -E -e 's/( mitigations=.*$)|$/ l1tf=off/'
 }
 function change_mitigations_off() {
   # https://www.kernel.org/doc/html/latest/admin-guide/kernel-parameters.html?highlight=kernel%20parameters#:~:text=2.6/mini2440.git-,mitigations,-%3D%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%5BX86%2CPPC%2CS390
-  sed -E -e 's/( mitigations=.*$)|$/ mitigations=off/'
+  sed -E -e 's/( mitigations=.*$)|$/ /'
 }
 function set_cros_debug() {
   sed -E -e 's/( cros_debug)|$/ cros_debug/'
@@ -111,7 +111,19 @@ function verify_booting_kernel_matches_with_lsb_release() {
 }
 
 function update_kernel_cmdline() {
-  echo "update kernel cmdline"
+  set +e
+  DIFF_A="$(wdiff --no-common <(echo "${CMDLINE_KERN_A}") <(echo "${NEW_CMDLINE_KERN_A}"))"
+  DIFF_A_CODE=$?
+  DIFF_B="$(wdiff --no-common <(echo "${CMDLINE_KERN_B}") <(echo "${NEW_CMDLINE_KERN_B}"))"
+  DIFF_B_CODE=$?
+  set -e
+  if [ "${DIFF_A_CODE}" -eq "0" ] && [ "${DIFF_B_CODE}" -eq "0" ] ; then
+      echo "No need to update the kernel cmdline."
+  echo "${DUT}: $(wdiff --no-common <(echo "${CMDLINE_KERN_A}") <(echo "${CMDLINE_KERN_B}") | tail -n -2 | head -n 1)" >&2 || true
+      exit 0
+  fi
+
+  echo "updating the kernel cmdline"
   PATH_NEW_CMDLINE_BASE=$(mktemp --tmpdir=/tmp kernel_cmdline_XXXXXXXXXX)
   PATH_NEW_CMDLINE_KERN_A="${PATH_NEW_CMDLINE_BASE}".2
   PATH_NEW_CMDLINE_KERN_B="${PATH_NEW_CMDLINE_BASE}".4
@@ -127,13 +139,29 @@ function update_kernel_cmdline() {
 }
 
 function gen_new_kernel_cmdline() {
-  NEW_CMDLINE_KERN_A=$(echo "${CMDLINE_KERN_A}" | change_ro_to_rw | change_mitigations_auto | set_cros_debug)
-  NEW_CMDLINE_KERN_B=$(echo "${CMDLINE_KERN_B}" | change_ro_to_rw | change_mitigations_off | set_cros_debug)
-  echo "=> NEW_CMDLINE_KERN_A=${CMDLINE_KERN_A}"
-  echo "=> NEW_CMDLINE_KERN_B=${CMDLINE_KERN_B}"
+  CMDLINE_COMMON_PART="$(wdiff <(echo ${CMDLINE_KERN_A}) <(echo ${CMDLINE_KERN_B}) --no-deleted --no-inserted | head -n 1)"
+  echo "=> CMDLINE_COMMON_PART='${CMDLINE_COMMON_PART}'"
+  NEW_CMDLINE_KERN_A="$(echo "${CMDLINE_COMMON_PART}" | change_ro_to_rw | change_mitigations_auto | set_cros_debug)"
+  NEW_CMDLINE_KERN_B="$(echo "${CMDLINE_COMMON_PART}" | change_ro_to_rw | change_mitigations_off | set_cros_debug)"
+  echo "=> NEW_CMDLINE_KERN_A='${NEW_CMDLINE_KERN_A}'"
+  echo "=> NEW_CMDLINE_KERN_B='${NEW_CMDLINE_KERN_B}'"
   echo "DIFF of new cmdline:"
   diff -y <(echo "${NEW_CMDLINE_KERN_A}" | tr ' ' '\n') <(echo "${NEW_CMDLINE_KERN_B}" | tr ' ' '\n') || true
   echo "DIFF of new cmdline end:"
+}
+
+function print_mitigation_list() {
+	cro3 dut "do" --dut "${DUT}" -- switch_to_boot_from_kernel_a reboot wait_online
+	VULN_LIST_A="$(cro3 dut shell --dut ${DUT} -- bash -c '"cat /proc/cmdline ; lscpu | grep Vuln"')"
+	echo "${VULN_LIST_A}"
+
+	cro3 dut "do" --dut "${DUT}" -- switch_to_boot_from_kernel_b reboot wait_online
+	VULN_LIST_B="$(cro3 dut shell --dut ${DUT} -- bash -c '"cat /proc/cmdline ; lscpu | grep Vuln"')"
+	echo "${VULN_LIST_B}"
+
+	echo "DIFF of vulnerabilities:"
+	diff -y <(echo "${VULN_LIST_A}") <(echo "${VULN_LIST_B}") || true
+	echo "DIFF of vulnerabilities end:"
 }
 
 DUT="$1"
@@ -143,4 +171,4 @@ verify_booting_kernel_matches_with_lsb_release
 get_current_kernel_cmdline
 gen_new_kernel_cmdline
 update_kernel_cmdline
-cro3 dut "do" --dut "${DUT}" -- reboot wait_online
+print_mitigation_list

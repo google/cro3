@@ -4,6 +4,7 @@
 // license that can be found in the LICENSE file or at
 // https://developers.google.com/open-source/licenses/bsd
 
+use std::fmt::Display;
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -34,6 +35,70 @@ use rayon::prelude::*;
 use tracing::info;
 use tracing::warn;
 
+type ExperimentResultSeries<'a> = Vec<&'a TastResultMetadata>;
+type ExperimentResultSet<'a> = (ExperimentResultSeries<'a>, ExperimentResultSeries<'a>);
+
+#[derive(Debug)]
+struct ComparativeAnalysisMetadata {
+    a: ComparativeAnalysisMetadataSeries,
+    b: ComparativeAnalysisMetadataSeries,
+}
+
+#[derive(Debug)]
+#[allow(unused)]
+struct ComparativeAnalysisMetadataSeries {
+    tast_analyzer_input_json: PathBuf,
+    variant_description: String,
+}
+impl Display for ComparativeAnalysisMetadataSeries {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{:20} : {:?}",
+            self.variant_description, self.tast_analyzer_input_json
+        )
+    }
+}
+impl ComparativeAnalysisMetadataSeries {
+    fn from(k: &str, v: ExperimentResultSeries, cfg: ExperimentConfig) -> Result<Self> {
+        let mut mitigations: Vec<String> = v
+            .iter()
+            .map(|e| {
+                e.invocation
+                    .bluebench_result
+                    .as_ref()
+                    .unwrap()
+                    .metadata
+                    .kernel_cmdline_mitigations
+                    .clone()
+            })
+            .collect();
+        mitigations.sort();
+        mitigations.dedup();
+        if mitigations.len() != 1 {
+            warn!(
+                "Multiple mitigations args found. Maybe the DUT setup is wrong. : {mitigations:?}"
+            );
+        } else {
+            println!(
+                "{:?}: {}",
+                cfg,
+                mitigations.first().map(|s| s.as_str().trim()).unwrap_or("")
+            );
+        }
+        let t = TastAnalyzerInputJson::from_results(&v)?;
+        let name = format!("{}_{}", k.replace('/', "_"), cfg);
+        save_result_metadata_json(&v, Some(&name)).context(anyhow!("Failed to save {}", name))?;
+        let path = PathBuf::from("out");
+        let path = path.join(name).with_extension("json");
+        t.save(&path)?;
+        Ok(Self {
+            tast_analyzer_input_json: path,
+            variant_description: mitigations.join(" ").trim().replace('\n', " ").to_string(),
+        })
+    }
+}
+
 #[derive(FromArgs, PartialEq, Debug)]
 /// run Tast test
 #[argh(subcommand, name = "tast")]
@@ -59,8 +124,6 @@ pub fn run(args: &Args) -> Result<()> {
         SubCommand::Run(args) => args.run(),
     }
 }
-
-type ExperimentResultSet<'a> = (Vec<&'a TastResultMetadata>, Vec<&'a TastResultMetadata>);
 
 #[derive(FromArgs, PartialEq, Debug)]
 /// Analyze tast results
@@ -131,19 +194,33 @@ impl ArgsAnalyze {
                 );
             }
             for (k, v) in experiments {
-                let input_a = v.get(0).context("experiment A missing")?;
-                let input_b = v.get(1).context("experiment B missing")?;
-                println!("{k}:");
-                println!("  A: {input_a:?}");
-                println!("  B: {input_b:?}");
-                run_tast_analyzer(tast_analyzer, input_a, input_b)?;
+                println!("{k}: ");
+                println!("  A: {}", v.a.variant_description);
+                println!("  B: {}", v.b.variant_description);
+                let results = run_tast_analyzer(
+                    tast_analyzer,
+                    &v.a.tast_analyzer_input_json,
+                    &v.b.tast_analyzer_input_json,
+                )?;
+                if results.is_empty() {
+                    println!("  no statistical significance");
+                } else {
+                    for e in results {
+                        println!("{e}");
+                    }
+                }
+                println!();
             }
         }
         Ok(())
     }
 }
 
-fn run_tast_analyzer(tast_analyzer: &Path, input_a: &Path, input_b: &Path) -> Result<()> {
+fn run_tast_analyzer(
+    tast_analyzer: &Path,
+    input_a: &Path,
+    input_b: &Path,
+) -> Result<Vec<TastAnalyzerOutput>> {
     let result = run_bash_command(
         &format!(
             r#"
@@ -154,15 +231,13 @@ fn run_tast_analyzer(tast_analyzer: &Path, input_a: &Path, input_b: &Path) -> Re
     )?;
     let result = get_stdout(&result);
     let result = TastAnalyzerOutput::from(&result)?;
-
-    println!("{}", serde_json::to_string(&result)?);
-    Ok(())
+    Ok(result)
 }
 
 fn parse_cro3_abtest_results(
     results: Vec<TastResultMetadata>,
     experiment_name_filter: Option<&str>,
-) -> Result<HashMap<String, Vec<PathBuf>>> {
+) -> Result<HashMap<String, ComparativeAnalysisMetadata>> {
     let results: Vec<TastResultMetadata> = results
         .into_iter()
         .filter(|e| e.invocation.abtest_metadata().is_some())
@@ -214,7 +289,7 @@ fn show_experiments_in_results(results: &[TastResultMetadata]) -> Result<()> {
 
 fn parse_bluebench_results(
     results: Vec<TastResultMetadata>,
-) -> Result<HashMap<String, Vec<PathBuf>>> {
+) -> Result<HashMap<String, ComparativeAnalysisMetadata>> {
     let results: Vec<&TastResultMetadata> = results
         .iter()
         .filter(|e| e.invocation.bluebench_result.is_some())
@@ -256,47 +331,12 @@ fn parse_bluebench_results(
         })
         .collect();
 
-    let mut experiments = HashMap::<String, Vec<PathBuf>>::new();
+    let mut experiments = HashMap::<String, ComparativeAnalysisMetadata>::new();
     for (k, (a, b)) in bucket {
         println!("{k:60}: (A, B) = ({}, {})", a.len(), b.len());
-        let mut tast_analyzer_input_files = Vec::new();
-        for (v, cfg) in [(&a, ExperimentConfig::A), (&b, ExperimentConfig::B)] {
-            let mut mitigations: Vec<String> = v
-                .iter()
-                .map(|e| {
-                    e.invocation
-                        .bluebench_result
-                        .as_ref()
-                        .unwrap()
-                        .metadata
-                        .kernel_cmdline_mitigations
-                        .clone()
-                })
-                .collect();
-            mitigations.sort();
-            mitigations.dedup();
-            if mitigations.len() != 1 {
-                warn!(
-                    "Multiple mitigations args found. Maybe the DUT setup is wrong. : \
-                     {mitigations:?}"
-                );
-            } else {
-                println!(
-                    "{:?}: {}",
-                    cfg,
-                    mitigations.first().map(|s| s.as_str().trim()).unwrap_or("")
-                );
-            }
-            let t = TastAnalyzerInputJson::from_results(v)?;
-            let name = format!("{}_{}", k.replace('/', "_"), cfg);
-            save_result_metadata_json(v, Some(&name))
-                .context(anyhow!("Failed to save {}", name))?;
-            let path = PathBuf::from("out");
-            let path = path.join(name).with_extension("json");
-            t.save(&path)?;
-            tast_analyzer_input_files.push(path.clone());
-        }
-        experiments.insert(k, tast_analyzer_input_files);
+        let a = ComparativeAnalysisMetadataSeries::from(&k, a, ExperimentConfig::A)?;
+        let b = ComparativeAnalysisMetadataSeries::from(&k, b, ExperimentConfig::B)?;
+        experiments.insert(k, ComparativeAnalysisMetadata { a, b });
     }
     info!("To compare the results statistically, run:");
     info!(

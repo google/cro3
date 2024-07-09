@@ -17,6 +17,7 @@ use std::fs::File;
 use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
+use std::fmt::Display;
 
 use anyhow::anyhow;
 use anyhow::bail;
@@ -783,6 +784,19 @@ impl TastAnalyzerOutput {
         Ok(results)
     }
 }
+impl Display for TastAnalyzerOutput {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "  {:>+6.2}% change with p={:.6} on {}:\n  {:12.3} => {:12.3} [{}], N=({:3}, {:3})", 
+            self.analysis.change_percent,
+            self.analysis.p, 
+            self.key, 
+            self.stats_a.mean, 
+            self.stats_b.mean,
+            self.stats_a.unit, 
+            self.analysis.cnt_a, 
+            self.analysis.cnt_b)
+    }
+}
 
 #[test]
 fn tast_analyzer_one_output_can_be_parsed() {
@@ -824,7 +838,7 @@ perf.TabOpenLatencyPerf.TabOpenLatency.:
             max: 93.48,
         },
     };
-
+    println!("{actual}");
     assert_eq!(actual, expected);
 }
 
