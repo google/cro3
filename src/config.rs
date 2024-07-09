@@ -7,14 +7,17 @@
 use std::collections::HashMap;
 use std::fs::read_to_string;
 use std::fs::write;
+use std::str::FromStr;
 
-use anyhow::anyhow;
 use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
 use regex::Regex;
 use serde::Deserialize;
 use serde::Serialize;
+use strum::ParseError;
+use strum_macros::EnumIter;
+use strum_macros::EnumString;
 use tracing::warn;
 
 use crate::util::cro3_paths::gen_path_in_cro3_dir;
@@ -41,6 +44,28 @@ impl SshOverride {
     pub fn ssh_options(&self) -> &Vec<String> {
         &self.ssh_options
     }
+}
+// When adding a new config parameter, add an item in this enum and
+// struct Config.
+#[derive(Debug, PartialEq, EnumIter, EnumString, strum_macros::Display)]
+#[strum(serialize_all = "snake_case")]
+pub enum ConfigKey {
+    AndroidBranches,
+    AndroidManifestUrl,
+    DefaultCrosCheckout,
+    DefaultCrosReference,
+    SshOverrides,
+    TastBundles,
+    SshPortSearchTimeout,
+    DefaultIpv6Prefix,
+    IsInternal,
+    IsInternalAuthValid,
+    AcloudwCmdPath,
+    AcloudwConfigPath,
+    AndroidTargetForVmType,
+    ArcVmCheepsImage,
+    ArcVmBettyImageForBranch,
+    ArcContainerCheepsImageForBranch,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -134,31 +159,35 @@ impl Config {
             .context("failed to write config")
     }
     pub fn set<K: AsRef<str>>(&mut self, key: &str, values: &[K]) -> Result<()> {
-        match key {
-            "android_branches" => {
+        let k: Result<ConfigKey, ParseError> = ConfigKey::from_str(key);
+        if k.is_err() {
+            bail!("config key {key} is not valid")
+        }
+        match k.unwrap() {
+            ConfigKey::AndroidBranches => {
                 let branches: Vec<String> =
                     values[0..].iter().map(|s| s.as_ref().to_string()).collect();
                 self.android_branches = Some(branches);
             }
-            "android_manifest_url" => {
+            ConfigKey::AndroidManifestUrl => {
                 if values.len() != 1 {
                     bail!("{key} only takes 1 params");
                 }
                 self.android_manifest_url = Some(values[0].as_ref().to_string());
             }
-            "default_cros_checkout" => {
+            ConfigKey::DefaultCrosCheckout => {
                 if values.len() != 1 {
                     bail!("{key} only takes 1 params");
                 }
                 self.default_cros_checkout = Some(values[0].as_ref().to_string());
             }
-            "default_cros_reference" => {
+            ConfigKey::DefaultCrosReference => {
                 if values.len() != 1 {
                     bail!("{key} only takes 1 params");
                 }
                 self.default_cros_reference = Some(values[0].as_ref().to_string());
             }
-            "ssh_override" => {
+            ConfigKey::SshOverrides => {
                 if values.len() < 3 {
                     bail!("{key} takes 3+ parameters");
                 }
@@ -175,48 +204,48 @@ impl Config {
                     },
                 );
             }
-            "tast_bundles" => {
+            ConfigKey::TastBundles => {
                 let bundles: Vec<String> =
                     values[0..].iter().map(|s| s.as_ref().to_string()).collect();
                 self.tast_bundles = Some(bundles);
             }
-            "ssh_port_search_timeout" => {
+            ConfigKey::SshPortSearchTimeout => {
                 if values.len() != 1 {
                     bail!("{key} only takes 1 params");
                 }
                 self.ssh_port_search_timeout = Some(values[0].as_ref().parse().unwrap());
             }
-            "default_ipv6_prefix" => {
+            ConfigKey::DefaultIpv6Prefix => {
                 if values.len() != 1 {
                     bail!("{key} only takes 1 params");
                 }
                 self.default_ipv6_prefix = Some(values[0].as_ref().parse().unwrap());
             }
-            "is_internal" => {
+            ConfigKey::IsInternal => {
                 if values.len() != 1 {
                     bail!("{key} only takes 1 params");
                 }
                 self.is_internal = Some(values[0].as_ref().parse::<bool>().unwrap());
             }
-            "is_internal_auth_valid" => {
+            ConfigKey::IsInternalAuthValid => {
                 if values.len() != 1 {
                     bail!("{key} only takes 1 params");
                 }
                 self.is_internal_auth_valid = Some(values[0].as_ref().to_string());
             }
-            "acloudw_cmd_path" => {
+            ConfigKey::AcloudwCmdPath => {
                 if values.len() != 1 {
                     bail!("{key} only takes 1 params");
                 }
                 self.acloudw_cmd_path = Some(values[0].as_ref().to_string());
             }
-            "acloudw_config_path" => {
+            ConfigKey::AcloudwConfigPath => {
                 if values.len() != 1 {
                     bail!("{key} only takes 1 params");
                 }
                 self.acloudw_config_path = Some(values[0].as_ref().to_string());
             }
-            "android_target_for_vm_type" => {
+            ConfigKey::AndroidTargetForVmType => {
                 if values.len() != 2 {
                     bail!("{key} takes 2 parameters");
                 }
@@ -224,13 +253,13 @@ impl Config {
                 let target = values[1].as_ref().to_string();
                 self.android_target_for_vm_type.insert(branch, target);
             }
-            "arc_vm_cheeps_image" => {
+            ConfigKey::ArcVmCheepsImage => {
                 if values.len() != 1 {
                     bail!("{key} only takes 1 params");
                 }
                 self.arc_vm_cheeps_image = Some(values[0].as_ref().to_string());
             }
-            "arc_vm_betty_image_for_branch" => {
+            ConfigKey::ArcVmBettyImageForBranch => {
                 if values.len() != 2 {
                     bail!("{key} takes 2 parameters");
                 }
@@ -238,7 +267,7 @@ impl Config {
                 let target = values[1].as_ref().to_string();
                 self.arc_vm_betty_image_for_branch.insert(branch, target);
             }
-            "arc_container_cheeps_image_for_branch" => {
+            ConfigKey::ArcContainerCheepsImageForBranch => {
                 if values.len() != 2 {
                     bail!("{key} takes 2 parameters");
                 }
@@ -247,60 +276,57 @@ impl Config {
                 self.arc_container_cheeps_image_for_branch
                     .insert(branch, target);
             }
-            _ => bail!("config key {key} is not valid"),
         }
         self.write()
     }
     pub fn clear(&mut self, key: &str) -> Result<()> {
-        match key {
-            "android_branches" => {
+        let k: Result<ConfigKey, ParseError> = ConfigKey::from_str(key);
+        if k.is_err() {
+            bail!("cro3 config clear for '{key}' is not implemented")
+        }
+        match k.unwrap() {
+            ConfigKey::AndroidBranches => {
                 self.android_branches = None;
             }
-            "android_manifest_url" => {
+            ConfigKey::AndroidManifestUrl => {
                 self.android_manifest_url = None;
             }
-            "default_cros_checkout" => {
+            ConfigKey::DefaultCrosCheckout => {
                 self.default_cros_checkout = None;
             }
-            "default_cros_reference" => {
+            ConfigKey::DefaultCrosReference => {
                 self.default_cros_reference = None;
             }
-            "ssh_overrides" => self.ssh_overrides.clear(),
-            "ssh_override" => {
-                return Err(anyhow!(
-                    "please use `cro3 config clear ssh_overrides` instead ;)"
-                ))
-            }
-            "tast_bundles" => {
+            ConfigKey::SshOverrides => self.ssh_overrides.clear(),
+            ConfigKey::TastBundles => {
                 self.tast_bundles = None;
             }
-            "ssh_port_search_timeout" => {
+            ConfigKey::SshPortSearchTimeout => {
                 self.ssh_port_search_timeout = None;
             }
-            "default_ipv6_prefix" => {
+            ConfigKey::DefaultIpv6Prefix => {
                 self.default_ipv6_prefix = None;
             }
-            "is_internal" => {
+            ConfigKey::IsInternal => {
                 self.is_internal = None;
             }
-            "is_internal_auth_valid" => {
+            ConfigKey::IsInternalAuthValid => {
                 self.is_internal_auth_valid = None;
             }
-            "acloudw_cmd_path" => {
+            ConfigKey::AcloudwCmdPath => {
                 self.acloudw_cmd_path = None;
             }
-            "acloudw_config_path" => {
+            ConfigKey::AcloudwConfigPath => {
                 self.acloudw_config_path = None;
             }
-            "android_target_for_vm_type" => self.android_target_for_vm_type.clear(),
-            "arc_vm_cheeps_image" => {
+            ConfigKey::AndroidTargetForVmType => self.android_target_for_vm_type.clear(),
+            ConfigKey::ArcVmCheepsImage => {
                 self.arc_vm_cheeps_image = None;
             }
-            "arc_vm_betty_image_for_branch" => self.arc_vm_betty_image_for_branch.clear(),
-            "arc_container_cheeps_image_for_branch" => {
+            ConfigKey::ArcVmBettyImageForBranch => self.arc_vm_betty_image_for_branch.clear(),
+            ConfigKey::ArcContainerCheepsImageForBranch => {
                 self.arc_container_cheeps_image_for_branch.clear()
             }
-            _ => bail!("cro3 config clear for '{key}' is not implemented"),
         }
         self.write()?;
         Ok(())

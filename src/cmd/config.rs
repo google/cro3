@@ -14,7 +14,9 @@ use anyhow::bail;
 use anyhow::Result;
 use argh::FromArgs;
 use cro3::config::Config;
+use cro3::config::ConfigKey;
 use serde_json::json;
+use strum::IntoEnumIterator;
 
 #[derive(FromArgs, PartialEq, Debug)]
 /// configure cro3
@@ -29,6 +31,7 @@ enum SubCommand {
     Set(ArgsSet),
     Show(ArgsShow),
     Clear(ArgsClear),
+    Keys(ArgsKeys),
 }
 #[tracing::instrument(level = "trace")]
 pub fn run(args: &Args) -> Result<()> {
@@ -36,6 +39,7 @@ pub fn run(args: &Args) -> Result<()> {
         SubCommand::Clear(args) => run_clear(args),
         SubCommand::Set(args) => run_set(args),
         SubCommand::Show(args) => run_show(args),
+        SubCommand::Keys(args) => run_keys(args),
     }
 }
 
@@ -92,5 +96,16 @@ fn run_show(args: &ArgsShow) -> Result<()> {
         println!("{}", serde_json::to_string_pretty(&config)?);
     }
 
+    Ok(())
+}
+
+#[derive(FromArgs, PartialEq, Debug)]
+/// Show supported config keys
+#[argh(subcommand, name = "keys")]
+pub struct ArgsKeys {}
+fn run_keys(_args: &ArgsKeys) -> Result<()> {
+    for key in ConfigKey::iter() {
+        println!("{}", key);
+    }
     Ok(())
 }
