@@ -72,6 +72,10 @@ _cro3_get_boards() {
   ${COMP_WORDS[0]} board list --cached 2>/dev/null | cut -f 1
 }
 
+_cro3_get_configs() {
+  ${COMP_WORDS[0]} config keys 2>/dev/null | cut -f 1
+}
+
 _cro3_get_branches() {
   ${COMP_WORDS[0]} config show android_branches 2>/dev/null | sed -e 's/[]["]//g' | sed -e 's/,/ /g'
 }
@@ -147,6 +151,10 @@ _cro3_get_options() { # current
             _cro3_comp_fs -f "${1}"
           fi
           ;;
+        key)
+          if [ "${COMP_WORDS[1]}" == "config" ]; then
+            _cro3_get_configs
+          fi
         esac
       # Subcommands must be shown as it is.
       elif [ ${otype} = 3 ]; then
