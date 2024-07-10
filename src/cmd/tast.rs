@@ -32,19 +32,20 @@ use cro3::util::shell_helpers::run_bash_command;
 use glob::Pattern;
 use hashbrown::HashMap;
 use rayon::prelude::*;
+use tracing::error;
 use tracing::info;
 use tracing::warn;
 
 type ExperimentResultSeries<'a> = Vec<&'a TastResultMetadata>;
 type ExperimentResultSet<'a> = (ExperimentResultSeries<'a>, ExperimentResultSeries<'a>);
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct ComparativeAnalysisMetadata {
     a: ComparativeAnalysisMetadataSeries,
     b: ComparativeAnalysisMetadataSeries,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[allow(unused)]
 struct ComparativeAnalysisMetadataSeries {
     tast_analyzer_input_json: PathBuf,
@@ -76,7 +77,7 @@ impl ComparativeAnalysisMetadataSeries {
         mitigations.sort();
         mitigations.dedup();
         if mitigations.len() != 1 {
-            warn!(
+            bail!(
                 "Multiple mitigations args found. Maybe the DUT setup is wrong. : {mitigations:?}"
             );
         } else {
@@ -347,9 +348,21 @@ fn parse_bluebench_results(
     let mut experiments = HashMap::<String, ComparativeAnalysisMetadata>::new();
     for (k, (a, b)) in bucket {
         println!("{k:60}: (A, B) = ({}, {})", a.len(), b.len());
-        let a = ComparativeAnalysisMetadataSeries::from(&k, a, ExperimentConfig::A)?;
-        let b = ComparativeAnalysisMetadataSeries::from(&k, b, ExperimentConfig::B)?;
-        experiments.insert(k, ComparativeAnalysisMetadata { a, b });
+        let a = ComparativeAnalysisMetadataSeries::from(&k, a, ExperimentConfig::A);
+        let b = ComparativeAnalysisMetadataSeries::from(&k, b, ExperimentConfig::B);
+        if let (Ok(a), Ok(b)) = (&a, &b) {
+            experiments.insert(
+                k,
+                ComparativeAnalysisMetadata {
+                    a: a.clone(),
+                    b: b.clone(),
+                },
+            );
+        } else {
+            error!(
+                "Failed to create ComparativeAnalysisMetadataSeries. Reason: A = {a:?} B = {b:?}"
+            );
+        }
     }
     let results: Vec<&TastResultMetadata> = results.into_iter().collect();
     save_result_metadata_json(&results, None)?;
