@@ -195,7 +195,10 @@ impl ArgsAnalyze {
                      again"
                 );
             }
-            for (k, v) in experiments {
+            let mut keys: Vec<&String> = experiments.keys().collect();
+            keys.sort();
+            for k in keys {
+                let v = &experiments[k];
                 println!("{k}: ");
                 println!("  A: {}", v.a.variant_description);
                 println!("  B: {}", v.b.variant_description);
