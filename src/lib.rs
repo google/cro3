@@ -21,6 +21,7 @@ pub mod config;
 pub mod cros;
 pub mod dut;
 pub mod google_storage;
+pub mod linux;
 pub mod parser;
 pub mod repo;
 pub mod servo;

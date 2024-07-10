@@ -527,18 +527,6 @@ impl TastInvocationMetadata {
         let s = &s[s.find(':').map(|i| i + 1).unwrap_or_default()..].trim();
         Ok(s.to_string())
     }
-    fn to_kernel_cmdline_masked(s: &str) -> Result<String> {
-        static RE_CMDLINE_DM_HASH: Lazy<Regex> = Lazy::new(|| Regex::new("[0-9a-z]{64}").unwrap());
-        static RE_CMDLINE_UUID: Lazy<Regex> = Lazy::new(|| {
-            Regex::new("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}").unwrap()
-        });
-        static RE_CMDLINE_CROS_LSB_RELEASE_HASH: Lazy<Regex> =
-            Lazy::new(|| Regex::new("cros_lsb_release_hash=.{44}").unwrap());
-        let s = RE_CMDLINE_DM_HASH.replace_all(s, "{HASH{64}}");
-        let s = RE_CMDLINE_UUID.replace_all(&s, "{UUID}");
-        let s = RE_CMDLINE_CROS_LSB_RELEASE_HASH.replace_all(&s, "{CROS_LSB_HASH}");
-        Ok(s.to_string())
-    }
     fn probe_abtest_metadata(path: &Path) -> Result<ExperimentRunMetadata> {
         let path = path.join("cro3_abtest_run_metadata.json");
         let s = std::fs::read_to_string(&path).context(anyhow!("Failed to read {path:?}"))?;
@@ -568,7 +556,7 @@ impl TastInvocationMetadata {
         let os_release = Self::probe_os_release(&path)?;
         let model = Self::probe_model(&path).ok();
         let kernel_cmdline = Self::probe_kernel_cmdline(&path)?;
-        let kernel_cmdline_masked = Self::to_kernel_cmdline_masked(&kernel_cmdline)?;
+        let kernel_cmdline_masked = crate::linux::cmdline_to_masked(&kernel_cmdline)?;
         let abtest_metadata = Self::probe_abtest_metadata(&path).ok();
         let bluebench_result = BluebenchResult::from_path(&path).ok();
         Ok(Self {

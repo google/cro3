@@ -129,12 +129,7 @@ impl BluebenchMetadata {
     fn kernel_cmdline_mitigations(path: &Path, test_name: &str) -> Result<String> {
         let path = path.join("tests").join(test_name).join("cmdline.txt");
         let s = fs::read_to_string(&path).context(anyhow!("Failed to read {path:?}"))?;
-        let s = s
-            .split(' ')
-            .skip_while(|s| !s.contains("mitigations="))
-            .collect::<Vec<&str>>()
-            .join(" ");
-        Ok(s.to_string())
+        crate::linux::cmdline_to_mitigations(&s)
     }
     pub fn parse_temp_log_line(s: &str) -> Result<(String, HashMap<String, f64>)> {
         let mut data: HashMap<String, f64> = HashMap::new();
