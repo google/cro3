@@ -40,18 +40,19 @@ type ExperimentResultSeries<'a> = Vec<&'a TastResultMetadata>;
 type ExperimentResultSet<'a> = (ExperimentResultSeries<'a>, ExperimentResultSeries<'a>);
 
 #[derive(Debug, Clone)]
-struct ComparativeAnalysisMetadata {
-    a: ComparativeAnalysisMetadataSeries,
-    b: ComparativeAnalysisMetadataSeries,
+struct ComparativeAnalysisMetadata<'a> {
+    a: ComparativeAnalysisMetadataSeries<'a>,
+    b: ComparativeAnalysisMetadataSeries<'a>,
 }
 
 #[derive(Debug, Clone)]
 #[allow(unused)]
-struct ComparativeAnalysisMetadataSeries {
+struct ComparativeAnalysisMetadataSeries<'a> {
     tast_analyzer_input_json: PathBuf,
     variant_description: String,
+    series: ExperimentResultSeries<'a>,
 }
-impl Display for ComparativeAnalysisMetadataSeries {
+impl Display for ComparativeAnalysisMetadataSeries<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -60,9 +61,9 @@ impl Display for ComparativeAnalysisMetadataSeries {
         )
     }
 }
-impl ComparativeAnalysisMetadataSeries {
-    fn from(k: &str, v: ExperimentResultSeries, cfg: ExperimentConfig) -> Result<Self> {
-        let mut mitigations: Vec<String> = v
+impl<'a> ComparativeAnalysisMetadataSeries<'a> {
+    fn from(k: &str, series: ExperimentResultSeries<'a>, cfg: ExperimentConfig) -> Result<Self> {
+        let mut mitigations: Vec<String> = series
             .iter()
             .map(|e| {
                 e.invocation
@@ -80,20 +81,16 @@ impl ComparativeAnalysisMetadataSeries {
             bail!(
                 "Multiple mitigations args found. Maybe the DUT setup is wrong. : {mitigations:?}"
             );
-        } else {
-            println!(
-                "{:?}: {}",
-                cfg,
-                mitigations.first().map(|s| s.as_str().trim()).unwrap_or("")
-            );
         }
-        let t = TastAnalyzerInputJson::from_results(&v)?;
+        let t = TastAnalyzerInputJson::from_results(&series)?;
         let name = format!("{}_{}", k.replace('/', "_"), cfg);
-        save_result_metadata_json(&v, Some(&name)).context(anyhow!("Failed to save {}", name))?;
+        save_result_metadata_json(&series, Some(&name))
+            .context(anyhow!("Failed to save {}", name))?;
         let path = PathBuf::from("out");
         let path = path.join(name).with_extension("json");
         t.save(&path)?;
         Ok(Self {
+            series,
             tast_analyzer_input_json: path,
             variant_description: mitigations.join(" ").trim().replace('\n', " ").to_string(),
         })
@@ -186,6 +183,7 @@ impl ArgsAnalyze {
         }
         let results = parse_cro3_abtest_results(results, self.experiment_name.as_deref())?;
         show_experiments_in_results(&results)?;
+        let results = results.iter().map(|e| e).collect();
         let experiments = parse_bluebench_results(results)?;
         if let Some(tast_analyzer) = &self.tast_analyzer {
             info!("Using tast-analyzer at: {tast_analyzer}");
@@ -200,7 +198,11 @@ impl ArgsAnalyze {
             keys.sort();
             for k in keys {
                 let v = &experiments[k];
-                println!("{k}: ");
+                println!(
+                    "{k:60}: (A, B) = ({}, {})",
+                    v.a.series.len(),
+                    v.b.series.len()
+                );
                 println!("  A: {}", v.a.variant_description);
                 println!("  B: {}", v.b.variant_description);
                 let results = run_tast_analyzer(
@@ -301,11 +303,11 @@ fn show_experiments_in_results(results: &[TastResultMetadata]) -> Result<()> {
     Ok(())
 }
 
-fn parse_bluebench_results(
-    results: Vec<TastResultMetadata>,
-) -> Result<HashMap<String, ComparativeAnalysisMetadata>> {
-    let results: Vec<&TastResultMetadata> = results
-        .iter()
+fn parse_bluebench_results<'a>(
+    results: Vec<&'a TastResultMetadata>,
+) -> Result<HashMap<String, ComparativeAnalysisMetadata<'a>>> {
+    let results: Vec<&'a TastResultMetadata> = results
+        .into_iter()
         .filter(|e| e.invocation.bluebench_result.is_some())
         .collect();
     info!("{} tests have valid bluebench metadata", results.len());
@@ -347,7 +349,6 @@ fn parse_bluebench_results(
 
     let mut experiments = HashMap::<String, ComparativeAnalysisMetadata>::new();
     for (k, (a, b)) in bucket {
-        println!("{k:60}: (A, B) = ({}, {})", a.len(), b.len());
         let a = ComparativeAnalysisMetadataSeries::from(&k, a, ExperimentConfig::A);
         let b = ComparativeAnalysisMetadataSeries::from(&k, b, ExperimentConfig::B);
         if let (Ok(a), Ok(b)) = (&a, &b) {
@@ -360,7 +361,9 @@ fn parse_bluebench_results(
             );
         } else {
             error!(
-                "Failed to create ComparativeAnalysisMetadataSeries. Reason: A = {a:?} B = {b:?}"
+                "Failed to create ComparativeAnalysisMetadataSeries. Reason: A = {:?} B = {:?}",
+                a.err(),
+                b.err()
             );
         }
     }
