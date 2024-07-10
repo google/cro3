@@ -183,7 +183,9 @@ impl ArgsAnalyze {
                 info!("Sample (last): {result:#?}");
             }
         }
-        let experiments = parse_cro3_abtest_results(results, self.experiment_name.as_deref())?;
+        let results = parse_cro3_abtest_results(results, self.experiment_name.as_deref())?;
+        show_experiments_in_results(&results)?;
+        let experiments = parse_bluebench_results(results)?;
         if let Some(tast_analyzer) = &self.tast_analyzer {
             info!("Using tast-analyzer at: {tast_analyzer}");
             let tast_analyzer = Path::new(tast_analyzer);
@@ -211,6 +213,17 @@ impl ArgsAnalyze {
                 }
                 println!();
             }
+        } else {
+            info!("To compare the results statistically, run:");
+            info!(
+                "PYTHONPATH=$TAST_ANALYZER python3 -m analyzer.run print-results --compare \
+                 out/$RESULT_A_JSON out/$RESULT_B_JSON"
+            );
+            info!("Note: TAST_ANALYZER can be downloaded from: https://chromium.googlesource.com/chromiumos/platform/tast-tests/");
+            info!(
+                "and please specify the absolute path of tools/tast-analyzer/ in the repo above \
+                 as TAST_ANALYZER"
+            );
         }
         Ok(())
     }
@@ -237,7 +250,7 @@ fn run_tast_analyzer(
 fn parse_cro3_abtest_results(
     results: Vec<TastResultMetadata>,
     experiment_name_filter: Option<&str>,
-) -> Result<HashMap<String, ComparativeAnalysisMetadata>> {
+) -> Result<Vec<TastResultMetadata>> {
     let results: Vec<TastResultMetadata> = results
         .into_iter()
         .filter(|e| e.invocation.abtest_metadata().is_some())
@@ -261,10 +274,7 @@ fn parse_cro3_abtest_results(
         } else {
             results
         };
-
-    show_experiments_in_results(&results)?;
-    let experiments = parse_bluebench_results(results)?;
-    Ok(experiments)
+    Ok(results)
 }
 
 fn show_experiments_in_results(results: &[TastResultMetadata]) -> Result<()> {
@@ -338,16 +348,6 @@ fn parse_bluebench_results(
         let b = ComparativeAnalysisMetadataSeries::from(&k, b, ExperimentConfig::B)?;
         experiments.insert(k, ComparativeAnalysisMetadata { a, b });
     }
-    info!("To compare the results statistically, run:");
-    info!(
-        "PYTHONPATH=$TAST_ANALYZER python3 -m analyzer.run print-results --compare \
-         out/$RESULT_A_JSON out/$RESULT_B_JSON"
-    );
-    info!("Note: TAST_ANALYZER can be downloaded from: https://chromium.googlesource.com/chromiumos/platform/tast-tests/");
-    info!(
-        "and please specify the absolute path of tools/tast-analyzer/ in the repo above as \
-         TAST_ANALYZER"
-    );
     let results: Vec<&TastResultMetadata> = results.into_iter().collect();
     save_result_metadata_json(&results, None)?;
     Ok(experiments)
