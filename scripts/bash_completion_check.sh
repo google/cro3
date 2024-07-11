@@ -46,6 +46,25 @@ EOF
     echo "dummy.Test.Second"
     echo "dummy.TestThird"
   fi
+
+  if [ "$*" = "config show --help" ]; then
+    cat << EOF
+Usage: cro3 config show [<key>]
+
+Show config variables
+
+Positional Arguments:
+  key               key of a config
+
+Options:
+  --help            display usage information
+EOF
+  fi
+  if [ "$*" = "config keys" ]; then
+    echo "config1"
+    echo "config2"
+    echo "config3"
+  fi
 }
 
 test_complete() {
@@ -81,5 +100,12 @@ echo "${COMPREPLY[@]}" | grep -wq "dummy.Test.Second"
 echo "${COMPREPLY[@]}" | grep -wq "dummy.Third" && exit 1
 echo "${COMPREPLY[@]}" | grep -wq -e "-d"
 echo "${COMPREPLY[@]}" | grep -wq -e "--dummy"
+
+COMP_CWORD=3
+COMP_WORDS=("cro3" "config" "show" "")
+test_complete
+echo "${COMPREPLY[@]}" | grep -wq "config1"
+echo "${COMPREPLY[@]}" | grep -wq "config2"
+echo "${COMPREPLY[@]}" | grep -wq "config_foo" && exit 1
 
 exit 0
