@@ -11,13 +11,13 @@ cargo run --release -- abtest analyze --list-duts --results-dir /data/tast/resul
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::ffi::OsStr;
+use std::fmt::Display;
 use std::fs::read_dir;
 use std::fs::read_to_string;
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
-use std::fmt::Display;
 
 use anyhow::anyhow;
 use anyhow::bail;
@@ -774,15 +774,18 @@ impl TastAnalyzerOutput {
 }
 impl Display for TastAnalyzerOutput {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "  {:>+6.2}% change with p={:.6} on {}:\n  {:12.3} => {:12.3} [{}], N=({:3}, {:3})", 
+        write!(
+            f,
+            "  {:>+6.2}% change with p={:.6} on {}:\n  {:12.3} => {:12.3} [{}], N=({:3}, {:3})",
             self.analysis.change_percent,
-            self.analysis.p, 
-            self.key, 
-            self.stats_a.mean, 
+            self.analysis.p,
+            self.key,
+            self.stats_a.mean,
             self.stats_b.mean,
-            self.stats_a.unit, 
-            self.analysis.cnt_a, 
-            self.analysis.cnt_b)
+            self.stats_a.unit,
+            self.analysis.cnt_a,
+            self.analysis.cnt_b
+        )
     }
 }
 

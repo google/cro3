@@ -79,7 +79,8 @@ impl<'a> ComparativeAnalysisMetadataSeries<'a> {
         mitigations.dedup();
         if mitigations.len() != 1 {
             bail!(
-                "Multiple mitigations args found. Maybe the DUT setup is wrong. : {mitigations:?}"
+                "Multiple mitigations args found. Maybe the DUT setup is wrong : {k} : \
+                 {mitigations:?}"
             );
         }
         let t = TastAnalyzerInputJson::from_results(&series)?;
@@ -183,7 +184,7 @@ impl ArgsAnalyze {
         }
         let results = parse_cro3_abtest_results(results, self.experiment_name.as_deref())?;
         show_experiments_in_results(&results)?;
-        let results = results.iter().map(|e| e).collect();
+        let results = results.iter().collect();
         let experiments = parse_bluebench_results(results)?;
         if let Some(tast_analyzer) = &self.tast_analyzer {
             info!("Using tast-analyzer at: {tast_analyzer}");
