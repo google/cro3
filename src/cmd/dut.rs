@@ -55,6 +55,7 @@ use cro3::dut::fetch_dut_info_in_parallel;
 use cro3::dut::register_dut;
 use cro3::dut::DutInfo;
 use cro3::dut::MonitoredDut;
+use cro3::dut::PortForwarding;
 use cro3::dut::SshInfo;
 use cro3::dut::SSH_CACHE;
 use cro3::repo::get_cros_dir;
@@ -180,8 +181,8 @@ fn run_dut_vnc(args: &ArgsVnc) -> Result<()> {
         error!("Failed to kill previous vnc instance: {e}")
     }
 
-    let mut child_kmsvnc = target.start_port_forwarding(vnc_port, 5900, "kmsvnc")?;
-    let mut child_novnc = target.start_port_forwarding(web_port, 6080, "novnc")?;
+    let mut child_kmsvnc = target.start_port_forwarding(vnc_port, 5900, "kmsvnc", None)?;
+    let mut child_novnc = target.start_port_forwarding(web_port, 6080, "novnc", None)?;
 
     warn!("To use VNC via web browser, please open:");
     warn!("  http://localhost:{web_port}/vnc.html");
@@ -202,7 +203,7 @@ fn run_dut_vnc(args: &ArgsVnc) -> Result<()> {
 /// open a SSH monitor
 #[argh(subcommand, name = "monitor")]
 struct ArgsDutMonitor {
-    /// DUT identifiers to monitor
+    /// DUT identifiers to monitor. This accepts sub portforwardings after colon (e.g. dut,ADDR:PORT,...)
     #[argh(positional)]
     duts: Vec<String>,
 }
@@ -212,9 +213,23 @@ fn run_dut_monitor(args: &ArgsDutMonitor) -> Result<()> {
     let mut targets: Vec<MonitoredDut> = Vec::new();
     let mut port = 4022;
 
-    for dut in &args.duts {
-        targets.push(MonitoredDut::new(dut, port)?);
+    for raw_dut in &args.duts {
+        let ports: Vec<&str> = raw_dut.split(',').collect();
+        let mut fwports: Vec<PortForwarding> = vec![];
+        let dut_port = port;
+
         port += 1;
+
+        if ports.len() > 1 {
+            for fwport in ports.iter().skip(1) {
+                let parts: Vec<&str> = fwport.split(':').collect();
+                let port_no: u16 = parts[1].parse().expect("Invalid port number.");
+                fwports.push(PortForwarding::new(port, parts[0], port_no)?);
+                port += 1;
+            }
+        }
+
+        targets.push(MonitoredDut::new(ports[0], dut_port, &fwports)?);
     }
 
     let mut screen = stdout().into_alternate_screen().unwrap();
