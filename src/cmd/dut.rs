@@ -64,6 +64,7 @@ use cro3::servo::LocalServo;
 use cro3::servo::ServoList;
 use lazy_static::lazy_static;
 use rayon::prelude::*;
+use regex::Regex;
 use termion::screen::IntoAlternateScreen;
 use tracing::error;
 use tracing::info;
@@ -203,9 +204,26 @@ fn run_dut_vnc(args: &ArgsVnc) -> Result<()> {
 /// open a SSH monitor
 #[argh(subcommand, name = "monitor")]
 struct ArgsDutMonitor {
-    /// DUT identifiers to monitor. This accepts sub portforwardings after colon (e.g. dut,ADDR:PORT,...)
+    /// DUT identifiers to monitor. This accepts sub portforwardings after colon
+    /// (e.g. dut,ADDR:PORT,...)
     #[argh(positional)]
     duts: Vec<String>,
+}
+
+fn parse_fwport(fwport: &str, loport: u16) -> Result<PortForwarding> {
+    // Lazy IPv4/v6 matching
+    let v4_re = Regex::new(r"^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):(\d+)$").unwrap();
+    let v6_re = Regex::new(r"^(\[([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}\]):(\d+)$").unwrap();
+
+    let (addr, port_str) = if let Some(caps) = v4_re.captures(fwport) {
+        (caps.get(1).unwrap().as_str(), caps.get(2).unwrap().as_str())
+    } else if let Some(caps) = v6_re.captures(fwport) {
+        (caps.get(1).unwrap().as_str(), caps.get(3).unwrap().as_str())
+    } else {
+        bail!("Failed to parse {fwport}")
+    };
+    let port_no: u16 = port_str.parse().expect("Invalid port number.");
+    PortForwarding::new(loport, addr, port_no)
 }
 
 fn run_dut_monitor(args: &ArgsDutMonitor) -> Result<()> {
@@ -222,9 +240,7 @@ fn run_dut_monitor(args: &ArgsDutMonitor) -> Result<()> {
 
         if ports.len() > 1 {
             for fwport in ports.iter().skip(1) {
-                let parts: Vec<&str> = fwport.split(':').collect();
-                let port_no: u16 = parts[1].parse().expect("Invalid port number.");
-                fwports.push(PortForwarding::new(port, parts[0], port_no)?);
+                fwports.push(parse_fwport(fwport, port)?);
                 port += 1;
             }
         }
