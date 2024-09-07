@@ -127,13 +127,7 @@ fn spawn_ssh_process(
     let opt_args: Vec<String> = opt_args.concat();
     let ref_args: Vec<&str> = opt_args.iter().map(|x| x.as_ref()).collect();
 
-    block_on(ssh.start_ssh_forwarding(
-        port,
-        match ref_args.len() > 1 {
-            true => Some(&ref_args),
-            false => None,
-        },
-    ))
+    block_on(ssh.start_ssh_forwarding(port, &ref_args))
 }
 
 impl MonitoredDut {
@@ -684,11 +678,12 @@ impl SshInfo {
         port: u16,
         dut_port: u16,
         command: &str,
-        additional_ssh_args: Option<&Vec<&str>>,
+        additional_ssh_args: &[&str],
     ) -> Result<async_process::Child> {
-        let fixed_args = [
+        let fwport: String = format!("{}:127.0.0.1:{}", port, dut_port);
+        let mut args = vec![
             "-L",
-            &format!("{}:127.0.0.1:{}", port, dut_port),
+            &fwport,
             "-o",
             "ExitOnForwardFailure yes",
             "-o",
@@ -696,10 +691,7 @@ impl SshInfo {
             "-o",
             "ServerAliveCountMax=1",
         ];
-        let mut args: Vec<&str> = fixed_args.to_vec();
-        if let Some(opt_args) = additional_ssh_args {
-            args.extend(opt_args.iter());
-        }
+        args.extend(additional_ssh_args.iter());
 
         let child = self
             .ssh_cmd_async(Some(&args))?
@@ -716,7 +708,7 @@ impl SshInfo {
     pub async fn start_ssh_forwarding(
         &self,
         port: u16,
-        additional_ssh_args: Option<&Vec<&str>>,
+        additional_ssh_args: &[&str],
     ) -> Result<async_process::Child> {
         self.start_ssh_forwarding_in_range(
             Range {
@@ -732,7 +724,7 @@ impl SshInfo {
     async fn start_ssh_forwarding_in_range(
         &self,
         port_range: Range<u16>,
-        additional_ssh_args: Option<&Vec<&str>>,
+        additional_ssh_args: &[&str],
     ) -> Result<(async_process::Child, u16)> {
         const COMMON_PORT_FORWARD_TOKEN: &str = "cro3-ssh-portforward";
         let sshcmd = &format!("echo {COMMON_PORT_FORWARD_TOKEN}; sleep 8h");
@@ -781,7 +773,7 @@ impl SshInfo {
     /// start_ssh_forwarding, and the same port will be used for reconnecting
     /// while this cro3 instance is running.
     fn start_ssh_forwarding_background_in_range(&self, port_range: Range<u16>) -> Result<u16> {
-        let (mut child, port) = block_on(self.start_ssh_forwarding_in_range(port_range, None))?;
+        let (mut child, port) = block_on(self.start_ssh_forwarding_in_range(port_range, &[]))?;
         let ssh = self.clone();
         thread::spawn(move || {
             block_on(async move {
@@ -790,7 +782,7 @@ impl SshInfo {
                     info!("cro3: SSH forwarding process exited with {status:?}");
                     loop {
                         info!("cro3: Reconnecting to {ssh:?}...");
-                        if let Ok(new_child) = ssh.start_ssh_forwarding(port, None).await {
+                        if let Ok(new_child) = ssh.start_ssh_forwarding(port, &[]).await {
                             child = new_child;
                             break;
                         }

@@ -182,8 +182,8 @@ fn run_dut_vnc(args: &ArgsVnc) -> Result<()> {
         error!("Failed to kill previous vnc instance: {e}")
     }
 
-    let mut child_kmsvnc = target.start_port_forwarding(vnc_port, 5900, "kmsvnc", None)?;
-    let mut child_novnc = target.start_port_forwarding(web_port, 6080, "novnc", None)?;
+    let mut child_kmsvnc = target.start_port_forwarding(vnc_port, 5900, "kmsvnc", &[])?;
+    let mut child_novnc = target.start_port_forwarding(web_port, 6080, "novnc", &[])?;
 
     warn!("To use VNC via web browser, please open:");
     warn!("  http://localhost:{web_port}/vnc.html");
