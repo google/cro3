@@ -220,10 +220,9 @@ fn parse_fwport(fwport: &str, loport: u16) -> Result<PortForwarding> {
     } else if let Some(caps) = v6_re.captures(fwport) {
         (caps.get(1).unwrap().as_str(), caps.get(3).unwrap().as_str())
     } else {
-        bail!("Failed to parse {fwport}")
+        return Err(anyhow!("Failed to parse {fwport}"));
     };
-    let port_no: u16 = port_str.parse().expect("Invalid port number.");
-    PortForwarding::new(loport, addr, port_no)
+    PortForwarding::new(loport, addr, port_str.parse()?)
 }
 
 fn run_dut_monitor(args: &ArgsDutMonitor) -> Result<()> {
