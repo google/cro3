@@ -169,20 +169,23 @@ impl MonitoredDut {
             match child.try_status()? {
                 None => {
                     self.reconnecting = false;
-                    let mut status = format!(
+                    let status: String = format!(
                         "{:<31}\t127.0.0.1:{:<5}\t{}",
                         &self.dut,
                         self.port,
                         &self.ssh.host_and_port()
                     );
-                    self.fwports.iter().for_each(|fwp: &PortForwarding| {
-                        status += format!(
-                            "\n{:<31}\t127.0.0.1:{:<5}\t{}:{}",
-                            " +-", fwp.fwport, &fwp.address, fwp.port
-                        )
-                        .as_str()
-                    });
-                    Ok(status)
+                    let status2: Vec<String> = self
+                        .fwports
+                        .iter()
+                        .map(|fwp: &PortForwarding| {
+                            format!(
+                                "\n{:<31}\t127.0.0.1:{:<5}\t{}:{}",
+                                " +-", fwp.fwport, &fwp.address, fwp.port
+                            )
+                        })
+                        .collect();
+                    Ok(status + status2.join("").as_str())
                 }
                 Some(_status) => self.reconnect(),
             }
