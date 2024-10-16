@@ -32,6 +32,7 @@ use rand::thread_rng;
 use rayon::prelude::*;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+//use strum::additional_attributes;
 use tracing::error;
 use tracing::info;
 use url::Url;
@@ -82,6 +83,30 @@ lazy_static! {
 
 pub static SSH_CACHE: KvCache<SshInfo> = KvCache::new("ssh_cache");
 
+/// PortForwarding represents Local/Remote forwarding on ssh
+#[derive(Debug, Clone)]
+pub struct PortForwarding {
+    fwport: u16,
+    address: String,
+    port: u16,
+}
+impl PortForwarding {
+    pub fn new(fwport: u16, address: &str, port: u16) -> Result<Self> {
+        let pfw = PortForwarding {
+            fwport,
+            address: address.to_string(),
+            port,
+        };
+        Ok(pfw)
+    }
+    pub fn to_ssh_args(&self) -> Vec<String> {
+        vec![
+            "-L".to_string(),
+            format!("{}:{}:{}", self.fwport, self.address, self.port),
+        ]
+    }
+}
+
 /// MonitoredDut holds connection to a monitoring Dut
 #[derive(Debug)]
 pub struct MonitoredDut {
@@ -90,16 +115,31 @@ pub struct MonitoredDut {
     port: u16,
     child: Option<async_process::Child>,
     reconnecting: bool,
+    fwports: Vec<PortForwarding>,
 }
+
+fn spawn_ssh_process(
+    ssh: &SshInfo,
+    port: u16,
+    fwports: &[PortForwarding],
+) -> Result<async_process::Child> {
+    let opt_args: Vec<Vec<String>> = fwports.iter().map(|x| x.to_ssh_args()).collect();
+    let opt_args: Vec<String> = opt_args.concat();
+    let ref_args: Vec<&str> = opt_args.iter().map(|x| x.as_ref()).collect();
+
+    block_on(ssh.start_ssh_forwarding(port, &ref_args))
+}
+
 impl MonitoredDut {
-    pub fn new(dut: &str, port: u16) -> Result<Self> {
+    pub fn new(dut: &str, port: u16, fwports: &[PortForwarding]) -> Result<Self> {
         let ssh = SshInfo::new(dut).context("failed to create SshInfo")?;
         let dut = MonitoredDut {
             ssh: ssh.clone(),
             dut: dut.to_string(),
             port,
-            child: block_on(ssh.start_ssh_forwarding(port)).ok(),
+            child: spawn_ssh_process(&ssh, port, fwports).ok(),
             reconnecting: false,
+            fwports: fwports.to_vec(),
         };
         Ok(dut)
     }
@@ -107,7 +147,7 @@ impl MonitoredDut {
         self.reconnecting
     }
     fn reconnect(&mut self) -> Result<String> {
-        let new_child = block_on(self.ssh.start_ssh_forwarding(self.port));
+        let new_child = spawn_ssh_process(&self.ssh, self.port, &self.fwports);
         if let Err(e) = &new_child {
             error!("Failed to reconnect: {e:?}");
         };
@@ -123,12 +163,23 @@ impl MonitoredDut {
             match child.try_status()? {
                 None => {
                     self.reconnecting = false;
-                    Ok(format!(
+                    let status: String = format!(
                         "{:<31}\t127.0.0.1:{:<5}\t{}",
                         &self.dut,
                         self.port,
                         &self.ssh.host_and_port()
-                    ))
+                    );
+                    let status2: Vec<String> = self
+                        .fwports
+                        .iter()
+                        .map(|fwp: &PortForwarding| {
+                            format!(
+                                "\n{:<31}\t127.0.0.1:{:<5}\t{}:{}",
+                                " +-", fwp.fwport, &fwp.address, fwp.port
+                            )
+                        })
+                        .collect();
+                    Ok(status + status2.join("").as_str())
                 }
                 Some(_status) => self.reconnect(),
             }
@@ -627,18 +678,23 @@ impl SshInfo {
         port: u16,
         dut_port: u16,
         command: &str,
+        additional_ssh_args: &[&str],
     ) -> Result<async_process::Child> {
+        let fwport: String = format!("{}:127.0.0.1:{}", port, dut_port);
+        let mut args = vec![
+            "-L",
+            &fwport,
+            "-o",
+            "ExitOnForwardFailure yes",
+            "-o",
+            "ServerAliveInterval=5",
+            "-o",
+            "ServerAliveCountMax=1",
+        ];
+        args.extend(additional_ssh_args.iter());
+
         let child = self
-            .ssh_cmd_async(Some(&[
-                "-L",
-                &format!("{}:127.0.0.1:{}", port, dut_port),
-                "-o",
-                "ExitOnForwardFailure yes",
-                "-o",
-                "ServerAliveInterval=5",
-                "-o",
-                "ServerAliveCountMax=1",
-            ]))?
+            .ssh_cmd_async(Some(&args))?
             .arg(command)
             .kill_on_drop(true)
             .stdin(Stdio::piped())
@@ -649,11 +705,18 @@ impl SshInfo {
     }
     // Start SSH port forwarding on a given port.
     // The future will be resolved once the first connection attempt is succeeded.
-    pub async fn start_ssh_forwarding(&self, port: u16) -> Result<async_process::Child> {
-        self.start_ssh_forwarding_in_range(Range {
-            start: port,
-            end: port + 1,
-        })
+    pub async fn start_ssh_forwarding(
+        &self,
+        port: u16,
+        additional_ssh_args: &[&str],
+    ) -> Result<async_process::Child> {
+        self.start_ssh_forwarding_in_range(
+            Range {
+                start: port,
+                end: port + 1,
+            },
+            additional_ssh_args,
+        )
         .await
         .map(|e| e.0)
     }
@@ -661,6 +724,7 @@ impl SshInfo {
     async fn start_ssh_forwarding_in_range(
         &self,
         port_range: Range<u16>,
+        additional_ssh_args: &[&str],
     ) -> Result<(async_process::Child, u16)> {
         const COMMON_PORT_FORWARD_TOKEN: &str = "cro3-ssh-portforward";
         let sshcmd = &format!("echo {COMMON_PORT_FORWARD_TOKEN}; sleep 8h");
@@ -669,7 +733,7 @@ impl SshInfo {
         ports.shuffle(&mut rng);
         for port in ports {
             // Try to establish port forwarding
-            let mut child = self.start_port_forwarding(port, 22, sshcmd)?;
+            let mut child = self.start_port_forwarding(port, 22, sshcmd, additional_ssh_args)?;
             let (ssh_stdout, ssh_stderr) = get_async_lines(&mut child);
             let ssh_stdout = ssh_stdout.context(anyhow!("ssh_stdout was None"))?;
             let ssh_stderr = ssh_stderr.context(anyhow!("ssh_stderr was None"))?;
@@ -709,7 +773,7 @@ impl SshInfo {
     /// start_ssh_forwarding, and the same port will be used for reconnecting
     /// while this cro3 instance is running.
     fn start_ssh_forwarding_background_in_range(&self, port_range: Range<u16>) -> Result<u16> {
-        let (mut child, port) = block_on(self.start_ssh_forwarding_in_range(port_range))?;
+        let (mut child, port) = block_on(self.start_ssh_forwarding_in_range(port_range, &[]))?;
         let ssh = self.clone();
         thread::spawn(move || {
             block_on(async move {
@@ -718,7 +782,7 @@ impl SshInfo {
                     info!("cro3: SSH forwarding process exited with {status:?}");
                     loop {
                         info!("cro3: Reconnecting to {ssh:?}...");
-                        if let Ok(new_child) = ssh.start_ssh_forwarding(port).await {
+                        if let Ok(new_child) = ssh.start_ssh_forwarding(port, &[]).await {
                             child = new_child;
                             break;
                         }
