@@ -45,7 +45,7 @@ use crate::util::shell_helpers::get_stderr;
 use crate::util::shell_helpers::get_stdout;
 use crate::util::shell_helpers::run_bash_command;
 
-const COMMON_SSH_OPTIONS: [&str; 16] = [
+const COMMON_SSH_OPTIONS: [&str; 14] = [
     // Do not read ~/.ssh/config to avoid effects comes from ssh_config
     "-F",
     "none",
@@ -64,9 +64,6 @@ const COMMON_SSH_OPTIONS: [&str; 16] = [
     // Silence the "Warning: Permanently added ... to the list of known hosts" message
     "-o",
     "LogLevel=ERROR",
-    // Set connection timeout to give up quickly
-    "-o",
-    "ConnectTimeout=5",
     // Try pubkey auth only
     "-o",
     "PreferredAuthentications=publickey",
