@@ -101,8 +101,8 @@ cros-workon-{board} start {package_list}
             &format!(
                 r###"
 export USE='{use_flags}'
-build_packages --board={board} --withdev
-build_image --board={board} --noenable_rootfs_verification test
+cros build-packages --board={board} --withdev
+cros build-image --board={board} --no-enable-rootfs-verification test
 "###
             ),
             None,

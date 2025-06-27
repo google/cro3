@@ -26,6 +26,7 @@ use anyhow::Result;
 use argh::FromArgs;
 use cro3::chroot::Chroot;
 use cro3::repo::get_cros_dir;
+use cro3::servo::get_cr50_attached_to_servo;
 use cro3::servo::get_servo_attached_to_cr50;
 use cro3::servo::reset_devices;
 use cro3::servo::LocalServo;
@@ -167,11 +168,22 @@ pub fn run_list(args: &ArgsList) -> Result<()> {
     println!("product         serial                          usb_sysfs_path");
     let devices = list.devices().clone();
     for s in devices {
+        let dut_ec_shell_serial_path = if s.is_servo() {
+            let dut = get_cr50_attached_to_servo(&s);
+            dut.map(|dut| {
+                dut.tty_path("Shell")
+                    .unwrap_or("** No DUT Shell found **".to_string())
+            })
+            .unwrap_or("** No DUT found **".to_string())
+        } else {
+            s.tty_path("Shell")
+                .unwrap_or("** No DUT Shell found **".to_string())
+        };
         println!(
             "{:16}{:24}\t{}",
             s.product(),
             s.serial(),
-            s.usb_sysfs_path()
+            dut_ec_shell_serial_path
         );
     }
     Ok(())
