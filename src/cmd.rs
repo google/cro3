@@ -16,6 +16,7 @@ pub mod config;
 pub mod deploy;
 pub mod dut;
 pub mod flash;
+pub mod overlay;
 pub mod packages;
 pub mod servo;
 pub mod setup;
@@ -52,6 +53,7 @@ pub enum Args {
     Deploy(deploy::Args),
     Dut(dut::Args),
     Flash(flash::Args),
+    Overlay(overlay::Args),
     Packages(packages::Args),
     Servo(servo::Args),
     Setup(setup::Args),
@@ -73,6 +75,7 @@ pub fn run(args: &TopLevel) -> Result<()> {
         Args::Deploy(args) => deploy::run(args),
         Args::Dut(args) => dut::run(args),
         Args::Flash(args) => flash::run(args),
+        Args::Overlay(args) => args.run(),
         Args::Packages(args) => packages::run(args),
         Args::Servo(args) => servo::run(args),
         Args::Setup(args) => setup::run(args),
