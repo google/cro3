@@ -78,3 +78,8 @@ preview: docs/cmdline.md
 	make --silent cmdline_doc_check 2>/dev/null || echo "^^^^ Warning: This warning has been ignored but please fix them before submitting!"
 	gh extension exec markdown-preview docs/cmdline.md --host 0.0.0.0 || \
 		echo "To install markdown-preview, run: gh extension install https://github.com/yusukebe/gh-markdown-preview | cat -"
+
+.PHONY : serve
+serve :
+	cargo install static-web-server
+	static-web-server --log-level info --port 3002 --root . --config-file config.toml

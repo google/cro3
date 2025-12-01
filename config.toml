@@ -1,0 +1,6 @@
+[advanced]
+
+[[advanced.headers]]
+source = "*.{html,json}"
+[advanced.headers.headers]
+Cache-Control = "no-cache"
