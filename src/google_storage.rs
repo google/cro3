@@ -4,10 +4,10 @@ use anyhow::Context;
 use anyhow::Result;
 
 pub fn list_gs_files(pattern: &str) -> Result<String> {
-    let cmd = format!("gsutil.py ls {}", pattern.trim());
+    let cmd = format!("gcloud storage ls {}", pattern.trim());
     println!("{:?}", cmd);
     let output = Command::new("bash").arg("-c").arg(cmd).output().context(
-        "Failed to execute gsutil ls (maybe you need depot_tools and/or `gsutil.py config` with \
+        "Failed to execute gcloud storage ls (maybe you need depot_tools and/or `gcloud auth login` with \
          'chromeos-swarming' project)",
     )?;
     Ok(String::from_utf8_lossy(&output.stdout)
