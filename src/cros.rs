@@ -37,12 +37,12 @@ pub fn lookup_full_version(input: &str, board: &str) -> Result<String> {
                 board, key
             ))
             .context(
-                "gsutil command failed (maybe you need depot_tools and/or `gsutil.py config` with \
+                "gcloud storage command failed (maybe you need depot_tools and/or `gcloud init` with \
                  'chromeos-swarming' project)",
             )?;
             let output = re_cros_version
                 .captures(output.trim())
-                .context("Invalid gsutil output")?;
+                .context("Invalid gcloud storage output")?;
             let output = output.get(1).context("No match found")?;
             Ok(output.as_str().to_string())
         })
