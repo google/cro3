@@ -37,8 +37,8 @@ pub fn lookup_full_version(input: &str, board: &str) -> Result<String> {
                 board, key
             ))
             .context(
-                "gcloud storage command failed (maybe you need depot_tools and/or `gcloud init` with \
-                 'chromeos-swarming' project)",
+                "gcloud storage command failed (maybe you need depot_tools and/or `gcloud init` \
+                 with 'chromeos-swarming' project)",
             )?;
             let output = re_cros_version
                 .captures(output.trim())
